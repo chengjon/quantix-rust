@@ -67,6 +67,7 @@ impl ClickHouseClient {
         self.create_stock_quotes_table().await?;
         self.create_kline_data_table().await?;
         self.create_limit_up_events_table().await?;
+        self.create_gbbq_events_table().await?;
 
         info!("所有 ClickHouse 表创建成功");
         Ok(())
@@ -202,6 +203,38 @@ impl ClickHouseClient {
         Ok(())
     }
 
+    /// 创建股本变迁事件表 (除权除息)
+    async fn create_gbbq_events_table(&self) -> Result<()> {
+        let sql = r#"
+            CREATE TABLE IF NOT EXISTS gbbq_events ON CLUSTER '{cluster}' (
+                event_date Date,
+                code String,
+                category UInt8,
+                dividend Float32,
+                bonus_price Float32,
+                bonus_share Float32,
+                rights_share Float32,
+                ex_price Nullable(Float64),
+                record_date Nullable(Date),
+                market UInt8,
+                created_at DateTime DEFAULT now()
+            )
+            ENGINE = ReplacingMergeTree(created_at)
+            PARTITION BY toYYYYMM(event_date)
+            ORDER BY (event_date, code, category)
+            SETTINGS index_granularity = 8192
+        "#;
+
+        self.client
+            .query(sql.replace("'{cluster}'", "single_cluster").as_str())
+            .execute()
+            .await
+            .map_err(|e| QuantixError::DatabaseConnection(format!("创建 gbbq_events 表失败: {}", e)))?;
+
+        info!("gbbq_events 表创建成功");
+        Ok(())
+    }
+
     /// 检查连接
     pub async fn check_connection(&self) -> Result<()> {
         let result: Vec<u8> = self
@@ -217,6 +250,137 @@ impl ClickHouseClient {
         } else {
             Err(QuantixError::DatabaseConnection("连接检查失败".to_string()))
         }
+    }
+
+    /// 插入 GBBQ 事件
+    pub async fn insert_gbbq_event(&self, event: &crate::data::models::GbbqEvent) -> Result<()> {
+        let sql = format!(
+            r#"
+            INSERT INTO gbbq_events (
+                event_date, code, category, dividend, bonus_price,
+                bonus_share, rights_share, ex_price, record_date, market
+            ) VALUES
+            ('{}', '{}', {}, {}, {}, {}, {}, {}, {}, {})
+            "#,
+            event.event_date,
+            event.code,
+            event.category,
+            event.dividend,
+            event.bonus_price,
+            event.bonus_share,
+            event.rights_share,
+            event.ex_price.map(|v| v.to_string()).unwrap_or("NULL".to_string()),
+            event.record_date.map(|d| d.to_string()).unwrap_or("NULL".to_string()),
+            if event.code.starts_with('6') || event.code.starts_with('5') { 1u8 } else { 0u8 }
+        );
+
+        self.client
+            .query(&sql)
+            .execute()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("插入 GBBQ 事件失败: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// 批量插入 GBBQ 事件
+    pub async fn insert_gbbq_events(
+        &self,
+        events: &[crate::data::models::GbbqEvent],
+    ) -> Result<()> {
+        for event in events {
+            self.insert_gbbq_event(event).await?;
+        }
+        Ok(())
+    }
+
+    /// 查询股票的 GBBQ 事件
+    pub async fn get_gbbq_events(
+        &self,
+        code: &str,
+        start_date: Option<chrono::NaiveDate>,
+        end_date: Option<chrono::NaiveDate>,
+    ) -> Result<Vec<crate::data::models::GbbqEvent>> {
+        let mut where_clause = format!("code = '{}'", code);
+
+        if let Some(start) = start_date {
+            where_clause.push_str(&format!(" AND event_date >= '{}'", start));
+        }
+        if let Some(end) = end_date {
+            where_clause.push_str(&format!(" AND event_date <= '{}'", end));
+        }
+
+        let sql = format!(
+            r#"
+            SELECT
+                event_date, code, category, dividend, bonus_price,
+                bonus_share, rights_share, ex_price, record_date
+            FROM gbbq_events
+            WHERE {}
+            ORDER BY event_date ASC
+            "#,
+            where_clause
+        );
+
+        let rows: Vec<GbbqEventCH> = self
+            .client
+            .query(&sql)
+            .fetch_all()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("查询 GBBQ 事件失败: {}", e)))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| crate::data::models::GbbqEvent {
+                code: r.code,
+                event_date: r.event_date,
+                category: r.category,
+                dividend: r.dividend,
+                bonus_price: r.bonus_price,
+                bonus_share: r.bonus_share,
+                rights_share: r.rights_share,
+                ex_price: r.ex_price,
+                record_date: r.record_date,
+            })
+            .collect())
+    }
+
+    /// 获取股票的最新除权除息事件
+    pub async fn get_latest_gbbq_event(
+        &self,
+        code: &str,
+    ) -> Result<Option<crate::data::models::GbbqEvent>> {
+        let sql = format!(
+            r#"
+            SELECT
+                event_date, code, category, dividend, bonus_price,
+                bonus_share, rights_share, ex_price, record_date
+            FROM gbbq_events
+            WHERE code = '{}' AND category = 1
+            ORDER BY event_date DESC
+            LIMIT 1
+            "#,
+            code
+        );
+
+        let rows: Vec<GbbqEventCH> = self
+            .client
+            .query(&sql)
+            .fetch_all()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("查询最新 GBBQ 事件失败: {}", e)))?;
+
+        Ok(rows.into_iter().next().map(|r| crate::data::models::GbbqEvent {
+            code: r.code,
+            event_date: r.event_date,
+            category: r.category,
+            dividend: r.dividend,
+            bonus_price: r.bonus_price,
+            bonus_share: r.bonus_share,
+            rights_share: r.rights_share,
+            ex_price: r.ex_price,
+            record_date: r.record_date,
+        }))
     }
 }
 
@@ -283,6 +447,20 @@ pub struct LimitUpEventCH {
     pub sector_name: String,
     pub is_first_board: u8,
     pub preclose: f64,
+}
+
+/// GBBQ 事件 (ClickHouse Row)
+#[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
+pub struct GbbqEventCH {
+    pub event_date: chrono::NaiveDate,
+    pub code: String,
+    pub category: u8,
+    pub dividend: f32,
+    pub bonus_price: f32,
+    pub bonus_share: f32,
+    pub rights_share: f32,
+    pub ex_price: Option<f64>,
+    pub record_date: Option<chrono::NaiveDate>,
 }
 
 impl Default for ClickHouseClient {

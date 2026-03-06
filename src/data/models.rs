@@ -65,3 +65,48 @@ pub enum Market {
     SZ,  // 深圳
     BJ,  // 北京
 }
+
+/// 股本变迁事件 (除权除息)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GbbqEvent {
+    /// 股票代码
+    pub code: String,
+    /// 事件日期
+    pub event_date: NaiveDate,
+    /// 信息类别
+    /// 1=除权除息, 2=送配股上市, 3=非流通股上市, 4=未知变动,
+    /// 5=股本变化, 6=增发新股, 7=股份回购, 8=增发上市, 9=转配上市,
+    /// 10=可转债上市, 11=扩缩股, 12=缩股, 13=认购权证, 14=认沽权证
+    pub category: u8,
+    /// 分红（每10股派现金x元）
+    pub dividend: f32,
+    /// 配股价（每股配股价x元）
+    pub bonus_price: f32,
+    /// 送转股（每10股送转股比例x股）
+    pub bonus_share: f32,
+    /// 配股（每10股配股比例x股）
+    pub rights_share: f32,
+    /// 除权价
+    pub ex_price: Option<f64>,
+    /// 登记日
+    pub record_date: Option<NaiveDate>,
+}
+
+/// 股本变更摘要
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapitalChange {
+    /// 股票代码
+    pub code: String,
+    /// 变更日期
+    pub change_date: NaiveDate,
+    /// 变更前总股本
+    pub before_total: Option<f64>,
+    /// 变更后总股本
+    pub after_total: Option<f64>,
+    /// 变更前流通股
+    pub before_float: Option<f64>,
+    /// 变更后流通股
+    pub after_float: Option<f64>,
+    /// 变更类型
+    pub change_type: String,
+}
