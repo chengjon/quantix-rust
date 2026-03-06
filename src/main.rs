@@ -15,6 +15,7 @@ mod db;
 mod data;
 mod sources;
 mod analysis;
+mod sync;
 mod strategy;
 mod tasks;
 mod tui;
