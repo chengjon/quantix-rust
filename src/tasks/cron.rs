@@ -2,7 +2,7 @@
 ///
 /// 从短线侠项目迁移 - 解析和验证 cron 表达式
 
-use chrono::{NaiveDate, NaiveDateTime, Datelike, Timelike, Weekday};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Datelike, Timelike, Weekday};
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 

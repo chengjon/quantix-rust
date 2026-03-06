@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2024"
 description = "A股量化交易 CLI 工具 - 与 Python quantix 项目共享数据源和数据库"
 authors = ["MyStocks Team"]
-repository = "https://github.com/chengjon/mystocks"
+repository = "https://github.com/chengjon/quantix-rust"
 license = "MIT"
+
+[lib]
+name = "quantix_cli"
+path = "src/lib.rs"
 
 [dependencies]
 # CLI

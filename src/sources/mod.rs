@@ -3,12 +3,17 @@
 /// 统一数据源接口，支持多数据源切换
 
 pub mod tdx;
+pub mod tdx_file;
 pub mod akshare;
 pub mod quote_collector;
 pub mod auction_collector;
 pub mod kline_aggregator;
 
 pub use tdx::{TdxSource, StockQuote};
+pub use tdx_file::{
+    TdxDayRecord, TdxDayFile, TdxGbbqRecord, TdxGbbqFile,
+    FuquanFactor, FuquanCalculator, FuquanType, TdxDayData, TdxDataImporter,
+};
 pub use akshare::AkShareSource;
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};

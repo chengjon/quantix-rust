@@ -342,6 +342,7 @@ impl BacktestEngine {
 
 #[cfg(test)]
 mod tests {
+    use rust_decimal_macros::dec;
     use super::*;
 
     #[test]
