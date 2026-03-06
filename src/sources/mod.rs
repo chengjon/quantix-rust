@@ -1,0 +1,11 @@
+/// 数据源适配器
+///
+/// 统一数据源接口，支持多数据源切换
+
+pub mod tdx;
+pub mod akshare;
+pub mod quote_collector;
+
+pub use tdx::{TdxSource, StockQuote};
+pub use akshare::AkShareSource;
+pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};

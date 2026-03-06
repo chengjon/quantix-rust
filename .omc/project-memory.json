@@ -1,0 +1,181 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1772796639292,
+  "projectRoot": "/opt/claude/quantix-rust",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Rust",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Cargo.toml"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "cargo",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "cargo build",
+    "testCommand": "cargo test",
+    "lintCommand": "cargo clippy",
+    "devCommand": "cargo run",
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "config": {
+      "path": "config",
+      "purpose": "Configuration files",
+      "fileCount": 1,
+      "lastAccessed": 1772796639284,
+      "keyFiles": [
+        "default.toml"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1772796639284,
+      "keyFiles": [
+        "main.rs"
+      ]
+    },
+    "target": {
+      "path": "target",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1772796639284,
+      "keyFiles": [
+        "CACHEDIR.TAG"
+      ]
+    },
+    "src/data": {
+      "path": "src/data",
+      "purpose": "Data files",
+      "fileCount": 4,
+      "lastAccessed": 1772796639288,
+      "keyFiles": [
+        "fetcher.rs",
+        "mod.rs",
+        "models.rs"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/core/trading_time.rs",
+      "accessCount": 8,
+      "lastAccessed": 1772797350438,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/mod.rs",
+      "accessCount": 5,
+      "lastAccessed": 1772797468965,
+      "type": "file"
+    },
+    {
+      "path": "Cargo.toml",
+      "accessCount": 5,
+      "lastAccessed": 1772799021207,
+      "type": "file"
+    },
+    {
+      "path": "src/core/config.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772797357689,
+      "type": "file"
+    },
+    {
+      "path": "src/core/mod.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772798871453,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/collect_scheduler.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772799183527,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/tdx.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772798894176,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/mod.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772798909764,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/mod.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772798940627,
+      "type": "file"
+    },
+    {
+      "path": "src/core/error.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772799095970,
+      "type": "file"
+    },
+    {
+      "path": "src/db/postgresql.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772797080281,
+      "type": "file"
+    },
+    {
+      "path": "src/db/tdengine.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772797088136,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/indicators.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772797088458,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/scheduler.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772798835359,
+      "type": "file"
+    },
+    {
+      "path": "src/core/trading_calendar.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772798866802,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/quote_collector.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772798906533,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

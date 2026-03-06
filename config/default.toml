@@ -1,0 +1,39 @@
+# Quantix CLI 默认配置
+
+[database.tdengine]
+host = "localhost"
+port = 6041
+database = "quantix"
+username = "root"
+password = "taosdata"
+mode = "rest"  # "rest" or "websocket"
+
+[database.postgresql]
+host = "localhost"
+port = 5432
+database = "quantix"
+username = "quantix"
+password = "quantix"
+pool_max_size = 10
+
+[data_sources.tdx]
+hosts = ["114.80.63.12", "114.80.63.13"]
+port = 7709
+timeout = 5000
+
+[data_sources.akshare]
+base_url = "http://localhost:8000"
+rate_limit = 100
+
+[trading]
+# 交易时段定义
+morning_start = "09:30:00"
+morning_end = "11:30:00"
+afternoon_start = "13:00:00"
+afternoon_end = "15:00:00"
+
+[task]
+# 定时任务配置
+enable = true
+log_dir = "./logs"
+pid_file = "./quantix.pid"
