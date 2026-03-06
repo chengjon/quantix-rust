@@ -34,6 +34,7 @@ serde_json = "1.0"
 # Time & Math (与 Python 兼容)
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1.33", features = ["serde", "db-tokio-postgres"] }
+rust_decimal_macros = "1.33"
 ndarray = { version = "0.15", optional = true }
 
 # Data (共享文件格式)
@@ -58,6 +59,9 @@ anyhow = "1.0"
 thiserror = "1.0"
 color-eyre = "0.6"
 async-trait = "0.1"
+
+# UUID
+uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # TDX data source (rustdx)
 rustdx-complete = "0.6.4"

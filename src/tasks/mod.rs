@@ -6,5 +6,6 @@ pub mod scheduler;
 pub mod cron;
 pub mod collect_scheduler;
 
-pub use scheduler::TaskScheduler;
+pub use scheduler::{TaskScheduler, ScheduledTask, SchedulerStats, TaskTemplates};
+pub use cron::CronExpression;
 pub use collect_scheduler::{CollectScheduler, SchedulerState, SchedulerConfig};

@@ -35,6 +35,9 @@ pub enum QuantixError {
 
     #[error("HTTP 请求错误: {0}")]
     Http(#[from] reqwest::Error),
+
+    #[error("其他错误: {0}")]
+    Other(String),
 }
 
 pub type Result<T> = std::result::Result<T, QuantixError>;
