@@ -5,7 +5,9 @@
 pub mod tdx;
 pub mod akshare;
 pub mod quote_collector;
+pub mod auction_collector;
 
 pub use tdx::{TdxSource, StockQuote};
 pub use akshare::AkShareSource;
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
+pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};

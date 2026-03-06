@@ -81,6 +81,12 @@
   },
   "hotPaths": [
     {
+      "path": "src/analysis/auction.rs",
+      "accessCount": 9,
+      "lastAccessed": 1772814603192,
+      "type": "file"
+    },
+    {
       "path": "src/core/trading_time.rs",
       "accessCount": 8,
       "lastAccessed": 1772797350438,
@@ -117,15 +123,21 @@
       "type": "file"
     },
     {
-      "path": "src/sources/tdx.rs",
-      "accessCount": 2,
-      "lastAccessed": 1772798894176,
+      "path": "src/sources/mod.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772814499501,
       "type": "file"
     },
     {
-      "path": "src/sources/mod.rs",
+      "path": "src/sources/auction_collector.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772814579620,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/tdx.rs",
       "accessCount": 2,
-      "lastAccessed": 1772798909764,
+      "lastAccessed": 1772798894176,
       "type": "file"
     },
     {
@@ -144,6 +156,12 @@
       "path": "src/db/mod.rs",
       "accessCount": 2,
       "lastAccessed": 1772799911102,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/mod.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772814521657,
       "type": "file"
     },
     {
