@@ -87,15 +87,15 @@
       "type": "file"
     },
     {
-      "path": "src/cli/mod.rs",
-      "accessCount": 5,
-      "lastAccessed": 1772797468965,
+      "path": "Cargo.toml",
+      "accessCount": 8,
+      "lastAccessed": 1772805371476,
       "type": "file"
     },
     {
-      "path": "Cargo.toml",
+      "path": "src/cli/mod.rs",
       "accessCount": 5,
-      "lastAccessed": 1772799021207,
+      "lastAccessed": 1772797468965,
       "type": "file"
     },
     {
@@ -141,6 +141,12 @@
       "type": "file"
     },
     {
+      "path": "src/db/mod.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772799911102,
+      "type": "file"
+    },
+    {
       "path": "src/db/postgresql.rs",
       "accessCount": 1,
       "lastAccessed": 1772797080281,
@@ -174,6 +180,12 @@
       "path": "src/sources/quote_collector.rs",
       "accessCount": 1,
       "lastAccessed": 1772798906533,
+      "type": "file"
+    },
+    {
+      "path": "src/db/clickhouse.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772799906035,
       "type": "file"
     }
   ],
