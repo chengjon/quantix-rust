@@ -65,6 +65,15 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 前复权/后复权应用
   - 批量导入器
 
+#### Phase 7: GBBQ 数据存储 ✅
+- **数据模型** (`src/data/models.rs`)
+  - GbbqEvent: 除权除息事件
+  - CapitalChange: 股本变更摘要
+- **ClickHouse 存储** (`src/db/clickhouse.rs`)
+  - gbbq_events 表 (按月分区)
+  - 事件插入/查询接口
+  - 最新除权事件查询
+
 ## 项目结构
 
 ```
