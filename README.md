@@ -74,6 +74,14 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 事件插入/查询接口
   - 最新除权事件查询
 
+#### Phase 8: 多周期 K线查询 ✅
+- **K线查询接口** (`src/db/clickhouse.rs`)
+  - get_kline_data(): 查询指定周期 K线
+  - insert_kline_data(): 插入 K线数据
+  - insert_kline_data_batch(): 批量插入
+  - get_daily_from_minute(): 分钟线聚合日线
+- **支持的周期**: 1m, 5m, 15m, 30m, 60m, 1d
+
 ## 项目结构
 
 ```
