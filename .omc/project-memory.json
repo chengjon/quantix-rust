@@ -81,9 +81,51 @@
   },
   "hotPaths": [
     {
+      "path": "src/db/clickhouse.rs",
+      "accessCount": 28,
+      "lastAccessed": 1772818022801,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/tdx_file.rs",
+      "accessCount": 19,
+      "lastAccessed": 1772817596419,
+      "type": "file"
+    },
+    {
+      "path": "Cargo.toml",
+      "accessCount": 16,
+      "lastAccessed": 1772817185749,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/scheduler.rs",
+      "accessCount": 11,
+      "lastAccessed": 1772815812915,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/mod.rs",
+      "accessCount": 10,
+      "lastAccessed": 1772819367989,
+      "type": "file"
+    },
+    {
       "path": "src/analysis/auction.rs",
       "accessCount": 9,
       "lastAccessed": 1772814603192,
+      "type": "file"
+    },
+    {
+      "path": "src/sync/etl.rs",
+      "accessCount": 9,
+      "lastAccessed": 1772815259478,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 9,
+      "lastAccessed": 1772818173532,
       "type": "file"
     },
     {
@@ -93,15 +135,75 @@
       "type": "file"
     },
     {
-      "path": "Cargo.toml",
-      "accessCount": 8,
-      "lastAccessed": 1772805371476,
+      "path": "src/analysis/backtest.rs",
+      "accessCount": 7,
+      "lastAccessed": 1772817583520,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/cron.rs",
+      "accessCount": 6,
+      "lastAccessed": 1772817493230,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/eastmoney.rs",
+      "accessCount": 6,
+      "lastAccessed": 1772819389803,
       "type": "file"
     },
     {
       "path": "src/cli/mod.rs",
       "accessCount": 5,
       "lastAccessed": 1772797468965,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/performance.rs",
+      "accessCount": 5,
+      "lastAccessed": 1772817578451,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/collect_scheduler.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772815540737,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/mod.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772815650706,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/mod.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772815653335,
+      "type": "file"
+    },
+    {
+      "path": "src/core/error.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772815767207,
+      "type": "file"
+    },
+    {
+      "path": "src/main.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772817118071,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/portfolio.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772817573786,
+      "type": "file"
+    },
+    {
+      "path": "src/data/models.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772817731221,
       "type": "file"
     },
     {
@@ -117,21 +219,15 @@
       "type": "file"
     },
     {
-      "path": "src/tasks/collect_scheduler.rs",
-      "accessCount": 3,
-      "lastAccessed": 1772799183527,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/mod.rs",
-      "accessCount": 3,
-      "lastAccessed": 1772814499501,
-      "type": "file"
-    },
-    {
       "path": "src/sources/auction_collector.rs",
       "accessCount": 3,
       "lastAccessed": 1772814579620,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/kline_aggregator.rs",
+      "accessCount": 3,
+      "lastAccessed": 1772817908647,
       "type": "file"
     },
     {
@@ -141,27 +237,21 @@
       "type": "file"
     },
     {
-      "path": "src/tasks/mod.rs",
-      "accessCount": 2,
-      "lastAccessed": 1772798940627,
-      "type": "file"
-    },
-    {
-      "path": "src/core/error.rs",
-      "accessCount": 2,
-      "lastAccessed": 1772799095970,
-      "type": "file"
-    },
-    {
       "path": "src/db/mod.rs",
       "accessCount": 2,
       "lastAccessed": 1772799911102,
       "type": "file"
     },
     {
-      "path": "src/analysis/mod.rs",
+      "path": "",
       "accessCount": 2,
-      "lastAccessed": 1772814521657,
+      "lastAccessed": 1772816784750,
+      "type": "directory"
+    },
+    {
+      "path": "src/lib.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772817199458,
       "type": "file"
     },
     {
@@ -183,12 +273,6 @@
       "type": "file"
     },
     {
-      "path": "src/tasks/scheduler.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772798835359,
-      "type": "file"
-    },
-    {
       "path": "src/core/trading_calendar.rs",
       "accessCount": 1,
       "lastAccessed": 1772798866802,
@@ -201,9 +285,27 @@
       "type": "file"
     },
     {
-      "path": "src/db/clickhouse.rs",
+      "path": "src/sync/mod.rs",
       "accessCount": 1,
-      "lastAccessed": 1772799906035,
+      "lastAccessed": 1772814897437,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/trait_def.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772815540814,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1772817564863,
+      "type": "directory"
+    },
+    {
+      "path": "src/data/mod.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772817733107,
       "type": "file"
     }
   ],

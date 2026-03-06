@@ -8,6 +8,7 @@ pub mod akshare;
 pub mod quote_collector;
 pub mod auction_collector;
 pub mod kline_aggregator;
+pub mod eastmoney;
 
 pub use tdx::{TdxSource, StockQuote};
 pub use tdx_file::{
@@ -18,3 +19,4 @@ pub use akshare::AkShareSource;
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};
 pub use kline_aggregator::{KlineAggregator, KlineData, KlineWindow, KlinePeriod};
+pub use eastmoney::{EastMoneySource, StockInfo as EastMoneyStockInfo, Quote, MoneyFlowData, FinancialData, Board};
