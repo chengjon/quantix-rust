@@ -82,6 +82,14 @@ A 股量化交易 CLI 工具 - Rust 实现
   - get_daily_from_minute(): 分钟线聚合日线
 - **支持的周期**: 1m, 5m, 15m, 30m, 60m, 1d
 
+#### Phase 9: 东方财富数据采集 ✅
+- **EastMoney 数据源** (`src/sources/eastmoney.rs`)
+  - 股票列表获取 (支持板块分类: HS300, ZZ500, SZ50, KCB50, BZ50)
+  - 实时行情查询
+  - 资金流向数据
+  - 财务数据获取
+  - HTTP 客户端集成
+
 ## 项目结构
 
 ```
