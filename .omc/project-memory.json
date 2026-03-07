@@ -82,8 +82,8 @@
   "hotPaths": [
     {
       "path": "src/db/clickhouse.rs",
-      "accessCount": 28,
-      "lastAccessed": 1772818022801,
+      "accessCount": 51,
+      "lastAccessed": 1772847962536,
       "type": "file"
     },
     {
@@ -96,6 +96,12 @@
       "path": "Cargo.toml",
       "accessCount": 16,
       "lastAccessed": 1772817185749,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 12,
+      "lastAccessed": 1772819713411,
       "type": "file"
     },
     {
@@ -120,12 +126,6 @@
       "path": "src/sync/etl.rs",
       "accessCount": 9,
       "lastAccessed": 1772815259478,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 9,
-      "lastAccessed": 1772818173532,
       "type": "file"
     },
     {

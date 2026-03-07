@@ -4,18 +4,23 @@
 
 use crate::core::{QuantixError, Result};
 use clickhouse::Client;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use tracing::info;
+use tracing::{info, debug};
 
 /// ClickHouse 客户端
 pub struct ClickHouseClient {
     client: Client,
     database: String,
+    /// 批量插入的批次大小
+    batch_size: usize,
 }
+
+/// 默认批次大小
+const DEFAULT_BATCH_SIZE: usize = 1000;
 
 impl ClickHouseClient {
     /// 创建新的 ClickHouse 客户端
@@ -33,6 +38,7 @@ impl ClickHouseClient {
         Ok(Self {
             client,
             database: database.to_string(),
+            batch_size: DEFAULT_BATCH_SIZE,
         })
     }
 
@@ -286,14 +292,49 @@ impl ClickHouseClient {
         Ok(())
     }
 
-    /// 批量插入 GBBQ 事件
+    /// 批量插入 GBBQ 事件 (优化版本)
+    ///
+    /// 使用 clickhouse crate 的 insert API 进行批量插入
     pub async fn insert_gbbq_events(
         &self,
         events: &[crate::data::models::GbbqEvent],
     ) -> Result<()> {
-        for event in events {
-            self.insert_gbbq_event(event).await?;
+        if events.is_empty() {
+            return Ok(());
         }
+
+        debug!("批量插入 {} 条 GBBQ 事件", events.len());
+
+        // 分批插入，避免单次请求过大
+        for chunk in events.chunks(self.batch_size) {
+            let mut insert = self.client
+                .insert("gbbq_events")
+                .map_err(|e| QuantixError::DatabaseQuery(format!("创建插入器失败: {}", e)))?
+                .with_option("async_insert", "1")
+                .with_option("wait_for_async_insert", "1");
+
+            for event in chunk {
+                let row = GbbqEventCH {
+                    event_date: event.event_date,
+                    code: event.code.clone(),
+                    category: event.category,
+                    dividend: event.dividend,
+                    bonus_price: event.bonus_price,
+                    bonus_share: event.bonus_share,
+                    rights_share: event.rights_share,
+                    ex_price: event.ex_price,
+                    record_date: event.record_date,
+                };
+                insert.write(&row).await
+                    .map_err(|e| QuantixError::DatabaseQuery(format!("写入 GBBQ 事件失败: {}", e)))?;
+            }
+
+            insert.end().await
+                .map_err(|e| QuantixError::DatabaseQuery(format!("批量插入 GBBQ 事件失败: {}", e)))?;
+
+            debug!("成功插入 {} 条 GBBQ 事件", chunk.len());
+        }
+
         Ok(())
     }
 
@@ -473,15 +514,54 @@ impl ClickHouseClient {
         Ok(())
     }
 
-    /// 批量插入 K线数据
+    /// 批量插入 K线数据 (优化版本)
+    ///
+    /// 使用 clickhouse crate 的 insert API 进行批量插入
     pub async fn insert_kline_data_batch(
         &self,
         klines: &[crate::data::models::Kline],
         period: &str,
     ) -> Result<()> {
-        for kline in klines {
-            self.insert_kline_data(kline, period).await?;
+        if klines.is_empty() {
+            return Ok(());
         }
+
+        debug!("批量插入 {} 条 K线数据 (周期: {})", klines.len(), period);
+
+        // 分批插入
+        for chunk in klines.chunks(self.batch_size) {
+            let mut insert = self.client
+                .insert("kline_data")
+                .map_err(|e| QuantixError::DatabaseQuery(format!("创建插入器失败: {}", e)))?
+                .with_option("async_insert", "1")
+                .with_option("wait_for_async_insert", "1");
+
+            for kline in chunk {
+                let timestamp = kline.date.and_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+                let row = KlineDataCH {
+                    timestamp: DateTime::<Utc>::from_naive_utc_and_offset(timestamp, Utc),
+                    code: kline.code.clone(),
+                    name: kline.code.clone(), // name 默认使用 code
+                    period: period.to_string(),
+                    open: kline.open.to_f64().unwrap_or(0.0),
+                    high: kline.high.to_f64().unwrap_or(0.0),
+                    low: kline.low.to_f64().unwrap_or(0.0),
+                    close: kline.close.to_f64().unwrap_or(0.0),
+                    volume: kline.volume as f64,
+                    amount: kline.amount.unwrap_or_default().to_f64().unwrap_or(0.0),
+                    trade_count: 0,
+                    source: "TDX".to_string(),
+                };
+                insert.write(&row).await
+                    .map_err(|e| QuantixError::DatabaseQuery(format!("写入 K线数据失败: {}", e)))?;
+            }
+
+            insert.end().await
+                .map_err(|e| QuantixError::DatabaseQuery(format!("批量插入 K线数据失败: {}", e)))?;
+
+            debug!("成功插入 {} 条 K线数据", chunk.len());
+        }
+
         Ok(())
     }
 
@@ -531,6 +611,46 @@ impl ClickHouseClient {
         // 这里简化处理，实际应用中可以使用更复杂的序列化
         // 暂时返回空 Vec，实际应该解析 ClickHouse 返回的格式
         Ok(vec![])
+    }
+
+    /// 插入单条实时行情
+    pub async fn insert_stock_quote(&self, quote: &StockQuoteCH) -> Result<()> {
+        let mut insert = self.client.insert("stock_realtime_quotes")
+            .map_err(|e| QuantixError::DatabaseQuery(format!("创建插入器失败: {}", e)))?;
+        insert.write(quote).await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("插入实时行情失败: {}", e)))?;
+        insert.end().await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("插入实时行情失败: {}", e)))?;
+        Ok(())
+    }
+
+    /// 批量插入实时行情
+    pub async fn insert_stock_quotes_batch(&self, quotes: &[StockQuoteCH]) -> Result<()> {
+        if quotes.is_empty() {
+            return Ok(());
+        }
+
+        debug!("批量插入 {} 条实时行情", quotes.len());
+
+        for chunk in quotes.chunks(self.batch_size) {
+            let mut insert = self.client
+                .insert("stock_realtime_quotes")
+                .map_err(|e| QuantixError::DatabaseQuery(format!("创建插入器失败: {}", e)))?
+                .with_option("async_insert", "1")
+                .with_option("wait_for_async_insert", "1");
+
+            for quote in chunk {
+                insert.write(quote).await
+                    .map_err(|e| QuantixError::DatabaseQuery(format!("写入实时行情失败: {}", e)))?;
+            }
+
+            insert.end().await
+                .map_err(|e| QuantixError::DatabaseQuery(format!("批量插入实时行情失败: {}", e)))?;
+
+            debug!("成功插入 {} 条实时行情", chunk.len());
+        }
+
+        Ok(())
     }
 }
 
@@ -618,7 +738,21 @@ impl Default for ClickHouseClient {
         Self {
             client: Client::default(),
             database: "quantix".to_string(),
+            batch_size: DEFAULT_BATCH_SIZE,
         }
+    }
+}
+
+impl ClickHouseClient {
+    /// 设置批量插入批次大小
+    pub fn with_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size;
+        self
+    }
+
+    /// 获取当前批次大小
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 
