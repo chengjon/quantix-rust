@@ -100,8 +100,8 @@
     },
     {
       "path": "README.md",
-      "accessCount": 12,
-      "lastAccessed": 1772819713411,
+      "accessCount": 13,
+      "lastAccessed": 1772848803806,
       "type": "file"
     },
     {
@@ -112,8 +112,8 @@
     },
     {
       "path": "src/sources/mod.rs",
-      "accessCount": 10,
-      "lastAccessed": 1772819367989,
+      "accessCount": 11,
+      "lastAccessed": 1772849031992,
       "type": "file"
     },
     {
@@ -154,8 +154,8 @@
     },
     {
       "path": "src/cli/mod.rs",
-      "accessCount": 5,
-      "lastAccessed": 1772797468965,
+      "accessCount": 6,
+      "lastAccessed": 1772849028380,
       "type": "file"
     },
     {
@@ -306,6 +306,24 @@
       "path": "src/data/mod.rs",
       "accessCount": 1,
       "lastAccessed": 1772817733107,
+      "type": "file"
+    },
+    {
+      "path": "src/cli",
+      "accessCount": 1,
+      "lastAccessed": 1772849026700,
+      "type": "directory"
+    },
+    {
+      "path": "src/cli/handlers.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772849030198,
+      "type": "file"
+    },
+    {
+      "path": "docs/USER_MANUAL.md",
+      "accessCount": 1,
+      "lastAccessed": 1772849078207,
       "type": "file"
     }
   ],
