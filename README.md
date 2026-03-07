@@ -90,6 +90,14 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 财务数据获取
   - HTTP 客户端集成
 
+#### Phase 10: ClickHouse 批量导入优化 ✅
+- **批量插入优化** (`src/db/clickhouse.rs`)
+  - 使用 clickhouse crate 的 insert API
+  - 可配置批次大小 (默认 1000)
+  - 支持 async_insert 选项提升性能
+  - 新增 insert_stock_quotes_batch 方法
+  - 优化的 insert_gbbq_events_batch 和 insert_kline_data_batch
+
 ## 项目结构
 
 ```
