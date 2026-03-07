@@ -107,6 +107,18 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 自动重连机制 (可配置最大次数)
   - 使用 tokio::select! 实现并发消息处理
 
+#### Phase 12: 技术指标增强 ✅
+- **技术指标** (`src/analysis/indicators.rs`)
+  - SMA/EMA/WMA (简单/指数/加权移动平均)
+  - RSI (相对强弱指标)
+  - MACD (指数平滑异同移动平均线)
+  - KDJ (随机指标)
+  - Bollinger Bands (布林带)
+  - ATR (平均真实波幅)
+  - OBV (能量潮)
+  - CCI (顺势指标)
+  - Williams %R (威廉指标)
+
 ## 项目结构
 
 ```
