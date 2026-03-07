@@ -1,0 +1,976 @@
+# Quantix-Rust 用户手册
+
+## 目录
+
+- [项目简介](#项目简介)
+- [安装与配置](#安装与配置)
+- [快速开始](#快速开始)
+- [命令参考](#命令参考)
+  - [init - 初始化](#init---初始化)
+  - [menu - 交互式菜单](#menu---交互式菜单)
+  - [data - 数据管理](#data---数据管理)
+  - [strategy - 策略管理](#strategy---策略管理)
+  - [task - 任务调度](#task---任务调度)
+  - [analyze - 分析工具](#analyze---分析工具)
+  - [status - 系统状态](#status---系统状态)
+- [数据源](#数据源)
+- [API 参考](#api-参考)
+- [常见问题](#常见问题)
+
+---
+
+## 项目简介
+
+**Quantix-Rust** 是一个 A股量化交易 CLI 工具，使用 Rust 实现高性能的数据采集、回测分析和任务调度功能。
+
+### 核心特性
+
+- **高性能数据采集** - 支持 TDX、AkShare、EastMoney 多数据源
+- **实时行情处理** - 竞价数据采集、K线聚合
+- **回测引擎** - 事件驱动回测框架，完整性能指标计算
+- **任务调度** - 基于 Cron 的定时任务调度器
+- **复权处理** - 通达信 day 文件解析与复权因子计算
+
+### 技术架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Python quantix                      │
+│           (数据采集、存储、Web API)                      │
+└─────────────────────────────────────────────────────────┘
+                          ↕ 共享数据库
+┌─────────────────────────────────────────────────────────┐
+│                      quantix-rust                       │
+│           (高性能回测、实时分析、任务调度)                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 安装与配置
+
+### 环境要求
+
+- Rust 1.70+
+- PostgreSQL 17+ (可选)
+- TDengine 3.3+ (可选)
+- ClickHouse (推荐用于 OLAP 分析)
+
+### 安装步骤
+
+```bash
+# 克隆项目
+git clone https://github.com/chengjon/quantix-rust.git
+cd quantix-rust
+
+# 构建发布版本
+cargo build --release
+
+# 或直接安装到系统
+cargo install --path .
+```
+
+### 配置环境变量
+
+```bash
+# PostgreSQL
+export POSTGRES_URL="postgresql://localhost:5432/quantix"
+
+# ClickHouse
+export CLICKHOUSE_URL="http://localhost:8123"
+export CLICKHOUSE_DB="quantix"
+
+# TDX 数据源
+export TDX_HOST="192.168.1.100"
+export TDX_PORT=7709
+```
+
+### 运行测试
+
+```bash
+# 所有测试
+cargo test
+
+# 单个模块测试
+cargo test --package quantix-cli --lib analysis::backtest::tests
+```
+
+---
+
+## 快速开始
+
+### 查看帮助信息
+
+```bash
+quantix --help
+```
+
+### 初始化配置
+
+```bash
+quantix init -c ../config
+```
+
+### 查看系统状态
+
+```bash
+quantix status
+```
+
+### 检查数据库连接
+
+```bash
+quantix status --health
+```
+
+---
+
+## 命令参考
+
+### init - 初始化
+
+初始化配置和数据库连接。
+
+#### 用法
+
+```bash
+quantix init [-c|--config <PATH>]
+```
+
+#### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--config` | `-c` | 配置文件路径 | `../config` |
+
+#### 示例
+
+```bash
+# 使用默认配置路径
+quantix init
+
+# 指定配置路径
+quantix init -c /etc/quantix/config.toml
+```
+
+#### 输出
+
+```
+初始化 Quantix CLI...
+配置路径: ../config
+```
+
+---
+
+### menu - 交互式菜单
+
+启动交互式菜单界面。
+
+#### 用法
+
+```bash
+quantix menu [--tui]
+```
+
+#### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--tui` | 启用 TUI 界面 (ratatui) | false |
+
+#### 示例
+
+```bash
+# 简单文本菜单
+quantix menu
+
+# TUI 界面菜单
+quantix menu --tui
+```
+
+#### 输出
+
+```
+=== Quantix CLI 交互菜单 ===
+1. 数据同步
+2. 策略运行
+3. 回测分析
+4. 任务管理
+0. 退出
+```
+
+---
+
+### data - 数据管理
+
+管理历史数据的查询和导出。
+
+#### 子命令
+
+- `query` - 查询历史数据
+- `export` - 导出数据到文件
+
+#### data query - 查询历史数据
+
+##### 用法
+
+```bash
+quantix data query -c <CODE> [-s|--start <DATE>] [-e|--end <DATE>] [--type <TYPE>] [-l|--limit <N>]
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--code` | `-c` | 股票代码 | 必填 |
+| `--start` | `-s` | 开始日期 (YYYYMMDD) | 无 |
+| `--end` | `-e` | 结束日期 (YYYYMMDD) | 无 |
+| `--type` | - | 数据类型 | `daily` |
+| `--limit` | `-l` | 限制返回条数 | `100` |
+
+##### 数据类型
+
+| 类型 | 说明 |
+|------|------|
+| `daily` | 日线数据 |
+| `1m` | 1分钟线 |
+| `5m` | 5分钟线 |
+| `15m` | 15分钟线 |
+| `30m` | 30分钟线 |
+| `60m` | 60分钟线 |
+
+##### 示例
+
+```bash
+# 查询平安银行最近100条日线数据
+quantix data query -c 000001
+
+# 查询指定日期范围的数据
+quantix data query -c 000001 -s 20240101 -e 20241231
+
+# 查询1分钟线数据
+quantix data query -c 000001 --type 1m -l 500
+
+# 查询5分钟线数据
+quantix data query -c 000001 --type 5m
+```
+
+##### 输出
+
+```
+查询数据: 000001 (daily)
+日期范围: Some("20240101") - Some("20241231")
+限制: 100
+```
+
+---
+
+#### data export - 导出数据
+
+##### 用法
+
+```bash
+quantix data export -c <CODE> [--format <FORMAT>] [-o|--output <DIR>]
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--code` | `-c` | 股票代码 | 必填 |
+| `--format` | - | 输出格式 | `parquet` |
+| `--output` | `-o` | 输出目录 | `./data` |
+
+##### 支持格式
+
+| 格式 | 说明 |
+|------|------|
+| `parquet` | Parquet 列式存储 |
+| `csv` | CSV 文本格式 |
+| `json` | JSON 格式 |
+
+##### 示例
+
+```bash
+# 导出为 Parquet 格式
+quantix data export -c 000001
+
+# 导出为 CSV 格式
+quantix data export -c 000001 --format csv
+
+# 指定输出目录
+quantix data export -c 000001 -o /data/exports
+```
+
+##### 输出
+
+```
+导出数据: 000001 -> ./data (parquet)
+```
+
+---
+
+### strategy - 策略管理
+
+管理量化交易策略的运行和查看。
+
+#### 子命令
+
+- `run` - 运行策略
+- `list` - 列出所有策略
+- `show` - 显示策略详情
+
+#### strategy run - 运行策略
+
+##### 用法
+
+```bash
+quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--name` | `-n` | 策略名称 | 必填 |
+| `--mode` | - | 运行模式 | `backtest` |
+| `--code` | `-c` | 股票代码 | 全部 |
+
+##### 运行模式
+
+| 模式 | 说明 |
+|------|------|
+| `backtest` | 回测模式 |
+| `live` | 实盘模式 (开发中) |
+| `paper` | 模拟盘模式 (开发中) |
+
+##### 示例
+
+```bash
+# 运行均线交叉策略回测
+quantix strategy run -n ma_cross
+
+# 运行策略回测指定股票
+quantix strategy run -n ma_cross -c 000001
+
+# 使用实盘模式
+quantix strategy run -n ma_cross --mode live
+```
+
+##### 输出
+
+```
+运行策略: ma_cross (backtest)
+股票代码: 000001
+```
+
+---
+
+#### strategy list - 列出策略
+
+##### 用法
+
+```bash
+quantix strategy list
+```
+
+##### 示例
+
+```bash
+quantix strategy list
+```
+
+##### 输出
+
+```
+可用策略:
+  - ma_cross: 均线交叉策略
+```
+
+---
+
+#### strategy show - 显示策略详情
+
+##### 用法
+
+```bash
+quantix strategy show -n <NAME>
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--name` | `-n` | 策略名称 | 必填 |
+
+##### 示例
+
+```bash
+quantix strategy show -n ma_cross
+```
+
+##### 输出
+
+```
+策略详情: ma_cross
+```
+
+---
+
+### task - 任务调度
+
+管理定时任务的调度和执行。
+
+#### 子命令
+
+- `add` - 添加定时任务
+- `list` - 列出所有任务
+- `start` - 启动任务调度器
+- `stop` - 停止任务调度器
+- `status` - 查看任务状态
+
+#### task add - 添加任务
+
+##### 用法
+
+```bash
+quantix task add -n <NAME> [--cron <CRON>] -c <COMMAND>
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--name` | `-n` | 任务名称 | 必填 |
+| `--cron` | - | Cron 表达式 | 必填 |
+| `--command` | `-c` | 执行命令 | 必填 |
+
+##### Cron 表达式格式
+
+支持标准 Cron 表达式和扩展语法：
+
+| 语法 | 说明 | 示例 |
+|------|------|------|
+| `*` | 任意值 | `* * * * *` |
+| `,` | 列表 | `1,2,3 * * * *` |
+| `-` | 范围 | `1-5 * * * *` |
+| `*/N` | 步长 | `*/5 * * * *` |
+
+格式: `分 时 日 月 周`
+
+##### 示例
+
+```bash
+# 每天 9:30 执行数据同步
+quantix task add -n morning_sync --cron "30 9 * * 1-5" -c "data sync"
+
+# 每5分钟执行一次
+quantix task add -n monitor --cron "*/5 * * * *" -c "status check"
+
+# 盘前任务 (每个交易日 8:30)
+quantix task add -n pre_market --cron "30 8 * * 1-5" -c "strategy run -n pre_market"
+```
+
+##### 输出
+
+```
+添加任务: morning_sync
+Cron: 30 9 * * 1-5
+命令: data sync
+```
+
+---
+
+#### task list - 列出任务
+
+##### 用法
+
+```bash
+quantix task list
+```
+
+##### 示例
+
+```bash
+quantix task list
+```
+
+##### 输出
+
+```
+定时任务列表:
+```
+
+---
+
+#### task start - 启动调度器
+
+##### 用法
+
+```bash
+quantix task start [--daemon]
+```
+
+##### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--daemon` | 后台运行 | false |
+
+##### 示例
+
+```bash
+# 前台运行
+quantix task start
+
+# 后台运行
+quantix task start --daemon
+```
+
+##### 输出
+
+```
+启动任务调度器...
+```
+
+---
+
+#### task stop - 停止调度器
+
+##### 用法
+
+```bash
+quantix task stop
+```
+
+##### 示例
+
+```bash
+quantix task stop
+```
+
+##### 输出
+
+```
+停止任务调度器...
+```
+
+---
+
+#### task status - 查看状态
+
+##### 用法
+
+```bash
+quantix task status
+```
+
+##### 示例
+
+```bash
+quantix task status
+```
+
+##### 输出
+
+```
+任务调度器状态:
+```
+
+---
+
+### analyze - 分析工具
+
+计算技术指标和查看回测报告。
+
+#### 子命令
+
+- `indicators` - 计算技术指标
+- `backtest` - 查看回测报告
+
+#### analyze indicators - 计算技术指标
+
+##### 用法
+
+```bash
+quantix analyze indicators -c <CODE> -i <INDICATORS>
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--code` | `-c` | 股票代码 | 必填 |
+| `--indicators` | `-i` | 指标列表 (逗号分隔) | 必填 |
+
+##### 支持的指标
+
+| 指标 | 说明 |
+|------|------|
+| `ma` | 移动平均线 |
+| `ema` | 指数移动平均 |
+| `rsi` | 相对强弱指标 |
+| `macd` | 平滑异同移动平均线 |
+| `kdj` | 随机指标 |
+| `boll` | 布林带 |
+| `atr` | 平均真实波幅 |
+| `volume_ma` | 成交量均线 |
+
+##### 示例
+
+```bash
+# 计算移动平均线
+quantix analyze indicators -c 000001 -i ma5,ma10,ma20
+
+# 计算多个指标
+quantix analyze indicators -c 000001 -i ma5,ma10,rsi6,rsi12,macd
+
+# 计算布林带
+quantix analyze indicators -c 000001 -i boll
+```
+
+##### 输出
+
+```
+计算技术指标: 000001
+指标: ma5,ma10,ma20
+```
+
+---
+
+#### analyze backtest - 回测报告
+
+##### 用法
+
+```bash
+quantix analyze backtest -i <ID>
+```
+
+##### 参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--id` | `-i` | 回测 ID | 必填 |
+
+##### 示例
+
+```bash
+quantix analyze backtest -i bt_20240101_000001
+```
+
+##### 输出
+
+```
+回测报告: bt_20240101_000001
+```
+
+---
+
+### status - 系统状态
+
+查看系统状态和健康检查。
+
+#### 用法
+
+```bash
+quantix status [--health]
+```
+
+#### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--health` | 检查数据库连接 | false |
+
+#### 示例
+
+```bash
+# 查看系统状态
+quantix status
+
+# 检查数据库连接
+quantix status --health
+```
+
+#### 输出
+
+```
+Quantix CLI 状态:
+  版本: 0.1.0
+  模式: 共享数据库模式
+```
+
+---
+
+## 数据源
+
+Quantix-Rust 支持多种数据源，可根据需要切换使用。
+
+### TDX (通达信)
+
+实时行情数据采集。
+
+```rust
+use quantix_cli::sources::TdxSource;
+
+let source = TdxSource::new("192.168.1.100", 7709);
+let quotes = source.get_quotes(&["000001", "000002"]).await?;
+```
+
+### TDX 文件解析
+
+通达信 day/gbbq 文件解析和复权计算。
+
+```rust
+use quantix_cli::sources::{TdxDayFile, FuquanCalculator};
+
+let day_file = TdxDayFile::new("/path/to/day")?;
+let records = day_file.read_all()?;
+
+let factors = FuquanCalculator::calculate(&records, None)?;
+```
+
+### AkShare
+
+财务数据和历史数据采集。
+
+```rust
+use quantix_cli::sources::AkShareSource;
+
+let source = AkShareSource::new();
+let data = source.get_stock_info("000001").await?;
+```
+
+### EastMoney
+
+实时行情、资金流向、财务数据。
+
+```rust
+use quantix_cli::sources::{EastMoneySource, Board};
+
+let source = EastMoneySource::new();
+let stocks = source.get_stock_list(Board::HS300.as_str()).await?;
+let quotes = source.get_realtime_quotes(&["000001".to_string()]).await?;
+```
+
+### 竞价数据采集
+
+集合竞价数据采集和分析。
+
+```rust
+use quantix_cli::sources::AuctionCollector;
+
+let collector = AuctionCollector::new();
+let quotes = collector.collect_auction_quotes().await?;
+```
+
+### K线聚合器
+
+实时聚合 Tick 数据为 K线。
+
+```rust
+use quantix_cli::sources::{KlineAggregator, KlinePeriod};
+
+let aggregator = KlineAggregator::new();
+// 自动聚合为 1m/5m/15m/30m/60m/1d K线
+```
+
+---
+
+## API 参考
+
+### 核心模块
+
+#### 数据模型 (`src/data/models.rs`)
+
+```rust
+// K线数据
+pub struct Kline {
+    pub code: String,
+    pub date: NaiveDate,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: i64,
+    pub amount: Option<Decimal>,
+    pub adjust_type: AdjustType,
+}
+
+// 复权类型
+pub enum AdjustType {
+    None = 0,
+    QFQ = 1,  // 前复权
+    HFQ = 2,  // 后复权
+}
+
+// GBBQ 除权除息事件
+pub struct GbbqEvent {
+    pub code: String,
+    pub event_date: NaiveDate,
+    pub category: u8,
+    pub dividend: f32,
+    pub bonus_price: f32,
+    pub bonus_share: f32,
+    pub rights_share: f32,
+    pub ex_price: Option<f64>,
+    pub record_date: Option<NaiveDate>,
+}
+```
+
+#### ClickHouse 客户端 (`src/db/clickhouse.rs`)
+
+```rust
+use quantix_cli::db::ClickHouseClient;
+
+// 创建客户端
+let client = ClickHouseClient::new("http://localhost:8123", "quantix").await?;
+
+// 初始化数据库
+client.init_database().await?;
+
+// 查询 K线数据
+let klines = client.get_kline_data("000001", "1d", None, None, Some(100)).await?;
+
+// 批量插入 (优化版本)
+client.insert_kline_data_batch(&klines, "1d").await?;
+
+// 设置批次大小
+let client = client.with_batch_size(500);
+```
+
+#### 回测引擎 (`src/analysis/backtest.rs`)
+
+```rust
+use quantix_cli::analysis::backtest::{BacktestEngine, BacktestConfig};
+
+let config = BacktestConfig {
+    initial_capital: dec!(1000000),
+    commission_rate: dec!(0.0003),
+    slippage_rate: dec!(0.001),
+    ..Default::default()
+};
+
+let mut engine = BacktestEngine::new(config);
+let result = engine.run(&mut strategy, &data).await?;
+```
+
+#### 技术指标 (`src/analysis/indicators.rs`)
+
+```rust
+use quantix_cli::analysis::indicators;
+
+// 移动平均线
+let ma5 = indicators::sma(&data, 5);
+let ema20 = indicators::ema(&data, 20);
+
+// RSI
+let rsi = indicators::rsi(&data, 14);
+
+// MACD
+let macd = indicators::macd(&data, 12, 26, 9);
+
+// 布林带
+let boll = indicators::bollinger_bands(&data, 20, 2.0);
+```
+
+#### 任务调度器 (`src/tasks/scheduler.rs`)
+
+```rust
+use quantix_cli::tasks::{TaskScheduler, TaskTemplates};
+
+let scheduler = TaskScheduler::new().await?;
+
+// 添加预设任务
+scheduler.add_task(TaskTemplates::market_open()).await?;
+scheduler.add_task(TaskTemplates::market_close()).await?;
+
+// 启动调度器
+scheduler.start().await?;
+```
+
+---
+
+## 常见问题
+
+### Q1: 如何连接到已有的 Python quantix 数据库？
+
+确保环境变量正确配置，然后使用 `init` 命令：
+
+```bash
+export POSTGRES_URL="postgresql://localhost:5432/quantix"
+quantix init
+```
+
+### Q2: ClickHouse 批量插入性能如何调整？
+
+使用 `with_batch_size()` 方法调整批次大小：
+
+```rust
+let client = ClickHouseClient::new(...).await?
+    .with_batch_size(5000); // 增大批次
+```
+
+### Q3: 如何添加自定义策略？
+
+1. 在 `src/strategy/` 目录下创建策略文件
+2. 实现 `Strategy` trait
+3. 注册到策略列表
+
+```rust
+use quantix_cli::strategy::Strategy;
+
+#[async_trait]
+impl Strategy for MyStrategy {
+    async fn on_bar(&mut self, bar: &Kline) -> Result<Signal> {
+        // 策略逻辑
+    }
+}
+```
+
+### Q4: 支持哪些技术指标？
+
+完整列表请参考 `src/analysis/indicators.rs`，包括：
+- MA/EMA - 移动平均线
+- RSI - 相对强弱指标
+- MACD - 平滑异同移动平均线
+- KDJ - 随机指标
+- BOLL - 布林带
+- ATR - 平均真实波幅
+
+### Q5: 如何运行单元测试？
+
+```bash
+# 所有测试
+cargo test
+
+# 特定模块
+cargo test sources::tdx_file
+
+# 带输出
+cargo test -- --nocapture
+```
+
+---
+
+## 版本历史
+
+- **v0.1.0** (2024-01) - 初始版本
+  - Phase 1-5: 基础数据采集、竞价分析、K线管理、回测引擎、任务调度
+  - Phase 6: TDX 文件解析与复权
+  - Phase 7: GBBQ 数据存储
+  - Phase 8: 多周期 K线查询
+  - Phase 9: EastMoney 数据采集
+  - Phase 10: ClickHouse 批量导入优化
+
+---
+
+## 许可证
+
+MIT License
+
+## 链接
+
+- [GitHub 仓库](https://github.com/chengjon/quantix-rust)
+- [Python quantix](https://github.com/chengjon/mystocks)
+- [问题反馈](https://github.com/chengjon/quantix-rust/issues)
