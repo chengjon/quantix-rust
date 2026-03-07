@@ -98,6 +98,15 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 新增 insert_stock_quotes_batch 方法
   - 优化的 insert_gbbq_events_batch 和 insert_kline_data_batch
 
+#### Phase 11: WebSocket 实时行情订阅 ✅
+- **WebSocket 客户端** (`src/sources/websocket.rs`)
+  - tokio-tungstenite WebSocket 连接
+  - 连接状态管理 (Disconnected/Connecting/Connected/Reconnecting)
+  - 订阅/取消订阅方法
+  - 心跳保活机制 (可配置间隔)
+  - 自动重连机制 (可配置最大次数)
+  - 使用 tokio::select! 实现并发消息处理
+
 ## 项目结构
 
 ```
