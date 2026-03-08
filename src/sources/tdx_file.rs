@@ -2,9 +2,8 @@
 ///
 /// 从 rustdx 项目迁移 - 支持 day 文件和 gbbq 文件解析
 /// 用于本地通达信数据文件的读取和复权处理
-
 use crate::core::Result;
-use crate::data::models::{Kline, AdjustType};
+use crate::data::models::{AdjustType, Kline};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
@@ -133,13 +132,21 @@ impl TdxDayRecord {
     pub fn to_kline(&self, adjust_type: AdjustType) -> Kline {
         Kline {
             code: self.code_string(),
-            date: self.naive_date().unwrap_or_else(|| {
-                NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()
-            }),
-            open: Decimal::from_f32(self.open).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            high: Decimal::from_f32(self.high).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            low: Decimal::from_f32(self.low).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            close: Decimal::from_f32(self.close).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
+            date: self
+                .naive_date()
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+            open: Decimal::from_f32(self.open)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            high: Decimal::from_f32(self.high)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            low: Decimal::from_f32(self.low)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            close: Decimal::from_f32(self.close)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
             volume: self.volume as i64,
             amount: Decimal::from_f32(self.amount).map(|d| d.round_dp(2)),
             adjust_type,
@@ -153,16 +160,17 @@ pub struct TdxDayFile;
 impl TdxDayFile {
     /// 从文件读取所有日线数据
     pub fn from_file<P: AsRef<Path>>(code: u32, path: P) -> Result<Vec<TdxDayRecord>> {
-        let mut file = File::open(path.as_ref())
-            .map_err(|e| crate::core::QuantixError::DataSource(
-                format!("无法打开文件 {}: {}", path.as_ref().display(), e)
-            ))?;
+        let mut file = File::open(path.as_ref()).map_err(|e| {
+            crate::core::QuantixError::DataSource(format!(
+                "无法打开文件 {}: {}",
+                path.as_ref().display(),
+                e
+            ))
+        })?;
 
         let mut data = Vec::new();
         file.read_to_end(&mut data)
-            .map_err(|e| crate::core::QuantixError::DataSource(
-                format!("读取文件失败: {}", e)
-            ))?;
+            .map_err(|e| crate::core::QuantixError::DataSource(format!("读取文件失败: {}", e)))?;
 
         Ok(data
             .chunks_exact(32)
@@ -171,9 +179,14 @@ impl TdxDayFile {
     }
 
     /// 从文件读取并转换为 Kline
-    pub fn to_klines<P: AsRef<Path>>(code: u32, path: P, adjust_type: AdjustType) -> Result<Vec<Kline>> {
+    pub fn to_klines<P: AsRef<Path>>(
+        code: u32,
+        path: P,
+        adjust_type: AdjustType,
+    ) -> Result<Vec<Kline>> {
         let records = Self::from_file(code, path)?;
-        Ok(records.into_iter()
+        Ok(records
+            .into_iter()
             .map(|r| r.to_kline(adjust_type))
             .collect())
     }
@@ -262,16 +275,17 @@ pub struct TdxGbbqFile;
 impl TdxGbbqFile {
     /// 从文件读取股本变迁数据（已解密）
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Vec<TdxGbbqRecord>> {
-        let mut file = File::open(path.as_ref())
-            .map_err(|e| crate::core::QuantixError::DataSource(
-                format!("无法打开文件 {}: {}", path.as_ref().display(), e)
-            ))?;
+        let mut file = File::open(path.as_ref()).map_err(|e| {
+            crate::core::QuantixError::DataSource(format!(
+                "无法打开文件 {}: {}",
+                path.as_ref().display(),
+                e
+            ))
+        })?;
 
         let mut data = Vec::new();
         file.read_to_end(&mut data)
-            .map_err(|e| crate::core::QuantixError::DataSource(
-                format!("读取文件失败: {}", e)
-            ))?;
+            .map_err(|e| crate::core::QuantixError::DataSource(format!("读取文件失败: {}", e)))?;
 
         // 前 4 字节是记录数量
         let _count = u32_from_le_bytes(&data, 0) as usize;
@@ -285,7 +299,8 @@ impl TdxGbbqFile {
 
     /// 过滤出 A 股除权除息记录 (category = 1)
     pub fn filter_a_stock_dividend(records: &[TdxGbbqRecord]) -> Vec<TdxGbbqRecord> {
-        records.iter()
+        records
+            .iter()
             .filter(|r| {
                 // A股代码: 6xxx, 0xxx, 3xxx
                 let first_char = r.code.chars().next();
@@ -361,10 +376,7 @@ impl FuquanCalculator {
         let mut preclose = days[0].close as f64;
         let mut factor = 1.0;
 
-        let mut gbbq_iter = gbbqs
-            .map(|g| g.iter())
-            .unwrap_or([].iter())
-            .peekable();
+        let mut gbbq_iter = gbbqs.map(|g| g.iter()).unwrap_or([].iter()).peekable();
 
         let mut current_xdxr = gbbq_iter.peek().copied();
 
@@ -376,7 +388,8 @@ impl FuquanCalculator {
             if let Some(xdxr_record) = current_xdxr {
                 if day.date == xdxr_record.date {
                     // 除权日
-                    let [new_preclose, _, _] = xdxr_record.compute_pre_pct(day.close, preclose, true);
+                    let [new_preclose, _, _] =
+                        xdxr_record.compute_pre_pct(day.close, preclose, true);
                     preclose = new_preclose;
                     xdxr = true;
 
@@ -395,7 +408,9 @@ impl FuquanCalculator {
             preclose = close;
 
             factors.push(FuquanFactor {
-                date: day.naive_date().unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+                date: day
+                    .naive_date()
+                    .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
                 factor,
                 preclose: close,
                 close,
@@ -484,15 +499,31 @@ impl TdxDayData {
 
         Self {
             code: record.code_string(),
-            date: record.naive_date().unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
-            open: Decimal::from_f32(record.open).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            high: Decimal::from_f32(record.high).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            low: Decimal::from_f32(record.low).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            close: Decimal::from_f32(record.close).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
+            date: record
+                .naive_date()
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+            open: Decimal::from_f32(record.open)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            high: Decimal::from_f32(record.high)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            low: Decimal::from_f32(record.low)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            close: Decimal::from_f32(record.close)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
             volume: record.volume as i64,
-            amount: Decimal::from_f32(record.amount).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            preclose: Decimal::from_f64(factor.preclose).map(|d| d.round_dp(2)).unwrap_or(Decimal::ZERO),
-            factor: Decimal::from_f64(factor.factor).map(|d| d.round_dp(6)).unwrap_or(Decimal::ONE),
+            amount: Decimal::from_f32(record.amount)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            preclose: Decimal::from_f64(factor.preclose)
+                .map(|d| d.round_dp(2))
+                .unwrap_or(Decimal::ZERO),
+            factor: Decimal::from_f64(factor.factor)
+                .map(|d| d.round_dp(6))
+                .unwrap_or(Decimal::ONE),
             change_pct,
         }
     }
@@ -537,10 +568,9 @@ impl TdxDataImporter {
         code: &str,
         gbbqs: Option<&[TdxGbbqRecord]>,
     ) -> Result<Vec<TdxDayData>> {
-        let code_num = code.parse::<u32>()
-            .map_err(|_| crate::core::QuantixError::DataParse(
-                format!("无效的股票代码: {}", code)
-            ))?;
+        let code_num = code.parse::<u32>().map_err(|_| {
+            crate::core::QuantixError::DataParse(format!("无效的股票代码: {}", code))
+        })?;
 
         let day_path = format!("{}/{}.day", self.data_dir, code);
         let records = TdxDayFile::from_file(code_num, &day_path)?;

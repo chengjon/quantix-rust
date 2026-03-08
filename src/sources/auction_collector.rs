@@ -1,7 +1,6 @@
 /// 竞价数据采集器
 ///
 /// 从短线侠项目迁移，采集集合竞价时段（9:15-9:25）的股票数据
-
 use crate::core::Result;
 use crate::core::trading_calendar::TradingCalendar;
 use chrono::{Datelike, Local, Timelike, Weekday};
@@ -67,9 +66,8 @@ pub struct AuctionCollector {
 impl AuctionCollector {
     /// 创建新的竞价采集器
     pub async fn new() -> Result<Self> {
-        let tcp = Tcp::new().map_err(|e| {
-            crate::core::QuantixError::DataSource(format!("TDX 连接失败: {}", e))
-        })?;
+        let tcp = Tcp::new()
+            .map_err(|e| crate::core::QuantixError::DataSource(format!("TDX 连接失败: {}", e)))?;
 
         let calendar = TradingCalendar::new().await?;
 
@@ -87,16 +85,12 @@ impl AuctionCollector {
 
     /// 使用自定义自选股列表创建
     pub async fn with_watchlist(watchlist: Vec<WatchlistStock>) -> Result<Self> {
-        let tcp = Tcp::new().map_err(|e| {
-            crate::core::QuantixError::DataSource(format!("TDX 连接失败: {}", e))
-        })?;
+        let tcp = Tcp::new()
+            .map_err(|e| crate::core::QuantixError::DataSource(format!("TDX 连接失败: {}", e)))?;
 
         let calendar = TradingCalendar::new().await?;
 
-        info!(
-            "竞价采集器初始化成功，自选股数量: {}",
-            watchlist.len()
-        );
+        info!("竞价采集器初始化成功，自选股数量: {}", watchlist.len());
 
         Ok(Self {
             tcp,
@@ -198,9 +192,9 @@ impl AuctionCollector {
     pub fn fetch_auction_quote(&mut self, stock: &WatchlistStock) -> Result<AuctionQuote> {
         let mut quotes = SecurityQuotes::new(vec![(stock.market, &stock.code)]);
 
-        quotes
-            .recv_parsed(&mut self.tcp)
-            .map_err(|e| crate::core::QuantixError::DataSource(format!("获取竞价数据失败: {}", e)))?;
+        quotes.recv_parsed(&mut self.tcp).map_err(|e| {
+            crate::core::QuantixError::DataSource(format!("获取竞价数据失败: {}", e))
+        })?;
 
         if let Some(quote) = quotes.result().first() {
             let (sealed_buy, sealed_sell) = Self::calculate_sealed_amount(

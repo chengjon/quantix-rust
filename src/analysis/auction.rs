@@ -1,7 +1,6 @@
 /// 竞价分析模块
 ///
 /// 实现抢筹强度评分、封单金额计算、板块统计等功能
-
 use crate::sources::auction_collector::AuctionQuote;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -112,8 +111,8 @@ impl AuctionAnalyzer {
     pub fn new() -> Self {
         Self {
             min_recommend_score: 70.0,
-            min_sealed_amount: 500_000.0,  // 50万元
-            max_change_percent: 8.0,         // 最多涨8%
+            min_sealed_amount: 500_000.0, // 50万元
+            max_change_percent: 8.0,      // 最多涨8%
         }
     }
 
@@ -165,10 +164,7 @@ impl AuctionAnalyzer {
 
     /// 批量分析竞价数据
     pub fn analyze_quotes(&self, quotes: &[AuctionQuote]) -> Vec<AuctionAnalysis> {
-        quotes
-            .iter()
-            .map(|q| self.analyze_quote(q))
-            .collect()
+        quotes.iter().map(|q| self.analyze_quote(q)).collect()
     }
 
     /// 获取推荐买入列表
@@ -199,16 +195,10 @@ impl AuctionAnalyzer {
 
         for (sector_name, sector_quotes) in sector_map {
             let stock_count = sector_quotes.len();
-            let avg_strength_score = sector_quotes
-                .iter()
-                .map(|q| q.strength_score)
-                .sum::<f32>()
+            let avg_strength_score = sector_quotes.iter().map(|q| q.strength_score).sum::<f32>()
                 / stock_count.max(1) as f32;
 
-            let avg_change_percent = sector_quotes
-                .iter()
-                .map(|q| q.change_percent)
-                .sum::<f64>()
+            let avg_change_percent = sector_quotes.iter().map(|q| q.change_percent).sum::<f64>()
                 / stock_count.max(1) as f64;
 
             let total_sealed_buy = sector_quotes.iter().map(|q| q.sealed_amount_buy).sum();
@@ -220,10 +210,8 @@ impl AuctionAnalyzer {
                 .count();
 
             // 转换为拥有的值用于分析
-            let owned_quotes: Vec<AuctionQuote> = sector_quotes
-                .iter()
-                .map(|q| (*q).clone())
-                .collect();
+            let owned_quotes: Vec<AuctionQuote> =
+                sector_quotes.iter().map(|q| (*q).clone()).collect();
 
             let recommended_count = self
                 .analyze_quotes(&owned_quotes)

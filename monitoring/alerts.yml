@@ -1,0 +1,216 @@
+# Prometheus 告警规则
+
+groups:
+  - name: quantix_alerts
+    interval: 30s
+    rules:
+      # 应用层面
+      - alert: ApplicationDown
+        expr: up{job="quantix"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Quantix 应用已下线"
+          description: "{{ $labels.instance }} 应用已下线超过 1 分钟"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="quantix",status=~"5.."}[5m])
+            /
+            rate(http_requests_total{job="quantix"}[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "高错误率检测"
+          description: "{{ $labels.instance }} 5xx 错误率超过 5% (当前: {{ $value | humanizePercentage }})"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="quantix"}[5m])
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "API 响应时间过长"
+          description: "{{ $labels.instance }} P95 响应时间超过 1s (当前: {{ $value }}s)"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          (
+            db_connections_active{job="quantix"}
+            /
+            db_connections_max{job="quantix"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "数据库连接池接近耗尽"
+          description: "{{ $labels.instance }} 连接池使用率超过 90% (当前: {{ $value | humanizePercentage }})"
+
+      # 业务层面
+      - alert: DataCollectionDelay
+        expr: |
+          time() - data_last_collection_timestamp{job="quantix"} > 300
+        for: 5m
+        labels:
+          severity: warning
+          component: data-collection
+        annotations:
+          summary: "数据采集延迟"
+          description: "{{ $labels.datasource }} 最后采集时间超过 5 分钟"
+
+      - alert: StrategySignalAnomaly
+        expr: |
+          rate(strategy_signals_total{job="quantix"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          component: strategy
+        annotations:
+          summary: "策略信号频率异常"
+          description: "{{ $labels.strategy }} 信号频率超过 10/分钟 (当前: {{ $value }}/分钟)"
+
+      - alert: BacktestFailureRate
+        expr: |
+          (
+            rate(backtest_failures_total{job="quantix"}[10m])
+            /
+            rate(backtest_runs_total{job="quantix"}[10m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: backtest
+        annotations:
+          summary: "回测失败率过高"
+          description: "{{ $labels.strategy }} 回测失败率超过 10% (当前: {{ $value | humanizePercentage }})"
+
+      # 资源层面
+      - alert: HighCPUUsage
+        expr: |
+          (
+            1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
+          ) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "CPU 使用率过高"
+          description: "{{ $labels.instance }} CPU 使用率超过 90% (当前: {{ $value | humanizePercentage }})"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+          ) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "内存使用率过高"
+          description: "{{ $labels.instance }} 内存使用率超过 90% (当前: {{ $value | humanizePercentage }})"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "磁盘空间不足"
+          description: "{{ $labels.instance }} 磁盘剩余空间少于 10% (当前: {{ $value | humanizePercentage }})"
+
+      - alert: HighContainerRestartRate
+        expr: |
+          rate(kube_pod_container_status_restarts_total{namespace="quantix"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kubernetes
+        annotations:
+          summary: "容器频繁重启"
+          description: "{{ $labels.pod }} 容器 {{ $labels.container }} 在过去 15 分钟内重启 {{ $value }} 次"
+
+  - name: database_alerts
+    interval: 1m
+    rules:
+      # PostgreSQL
+      - alert: PostgreSQLDown
+        expr: pg_up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgres
+        annotations:
+          summary: "PostgreSQL 数据库已下线"
+          description: "{{ $labels.instance }} PostgreSQL 已下线"
+
+      - alert: PostgreSQLSlowQueries
+        expr: |
+          rate(pg_stat_database_calls_total{datname="quantix",query="slow"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: postgres
+        annotations:
+          summary: "PostgreSQL 慢查询过多"
+          description: "{{ $labels.datname }} 慢查询率超过 10/分钟"
+
+      - alert: PostgreSQLConnectionPoolExhausted
+        expr: |
+          (
+            pg_stat_activity_count{datname="quantix"}
+            /
+            pg_settings_max_connections
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: postgres
+        annotations:
+          summary: "PostgreSQL 连接数接近上限"
+          description: "{{ $labels.datname }} 连接数超过 90%"
+
+      # ClickHouse
+      - alert: ClickHouseDown
+        expr: clickhouse_up{job="clickhouse"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse 数据库已下线"
+          description: "{{ $labels.instance }} ClickHouse 已下线"
+
+      - alert: ClickHouseHighMemoryUsage
+        expr: |
+          (
+            clickhouse_memory_usage{job="clickhouse"}
+            /
+            clickhouse_memory_total{job="clickhouse"}
+          ) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse 内存使用率过高"
+          description: "{{ $labels.instance }} 内存使用率超过 90%"

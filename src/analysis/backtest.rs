@@ -1,11 +1,12 @@
 /// 回测引擎
 ///
 /// 从短线侠项目迁移 - 基于历史数据的策略回测
-
-use crate::analysis::performance::{PerformanceCalculator, PerformanceReport, TradeRecord, TradeSide};
+use crate::analysis::performance::{
+    PerformanceCalculator, PerformanceReport, TradeRecord, TradeSide,
+};
 use crate::analysis::portfolio::{Portfolio, Position};
 use crate::core::Result;
-use crate::data::models::{Kline, AdjustType};
+use crate::data::models::{AdjustType, Kline};
 use crate::strategy::trait_def::Strategy;
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
@@ -39,11 +40,11 @@ impl Default for BacktestConfig {
     fn default() -> Self {
         Self {
             initial_capital: dec!(1000000),
-            commission_rate: dec!(0.0003),  // 万分之三
-            slippage_bps: 2,                  // 2bp 滑点
+            commission_rate: dec!(0.0003), // 万分之三
+            slippage_bps: 2,               // 2bp 滑点
             max_positions: 5,
-            max_position_ratio: dec!(0.2),   // 单股最多20%
-            risk_free_rate: dec!(0.03),      // 3%
+            max_position_ratio: dec!(0.2), // 单股最多20%
+            risk_free_rate: dec!(0.03),    // 3%
         }
     }
 }
@@ -134,7 +135,10 @@ impl BacktestEngine {
         info!("开始回测...");
 
         // 初始化策略
-        strategy.init().await.map_err(|e| crate::core::QuantixError::Other(e.to_string()))?;
+        strategy
+            .init()
+            .await
+            .map_err(|e| crate::core::QuantixError::Other(e.to_string()))?;
 
         // 获取所有交易日
         let all_dates = self.extract_all_dates(data);
@@ -159,7 +163,10 @@ impl BacktestEngine {
         }
 
         // 结束策略
-        strategy.finish().await.map_err(|e| crate::core::QuantixError::Other(e.to_string()))?;
+        strategy
+            .finish()
+            .await
+            .map_err(|e| crate::core::QuantixError::Other(e.to_string()))?;
 
         // 生成报告
         let report = self.calculator.calculate();
@@ -249,39 +256,46 @@ impl BacktestEngine {
     }
 
     /// 成交订单
-    fn execute_orders(&mut self, data: &HashMap<String, Vec<Kline>>, date: NaiveDate) -> Result<()> {
+    fn execute_orders(
+        &mut self,
+        data: &HashMap<String, Vec<Kline>>,
+        date: NaiveDate,
+    ) -> Result<()> {
         let mut executed = Vec::new();
 
         for (i, order) in self.pending_orders.iter().enumerate() {
-            let kline = data.get(&order.code).and_then(|klines| {
-                klines.iter().find(|k| k.date == date)
-            });
+            let kline = data
+                .get(&order.code)
+                .and_then(|klines| klines.iter().find(|k| k.date == date));
 
             if let Some(kline) = kline {
                 let price = self.apply_slippage(kline.close, order.order_type);
 
                 match order.order_type {
                     OrderType::Buy => {
-                        if let Ok((order_id, commission)) = self.portfolio.buy(
-                            order.code.clone(),
-                            order.quantity,
-                            price,
-                            date,
-                        ) {
+                        if let Ok((order_id, commission)) =
+                            self.portfolio
+                                .buy(order.code.clone(), order.quantity, price, date)
+                        {
                             // 记录开仓信息
-                            self.position_info.insert(order.code.clone(), PositionInfo {
-                                code: order.code.clone(),
-                                open_date: date,
-                                open_price: price,
-                                quantity: order.quantity,
-                            });
+                            self.position_info.insert(
+                                order.code.clone(),
+                                PositionInfo {
+                                    code: order.code.clone(),
+                                    open_date: date,
+                                    open_price: price,
+                                    quantity: order.quantity,
+                                },
+                            );
 
                             debug!("买入: {} @ {}, 手续费: {}", order.code, price, commission);
                             executed.push(i);
                         }
                     }
                     OrderType::Sell => {
-                        if let Ok((order_id, commission, pnl)) = self.portfolio.sell(&order.code, order.quantity, price) {
+                        if let Ok((order_id, commission, pnl)) =
+                            self.portfolio.sell(&order.code, order.quantity, price)
+                        {
                             // 记录交易
                             if let Some(info) = self.position_info.remove(&order.code) {
                                 let trade = TradeRecord {
@@ -303,7 +317,10 @@ impl BacktestEngine {
                                 self.calculator.add_trade(trade);
                             }
 
-                            debug!("卖出: {} @ {}, 盈亏: {}, 手续费: {}", order.code, price, pnl, commission);
+                            debug!(
+                                "卖出: {} @ {}, 盈亏: {}, 手续费: {}",
+                                order.code, price, pnl, commission
+                            );
                             executed.push(i);
                         }
                     }
@@ -331,7 +348,8 @@ impl BacktestEngine {
 
     /// 更新权益
     fn update_equity(&mut self, date: NaiveDate) {
-        self.calculator.add_equity_point(date, self.portfolio.total_value);
+        self.calculator
+            .add_equity_point(date, self.portfolio.total_value);
     }
 
     /// 获取当前投资组合快照
@@ -342,8 +360,8 @@ impl BacktestEngine {
 
 #[cfg(test)]
 mod tests {
-    use rust_decimal_macros::dec;
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_backtest_config_default() {

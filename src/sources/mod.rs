@@ -1,27 +1,27 @@
+pub mod akshare;
+pub mod auction_collector;
+pub mod eastmoney;
+pub mod kline_aggregator;
+pub mod quote_collector;
 /// 数据源适配器
 ///
 /// 统一数据源接口，支持多数据源切换
-
 pub mod tdx;
 pub mod tdx_file;
-pub mod akshare;
-pub mod quote_collector;
-pub mod auction_collector;
-pub mod kline_aggregator;
-pub mod eastmoney;
 pub mod websocket;
 
-pub use tdx::{TdxSource, StockQuote};
-pub use tdx_file::{
-    TdxDayRecord, TdxDayFile, TdxGbbqRecord, TdxGbbqFile,
-    FuquanFactor, FuquanCalculator, FuquanType, TdxDayData, TdxDataImporter,
-};
 pub use akshare::AkShareSource;
-pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};
-pub use kline_aggregator::{KlineAggregator, KlineData, KlineWindow, KlinePeriod};
-pub use eastmoney::{EastMoneySource, StockInfo as EastMoneyStockInfo, Quote, MoneyFlowData, FinancialData, Board};
+pub use eastmoney::{
+    Board, EastMoneySource, FinancialData, MoneyFlowData, Quote, StockInfo as EastMoneyStockInfo,
+};
+pub use kline_aggregator::{KlineAggregator, KlineData, KlinePeriod, KlineWindow};
+pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
+pub use tdx::{StockQuote, TdxSource};
+pub use tdx_file::{
+    FuquanCalculator, FuquanFactor, FuquanType, TdxDataImporter, TdxDayData, TdxDayFile,
+    TdxDayRecord, TdxGbbqFile, TdxGbbqRecord,
+};
 pub use websocket::{
-    WebSocketClient, RealtimeQuote, ConnectionState, Subscription,
-    WebSocketConfig,
+    ConnectionState, RealtimeQuote, Subscription, WebSocketClient, WebSocketConfig,
 };

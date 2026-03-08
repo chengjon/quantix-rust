@@ -2,13 +2,12 @@
 ///
 /// 实现 Python quantix ↔ quantix-rust 数据同步
 /// 方向：PostgreSQL/TDengine → ClickHouse
-
 use crate::core::Result;
 use crate::db::clickhouse::{ClickHouseClient, KlineDataCH};
 use crate::sources::kline_aggregator::KlineData;
 use chrono::{DateTime, Utc};
-use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
 /// 同步配置
@@ -33,8 +32,7 @@ impl Default for SyncConfig {
                 .unwrap_or_else(|_| "postgresql://localhost:5432/quantix".to_string()),
             clickhouse_url: std::env::var("CLICKHOUSE_URL")
                 .unwrap_or_else(|_| "http://localhost:8123".to_string()),
-            clickhouse_db: std::env::var("CLICKHOUSE_DB")
-                .unwrap_or_else(|_| "quantix".to_string()),
+            clickhouse_db: std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string()),
             batch_size: 1000,
             sync_interval: 300, // 5分钟
         }
@@ -65,7 +63,8 @@ pub struct DataSync {
 impl DataSync {
     /// 创建新的同步器
     pub async fn new(config: SyncConfig) -> Result<Self> {
-        let clickhouse_client = ClickHouseClient::new(&config.clickhouse_url, &config.clickhouse_db).await?;
+        let clickhouse_client =
+            ClickHouseClient::new(&config.clickhouse_url, &config.clickhouse_db).await?;
 
         info!("数据同步器初始化完成");
 
@@ -127,8 +126,7 @@ impl DataSync {
 
         info!(
             "日线数据同步完成：{} 条记录，耗时 {} 秒",
-            records_synced,
-            elapsed
+            records_synced, elapsed
         );
 
         Ok(stats)
@@ -166,8 +164,7 @@ impl DataSync {
 
         info!(
             "分钟线数据同步完成：{} 条记录，耗时 {} 秒",
-            records_synced,
-            elapsed
+            records_synced, elapsed
         );
 
         Ok(stats)
@@ -183,9 +180,12 @@ impl DataSync {
 
         // 准备插入数据
         for chunk in klines.chunks(self.config.batch_size) {
-            let mut insert = client
-                .insert("kline_data")
-                .map_err(|e| crate::core::QuantixError::DatabaseConnection(format!("ClickHouse insert error: {:?}", e)))?;
+            let mut insert = client.insert("kline_data").map_err(|e| {
+                crate::core::QuantixError::DatabaseConnection(format!(
+                    "ClickHouse insert error: {:?}",
+                    e
+                ))
+            })?;
 
             for kline in chunk {
                 let kline_ch = KlineDataCH {
@@ -203,16 +203,20 @@ impl DataSync {
                     source: kline.source.clone(),
                 };
 
-                insert
-                    .write(&kline_ch)
-                    .await
-                    .map_err(|e| crate::core::QuantixError::DatabaseConnection(format!("ClickHouse write error: {:?}", e)))?;
+                insert.write(&kline_ch).await.map_err(|e| {
+                    crate::core::QuantixError::DatabaseConnection(format!(
+                        "ClickHouse write error: {:?}",
+                        e
+                    ))
+                })?;
             }
 
-            insert
-                .end()
-                .await
-                .map_err(|e| crate::core::QuantixError::DatabaseConnection(format!("ClickHouse end error: {:?}", e)))?;
+            insert.end().await.map_err(|e| {
+                crate::core::QuantixError::DatabaseConnection(format!(
+                    "ClickHouse end error: {:?}",
+                    e
+                ))
+            })?;
 
             debug!("ClickHouse 写入完成：{} 条记录", chunk.len());
         }
@@ -249,7 +253,7 @@ impl DataSync {
 impl Default for DataSync {
     fn default() -> Self {
         Self {
-            config: unsafe { std::mem::zeroed() }, // Placeholder
+            config: unsafe { std::mem::zeroed() },            // Placeholder
             clickhouse_client: unsafe { std::mem::zeroed() }, // Placeholder
         }
     }

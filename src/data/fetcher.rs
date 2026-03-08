@@ -1,7 +1,6 @@
 /// 数据获取器
 ///
 /// 统一数据获取接口
-
 use async_trait::async_trait;
 
 use crate::core::Result;

@@ -6,17 +6,16 @@
 ///   - cargo run -- init          # 初始化配置
 ///   - cargo run -- data query   # 查询数据
 ///   - cargo run -- menu         # 交互菜单
-
 use clap::Parser;
 
+mod analysis;
 mod cli;
 mod core;
-mod db;
 mod data;
+mod db;
 mod sources;
-mod analysis;
-mod sync;
 mod strategy;
+mod sync;
 mod tasks;
 mod tui;
 
@@ -27,7 +26,7 @@ async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "quantix_cli=info,sqlx=warn".to_string())
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "quantix_cli=info,sqlx=warn".to_string()),
         )
         .init();
 

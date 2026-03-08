@@ -2,7 +2,6 @@
 ///
 /// 定义 K线、行情、交易等核心数据结构
 /// 与 Python quantix 项目保持一致
-
 use chrono::{NaiveDate, NaiveDateTime};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -25,8 +24,8 @@ pub struct Kline {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum AdjustType {
     None = 0,
-    QFQ = 1,  // 前复权
-    HFQ = 2,  // 后复权
+    QFQ = 1, // 前复权
+    HFQ = 2, // 后复权
 }
 
 /// Tick 数据
@@ -61,9 +60,9 @@ pub struct StockInfo {
 /// 市场类型
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Market {
-    SH,  // 上海
-    SZ,  // 深圳
-    BJ,  // 北京
+    SH, // 上海
+    SZ, // 深圳
+    BJ, // 北京
 }
 
 /// 股本变迁事件 (除权除息)

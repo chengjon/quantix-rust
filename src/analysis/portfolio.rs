@@ -1,7 +1,6 @@
 /// 投资组合管理
 ///
 /// 从短线侠项目迁移 - 持仓管理、资金计算
-
 use chrono::{NaiveDate, NaiveDateTime};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
@@ -47,13 +46,15 @@ impl Position {
         self.market_value = Decimal::from(self.quantity) * price;
         self.pnl = self.market_value - (Decimal::from(self.quantity) * self.avg_cost);
         if self.avg_cost > Decimal::ZERO {
-            self.pnl_percent = (self.pnl / (Decimal::from(self.quantity) * self.avg_cost)) * Decimal::from(100);
+            self.pnl_percent =
+                (self.pnl / (Decimal::from(self.quantity) * self.avg_cost)) * Decimal::from(100);
         }
     }
 
     /// 加仓
     pub fn add(&mut self, quantity: i64, price: Decimal) {
-        let total_cost = (Decimal::from(self.quantity) * self.avg_cost) + (Decimal::from(quantity) * price);
+        let total_cost =
+            (Decimal::from(self.quantity) * self.avg_cost) + (Decimal::from(quantity) * price);
         self.quantity += quantity;
         self.avg_cost = total_cost / Decimal::from(self.quantity);
         self.update_price(price);
@@ -193,7 +194,13 @@ impl Portfolio {
     }
 
     /// 买入股票
-    pub fn buy(&mut self, code: String, quantity: i64, price: Decimal, date: NaiveDate) -> Result<(String, Decimal), String> {
+    pub fn buy(
+        &mut self,
+        code: String,
+        quantity: i64,
+        price: Decimal,
+        date: NaiveDate,
+    ) -> Result<(String, Decimal), String> {
         let amount = Decimal::from(quantity) * price;
         let commission = amount * self.commission_rate;
         let total_cost = amount + commission;
@@ -218,10 +225,18 @@ impl Portfolio {
     }
 
     /// 卖出股票
-    pub fn sell(&mut self, code: &str, quantity: i64, price: Decimal) -> Result<(String, Decimal, Decimal), String> {
+    pub fn sell(
+        &mut self,
+        code: &str,
+        quantity: i64,
+        price: Decimal,
+    ) -> Result<(String, Decimal, Decimal), String> {
         if let Some(position) = self.positions.get_mut(code) {
             if position.quantity < quantity {
-                return Err(format!("持仓不足: 持有 {}, 想卖 {}", position.quantity, quantity));
+                return Err(format!(
+                    "持仓不足: 持有 {}, 想卖 {}",
+                    position.quantity, quantity
+                ));
             }
 
             let amount = Decimal::from(quantity) * price;
@@ -245,9 +260,7 @@ impl Portfolio {
 
     /// 重新计算总资产
     fn recalculate_total_value(&mut self) {
-        let positions_value: Decimal = self.positions.values()
-            .map(|p| p.market_value)
-            .sum();
+        let positions_value: Decimal = self.positions.values().map(|p| p.market_value).sum();
 
         self.total_value = self.cash + positions_value;
         self.total_pnl = self.total_value - self.initial_capital;
@@ -275,8 +288,8 @@ impl Portfolio {
 
 #[cfg(test)]
 mod tests {
-    use rust_decimal_macros::dec;
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_position_new() {
@@ -322,7 +335,9 @@ mod tests {
         let mut portfolio = Portfolio::new(dec!(100000), dec!(0.0003));
 
         let date = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
-        portfolio.buy("000001".to_string(), 1000, dec!(10.0), date).unwrap();
+        portfolio
+            .buy("000001".to_string(), 1000, dec!(10.0), date)
+            .unwrap();
 
         let result = portfolio.sell("000001", 500, dec!(11.0));
         assert!(result.is_ok());

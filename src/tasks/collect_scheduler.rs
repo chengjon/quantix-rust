@@ -1,11 +1,10 @@
+use crate::core::Result;
 /// 智能采集调度器
 ///
 /// 从短线侠项目迁移，根据交易时段动态调整采集频率
-
 use crate::core::trading_calendar::{TradingCalendar, TradingSession};
-use crate::core::Result;
-use crate::sources::tdx::StockQuote;
 use crate::sources::quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
+use crate::sources::tdx::StockQuote;
 use chrono::{DateTime, Duration, Timelike, Utc};
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
@@ -107,10 +106,7 @@ impl CollectScheduler {
     }
 
     /// 使用自定义配置创建调度器
-    pub async fn with_config(
-        collector: QuoteCollector,
-        config: SchedulerConfig,
-    ) -> Result<Self> {
+    pub async fn with_config(collector: QuoteCollector, config: SchedulerConfig) -> Result<Self> {
         let calendar = TradingCalendar::new().await?;
 
         info!("智能采集调度器初始化完成（自定义配置）");
@@ -159,8 +155,7 @@ impl CollectScheduler {
 
         debug!(
             "当前交易状态: is_trading_day={}, session={:?}",
-            status.is_trading_day,
-            status.current_session
+            status.is_trading_day, status.current_session
         );
 
         // 如果不是交易日，返回 Inactive 状态
@@ -178,24 +173,15 @@ impl CollectScheduler {
         let (state, interval) = match status.current_session {
             TradingSession::Morning => {
                 info!("上午交易时段 - 调度器活跃");
-                (
-                    SchedulerState::Active,
-                    self.config.active_check_interval,
-                )
+                (SchedulerState::Active, self.config.active_check_interval)
             }
             TradingSession::Afternoon => {
                 info!("下午交易时段 - 调度器活跃");
-                (
-                    SchedulerState::Active,
-                    self.config.active_check_interval,
-                )
+                (SchedulerState::Active, self.config.active_check_interval)
             }
             TradingSession::Auction => {
                 info!("竞价时段 - 调度器活跃");
-                (
-                    SchedulerState::Active,
-                    self.config.auction_check_interval,
-                )
+                (SchedulerState::Active, self.config.auction_check_interval)
             }
             TradingSession::Closed => {
                 // 判断是否在盘前或盘后时段

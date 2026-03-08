@@ -1,0 +1,108 @@
+// quantix-rust Zellij 配置
+// 开发环境多窗口布局
+
+// 主题设置
+theme "catppuccin-mocha"
+
+// 默认布局 - 开发环境
+default_layout "quantix-dev" (cwd: "/opt/claude/quantix-rust") {
+    tab name="Main" {
+        pane size=2 split_direction="Vertical" {
+            pane name="Code" {
+                command "nvim" { args "src/main.rs" }
+            }
+            pane split_direction="Horizontal" {
+                pane name="Terminal" {
+                    command "zsh"
+                }
+                pane name="Test" {
+                    command "zsh" {
+                        args "-c" "clear && echo 'Ready for testing...'"
+                    }
+                }
+            }
+        }
+        pane size=1 split_direction="Vertical" {
+            pane name="Logs" {
+                command "tail" { args "-f" "target/quantix.log" }
+            }
+        }
+    }
+
+    tab name="Data Services" {
+        pane name="Collector" {
+            command "zsh" {
+                args "-c" "clear && echo 'Data Collector (press Ctrl+C to start)' && read && cargo run -- task start"
+            }
+        }
+        pane name="Database" {
+            command "zsh" {
+                args "-c" "clear && echo 'ClickHouse Monitor' && watch -n 1 'clickhouse-client --query \"SELECT count() FROM kline_data\"'"
+            }
+        }
+    }
+
+    tab name="Testing" {
+        pane name="Unit Tests" {
+            command "cargo" { args "test" "--lib" "--all-features" }
+        }
+    }
+
+    tab name="Monitoring" {
+        pane split_direction="Horizontal" {
+            pane name="System" {
+                command "htop"
+            }
+            pane name="Processes" {
+                command "zsh" {
+                    args "-c" "watch -n 1 'ps aux | grep quantix | grep -v grep'"
+                }
+            }
+        }
+    }
+}
+
+// 快捷键配置
+keybinds {
+    shared_except "normal" "locked" {
+        // 窗格操作
+        bind "Ctrl p" { NewPane; SwitchToMode "Normal"; }
+        bind "Ctrl w" { NewPane; SwitchToMode "Normal"; }
+        bind "Ctrl q" { ClosePane; }
+
+        // 窗格导航
+        bind "Ctrl h" { MoveFocusOrTab "Left"; }
+        bind "Ctrl l" { MoveFocusOrTab "Right"; }
+        bind "Ctrl k" { MoveFocus "Up"; }
+        bind "Ctrl j" { MoveFocus "Down"; }
+
+        // 标签页操作
+        bind "Ctrl t" { NewTab; SwitchToMode "Normal"; }
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+
+        // 滚动
+        bind "Alt u" { ScrollUp; }
+        bind "Alt d" { ScrollDown; }
+
+        // 搜索
+        bind "Ctrl s" { SwitchToMode "Search"; }
+    }
+
+    search {
+        bind "Ctrl c" { SwitchToMode "Normal"; }
+        bind "Esc" { SwitchToMode "Normal"; }
+    }
+}
+
+// 插件配置
+plugins {
+    tab-bar {
+        location "top"
+    }
+    status-bar {
+        location "bottom"
+    }
+}

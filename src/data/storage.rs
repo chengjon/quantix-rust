@@ -1,7 +1,6 @@
 /// 数据存储
 ///
 /// 统一数据存储接口
-
 use crate::core::Result;
 use crate::data::models::Kline;
 

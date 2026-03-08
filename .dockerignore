@@ -1,0 +1,85 @@
+# Docker 构建忽略文件
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+
+# 文档
+docs
+*.md
+!README.md
+
+# 测试
+tests
+benches
+*.test
+
+# 目标目录
+target
+**/*.rs.bk
+*.pdb
+
+# IDE 和编辑器
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python 相关（如果有）
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+.coverage
+htmlcov
+*.egg-info/
+
+# Node 相关（如果有）
+node_modules
+npm-debug.log
+yarn-error.log
+
+# 本地环境文件
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+logs
+*.log
+
+# 数据文件
+data
+*.db
+*.sqlite
+
+# 临时文件
+tmp
+temp
+*.tmp
+
+# 备份文件
+*.bak
+*.backup
+
+# 操作系统
+Thumbs.db
+.DS_Store
+
+# 构建产物
+dist
+build
+*.o
+*.so
+*.dylib
+*.dll
+
+# 性能分析
+flamegraph.svg
+perf.data

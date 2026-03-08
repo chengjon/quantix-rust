@@ -1,0 +1,43 @@
+// quantix-rust 开发工作区布局
+// 启动命令: zellij --layout-path config/zellij/layouts/dev.kdl
+
+layout {
+    // 标签栏
+    pane size=1 borderless=true {
+        plugin location="zellij:tab-bar"
+    }
+
+    // 主内容区域 - 4 窗格开发布局
+    pane split_direction="horizontal" {
+        // 左侧: 代码编辑 (60%)
+        pane size="60%" {
+            command "vim"
+        }
+
+        // 右侧: 上下分割 (40%)
+        pane split_direction="vertical" {
+            // 右上: 构建和测试
+            pane size="33%" {
+                command "cargo"
+                args "watch" "-x" "test"
+            }
+
+            // 右中: 代码检查
+            pane size="33%" {
+                command "cargo"
+                args "watch" "-x" "clippy"
+            }
+
+            // 右下: Git 状态
+            pane size="34%" {
+                command "watch"
+                args "-n" "5" "git" "status" "--short"
+            }
+        }
+    }
+
+    // 状态栏
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+}

@@ -1,0 +1,38 @@
+// quantix-rust 主工作区布局
+// 启动命令: zellij --layout-path config/zellij/layouts/main.kdl
+
+layout {
+    // 标签栏
+    pane size=1 borderless=true {
+        plugin location="zellij:tab-bar"
+    }
+
+    // 主内容区域
+    pane split_direction="vertical" {
+        // 左侧: 主 CLI 界面 (60%)
+        pane size="60%" {
+            command "quantix"
+            args "menu"
+        }
+
+        // 右侧: 上下分割
+        pane split_direction="horizontal" {
+            // 上: 实时状态监控 (50%)
+            pane size="50%" {
+                command "watch"
+                args "-n" "5" "quantix" "status" "--json"
+            }
+
+            // 下: 系统日志 (50%)
+            pane {
+                command "quantix"
+                args "logs" "--follow"
+            }
+        }
+    }
+
+    // 状态栏
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+}

@@ -1,7 +1,6 @@
 /// 技术指标计算
 ///
 /// MA, EMA, MACD, RSI, KDJ, BOLL, ATR, OBV, CCI, WR 等
-
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 
@@ -139,8 +138,10 @@ pub fn rsi(data: &[Decimal], period: usize) -> Vec<Option<Decimal>> {
 
     // 平滑计算后续 RSI
     for i in (period + 1)..data.len() {
-        avg_gain = (avg_gain * Decimal::from(period as i64 - 1) + gains[i]) / Decimal::from(period as i64);
-        avg_loss = (avg_loss * Decimal::from(period as i64 - 1) + losses[i]) / Decimal::from(period as i64);
+        avg_gain =
+            (avg_gain * Decimal::from(period as i64 - 1) + gains[i]) / Decimal::from(period as i64);
+        avg_loss = (avg_loss * Decimal::from(period as i64 - 1) + losses[i])
+            / Decimal::from(period as i64);
 
         if avg_loss == Decimal::ZERO {
             result[i] = Some(Decimal::from(100));
@@ -165,12 +166,7 @@ pub struct Macd {
 }
 
 /// MACD 指标
-pub fn macd(
-    data: &[Decimal],
-    fast: usize,
-    slow: usize,
-    signal: usize,
-) -> Vec<Option<Macd>> {
+pub fn macd(data: &[Decimal], fast: usize, slow: usize, signal: usize) -> Vec<Option<Macd>> {
     let mut result = vec![None; data.len()];
 
     if data.len() < slow {
@@ -196,7 +192,10 @@ pub fn macd(
 
     // 计算 MACD
     for i in 0..data.len() {
-        if let (Some(dif), Some(dea)) = (ema_fast[i].and_then(|f| ema_slow[i].map(|s| f - s)), ema_dif[i]) {
+        if let (Some(dif), Some(dea)) = (
+            ema_fast[i].and_then(|f| ema_slow[i].map(|s| f - s)),
+            ema_dif[i],
+        ) {
             result[i] = Some(Macd {
                 dif,
                 dea,
@@ -248,8 +247,14 @@ pub fn kdj(
         let window_high = &high[start..end];
         let window_low = &low[start..end];
 
-        let highest = *window_high.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        let lowest = *window_low.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let highest = *window_high
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        let lowest = *window_low
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
 
         let rsv = if highest != lowest {
             (close[i] - lowest) / (highest - lowest) * Decimal::from(100)
@@ -308,9 +313,11 @@ pub fn bollinger_bands(
         let mean = sum / Decimal::from(period as i64);
 
         // 计算标准差
-        let variance = window.iter()
+        let variance = window
+            .iter()
             .map(|x| (*x - mean) * (*x - mean))
-            .sum::<Decimal>() / Decimal::from(period as i64);
+            .sum::<Decimal>()
+            / Decimal::from(period as i64);
 
         // 使用 sqrt 近似 (实际项目中应该用精确的 sqrt)
         let std = sqrt_approx(variance);
@@ -362,7 +369,8 @@ pub fn atr(
     result[period] = Some(atr_val);
 
     for i in (period + 1)..high.len() {
-        atr_val = (atr_val * Decimal::from(period as i64 - 1) + tr_values[i]) / Decimal::from(period as i64);
+        atr_val = (atr_val * Decimal::from(period as i64 - 1) + tr_values[i])
+            / Decimal::from(period as i64);
         result[i] = Some(atr_val);
     }
 
@@ -473,8 +481,14 @@ pub fn williams_r(
         let window_high = &high[start..end];
         let window_low = &low[start..end];
 
-        let highest = *window_high.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        let lowest = *window_low.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let highest = *window_high
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        let lowest = *window_low
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
 
         let wr_val = if highest != lowest {
             (highest - close[i]) / (highest - lowest) * Decimal::from(-100)
@@ -540,9 +554,20 @@ mod tests {
     #[test]
     fn test_rsi() {
         let data = vec![
-            dec!(10), dec!(12), dec!(11), dec!(13), dec!(15),
-            dec!(14), dec!(16), dec!(15), dec!(17), dec!(19),
-            dec!(18), dec!(20), dec!(19), dec!(21),
+            dec!(10),
+            dec!(12),
+            dec!(11),
+            dec!(13),
+            dec!(15),
+            dec!(14),
+            dec!(16),
+            dec!(15),
+            dec!(17),
+            dec!(19),
+            dec!(18),
+            dec!(20),
+            dec!(19),
+            dec!(21),
         ];
         let result = rsi(&data, 6);
 
@@ -615,11 +640,11 @@ mod tests {
 
         let result = obv(&close, &volume);
 
-        assert_eq!(result[0], Some(1000));  // 初始值
-        assert_eq!(result[1], Some(3000));  // 10→11 上涨: 1000 + 2000 = 3000
-        assert_eq!(result[2], Some(1500));  // 11→10 下跌: 3000 - 1500 = 1500
-        assert_eq!(result[3], Some(4500));  // 10→12 上涨: 1500 + 3000 = 4500
-        assert_eq!(result[4], Some(2000));  // 12→11 下跌: 4500 - 2500 = 2000
+        assert_eq!(result[0], Some(1000)); // 初始值
+        assert_eq!(result[1], Some(3000)); // 10→11 上涨: 1000 + 2000 = 3000
+        assert_eq!(result[2], Some(1500)); // 11→10 下跌: 3000 - 1500 = 1500
+        assert_eq!(result[3], Some(4500)); // 10→12 上涨: 1500 + 3000 = 4500
+        assert_eq!(result[4], Some(2000)); // 12→11 下跌: 4500 - 2500 = 2000
     }
 
     #[test]

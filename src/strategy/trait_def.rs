@@ -1,8 +1,8 @@
 /// 策略 trait 定义
 ///
 /// 所有策略实现统一的 Strategy 接口
-
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 use crate::data::models::Kline;
 
@@ -29,7 +29,7 @@ pub trait Strategy: Send + Sync {
 }
 
 /// 交易信号
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Signal {
     Buy,
     Sell,

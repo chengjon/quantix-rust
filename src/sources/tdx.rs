@@ -2,7 +2,6 @@
 ///
 /// 从短线侠项目迁移，使用 rustdx-complete 连接通达信服务器
 /// 支持实时行情采集
-
 use crate::core::Result;
 use crate::data::models::{Kline, StockInfo};
 use async_trait::async_trait;
@@ -122,7 +121,8 @@ impl TdxSource {
                     // 至少需要一个连接
                     if tcp_pool.is_empty() {
                         return Err(crate::core::QuantixError::DataSource(format!(
-                            "无法创建任何 TCP 连接: {}", e
+                            "无法创建任何 TCP 连接: {}",
+                            e
                         )));
                     }
                 }
@@ -135,10 +135,7 @@ impl TdxSource {
             ));
         }
 
-        info!(
-            "TDX 数据源初始化成功：{} 个 TCP 连接",
-            tcp_pool.len()
-        );
+        info!("TDX 数据源初始化成功：{} 个 TCP 连接", tcp_pool.len());
 
         Ok(Self {
             tcp_pool,
@@ -172,10 +169,7 @@ impl TdxSource {
     ///
     /// ## 返回
     /// 返回采集到的行情数据列表
-    pub async fn fetch_quotes_batch(
-        &self,
-        codes: &[(u16, &str)],
-    ) -> Result<Vec<StockQuote>> {
+    pub async fn fetch_quotes_batch(&self, codes: &[(u16, &str)]) -> Result<Vec<StockQuote>> {
         if codes.is_empty() {
             return Ok(Vec::new());
         }
@@ -183,36 +177,30 @@ impl TdxSource {
         debug!("开始采集 {} 只股票的实时行情", codes.len());
 
         // 转换为 Owned String 以避免生命周期问题
-        let codes_owned: Vec<(u16, String)> = codes
-            .iter()
-            .map(|(m, c)| (*m, c.to_string()))
-            .collect();
+        let codes_owned: Vec<(u16, String)> =
+            codes.iter().map(|(m, c)| (*m, c.to_string())).collect();
 
         // 从连接池获取连接
         let tcp = self.get_connection();
 
         // 使用 spawn_blocking 执行阻塞的 TDX I/O
-        let handle: JoinHandle<
-            Result<Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)>>,
-        > = tokio::task::spawn_blocking(move || {
-            // 转换为引用
-            let codes_ref: Vec<(u16, &str)> = codes_owned
-                .iter()
-                .map(|(m, c)| (*m, c.as_str()))
-                .collect();
+        let handle: JoinHandle<Result<Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)>>> =
+            tokio::task::spawn_blocking(move || {
+                // 转换为引用
+                let codes_ref: Vec<(u16, &str)> =
+                    codes_owned.iter().map(|(m, c)| (*m, c.as_str())).collect();
 
-            let mut tcp_guard = tcp.lock().map_err(|e| {
-                crate::core::QuantixError::DataSource(format!("无法获取 TCP 锁: {}", e))
-            })?;
+                let mut tcp_guard = tcp.lock().map_err(|e| {
+                    crate::core::QuantixError::DataSource(format!("无法获取 TCP 锁: {}", e))
+                })?;
 
-            let mut quotes = SecurityQuotes::new(codes_ref);
-            quotes
-                .recv_parsed(&mut *tcp_guard)
-                .map_err(|e| crate::core::QuantixError::DataSource(format!("TDX 接收失败: {}", e)))?;
+                let mut quotes = SecurityQuotes::new(codes_ref);
+                quotes.recv_parsed(&mut *tcp_guard).map_err(|e| {
+                    crate::core::QuantixError::DataSource(format!("TDX 接收失败: {}", e))
+                })?;
 
-            // 提取行情数据
-            let result: Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)> =
-                quotes
+                // 提取行情数据
+                let result: Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)> = quotes
                     .result()
                     .iter()
                     .map(|q| {
@@ -230,33 +218,29 @@ impl TdxSource {
                     })
                     .collect();
 
-            Ok(result)
-        });
+                Ok(result)
+            });
 
         // 等待任务完成，带超时
-        let timeout_result = tokio::time::timeout(
-            Duration::from_secs(self.timeout),
-            handle,
-        )
-        .await
-        .map_err(|_| {
-            crate::core::QuantixError::Timeout(format!(
-                "采集超时（超过 {} 秒）",
-                self.timeout
-            ))
-        })?
-        .map_err(|e| {
-            crate::core::QuantixError::DataSource(format!("任务执行失败: {}", e))
-        })??;
+        let timeout_result = tokio::time::timeout(Duration::from_secs(self.timeout), handle)
+            .await
+            .map_err(|_| {
+                crate::core::QuantixError::Timeout(format!("采集超时（超过 {} 秒）", self.timeout))
+            })?
+            .map_err(|e| crate::core::QuantixError::DataSource(format!("任务执行失败: {}", e)))??;
 
         // 转换为 StockQuote
         let quotes: Vec<StockQuote> = timeout_result
             .into_iter()
-            .map(|(code, name, price, preclose, open, high, low, volume, amount)| {
-                // 判断市场：6开头是上海，其他是深圳
-                let market = if code.starts_with('6') { 1 } else { 0 };
-                StockQuote::from_tdx(code, name, price, preclose, open, high, low, volume, amount, market)
-            })
+            .map(
+                |(code, name, price, preclose, open, high, low, volume, amount)| {
+                    // 判断市场：6开头是上海，其他是深圳
+                    let market = if code.starts_with('6') { 1 } else { 0 };
+                    StockQuote::from_tdx(
+                        code, name, price, preclose, open, high, low, volume, amount, market,
+                    )
+                },
+            )
             .collect();
 
         debug!("成功采集 {} 只股票的实时行情", quotes.len());
@@ -292,12 +276,10 @@ impl Fetcher for TdxSource {
                 info!("TDX 连接检查成功");
                 Ok(())
             }
-            Err(e) => {
-                Err(crate::core::QuantixError::DataSource(format!(
-                    "TDX 连接失败: {}",
-                    e
-                )))
-            }
+            Err(e) => Err(crate::core::QuantixError::DataSource(format!(
+                "TDX 连接失败: {}",
+                e
+            ))),
         }
     }
 }

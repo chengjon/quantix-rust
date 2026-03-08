@@ -1,7 +1,6 @@
 /// 核心配置管理
 ///
 /// 从原 quantix 项目的 config/ 目录读取共享配置
-
 use config::{Config, Environment, File};
 use serde::Deserialize;
 use std::path::Path;
@@ -19,7 +18,7 @@ pub struct TDengineConfig {
     pub database: String,
     pub username: String,
     pub password: String,
-    pub mode: String,  // "rest" or "websocket"
+    pub mode: String, // "rest" or "websocket"
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -73,6 +72,8 @@ impl AppConfig {
         }
 
         let config = builder.build()?;
-        config.try_deserialize().map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+        config
+            .try_deserialize()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
     }
 }

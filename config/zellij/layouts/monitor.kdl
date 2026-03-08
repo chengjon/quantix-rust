@@ -1,0 +1,47 @@
+// quantix-rust 监控工作区布局
+// 启动命令: zellij --layout-path config/zellij/layouts/monitor.kdl
+
+layout {
+    // 标签栏
+    pane size=1 borderless=true {
+        plugin location="zellij:tab-bar"
+    }
+
+    // 主内容区域 - 4 窗格布局
+    pane split_direction="horizontal" {
+        // 左侧: 上下分割
+        pane split_direction="vertical" size="50%" {
+            // 左上: 实时行情监控
+            pane size="50%" {
+                command "quantix"
+                args "monitor" "quotes" "--realtime"
+            }
+
+            // 左下: 持仓监控
+            pane size="50%" {
+                command "quantix"
+                args "monitor" "positions" "--watch"
+            }
+        }
+
+        // 右侧: 上下分割
+        pane split_direction="vertical" size="50%" {
+            // 右上: 性能指标
+            pane size="50%" {
+                command "watch"
+                args "-n" "10" "quantix" "monitor" "performance"
+            }
+
+            // 右下: 告警日志
+            pane size="50%" {
+                command "quantix"
+                args "monitor" "alerts" "--follow"
+            }
+        }
+    }
+
+    // 状态栏
+    pane size=2 borderless=true {
+        plugin location="zellij:status-bar"
+    }
+}

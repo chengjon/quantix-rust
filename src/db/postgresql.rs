@@ -1,12 +1,11 @@
+use chrono::{NaiveDate, NaiveDateTime};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 /// PostgreSQL 数据库访问层
 ///
 /// 连接原 quantix 项目的 PostgreSQL 数据库，实现只读访问
-
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres, FromRow};
-use rust_decimal::Decimal;
-use chrono::{NaiveDate, NaiveDateTime};
-use serde::{Serialize, Deserialize};
+use sqlx::{FromRow, Pool, Postgres};
 
 use crate::core::error::{QuantixError, Result};
 
@@ -21,7 +20,7 @@ pub struct KlineDaily {
     pub close: Decimal,
     pub volume: i64,
     pub amount: Option<Decimal>,
-    pub adjust_type: i32,  // 1=前复权, 2=后复权, 0=不复权
+    pub adjust_type: i32, // 1=前复权, 2=后复权, 0=不复权
     pub created_at: Option<NaiveDateTime>,
 }
 
@@ -30,7 +29,7 @@ pub struct KlineDaily {
 pub struct StockInfo {
     pub code: String,
     pub name: String,
-    pub market: String,  // SH/SZ
+    pub market: String, // SH/SZ
     pub list_date: Option<NaiveDate>,
     pub delist_date: Option<NaiveDate>,
 }

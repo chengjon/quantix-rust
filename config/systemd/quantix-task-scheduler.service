@@ -1,0 +1,46 @@
+[Unit]
+Description=Quantix Task Scheduler Service
+Documentation=https://github.com/chengjon/quantix-rust
+After=network-online.target clickhouse.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quantix
+Group=quantix
+WorkingDirectory=/opt/quantix-rust
+
+# 环境变量
+Environment="RUST_LOG=info"
+Environment="CLICKHOUSE_URL=http://localhost:8123"
+Environment="CLICKHOUSE_DB=quantix"
+Environment="POSTGRES_URL=postgresql://localhost:5432/quantix"
+
+# 主进程
+ExecStart=/opt/quantix-rust/target/release/quantix task start --daemon
+
+# 重启策略
+Restart=always
+RestartSec=10s
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# 资源限制
+MemoryMax=512M
+CPUQuota=50%
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=quantix-scheduler
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/quantix-rust
+ReadWritePaths=/var/log/quantix
+
+[Install]
+WantedBy=multi-user.target

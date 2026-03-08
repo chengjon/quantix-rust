@@ -1,7 +1,6 @@
 /// A股交易时间日历
 ///
 /// 从短线侠项目迁移，支持交易时段检测和节假日判断
-
 use crate::core::Result;
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Weekday};
 use serde::{Deserialize, Serialize};
@@ -55,8 +54,8 @@ pub struct TradingStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HolidayData {
     pub year: i32,
-    pub holidays: Vec<String>,     // YYYY-MM-DD 格式
-    pub early_close: Vec<String>,   // 提前收盘时间
+    pub holidays: Vec<String>,    // YYYY-MM-DD 格式
+    pub early_close: Vec<String>, // 提前收盘时间
 }
 
 /// A股交易日历管理器
@@ -67,12 +66,12 @@ pub struct TradingCalendar {
 
 impl TradingCalendar {
     // 交易时段时间常量
-    const AUCTION_START: (u32, u32, u32) = (9, 15, 0);   // 集合竞价开始时间
-    const AUCTION_END: (u32, u32, u32) = (9, 25, 0);     // 集合竞价结束时间
-    const MORNING_START: (u32, u32, u32) = (9, 30, 0);   // 上午交易开始时间
-    const MORNING_END: (u32, u32, u32) = (11, 30, 0);    // 上午交易结束时间
+    const AUCTION_START: (u32, u32, u32) = (9, 15, 0); // 集合竞价开始时间
+    const AUCTION_END: (u32, u32, u32) = (9, 25, 0); // 集合竞价结束时间
+    const MORNING_START: (u32, u32, u32) = (9, 30, 0); // 上午交易开始时间
+    const MORNING_END: (u32, u32, u32) = (11, 30, 0); // 上午交易结束时间
     const AFTERNOON_START: (u32, u32, u32) = (13, 0, 0); // 下午交易开始时间
-    const AFTERNOON_END: (u32, u32, u32) = (15, 0, 0);   // 下午交易结束时间
+    const AFTERNOON_END: (u32, u32, u32) = (15, 0, 0); // 下午交易结束时间
 
     /// 创建新的交易日历实例
     pub async fn new() -> Result<Self> {
@@ -114,32 +113,38 @@ impl TradingCalendar {
             Self::AUCTION_START.0,
             Self::AUCTION_START.1,
             Self::AUCTION_START.2,
-        ).unwrap();
+        )
+        .unwrap();
         let auction_end = NaiveTime::from_hms_opt(
             Self::AUCTION_END.0,
             Self::AUCTION_END.1,
             Self::AUCTION_END.2,
-        ).unwrap();
+        )
+        .unwrap();
         let morning_start = NaiveTime::from_hms_opt(
             Self::MORNING_START.0,
             Self::MORNING_START.1,
             Self::MORNING_START.2,
-        ).unwrap();
+        )
+        .unwrap();
         let morning_end = NaiveTime::from_hms_opt(
             Self::MORNING_END.0,
             Self::MORNING_END.1,
             Self::MORNING_END.2,
-        ).unwrap();
+        )
+        .unwrap();
         let afternoon_start = NaiveTime::from_hms_opt(
             Self::AFTERNOON_START.0,
             Self::AFTERNOON_START.1,
             Self::AFTERNOON_START.2,
-        ).unwrap();
+        )
+        .unwrap();
         let afternoon_end = NaiveTime::from_hms_opt(
             Self::AFTERNOON_END.0,
             Self::AFTERNOON_END.1,
             Self::AFTERNOON_END.2,
-        ).unwrap();
+        )
+        .unwrap();
 
         (current_time >= auction_start && current_time <= auction_end)
             || (current_time >= morning_start && current_time <= morning_end)
@@ -160,32 +165,38 @@ impl TradingCalendar {
                 Self::AUCTION_START.0,
                 Self::AUCTION_START.1,
                 Self::AUCTION_START.2,
-            ).unwrap();
+            )
+            .unwrap();
             let auction_end = NaiveTime::from_hms_opt(
                 Self::AUCTION_END.0,
                 Self::AUCTION_END.1,
                 Self::AUCTION_END.2,
-            ).unwrap();
+            )
+            .unwrap();
             let morning_start = NaiveTime::from_hms_opt(
                 Self::MORNING_START.0,
                 Self::MORNING_START.1,
                 Self::MORNING_START.2,
-            ).unwrap();
+            )
+            .unwrap();
             let morning_end = NaiveTime::from_hms_opt(
                 Self::MORNING_END.0,
                 Self::MORNING_END.1,
                 Self::MORNING_END.2,
-            ).unwrap();
+            )
+            .unwrap();
             let afternoon_start = NaiveTime::from_hms_opt(
                 Self::AFTERNOON_START.0,
                 Self::AFTERNOON_START.1,
                 Self::AFTERNOON_START.2,
-            ).unwrap();
+            )
+            .unwrap();
             let afternoon_end = NaiveTime::from_hms_opt(
                 Self::AFTERNOON_END.0,
                 Self::AFTERNOON_END.1,
                 Self::AFTERNOON_END.2,
-            ).unwrap();
+            )
+            .unwrap();
 
             if current_time >= auction_start && current_time <= auction_end {
                 TradingSession::Auction
@@ -209,7 +220,10 @@ impl TradingCalendar {
     }
 
     /// 计算下次开盘时间
-    async fn calculate_next_open_time(&self, now: chrono::DateTime<Local>) -> chrono::DateTime<Local> {
+    async fn calculate_next_open_time(
+        &self,
+        now: chrono::DateTime<Local>,
+    ) -> chrono::DateTime<Local> {
         let current_time = now.time();
         let date = now.date_naive();
 
@@ -220,7 +234,14 @@ impl TradingCalendar {
                 next_date = next_date + Duration::days(1);
             }
             return Local
-                .with_ymd_and_hms(next_date.year(), next_date.month(), next_date.day(), 9, 15, 0)
+                .with_ymd_and_hms(
+                    next_date.year(),
+                    next_date.month(),
+                    next_date.day(),
+                    9,
+                    15,
+                    0,
+                )
                 .unwrap();
         }
 
@@ -240,7 +261,14 @@ impl TradingCalendar {
                 next_date = next_date + Duration::days(1);
             }
             Local
-                .with_ymd_and_hms(next_date.year(), next_date.month(), next_date.day(), 9, 15, 0)
+                .with_ymd_and_hms(
+                    next_date.year(),
+                    next_date.month(),
+                    next_date.day(),
+                    9,
+                    15,
+                    0,
+                )
                 .unwrap()
         } else {
             // 交易时段内，返回下一个交易时段的开始时间
@@ -260,7 +288,14 @@ impl TradingCalendar {
                     next_date = next_date + Duration::days(1);
                 }
                 Local
-                    .with_ymd_and_hms(next_date.year(), next_date.month(), next_date.day(), 9, 15, 0)
+                    .with_ymd_and_hms(
+                        next_date.year(),
+                        next_date.month(),
+                        next_date.day(),
+                        9,
+                        15,
+                        0,
+                    )
                     .unwrap()
             }
         }
@@ -301,9 +336,9 @@ impl TradingCalendar {
         let status = self.get_current_status().await;
 
         match status.current_session {
-            TradingSession::Auction => 30,    // 竞价期间 30秒
-            TradingSession::Morning => 60,    // 上午交易 60秒
-            TradingSession::Afternoon => 60,  // 下午交易 60秒
+            TradingSession::Auction => 30,   // 竞价期间 30秒
+            TradingSession::Morning => 60,   // 上午交易 60秒
+            TradingSession::Afternoon => 60, // 下午交易 60秒
             TradingSession::Closed => {
                 if status.is_trading_day {
                     // 交易日但休市（午休）: 5分钟

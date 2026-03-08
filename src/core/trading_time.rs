@@ -1,8 +1,7 @@
 /// A股交易时间处理
 ///
 /// 处理 A股特有的交易时段、节假日等
-
-use chrono::{NaiveTime, NaiveDateTime, Datelike};
+use chrono::{Datelike, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 
 /// A股交易时段

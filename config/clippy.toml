@@ -1,0 +1,115 @@
+# quantix-rust Clippy 配置
+# 用于定义项目特定的 Clippy lints
+
+# 允许的复杂度阈值
+# 增加阈值以适应量化交易场景的复杂业务逻辑
+cognitive-complexity-threshold = 50
+
+# 类型复杂度阈值
+type-complexity-threshold = 250
+
+# 文档要求
+# 确保 public items 有文档注释
+missing-docs-in-private-items = false
+
+# 允许的标识符
+# 允许使用常见的缩写
+allowed-scripts = ["Arabic", "Cyrillic", "Greek", "Hebrew", "Latin"]
+
+# 允许的宏名称
+# 允许使用常见的宏
+allowed-macro-names = ["dbg", "println", "print", "eprintln", "eprint", "vec", "format"]
+
+# 标准宏-braces
+# 标准宏的花括号样式
+standard-macro-braces = []
+
+# 强制目标架构
+# 强制检查特定目标架构
+msrv = "1.70"
+
+# 黑箱函数
+# 不需要检查内部实现的函数
+blacklisted-names = ["foo", "bar", "baz", "quux"]
+
+# 递归限制
+# 防止无限递归
+recursion-limit = 256
+
+# 单元绑定限制
+# 防止过多的单元绑定
+max-struct-field-visibility-threshold = 10
+
+# 最大包含文件大小
+max-trait-bounds = 10
+
+# 最大函数参数
+max-function-params = 10
+
+# 最大结构体字段
+max-struct-field-visibility = 10
+
+# 枚举变体大小阈值
+enum-variant-size-threshold = 200
+
+# 变量大小的阈值
+verbose-bit-mask-threshold = 1
+
+# 字面量表示阈值
+literal-representation-threshold = 10
+
+# 过度参数的阈值
+too-many-arguments-threshold = 10
+
+# 过多线条的阈值
+too-many-lines-threshold = 100
+
+# 复杂度阈值
+too-many-arguments-threshold = 10
+
+# 性能复杂的阈值
+performance-complexity-threshold = 50
+
+# 单行语法复杂度阈值
+single-char-binding-names-threshold = 5
+
+# 宏匹配器复杂度阈值
+macro Matcher-name = 50
+
+# 方法复杂度阈值
+method-complexity-threshold = 50
+
+# 函数复杂度阈值
+function-complexity-threshold = 50
+
+# 模块复杂度阈值
+module-complexity-threshold = 100
+
+# 类型复杂度阈值
+type-complexity-threshold = 250
+
+# 警告阈值
+warn-on-all-wildcard-imports = true
+
+# 禁用的 lints
+# 根据项目需要调整
+disallowed-methods = []
+disallowed-types = []
+disallowed-scripts = []
+disallowed-idents = []
+disallowed-macros = []
+
+# 文档要求
+doc-valid-idents = [
+    "Quantix",
+    "A股市",
+    "K线",
+    "API",
+    "JSON",
+    "SQL",
+    "CLI",
+    "WebSocket",
+    "ClickHouse",
+    "TDengine",
+    "Polars",
+]

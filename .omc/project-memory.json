@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1772796639292,
+  "lastScanned": 1772884574877,
   "projectRoot": "/opt/claude/quantix-rust",
   "techStack": {
     "languages": [
@@ -34,6 +34,7 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
+      "docs",
       "src"
     ],
     "gitBranches": null
@@ -44,25 +45,35 @@
       "path": "config",
       "purpose": "Configuration files",
       "fileCount": 1,
-      "lastAccessed": 1772796639284,
+      "lastAccessed": 1772884574869,
       "keyFiles": [
         "default.toml"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1772884574869,
+      "keyFiles": [
+        "USER_MANUAL.md"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
-      "fileCount": 1,
-      "lastAccessed": 1772796639284,
+      "fileCount": 2,
+      "lastAccessed": 1772884574871,
       "keyFiles": [
+        "lib.rs",
         "main.rs"
       ]
     },
     "target": {
       "path": "target",
       "purpose": null,
-      "fileCount": 2,
-      "lastAccessed": 1772796639284,
+      "fileCount": 3,
+      "lastAccessed": 1772884574872,
       "keyFiles": [
         "CACHEDIR.TAG"
       ]
@@ -71,7 +82,7 @@
       "path": "src/data",
       "purpose": "Data files",
       "fileCount": 4,
-      "lastAccessed": 1772796639288,
+      "lastAccessed": 1772884574873,
       "keyFiles": [
         "fetcher.rs",
         "mod.rs",
@@ -81,249 +92,303 @@
   },
   "hotPaths": [
     {
-      "path": "src/db/clickhouse.rs",
-      "accessCount": 51,
-      "lastAccessed": 1772847962536,
+      "path": "README.md",
+      "accessCount": 31,
+      "lastAccessed": 1772937486096,
       "type": "file"
     },
     {
-      "path": "src/sources/tdx_file.rs",
-      "accessCount": 19,
-      "lastAccessed": 1772817596419,
+      "path": "src/cli/handlers.rs",
+      "accessCount": 30,
+      "lastAccessed": 1772904998240,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/polars_adapter.rs",
+      "accessCount": 21,
+      "lastAccessed": 1772885097052,
       "type": "file"
     },
     {
       "path": "Cargo.toml",
-      "accessCount": 16,
-      "lastAccessed": 1772817185749,
+      "accessCount": 18,
+      "lastAccessed": 1772934806286,
       "type": "file"
     },
     {
-      "path": "README.md",
-      "accessCount": 13,
-      "lastAccessed": 1772848803806,
-      "type": "file"
-    },
-    {
-      "path": "src/tasks/scheduler.rs",
-      "accessCount": 11,
-      "lastAccessed": 1772815812915,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/mod.rs",
-      "accessCount": 11,
-      "lastAccessed": 1772849031992,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/auction.rs",
+      "path": "tests/strategy_integration_test.rs",
       "accessCount": 9,
-      "lastAccessed": 1772814603192,
-      "type": "file"
-    },
-    {
-      "path": "src/sync/etl.rs",
-      "accessCount": 9,
-      "lastAccessed": 1772815259478,
-      "type": "file"
-    },
-    {
-      "path": "src/core/trading_time.rs",
-      "accessCount": 8,
-      "lastAccessed": 1772797350438,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/backtest.rs",
-      "accessCount": 7,
-      "lastAccessed": 1772817583520,
-      "type": "file"
-    },
-    {
-      "path": "src/tasks/cron.rs",
-      "accessCount": 6,
-      "lastAccessed": 1772817493230,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/eastmoney.rs",
-      "accessCount": 6,
-      "lastAccessed": 1772819389803,
-      "type": "file"
-    },
-    {
-      "path": "src/cli/mod.rs",
-      "accessCount": 6,
-      "lastAccessed": 1772849028380,
+      "lastAccessed": 1772898017707,
       "type": "file"
     },
     {
       "path": "src/analysis/performance.rs",
-      "accessCount": 5,
-      "lastAccessed": 1772817578451,
+      "accessCount": 9,
+      "lastAccessed": 1772930201049,
       "type": "file"
     },
     {
-      "path": "src/tasks/collect_scheduler.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772815540737,
+      "path": "src/monitoring/signal_monitor.rs",
+      "accessCount": 7,
+      "lastAccessed": 1772900920995,
       "type": "file"
+    },
+    {
+      "path": "src/lib.rs",
+      "accessCount": 6,
+      "lastAccessed": 1772905178197,
+      "type": "file"
+    },
+    {
+      "path": "docs/standards/DEVELOPMENT_GUIDELINES.md",
+      "accessCount": 5,
+      "lastAccessed": 1772889417582,
+      "type": "file"
+    },
+    {
+      "path": "src/monitoring/mod.rs",
+      "accessCount": 5,
+      "lastAccessed": 1772936789633,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/trait_def.rs",
+      "accessCount": 4,
+      "lastAccessed": 1772899845474,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 4,
+      "lastAccessed": 1772907143020,
+      "type": "directory"
     },
     {
       "path": "src/analysis/mod.rs",
       "accessCount": 4,
-      "lastAccessed": 1772815650706,
+      "lastAccessed": 1772909387160,
       "type": "file"
     },
     {
-      "path": "src/tasks/mod.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772815653335,
-      "type": "file"
-    },
-    {
-      "path": "src/core/error.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772815767207,
-      "type": "file"
-    },
-    {
-      "path": "src/main.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772817118071,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/portfolio.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772817573786,
-      "type": "file"
-    },
-    {
-      "path": "src/data/models.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772817731221,
-      "type": "file"
-    },
-    {
-      "path": "src/core/config.rs",
+      "path": "src/analysis/backtest.rs",
       "accessCount": 3,
-      "lastAccessed": 1772797357689,
+      "lastAccessed": 1772899505174,
       "type": "file"
     },
     {
       "path": "src/core/mod.rs",
       "accessCount": 3,
-      "lastAccessed": 1772798871453,
+      "lastAccessed": 1772907676310,
       "type": "file"
     },
     {
-      "path": "src/sources/auction_collector.rs",
-      "accessCount": 3,
-      "lastAccessed": 1772814579620,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/kline_aggregator.rs",
-      "accessCount": 3,
-      "lastAccessed": 1772817908647,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/tdx.rs",
+      "path": "src/core/error.rs",
       "accessCount": 2,
-      "lastAccessed": 1772798894176,
+      "lastAccessed": 1772888149786,
       "type": "file"
     },
     {
-      "path": "src/db/mod.rs",
+      "path": "src/strategy",
       "accessCount": 2,
-      "lastAccessed": 1772799911102,
-      "type": "file"
-    },
-    {
-      "path": "",
-      "accessCount": 2,
-      "lastAccessed": 1772816784750,
+      "lastAccessed": 1772899505190,
       "type": "directory"
     },
     {
-      "path": "src/lib.rs",
+      "path": "docs/reports/PHASE15_COMPLETION_REPORT.md",
       "accessCount": 2,
-      "lastAccessed": 1772817199458,
+      "lastAccessed": 1772907145618,
       "type": "file"
     },
     {
-      "path": "src/db/postgresql.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772797080281,
+      "path": "src/main.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772934050467,
       "type": "file"
     },
     {
-      "path": "src/db/tdengine.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772797088136,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/indicators.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772797088458,
-      "type": "file"
-    },
-    {
-      "path": "src/core/trading_calendar.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772798866802,
-      "type": "file"
-    },
-    {
-      "path": "src/sources/quote_collector.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772798906533,
-      "type": "file"
-    },
-    {
-      "path": "src/sync/mod.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772814897437,
-      "type": "file"
-    },
-    {
-      "path": "src/strategy/trait_def.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772815540814,
-      "type": "file"
-    },
-    {
-      "path": "src",
-      "accessCount": 1,
-      "lastAccessed": 1772817564863,
-      "type": "directory"
-    },
-    {
-      "path": "src/data/mod.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772817733107,
-      "type": "file"
-    },
-    {
-      "path": "src/cli",
-      "accessCount": 1,
-      "lastAccessed": 1772849026700,
-      "type": "directory"
-    },
-    {
-      "path": "src/cli/handlers.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772849030198,
+      "path": "src/cli/mod.rs",
+      "accessCount": 2,
+      "lastAccessed": 1772934052303,
       "type": "file"
     },
     {
       "path": "docs/USER_MANUAL.md",
       "accessCount": 1,
-      "lastAccessed": 1772849078207,
+      "lastAccessed": 1772885974822,
+      "type": "file"
+    },
+    {
+      "path": "src/tasks/mod.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772886231638,
+      "type": "file"
+    },
+    {
+      "path": "docs/DEVELOPMENT_GUIDELINES.md",
+      "accessCount": 1,
+      "lastAccessed": 1772888216187,
+      "type": "file"
+    },
+    {
+      "path": ".rustfmt.toml",
+      "accessCount": 1,
+      "lastAccessed": 1772888502128,
+      "type": "file"
+    },
+    {
+      "path": "clippy.toml",
+      "accessCount": 1,
+      "lastAccessed": 1772888502416,
+      "type": "file"
+    },
+    {
+      "path": "docs/standards/CODE_RULE_SUMMARY.md",
+      "accessCount": 1,
+      "lastAccessed": 1772888702055,
+      "type": "file"
+    },
+    {
+      "path": "docs/QUICKSTART.md",
+      "accessCount": 1,
+      "lastAccessed": 1772888752733,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/CODE_RULE_AUDIT.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889116964,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/CODE_RULE_UPDATE_SUMMARY.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889451159,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889716000,
+      "type": "file"
+    },
+    {
+      "path": "config/zellij.kdl",
+      "accessCount": 1,
+      "lastAccessed": 1772889769408,
+      "type": "file"
+    },
+    {
+      "path": "scripts/dev.zsh",
+      "accessCount": 1,
+      "lastAccessed": 1772889769727,
+      "type": "file"
+    },
+    {
+      "path": "scripts/watch.sh",
+      "accessCount": 1,
+      "lastAccessed": 1772889770070,
+      "type": "file"
+    },
+    {
+      "path": "scripts/watch-test.sh",
+      "accessCount": 1,
+      "lastAccessed": 1772889770374,
+      "type": "file"
+    },
+    {
+      "path": "config/systemd/quantix-data-collector.service",
+      "accessCount": 1,
+      "lastAccessed": 1772889770684,
+      "type": "file"
+    },
+    {
+      "path": "config/systemd/quantix-strategy-runner.service",
+      "accessCount": 1,
+      "lastAccessed": 1772889770988,
+      "type": "file"
+    },
+    {
+      "path": "config/systemd/quantix-task-scheduler.service",
+      "accessCount": 1,
+      "lastAccessed": 1772889771289,
+      "type": "file"
+    },
+    {
+      "path": "scripts/install-services.sh",
+      "accessCount": 1,
+      "lastAccessed": 1772889771619,
+      "type": "file"
+    },
+    {
+      "path": "scripts/services.sh",
+      "accessCount": 1,
+      "lastAccessed": 1772889771929,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/INFRASTRUCTURE_INTEGRATION_REPORT.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889931156,
+      "type": "file"
+    },
+    {
+      "path": "docs/INFRASTRUCTURE_TOOLS.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889941562,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/INFRASTRUCTURE_FINAL_SUMMARY.md",
+      "accessCount": 1,
+      "lastAccessed": 1772889957891,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/ma_cross.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772896503178,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/mean_reversion.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772896503426,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/momentum.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772896503668,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/grid.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772896503913,
+      "type": "file"
+    },
+    {
+      "path": "src/strategy/test_utils.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772896504184,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/PHASE15_TEST_COMPLETION_REPORT.md",
+      "accessCount": 1,
+      "lastAccessed": 1772896693233,
+      "type": "file"
+    },
+    {
+      "path": "docs/reports/PHASE15_FINAL_SUMMARY.md",
+      "accessCount": 1,
+      "lastAccessed": 1772896733157,
+      "type": "file"
+    },
+    {
+      "path": "src/analysis/portfolio.rs",
+      "accessCount": 1,
+      "lastAccessed": 1772899502311,
       "type": "file"
     }
   ],

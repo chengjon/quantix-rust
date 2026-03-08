@@ -1,10 +1,9 @@
 /// Cron 表达式解析
 ///
 /// 从短线侠项目迁移 - 解析和验证 cron 表达式
-
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Datelike, Timelike, Weekday};
-use std::collections::HashSet;
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Cron 表达式
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,8 +117,7 @@ impl CronExpression {
             let values: Result<Vec<u32>, _> = expr
                 .split(',')
                 .map(|s| {
-                    let v: u32 = s.trim().parse()
-                        .map_err(|_| format!("无效的值: {}", s))?;
+                    let v: u32 = s.trim().parse().map_err(|_| format!("无效的值: {}", s))?;
                     if v < min || v > max {
                         Err(format!("值超出界限: {} ({}-{})", v, min, max))
                     } else {

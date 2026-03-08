@@ -1,7 +1,6 @@
 /// AkShare 数据源
 ///
 /// 通过 HTTP API 获取 AkShare 数据
-
 use async_trait::async_trait;
 
 use crate::core::Result;
@@ -43,7 +42,8 @@ impl Fetcher for AkShareSource {
     }
 
     async fn check_connection(&self) -> Result<()> {
-        self.client.get(&format!("{}/health", self.base_url))
+        self.client
+            .get(&format!("{}/health", self.base_url))
             .send()
             .await
             .map_err(|e| crate::core::error::QuantixError::Http(e))?;

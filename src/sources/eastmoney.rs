@@ -1,7 +1,6 @@
 /// 东方财富 (East Money) 数据源
 ///
 /// 提供实时行情、财务数据等数据采集能力
-
 use crate::core::Result;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
@@ -37,15 +36,9 @@ impl EastMoneySource {
     }
 
     /// 获取股票列表（支持板块分类）
-    pub async fn get_stock_list(
-        &self,
-        board: &str,
-    ) -> Result<Vec<StockInfo>> {
+    pub async fn get_stock_list(&self, board: &str) -> Result<Vec<StockInfo>> {
         // board: sz50 (深证50), hs300 (沪深300), zx (中小板), cyb (创业板) 等
-        let url = format!(
-            "{}/api/qt/clist/getlist?",
-            self.base_url
-        );
+        let url = format!("{}/api/qt/clist/getlist?", self.base_url);
 
         let params = vec![
             ("pn", "1"),
@@ -87,7 +80,8 @@ impl EastMoneySource {
     pub async fn get_realtime_quotes(&self, codes: &[String]) -> Result<HashMap<String, Quote>> {
         let url = format!("{}/api/qt/ulist.np/get", self.base_url);
 
-        let flt = codes.iter()
+        let flt = codes
+            .iter()
             .map(|c| format!("f{}", c))
             .collect::<Vec<_>>()
             .join(",");
@@ -119,19 +113,22 @@ impl EastMoneySource {
 
         // 简化实现，实际需要解析 JSON 响应
         for code in codes {
-            result.insert(code.clone(), Quote {
-                code: code.clone(),
-                name: String::new(),
-                price: 0.0,
-                change: 0.0,
-                change_pct: 0.0,
-                volume: 0.0,
-                amount: 0.0,
-                high: 0.0,
-                low: 0.0,
-                open: 0.0,
-                preclose: 0.0,
-            });
+            result.insert(
+                code.clone(),
+                Quote {
+                    code: code.clone(),
+                    name: String::new(),
+                    price: 0.0,
+                    change: 0.0,
+                    change_pct: 0.0,
+                    volume: 0.0,
+                    amount: 0.0,
+                    high: 0.0,
+                    low: 0.0,
+                    open: 0.0,
+                    preclose: 0.0,
+                },
+            );
         }
 
         Ok(result)
@@ -147,7 +144,10 @@ impl EastMoneySource {
             .query(&[
                 ("lmt", "0"),
                 ("klt", "1"),
-                ("secid", format!("{}.{}", if code.starts_with('6') { "1" } else { "0" }, code).as_str()),
+                (
+                    "secid",
+                    format!("{}.{}", if code.starts_with('6') { "1" } else { "0" }, code).as_str(),
+                ),
                 ("fields1", "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13"),
                 ("fields2", "f62,f63,f64,f65"),
                 ("ut", "fa5fd1943c7b386f172d6893d2bcdbd"),
@@ -175,11 +175,7 @@ impl EastMoneySource {
     }
 
     /// 获取财务数据
-    pub async fn get_financial_data(
-        &self,
-        code: &str,
-        report_type: &str,
-    ) -> Result<FinancialData> {
+    pub async fn get_financial_data(&self, code: &str, report_type: &str) -> Result<FinancialData> {
         // report_type: profit (利润表), balance (资产负债表), cash (现金流量表)
         Ok(FinancialData::default())
     }

@@ -1,7 +1,6 @@
 /// 核心错误类型
 ///
 /// 统一的错误处理，便于与 Python 端错误信息对应
-
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -1,0 +1,213 @@
+version: '3.8'
+
+services:
+  # Quantix 应用
+  quantix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quantix-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=quantix_cli=info,sqlx=warn
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=quantix
+      - POSTGRES_USER=quantix
+      - POSTGRES_PASSWORD=quantix123
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_DB=quantix
+    volumes:
+      - ./config:/app/config:ro
+      - quantix-logs:/app/logs
+      - quantix-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - quantix-network
+    healthcheck:
+      test: ["CMD", "quantix", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:17-alpine
+    container_name: quantix-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=quantix
+      - POSTGRES_USER=quantix
+      - POSTGRES_PASSWORD=quantix123
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - quantix-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quantix -d quantix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ClickHouse 数据库
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: quantix-clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - quantix-network
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    environment:
+      - CLICKHOUSE_DB=quantix
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+
+  # Prometheus - 指标采集
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quantix-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - quantix-network
+
+  # Grafana - 监控面板
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quantix-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - quantix-network
+
+  # Loki - 日志聚合
+  loki:
+    image: grafana/loki:latest
+    container_name: quantix-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - quantix-network
+
+  # Promtail - 日志采集
+  promtail:
+    image: grafana/promtail:latest
+    container_name: quantix-promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - quantix-network
+
+  # PgAdmin - PostgreSQL 管理工具（可选）
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: quantix-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@quantix.local
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - quantix-network
+    profiles:
+      - tools
+
+# 网络配置
+networks:
+  quantix-network:
+    driver: bridge
+    name: quantix-network
+
+# 数据卷
+volumes:
+  # 应用数据
+  quantix-logs:
+    name: quantix-logs
+  quantix-data:
+    name: quantix-data
+
+  # 数据库数据
+  postgres-data:
+    name: quantix-postgres-data
+  clickhouse-data:
+    name: quantix-clickhouse-data
+  clickhouse-logs:
+    name: quantix-clickhouse-logs
+
+  # 监控数据
+  prometheus-data:
+    name: quantix-prometheus-data
+  grafana-data:
+    name: quantix-grafana-data
+  loki-data:
+    name: quantix-loki-data
+
+  # 工具数据
+  pgadmin-data:
+    name: quantix-pgadmin-data

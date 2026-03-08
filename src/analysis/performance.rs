@@ -1,8 +1,7 @@
 /// 性能指标计算
 ///
 /// 从短线侠项目迁移 - 夏普比率、最大回撤、胜率等
-
-use chrono::{NaiveDate, Datelike};
+use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -183,9 +182,18 @@ impl PerformanceCalculator {
         let sharpe_ratio = self.calculate_sharpe_ratio();
         let sortino_ratio = self.calculate_sortino_ratio();
 
-        let (win_rate, profit_loss_ratio, avg_win, avg_loss, max_win, max_loss,
-             max_consecutive_wins, max_consecutive_losses, win_trades, loss_trades) =
-            self.calculate_trade_stats();
+        let (
+            win_rate,
+            profit_loss_ratio,
+            avg_win,
+            avg_loss,
+            max_win,
+            max_loss,
+            max_consecutive_wins,
+            max_consecutive_losses,
+            win_trades,
+            loss_trades,
+        ) = self.calculate_trade_stats();
 
         let total_commission: Decimal = self.trades.iter().map(|t| t.commission).sum();
         let calmar_ratio = if max_drawdown != Decimal::ZERO {
@@ -230,7 +238,8 @@ impl PerformanceCalculator {
         let days_decimal = Decimal::from(days);
         let power = dec!(365) / days_decimal;
 
-        if power <= dec!(50) { // 防止溢出
+        if power <= dec!(50) {
+            // 防止溢出
             let one_plus_return = Decimal::ONE + total_return;
             // 使用简化的幂计算，因为 Decimal::pow 不稳定
             let exp = power.to_u32().unwrap_or(1);
@@ -276,7 +285,8 @@ impl PerformanceCalculator {
         }
 
         // 计算日收益率序列
-        let returns: Vec<Decimal> = self.equity_curve
+        let returns: Vec<Decimal> = self
+            .equity_curve
             .iter()
             .skip(1)
             .map(|p| p.daily_return)
@@ -287,12 +297,15 @@ impl PerformanceCalculator {
         }
 
         // 平均日收益率
-        let avg_daily_return: Decimal = returns.iter().sum::<Decimal>() / Decimal::from(returns.len());
+        let avg_daily_return: Decimal =
+            returns.iter().sum::<Decimal>() / Decimal::from(returns.len());
 
         // 标准差
-        let variance = returns.iter()
+        let variance = returns
+            .iter()
             .map(|r| (r - avg_daily_return) * (r - avg_daily_return))
-            .sum::<Decimal>() / Decimal::from(returns.len());
+            .sum::<Decimal>()
+            / Decimal::from(returns.len());
 
         let std_dev = variance.sqrt().unwrap_or(Decimal::ZERO);
 
@@ -320,7 +333,8 @@ impl PerformanceCalculator {
             return Decimal::ZERO;
         }
 
-        let returns: Vec<Decimal> = self.equity_curve
+        let returns: Vec<Decimal> = self
+            .equity_curve
             .iter()
             .skip(1)
             .map(|p| p.daily_return)
@@ -329,10 +343,12 @@ impl PerformanceCalculator {
         let avg_return: Decimal = returns.iter().sum::<Decimal>() / Decimal::from(returns.len());
 
         // 下行偏差（只考虑负收益）
-        let downside_variance = returns.iter()
+        let downside_variance = returns
+            .iter()
             .filter(|r| **r < Decimal::ZERO)
             .map(|r| (r - Decimal::ZERO) * (r - Decimal::ZERO))
-            .sum::<Decimal>() / Decimal::from(returns.len());
+            .sum::<Decimal>()
+            / Decimal::from(returns.len());
 
         let downside_dev = downside_variance.sqrt().unwrap_or(Decimal::ZERO);
 
@@ -352,15 +368,45 @@ impl PerformanceCalculator {
     }
 
     /// 计算交易统计
-    fn calculate_trade_stats(&self) -> (Decimal, Decimal, Decimal, Decimal, Decimal, Decimal,
-                                       usize, usize, usize, usize) {
+    fn calculate_trade_stats(
+        &self,
+    ) -> (
+        Decimal,
+        Decimal,
+        Decimal,
+        Decimal,
+        Decimal,
+        Decimal,
+        usize,
+        usize,
+        usize,
+        usize,
+    ) {
         if self.trades.is_empty() {
-            return (Decimal::ZERO, Decimal::ZERO, Decimal::ZERO, Decimal::ZERO,
-                    Decimal::ZERO, Decimal::ZERO, 0, 0, 0, 0);
+            return (
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                0,
+                0,
+                0,
+                0,
+            );
         }
 
-        let wins: Vec<&TradeRecord> = self.trades.iter().filter(|t| t.pnl > Decimal::ZERO).collect();
-        let losses: Vec<&TradeRecord> = self.trades.iter().filter(|t| t.pnl < Decimal::ZERO).collect();
+        let wins: Vec<&TradeRecord> = self
+            .trades
+            .iter()
+            .filter(|t| t.pnl > Decimal::ZERO)
+            .collect();
+        let losses: Vec<&TradeRecord> = self
+            .trades
+            .iter()
+            .filter(|t| t.pnl < Decimal::ZERO)
+            .collect();
 
         let win_trades = wins.len();
         let loss_trades = losses.len();
@@ -396,8 +442,18 @@ impl PerformanceCalculator {
         // 计算最大连续盈亏
         let (max_consecutive_wins, max_consecutive_losses) = self.calculate_consecutive();
 
-        (win_rate, profit_loss_ratio, avg_win, avg_loss, max_win, max_loss,
-         max_consecutive_wins, max_consecutive_losses, win_trades, loss_trades)
+        (
+            win_rate,
+            profit_loss_ratio,
+            avg_win,
+            avg_loss,
+            max_win,
+            max_loss,
+            max_consecutive_wins,
+            max_consecutive_losses,
+            win_trades,
+            loss_trades,
+        )
     }
 
     /// 计算最大连续盈亏
@@ -433,10 +489,78 @@ impl PerformanceCalculator {
     }
 }
 
+/// 计算总收益率
+pub fn calculate_total_return(equity_curve: &[Decimal]) -> Decimal {
+    if equity_curve.is_empty() {
+        return Decimal::ZERO;
+    }
+    let initial = equity_curve[0];
+    let final_value = equity_curve.last().unwrap();
+    if initial > Decimal::ZERO {
+        (final_value - initial) / initial
+    } else {
+        Decimal::ZERO
+    }
+}
+
+/// 计算最大回撤
+pub fn calculate_max_drawdown(equity_curve: &[Decimal]) -> Decimal {
+    if equity_curve.len() < 2 {
+        return Decimal::ZERO;
+    }
+
+    let mut peak = equity_curve[0];
+    let mut max_dd = Decimal::ZERO;
+
+    for &value in equity_curve.iter().skip(1) {
+        if value > peak {
+            peak = value;
+        } else {
+            let drawdown = (peak - value) / peak;
+            if drawdown > max_dd {
+                max_dd = drawdown;
+            }
+        }
+    }
+
+    max_dd
+}
+
+/// 计算夏普比率
+pub fn calculate_sharpe_ratio(returns: &[Decimal], risk_free_rate: Decimal) -> Decimal {
+    if returns.is_empty() {
+        return Decimal::ZERO;
+    }
+
+    // 计算平均收益率
+    let sum: Decimal = returns.iter().sum();
+    let avg_return = sum / Decimal::from(returns.len() as i64);
+
+    // 计算标准差
+    let variance = returns.iter()
+        .map(|r| {
+            let diff = r - avg_return;
+            diff * diff
+        })
+        .sum::<Decimal>() / Decimal::from(returns.len() as i64);
+
+    let std_dev = variance.sqrt().unwrap_or(Decimal::ZERO);
+
+    // 年化（假设252个交易日）
+    let annualized_return = avg_return * Decimal::from(252);
+    let annualized_std = std_dev * Decimal::from(252).sqrt().unwrap_or(Decimal::ZERO);
+
+    if annualized_std > Decimal::ZERO {
+        (annualized_return - risk_free_rate) / annualized_std
+    } else {
+        Decimal::ZERO
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use rust_decimal_macros::dec;
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_performance_calculator() {
@@ -457,17 +581,14 @@ mod tests {
     fn test_max_drawdown() {
         let mut calc = PerformanceCalculator::new(dec!(100000), dec!(0.03));
 
-        calc.add_equity_point(
-            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-            dec!(100000)
-        );
+        calc.add_equity_point(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), dec!(100000));
         calc.add_equity_point(
             NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
-            dec!(110000)  // 峰值
+            dec!(110000), // 峰值
         );
         calc.add_equity_point(
             NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
-            dec!(95000)   // 回撤
+            dec!(95000), // 回撤
         );
 
         let report = calc.calculate();

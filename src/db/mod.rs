@@ -5,14 +5,10 @@
 /// - stock_realtime_quotes: 实时行情
 /// - kline_data: K线数据
 /// - limit_up_events: 涨停事件
-
 pub mod clickhouse;
 pub mod postgresql;
 pub mod tdengine;
 
-pub use clickhouse::{
-    ClickHouseClient,
-    StockInfoCH, StockQuoteCH, KlineDataCH, LimitUpEventCH,
-};
-pub use postgresql::{PostgresClient, KlineDaily, StockInfo};
-pub use tdengine::{TDengineClient, MinuteKline};
+pub use clickhouse::{ClickHouseClient, KlineDataCH, LimitUpEventCH, StockInfoCH, StockQuoteCH};
+pub use postgresql::{KlineDaily, PostgresClient, StockInfo};
+pub use tdengine::{MinuteKline, TDengineClient};

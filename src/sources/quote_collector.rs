@@ -1,11 +1,10 @@
 /// 行情采集器
 ///
 /// 从短线侠项目迁移，支持批量采集全市场实时行情
-
 use crate::core::Result;
 use crate::sources::tdx::{StockQuote, TdxSource};
 use std::sync::Arc;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::{debug, info, warn};
 
 /// 股票基本信息（用于采集）
@@ -36,8 +35,7 @@ impl QuoteCollector {
     pub fn new(tdx_source: TdxSource, batch_size: usize, collect_timeout: u64) -> Self {
         info!(
             "行情采集器初始化：每批 {} 只股票，超时 {} 秒",
-            batch_size,
-            collect_timeout
+            batch_size, collect_timeout
         );
 
         Self {
@@ -74,10 +72,8 @@ impl QuoteCollector {
             .collect();
 
         // 转换为引用用于 TDX 调用
-        let stock_codes_ref: Vec<(u16, &str)> = stock_codes
-            .iter()
-            .map(|(m, c)| (*m, c.as_str()))
-            .collect();
+        let stock_codes_ref: Vec<(u16, &str)> =
+            stock_codes.iter().map(|(m, c)| (*m, c.as_str())).collect();
 
         // 使用超时包装整个操作
         let result = timeout(

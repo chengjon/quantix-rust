@@ -2,15 +2,14 @@
 ///
 /// 从短线侠项目迁移，使用 tokio channels 替代 Redis Stream
 /// 实时聚合 Tick 数据为 1分钟/5分钟 K线
-
 use crate::core::Result;
 use crate::sources::tdx::StockQuote;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::{interval, Duration};
+use tokio::sync::{Mutex, mpsc};
+use tokio::time::{Duration, interval};
 use tracing::{debug, info, warn};
 
 /// K线周期
@@ -129,12 +128,7 @@ pub struct KlineWindow {
 
 impl KlineWindow {
     /// 创建新窗口
-    pub fn new(
-        code: String,
-        name: String,
-        period: KlinePeriod,
-        start_time: DateTime<Utc>,
-    ) -> Self {
+    pub fn new(code: String, name: String, period: KlinePeriod, start_time: DateTime<Utc>) -> Self {
         Self {
             code,
             name,
@@ -198,11 +192,7 @@ impl KlineWindow {
             } else {
                 open
             },
-            low: if self.low < f64::MAX {
-                self.low
-            } else {
-                open
-            },
+            low: if self.low < f64::MAX { self.low } else { open },
             close: self.close,
             volume: self.volume,
             amount: self.amount,
@@ -322,11 +312,7 @@ impl KlineAggregator {
     }
 
     /// 更新或创建窗口
-    async fn update_window(
-        &self,
-        quote: &StockQuote,
-        period: KlinePeriod,
-    ) -> Option<KlineData> {
+    async fn update_window(&self, quote: &StockQuote, period: KlinePeriod) -> Option<KlineData> {
         // 从 u64 timestamp 转换为 DateTime<Utc>
         let current_time =
             DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(|| Utc::now());
@@ -347,12 +333,8 @@ impl KlineAggregator {
         } else {
             // 创建新窗口
             let window_start = Self::calculate_window_start(current_time, period);
-            let mut window = KlineWindow::new(
-                quote.code.clone(),
-                quote.name.clone(),
-                period,
-                window_start,
-            );
+            let mut window =
+                KlineWindow::new(quote.code.clone(), quote.name.clone(), period, window_start);
             window.update(quote);
             windows.insert(window_key, window);
         }

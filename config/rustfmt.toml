@@ -1,0 +1,86 @@
+# quantix-rust 代码格式化配置
+# 使用 rustfmt 自动格式化代码
+
+# 最大行宽
+max_width = 120
+
+# 使用空格缩进（不使用硬制表符）
+hard_tabs = false
+
+# 缩进空格数
+tab_spaces = 4
+
+# 在单行链式调用中，每个方法调用占一行
+chain_width = 60
+
+# 函数参数布局
+fn_args_layout = "Tall"
+
+# 函数调用参数布局
+fn_call_width = 80
+
+# 结构体字段布局
+struct_lit_width = 60
+
+# 结构体变体布局
+struct_variant_width = 60
+
+# 使用字段初始化简写（如果字段和变量同名）
+use_field_init_shorthand = true
+
+# 使用试制简写（如果类型和变量同名）
+use_try_shorthand = true
+
+# 在 where 子句中使用强制缩进
+force_explicit_abi = true
+
+# 格式化代码注释
+format_code_in_doc_comments = true
+
+# 格式化字符串
+format_strings = true
+
+# 合并派生（合并多个 #[derive] 为一个）
+merge_derives = true
+
+# 重排导入（按字母顺序）
+reorder_imports = true
+
+# 重排模块（按字母顺序）
+reorder_modules = true
+
+# 保留导入的合并分组
+imports_granularity = "Crate"
+
+# 分组导入样式
+group_imports = "StdExternalCrate"
+
+# 移除嵌套导入的路径前缀
+remove_nested_parens = true
+
+# 简化 try 块
+condense_wildcard_suffixes = true
+
+# 显示警告列表
+warn_on_all_wildcard_imports = true
+
+# 尾随逗号
+trailing_comma = "Vertical"
+
+# 尾随分隔符（在花括号后）
+trailing_semicolon = true
+
+# 版本
+version = "Two"
+
+# 使用小写十六进制字面量
+hex_literal_case = "Lower"
+
+# 格式化宏匹配臂
+format_macro_matchers = true
+
+# 格式化宏名称
+format_macro_bodies = true
+
+# 跳过子目录
+skip = ["target", "Cargo.toml"]

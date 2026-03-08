@@ -1,7 +1,6 @@
 /// WebSocket 实时行情客户端
 ///
 /// 支持多数据源的 WebSocket 实时行情订阅
-
 use crate::core::{QuantixError, Result};
 use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
@@ -9,7 +8,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock, Mutex};
+use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, error, info, warn};
 
@@ -141,11 +140,14 @@ impl WebSocketClient {
         let now = Utc::now();
 
         for code in codes {
-            subs.insert(code.clone(), Subscription {
-                code: code.clone(),
-                confirmed: false,
-                subscribed_at: now,
-            });
+            subs.insert(
+                code.clone(),
+                Subscription {
+                    code: code.clone(),
+                    confirmed: false,
+                    subscribed_at: now,
+                },
+            );
         }
 
         info!("订阅股票: {:?}", codes);
@@ -213,7 +215,10 @@ impl WebSocketClient {
                         let running_heart = running.clone();
                         tokio::spawn(async move {
                             while *running_heart.read().await {
-                                tokio::time::sleep(tokio::time::Duration::from_secs(heartbeat_interval)).await;
+                                tokio::time::sleep(tokio::time::Duration::from_secs(
+                                    heartbeat_interval,
+                                ))
+                                .await;
                                 if ping_tx.send(()).is_err() {
                                     break;
                                 }
@@ -316,7 +321,12 @@ impl WebSocketClient {
 
     /// 发送订阅消息
     async fn send_subscribe(
-        ws_sender: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
+        ws_sender: &mut futures_util::stream::SplitSink<
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            Message,
+        >,
         codes: &[String],
     ) -> Result<()> {
         // 构建订阅消息 (东方财富格式)
@@ -343,7 +353,11 @@ impl WebSocketClient {
                 if let Some(code) = obj.get("code").and_then(|v| v.as_str()) {
                     return Some(RealtimeQuote {
                         code: code.to_string(),
-                        name: obj.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        name: obj
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         price: obj.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0),
                         preclose: obj.get("preclose").and_then(|v| v.as_f64()).unwrap_or(0.0),
                         open: obj.get("open").and_then(|v| v.as_f64()).unwrap_or(0.0),
@@ -351,7 +365,10 @@ impl WebSocketClient {
                         low: obj.get("low").and_then(|v| v.as_f64()).unwrap_or(0.0),
                         volume: obj.get("volume").and_then(|v| v.as_i64()).unwrap_or(0),
                         amount: obj.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        change_percent: obj.get("change_percent").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        change_percent: obj
+                            .get("change_percent")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0),
                         bid1: obj.get("bid1").and_then(|v| v.as_f64()),
                         ask1: obj.get("ask1").and_then(|v| v.as_f64()),
                         timestamp: chrono::Utc::now().timestamp(),
@@ -428,7 +445,10 @@ mod tests {
     #[tokio::test]
     async fn test_websocket_subscribe() {
         let client = WebSocketClient::with_default_url("ws://localhost:8080".to_string());
-        client.subscribe(&["000001".to_string(), "000002".to_string()]).await.unwrap();
+        client
+            .subscribe(&["000001".to_string(), "000002".to_string()])
+            .await
+            .unwrap();
 
         let subs = client.subscriptions().await;
         assert_eq!(subs.len(), 2);
@@ -438,7 +458,10 @@ mod tests {
     #[tokio::test]
     async fn test_websocket_unsubscribe() {
         let client = WebSocketClient::with_default_url("ws://localhost:8080".to_string());
-        client.subscribe(&["000001".to_string(), "000002".to_string()]).await.unwrap();
+        client
+            .subscribe(&["000001".to_string(), "000002".to_string()])
+            .await
+            .unwrap();
         client.unsubscribe(&["000001".to_string()]).await.unwrap();
 
         let subs = client.subscriptions().await;

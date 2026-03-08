@@ -1,7 +1,6 @@
 /// 任务调度器
 ///
 /// 从短线侠项目迁移 - 基于 tokio-cron-scheduler 的异步任务调度
-
 use crate::tasks::cron::CronExpression;
 use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -110,7 +109,9 @@ impl TaskScheduler {
             // 从调度器中删除
             if let Some(scheduler) = &*self.scheduler.read().await {
                 if let Some(job_id) = &task.job_id {
-                    scheduler.remove(job_id).await
+                    scheduler
+                        .remove(job_id)
+                        .await
                         .map_err(|e| format!("删除任务失败: {}", e))?;
                 }
             }
@@ -140,7 +141,9 @@ impl TaskScheduler {
 
         // 启动底层的 JobScheduler
         if let Some(scheduler) = &*self.scheduler.read().await {
-            scheduler.start().await
+            scheduler
+                .start()
+                .await
                 .map_err(|e| format!("启动调度器失败: {}", e))?;
         }
 
@@ -163,7 +166,8 @@ impl TaskScheduler {
     /// 将任务添加到调度器
     async fn schedule_task(&self, name: &str, _cron: &CronExpression) -> Result<(), String> {
         let tasks = self.tasks.read().await;
-        let task = tasks.get(name)
+        let task = tasks
+            .get(name)
             .ok_or_else(|| format!("任务不存在: {}", name))?;
 
         if let Some(scheduler) = &*self.scheduler.read().await {
@@ -181,7 +185,9 @@ impl TaskScheduler {
             .map_err(|e| format!("创建 Job 失败: {}", e))?;
 
             // 添加到调度器
-            let job_id = scheduler.add(job).await
+            let job_id = scheduler
+                .add(job)
+                .await
                 .map_err(|e| format!("添加到调度器失败: {}", e))?;
 
             // 更新任务的 job_id
@@ -210,7 +216,9 @@ impl TaskScheduler {
         // 获取 scheduler 并停止
         let mut scheduler_lock = self.scheduler.write().await;
         if let Some(mut scheduler) = scheduler_lock.take() {
-            scheduler.shutdown().await
+            scheduler
+                .shutdown()
+                .await
                 .map_err(|e| format!("停止调度器失败: {}", e))?;
         }
 

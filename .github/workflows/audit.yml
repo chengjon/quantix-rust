@@ -1,0 +1,88 @@
+name: Security Audit
+
+# 每天凌晨2点运行
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# 环境变量
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run audit
+        run: cargo audit
+
+      - name: Check for advisories
+        run: cargo audit --json
+
+      - name: Create issue on vulnerability
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Security Audit Failed',
+              body: 'The security audit found vulnerabilities in the dependencies. Please review the workflow logs.',
+              labels: ['security', 'high-priority']
+            })
+
+  outdated:
+    name: Outdated Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-outdated-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated
+
+      - name: Check for outdated dependencies
+        run: |
+          cargo outdated --exit-code 1 > outdated.txt 2>&1 || true
+          cat outdated.txt
+
+      - name: Upload outdated report
+        uses: actions/upload-artifact@v3
+        with:
+          name: outdated-dependencies
+          path: outdated.txt

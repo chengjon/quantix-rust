@@ -38,6 +38,7 @@ futures-util = "0.3"
 # Serialization (与 Python 兼容)
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+csv = "1.3"
 
 # Time & Math (与 Python 兼容)
 chrono = { version = "0.4", features = ["serde"] }
@@ -49,10 +50,18 @@ ndarray = { version = "0.15", optional = true }
 arrow = { version = "53", features = ["json"] }
 parquet = { version = "53", features = ["async"] }
 
+# DataFrame (批量数据处理 - 默认启用)
+polars = { version = "0.43", features = ["lazy", "rolling_window", "dtype-datetime"] }
+polars-ops = "0.43"
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
+
+# Monitoring (Phase 19)
+prometheus = { version = "0.13", features = ["process"] }
+lazy_static = "1.4"
 
 # Config
 config = "0.13"
@@ -85,10 +94,15 @@ tui = ["ratatui", "crossterm"]
 [dev-dependencies]
 tokio-test = "0.4"
 criterion = "0.5"
+tempfile = "3.8"
 
 [[bin]]
 name = "quantix"
 path = "src/main.rs"
+
+[[bench]]
+name = "bench_main"
+harness = false
 
 [profile.release]
 opt-level = 3

@@ -1,0 +1,103 @@
+// Zellij 配置文件 - quantix-rust 项目
+// 版本: 0.1.0
+
+// 主题 - 使用 Catppuccin Mocha (与项目配色一致)
+theme "catppuccin-mocha"
+
+// 面板框架设置
+pane_frames {
+    enabled true
+    hide_frames "never"
+    rounded_corners true
+}
+
+// 默认模式
+default_mode "normal"
+
+// 模式绑定
+mode "normal" {
+    bind "Ctrl q" { Quit; }
+    bind "Alt n" { NewTab; }
+    bind "Alt h" { GoToPreviousTab; }
+    bind "Alt l" { GoToNextTab; }
+}
+
+// 状态栏设置
+status_bar {
+    position "bottom"
+    style {
+        // 自定义样式将在主题中定义
+    }
+}
+
+// 自动布局
+auto_layout true
+
+// 鼠标支持
+mouse_mode true
+
+// 历史记录大小
+scroll_history 10000
+
+// 复制模式
+copy_command "xclip -selection clipboard"
+
+// 粘贴模式
+paste_command "xclip -selection clipboard -o"
+
+// 会话名称
+session_serialization true
+pane_viewport_serialization true
+scrollback_lines_to_serialize 10000
+
+// 插件配置
+plugins {
+    tab-bar { path "tab-bar"; }
+    status-bar { path "status-bar"; }
+    strider { path "strider"; }
+}
+
+// 键盘快捷键
+keybinds {
+    normal {
+        // 窗格管理
+        bind "Alt h" { MoveFocus "Left"; }
+        bind "Alt l" { MoveFocus "Right"; }
+        bind "Alt j" { MoveFocus "Down"; }
+        bind "Alt k" { MoveFocus "Up"; }
+        bind "Alt s" { SplitVertical; }
+        bind "Alt v" { SplitHorizontal; }
+        bind "Alt w" { CloseFocus; }
+
+        // 标签页管理
+        bind "Alt t" { NewTab; }
+        bind "Alt x" { CloseTab; }
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+        bind "Alt 5" { GoToTab 5; }
+
+        // quantix 快捷键
+        bind "Alt m" { Run "quantix" "menu"; }
+        bind "Alt q" { Run "quantix" "status"; }
+        bind "Alt r" { Run "quantix" "task" "list"; }
+    }
+}
+
+// 主题定制 (Catppuccin Mocha 变体)
+themes {
+    catppuccin-mocha {
+        bg "#1e1e2e"
+        fg "#cdd6f4"
+        red "#f38ba8"
+        green "#a6e3a1"
+        blue "#89b4fa"
+        yellow "#f9e2af"
+        magenta "#cba6f7"
+        orange "#fab387"
+        cyan "#89dceb"
+        black "#181825"
+        white "#cdd6f4"
+    }
+}

@@ -1,10 +1,9 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 /// TDengine REST API 客户端
 ///
 /// 通过 REST API 连接原 quantix 项目的 TDengine 数据库
 /// 高频时序数据读取
-
 use reqwest::Client;
-use chrono::{NaiveDateTime, Utc, DateTime};
 use serde::Deserialize;
 
 use crate::core::error::{QuantixError, Result};
@@ -67,7 +66,8 @@ impl TDengineClient {
     /// 检查连接
     pub async fn check_connection(&self) -> Result<()> {
         let url = format!("{}/rest/login/{}", self.base_url, self.token);
-        self.client.get(&url)
+        self.client
+            .get(&url)
             .send()
             .await
             .map_err(|e| QuantixError::DatabaseConnection(e.to_string()))?;
@@ -90,7 +90,8 @@ impl TDengineClient {
         );
 
         let url = format!("{}/rest/sql/{}", self.base_url, self.token);
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&serde_json::json!({ "sql": sql }))
             .send()
@@ -103,10 +104,15 @@ impl TDengineClient {
             .map_err(|e| QuantixError::DataParse(e.to_string()))?;
 
         if resp.status != "succ" {
-            return Err(QuantixError::DatabaseQuery(format!("TDengine error: {}", resp.status)));
+            return Err(QuantixError::DatabaseQuery(format!(
+                "TDengine error: {}",
+                resp.status
+            )));
         }
 
-        let klines = resp.data.into_iter()
+        let klines = resp
+            .data
+            .into_iter()
             .map(|row| {
                 let ts = NaiveDateTime::from_timestamp_opt(row.ts, 0)
                     .unwrap_or_else(|| NaiveDateTime::from_timestamp_millis(row.ts).unwrap())
