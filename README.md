@@ -503,6 +503,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 | WebSocket | tokio-tungstenite |
 | 日志 | tracing, tracing-subscriber |
 | CLI | clap, dialoguer, indicatif |
+| 终端复用 | Zellij (Rust 原生) |
+| 容器化 | Docker, Docker Compose |
+| 监控 | Prometheus, Grafana, Loki |
+
+## 项目进度
+
+**✅ 全部 20 个阶段已完成！**
+
+| Phase | 模块 | 状态 |
+|-------|------|------|
+| 1-5 | 数据采集、竞价分析、K线管理、回测引擎、任务调度 | ✅ |
+| 6-10 | TDX解析、GBBQ存储、多周期查询、东财采集、ClickHouse优化 | ✅ |
+| 11-15 | WebSocket、技术指标、Polars、CLI命令、策略实现 | ✅ |
+| 16-18 | 实时监控、导入导出、性能测试与优化 | ✅ |
+| 19-20 | 部署与运维（Docker/CI-CD）、Zellij集成 | ✅ |
 
 ## 与 Python quantix 的关系
 
