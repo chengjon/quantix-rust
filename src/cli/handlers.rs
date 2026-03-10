@@ -1,6 +1,7 @@
 use super::{
-    AnalyzeCommands, DataCommands, MarketCommands, ScreenerCommands, StrategyCommands,
-    TaskCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
+    ScreenerCommands, StrategyCommands, TaskCommands, WatchlistCommands, WatchlistGroupCommands,
+    WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -13,6 +14,11 @@ use crate::market::{
     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
     MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
 };
+use crate::monitor::storage::SqliteMonitorAlertStore;
+use crate::monitor::{
+    MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService, MonitorWatchlistReader,
+    MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+};
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
@@ -20,12 +26,14 @@ use crate::screener::{
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistService, WatchlistStorage, WatchlistStore,
+    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
+    WatchlistStorage, WatchlistStore,
 };
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use std::path::Path;
 use std::sync::Arc;
@@ -619,6 +627,29 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
     Ok(())
 }
 
+pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
+    let watchlist_reader = ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
+    let quote_reader = TdxMonitorQuoteReader;
+    let alert_store = create_monitor_alert_store().await?;
+    let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
+    let output = execute_monitor_command_with_service(cmd, &service).await?;
+
+    if let MonitorCommandOutput::Watchlist(snapshot) = &output {
+        persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
+    }
+
+    print_monitor_command_output(&output);
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum MonitorCommandOutput {
+    Watchlist(MonitorWatchlistSnapshot),
+    AlertAdded(PriceAlert),
+    AlertList(Vec<PriceAlert>),
+    AlertRemoved { id: u64, removed: bool },
+}
+
 pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
     let output = execute_market_command_with_reader(cmd, create_clickhouse_client().await?).await?;
 
@@ -642,6 +673,105 @@ enum MarketCommandOutput {
     Sentiment(Option<MarketSentimentSnapshot>),
     Leaders(Vec<LeaderRow>),
     Overview(MarketOverview),
+}
+
+#[derive(Debug, Clone)]
+struct ConfiguredMonitorWatchlistReader {
+    storage: WatchlistStorage,
+    service: WatchlistService,
+}
+
+impl ConfiguredMonitorWatchlistReader {
+    fn new(storage: WatchlistStorage) -> Self {
+        Self {
+            storage,
+            service: WatchlistService::default(),
+        }
+    }
+}
+
+#[async_trait]
+impl MonitorWatchlistReader for ConfiguredMonitorWatchlistReader {
+    async fn list_items(&self) -> Result<Vec<WatchlistListItem>> {
+        let store = load_watchlist_store_for_read(&self.storage)?;
+        Ok(self.service.list(&store, None, None))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct TdxMonitorQuoteReader;
+
+#[async_trait]
+impl MonitorQuoteReader for TdxMonitorQuoteReader {
+    async fn load_quotes(&self, codes: &[String]) -> Result<Vec<MonitorQuoteRow>> {
+        let quote_map = TdxWatchlistQuoteLookup
+            .lookup_quotes(codes)
+            .await
+            .unwrap_or_default();
+
+        Ok(codes
+            .iter()
+            .filter_map(|code| {
+                let snapshot = quote_map.get(code)?;
+                Some(MonitorQuoteRow {
+                    code: code.clone(),
+                    group: String::new(),
+                    tags: Vec::new(),
+                    last_price: snapshot.latest_price.to_f64(),
+                    change_pct: snapshot.price_change_pct.and_then(|value| value.to_f64()),
+                    quote_time: None,
+                    note: None,
+                })
+            })
+            .collect())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct MonitorAlertAddRequest {
+    code: String,
+    kind: PriceAlertKind,
+    target_price: f64,
+}
+
+async fn execute_monitor_command_with_service<RW, RQ, RS>(
+    cmd: MonitorCommands,
+    service: &MonitorService<RW, RQ, RS>,
+) -> Result<MonitorCommandOutput>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    RS: MonitorAlertStore,
+{
+    match cmd {
+        MonitorCommands::Watchlist { once } => {
+            validate_monitor_watchlist_command(once)?;
+            Ok(MonitorCommandOutput::Watchlist(
+                service.load_watchlist_snapshot().await?,
+            ))
+        }
+        MonitorCommands::Alert(alert_cmd) => match alert_cmd {
+            MonitorAlertCommands::Add { code, above, below } => {
+                let request = build_monitor_alert_request(code, above, below)?;
+                let alert = service
+                    .add_alert(
+                        &request.code,
+                        request.kind,
+                        request.target_price,
+                        Utc::now(),
+                    )
+                    .await?;
+                Ok(MonitorCommandOutput::AlertAdded(alert))
+            }
+            MonitorAlertCommands::List => Ok(MonitorCommandOutput::AlertList(
+                service.list_alerts().await?,
+            )),
+            MonitorAlertCommands::Remove { id } => {
+                let removed = service.remove_alert(monitor_alert_id_to_i64(id)?).await?;
+                Ok(MonitorCommandOutput::AlertRemoved { id, removed })
+            }
+        },
+    }
 }
 
 async fn execute_market_command_with_reader<R>(
@@ -705,6 +835,62 @@ where
                 .await?,
         )),
     }
+}
+
+fn validate_monitor_watchlist_command(once: bool) -> Result<()> {
+    if once {
+        Ok(())
+    } else {
+        Err(QuantixError::Other(
+            "monitor watchlist 当前仅支持 --once".to_string(),
+        ))
+    }
+}
+
+fn build_monitor_alert_request(
+    code: String,
+    above: Option<f64>,
+    below: Option<f64>,
+) -> Result<MonitorAlertAddRequest> {
+    match (above, below) {
+        (Some(target_price), None) => Ok(MonitorAlertAddRequest {
+            code,
+            kind: PriceAlertKind::Above,
+            target_price,
+        }),
+        (None, Some(target_price)) => Ok(MonitorAlertAddRequest {
+            code,
+            kind: PriceAlertKind::Below,
+            target_price,
+        }),
+        _ => Err(QuantixError::Other(
+            "monitor alert add 必须且只能指定 --above 或 --below 之一".to_string(),
+        )),
+    }
+}
+
+fn monitor_alert_id_to_i64(id: u64) -> Result<i64> {
+    i64::try_from(id).map_err(|_| QuantixError::Other(format!("告警 ID 超出支持范围: {}", id)))
+}
+
+async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
+    let runtime = CliRuntime::load();
+    SqliteMonitorAlertStore::new(runtime.monitor_db_path).await
+}
+
+async fn persist_triggered_monitor_alerts<RS>(
+    store: &RS,
+    snapshot: &MonitorWatchlistSnapshot,
+    observed_at: chrono::DateTime<Utc>,
+) -> Result<()>
+where
+    RS: MonitorAlertStore,
+{
+    for alert in &snapshot.triggered_alerts {
+        let triggered_at = alert.triggered_at.unwrap_or(observed_at);
+        store.mark_triggered(alert.alert_id, triggered_at).await?;
+    }
+    Ok(())
 }
 
 fn build_leader_filter(
@@ -852,6 +1038,113 @@ fn print_market_overview(overview: &MarketOverview) {
         println!();
         println!("Top 概念:");
         print_market_board_rows(&overview.top_concepts);
+    }
+}
+
+fn print_monitor_command_output(output: &MonitorCommandOutput) {
+    match output {
+        MonitorCommandOutput::Watchlist(snapshot) => print_monitor_watchlist_snapshot(snapshot),
+        MonitorCommandOutput::AlertAdded(alert) => println!(
+            "✅ 已添加价格告警 #{} {} {} {:.2}",
+            alert.id,
+            alert.code,
+            format_monitor_alert_kind(alert.kind),
+            alert.target_price
+        ),
+        MonitorCommandOutput::AlertList(alerts) => print_monitor_alerts(alerts),
+        MonitorCommandOutput::AlertRemoved { id, removed } => {
+            if *removed {
+                println!("✅ 已删除价格告警 #{}", id);
+            } else {
+                println!("⚠️  未找到价格告警 #{}", id);
+            }
+        }
+    }
+}
+
+fn print_monitor_watchlist_snapshot(snapshot: &MonitorWatchlistSnapshot) {
+    if snapshot.rows.is_empty() {
+        println!("📭 自选池为空");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<12} {:<16} {:<10} {:<10} {}",
+        "代码", "分组", "标签", "最新价", "涨跌幅", "备注"
+    );
+    println!("{}", "-".repeat(80));
+
+    for row in &snapshot.rows {
+        println!(
+            "{:<10} {:<12} {:<16} {:<10} {:<10} {}",
+            row.code,
+            row.group,
+            format_tags(&row.tags),
+            row.last_price
+                .map(|value| format!("{:.2}", value))
+                .unwrap_or_else(|| "-".to_string()),
+            row.change_pct
+                .map(|value| format!("{:.2}%", value))
+                .unwrap_or_else(|| "-".to_string()),
+            row.note.as_deref().unwrap_or("-")
+        );
+    }
+
+    if !snapshot.triggered_alerts.is_empty() {
+        println!();
+        println!("== 触发告警 ==");
+        for alert in &snapshot.triggered_alerts {
+            println!(
+                "[#{}] {} 当前价 {:.2} {} {:.2}",
+                alert.alert_id,
+                alert.code,
+                alert.current_price,
+                format_monitor_alert_kind(alert.kind),
+                alert.target_price
+            );
+        }
+    }
+
+    if !snapshot.warnings.is_empty() {
+        println!();
+        println!("== 警告 ==");
+        for warning in &snapshot.warnings {
+            println!("{}", warning);
+        }
+    }
+}
+
+fn print_monitor_alerts(alerts: &[PriceAlert]) {
+    if alerts.is_empty() {
+        println!("📭 暂无价格告警");
+        return;
+    }
+
+    println!(
+        "{:<6} {:<10} {:<8} {:<12} {}",
+        "ID", "代码", "类型", "目标价", "最后触发"
+    );
+    println!("{}", "-".repeat(64));
+
+    for alert in alerts {
+        println!(
+            "{:<6} {:<10} {:<8} {:<12} {}",
+            alert.id,
+            alert.code,
+            format_monitor_alert_kind(alert.kind),
+            format!("{:.2}", alert.target_price),
+            alert
+                .last_triggered_at
+                .map(|value| value.to_rfc3339())
+                .unwrap_or_else(|| "-".to_string())
+        );
+    }
+}
+
+fn format_monitor_alert_kind(kind: PriceAlertKind) -> &'static str {
+    match kind {
+        PriceAlertKind::Above => "above",
+        PriceAlertKind::Below => "below",
     }
 }
 
@@ -1435,6 +1728,7 @@ pub async fn run_status(health: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::{MonitorAlertCommands, MonitorCommands};
     use crate::core::QuantixError;
     use crate::core::config::CLICKHOUSE_DB_ENV;
     use crate::data::models::{AdjustType, Kline};
@@ -1442,13 +1736,18 @@ mod tests {
         BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
         MarketSentimentSnapshot, NorthFlowSnapshot,
     };
+    use crate::monitor::{
+        MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService,
+        MonitorWatchlistReader, PriceAlert, PriceAlertKind, TriggeredAlert,
+    };
     use crate::screener::DailyKlineLoader;
+    use crate::watchlist::WatchlistListItem;
     use async_trait::async_trait;
-    use chrono::{NaiveDate, Utc};
+    use chrono::{NaiveDate, TimeZone, Utc};
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
     use std::collections::HashMap;
-    use std::sync::{Mutex, OnceLock};
+    use std::sync::{Arc, Mutex, OnceLock};
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -1731,6 +2030,453 @@ mod tests {
 
         assert!(matches!(err, QuantixError::Other(_)));
         assert!(err.to_string().contains("未知的 preset"));
+    }
+
+    fn monitor_sample_time() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 11, 10, 30, 0).unwrap()
+    }
+
+    fn monitor_watchlist_item(code: &str, group: &str, tags: &[&str]) -> WatchlistListItem {
+        WatchlistListItem {
+            code: code.to_string(),
+            group: group.to_string(),
+            tags: tags.iter().map(|tag| tag.to_string()).collect(),
+        }
+    }
+
+    fn monitor_quote_row(code: &str, last_price: f64, change_pct: f64) -> MonitorQuoteRow {
+        MonitorQuoteRow {
+            code: code.to_string(),
+            group: String::new(),
+            tags: Vec::new(),
+            last_price: Some(last_price),
+            change_pct: Some(change_pct),
+            quote_time: Some(monitor_sample_time()),
+            note: None,
+        }
+    }
+
+    fn monitor_alert(id: i64, code: &str, kind: PriceAlertKind, target_price: f64) -> PriceAlert {
+        PriceAlert {
+            id,
+            code: code.to_string(),
+            kind,
+            target_price,
+            created_at: monitor_sample_time(),
+            last_triggered_at: None,
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeMonitorWatchlistReader {
+        items: Vec<WatchlistListItem>,
+    }
+
+    #[async_trait]
+    impl MonitorWatchlistReader for FakeMonitorWatchlistReader {
+        async fn list_items(&self) -> Result<Vec<WatchlistListItem>> {
+            Ok(self.items.clone())
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeMonitorQuoteReader {
+        rows: Vec<MonitorQuoteRow>,
+    }
+
+    #[async_trait]
+    impl MonitorQuoteReader for FakeMonitorQuoteReader {
+        async fn load_quotes(&self, _codes: &[String]) -> Result<Vec<MonitorQuoteRow>> {
+            Ok(self.rows.clone())
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct FakeMonitorAlertState {
+        next_id: i64,
+        alerts: Vec<PriceAlert>,
+        removed_ids: Vec<i64>,
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeMonitorAlertStore {
+        state: Arc<Mutex<FakeMonitorAlertState>>,
+    }
+
+    #[async_trait]
+    impl MonitorAlertStore for FakeMonitorAlertStore {
+        async fn add_alert(
+            &self,
+            code: &str,
+            kind: PriceAlertKind,
+            target_price: f64,
+            now: chrono::DateTime<Utc>,
+        ) -> Result<PriceAlert> {
+            let mut state = self.state.lock().unwrap();
+            state.next_id += 1;
+            let alert = PriceAlert {
+                id: state.next_id,
+                code: code.to_string(),
+                kind,
+                target_price,
+                created_at: now,
+                last_triggered_at: None,
+            };
+            state.alerts.push(alert.clone());
+            Ok(alert)
+        }
+
+        async fn list_alerts(&self) -> Result<Vec<PriceAlert>> {
+            Ok(self.state.lock().unwrap().alerts.clone())
+        }
+
+        async fn remove_alert(&self, id: i64) -> Result<bool> {
+            let mut state = self.state.lock().unwrap();
+            let before = state.alerts.len();
+            state.alerts.retain(|alert| alert.id != id);
+            if before != state.alerts.len() {
+                state.removed_ids.push(id);
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+
+        async fn mark_triggered(
+            &self,
+            id: i64,
+            triggered_at: chrono::DateTime<Utc>,
+        ) -> Result<bool> {
+            let mut state = self.state.lock().unwrap();
+            let Some(alert) = state.alerts.iter_mut().find(|alert| alert.id == id) else {
+                return Ok(false);
+            };
+            alert.last_triggered_at = Some(triggered_at);
+            Ok(true)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_watchlist_once_returns_rows() {
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![
+                    monitor_watchlist_item("000001", "core", &["bank"]),
+                    monitor_watchlist_item("000002", "swing", &["tech"]),
+                ],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![
+                    monitor_quote_row("000001", 16.2, 1.2),
+                    monitor_quote_row("000002", 21.4, 2.6),
+                ],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist(snapshot) => {
+                assert_eq!(snapshot.rows.len(), 2);
+                assert_eq!(snapshot.rows[0].code, "000001");
+                assert_eq!(snapshot.rows[0].group, "core");
+                assert_eq!(snapshot.rows[0].tags, vec!["bank".to_string()]);
+                assert_eq!(snapshot.rows[0].last_price, Some(16.2));
+                assert!(snapshot.triggered_alerts.is_empty());
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_watchlist_once_surfaces_triggered_alerts() {
+        let store = FakeMonitorAlertStore {
+            state: Arc::new(Mutex::new(FakeMonitorAlertState {
+                next_id: 1,
+                alerts: vec![monitor_alert(1, "000001", PriceAlertKind::Above, 16.0)],
+                removed_ids: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.2)],
+            },
+            store,
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist(snapshot) => {
+                assert_eq!(snapshot.rows.len(), 1);
+                assert_eq!(snapshot.triggered_alerts.len(), 1);
+                assert_eq!(snapshot.triggered_alerts[0].alert_id, 1);
+                assert_eq!(snapshot.triggered_alerts[0].code, "000001");
+                assert_eq!(snapshot.triggered_alerts[0].current_price, 16.8);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_watchlist_requires_once() {
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            FakeMonitorAlertStore::default(),
+        );
+
+        let err =
+            execute_monitor_command_with_service(MonitorCommands::Watchlist { once: false }, &service)
+                .await
+                .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("仅支持 --once"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_alert_add_above_succeeds() {
+        let store = FakeMonitorAlertStore::default();
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            store.clone(),
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code: "000001".to_string(),
+                above: Some(16.0),
+                below: None,
+            }),
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AlertAdded(alert) => {
+                assert_eq!(alert.code, "000001");
+                assert_eq!(alert.kind, PriceAlertKind::Above);
+                assert_eq!(alert.target_price, 16.0);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        assert_eq!(store.state.lock().unwrap().alerts.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_alert_add_below_succeeds() {
+        let store = FakeMonitorAlertStore::default();
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            store.clone(),
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code: "000001".to_string(),
+                above: None,
+                below: Some(15.0),
+            }),
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AlertAdded(alert) => {
+                assert_eq!(alert.code, "000001");
+                assert_eq!(alert.kind, PriceAlertKind::Below);
+                assert_eq!(alert.target_price, 15.0);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        assert_eq!(store.state.lock().unwrap().alerts.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_alert_list_returns_persisted_rows() {
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            FakeMonitorAlertStore {
+                state: Arc::new(Mutex::new(FakeMonitorAlertState {
+                    next_id: 2,
+                    alerts: vec![
+                        monitor_alert(1, "000001", PriceAlertKind::Above, 16.0),
+                        monitor_alert(2, "000002", PriceAlertKind::Below, 15.0),
+                    ],
+                    removed_ids: Vec::new(),
+                })),
+            },
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::List),
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AlertList(alerts) => {
+                assert_eq!(alerts.len(), 2);
+                assert_eq!(alerts[0].code, "000001");
+                assert_eq!(alerts[1].kind, PriceAlertKind::Below);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_alert_remove_succeeds() {
+        let store = FakeMonitorAlertStore {
+            state: Arc::new(Mutex::new(FakeMonitorAlertState {
+                next_id: 1,
+                alerts: vec![monitor_alert(1, "000001", PriceAlertKind::Above, 16.0)],
+                removed_ids: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            store.clone(),
+        );
+
+        let output = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::Remove { id: 1 }),
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AlertRemoved { id, removed } => {
+                assert_eq!(id, 1);
+                assert!(removed);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert!(state.alerts.is_empty());
+        assert_eq!(state.removed_ids, vec![1]);
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_alert_add_rejects_invalid_threshold_combinations() {
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader::default(),
+            FakeMonitorQuoteReader::default(),
+            FakeMonitorAlertStore::default(),
+        );
+
+        let both_err = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code: "000001".to_string(),
+                above: Some(16.0),
+                below: Some(15.0),
+            }),
+            &service,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(both_err, QuantixError::Other(_)));
+        assert!(both_err.to_string().contains("必须且只能指定"));
+
+        let none_err = execute_monitor_command_with_service(
+            MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code: "000001".to_string(),
+                above: None,
+                below: None,
+            }),
+            &service,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(none_err, QuantixError::Other(_)));
+        assert!(none_err.to_string().contains("必须且只能指定"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_persist_triggered_alerts_falls_back_to_observed_time() {
+        let store = FakeMonitorAlertStore {
+            state: Arc::new(Mutex::new(FakeMonitorAlertState {
+                next_id: 1,
+                alerts: vec![monitor_alert(1, "000001", PriceAlertKind::Above, 16.0)],
+                removed_ids: Vec::new(),
+            })),
+        };
+        let observed_at = Utc.with_ymd_and_hms(2026, 3, 11, 10, 31, 0).unwrap();
+        let snapshot = MonitorWatchlistSnapshot {
+            rows: Vec::new(),
+            triggered_alerts: vec![TriggeredAlert {
+                alert_id: 1,
+                code: "000001".to_string(),
+                kind: PriceAlertKind::Above,
+                target_price: 16.0,
+                current_price: 16.8,
+                triggered_at: None,
+            }],
+            warnings: Vec::new(),
+        };
+
+        persist_triggered_monitor_alerts(&store, &snapshot, observed_at)
+            .await
+            .unwrap();
+
+        let alerts = store.state.lock().unwrap().alerts.clone();
+        assert_eq!(alerts[0].last_triggered_at, Some(observed_at));
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_persist_triggered_alerts_preserves_snapshot_time() {
+        let store = FakeMonitorAlertStore {
+            state: Arc::new(Mutex::new(FakeMonitorAlertState {
+                next_id: 1,
+                alerts: vec![monitor_alert(1, "000001", PriceAlertKind::Above, 16.0)],
+                removed_ids: Vec::new(),
+            })),
+        };
+        let observed_at = Utc.with_ymd_and_hms(2026, 3, 11, 10, 31, 0).unwrap();
+        let snapshot = MonitorWatchlistSnapshot {
+            rows: Vec::new(),
+            triggered_alerts: vec![TriggeredAlert {
+                alert_id: 1,
+                code: "000001".to_string(),
+                kind: PriceAlertKind::Above,
+                target_price: 16.0,
+                current_price: 16.8,
+                triggered_at: Some(monitor_sample_time()),
+            }],
+            warnings: Vec::new(),
+        };
+
+        persist_triggered_monitor_alerts(&store, &snapshot, observed_at)
+            .await
+            .unwrap();
+
+        let alerts = store.state.lock().unwrap().alerts.clone();
+        assert_eq!(alerts[0].last_triggered_at, Some(monitor_sample_time()));
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
