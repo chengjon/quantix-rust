@@ -90,28 +90,10 @@ impl DataSync {
 
         let start_time = Utc::now();
 
-        // TODO: 从 PostgreSQL 读取日线数据
-        // let postgres_client = PostgresClient::connect(&self.config.postgres_url).await?;
-        // let daily_data = postgres_client.get_daily_klines(start_date, end_date).await?;
-
-        // 临时模拟数据
-        let mock_data = vec![KlineData {
-            timestamp: Utc::now(),
-            code: "000001".to_string(),
-            name: "平安银行".to_string(),
-            period: crate::sources::kline_aggregator::KlinePeriod::Daily,
-            open: 10.0,
-            high: 10.5,
-            low: 9.8,
-            close: 10.3,
-            volume: 1000000.0,
-            amount: 10300000.0,
-            trade_count: 5000,
-            source: "sync".to_string(),
-        }];
+        let daily_data = Self::fetch_daily_source_data(&self.config, start_date, end_date).await?;
 
         // 写入 ClickHouse
-        let records_synced = self.write_klines_to_clickhouse(&mock_data).await?;
+        let records_synced = self.write_klines_to_clickhouse(&daily_data).await?;
 
         let end_time = Utc::now();
         let elapsed = end_time.signed_duration_since(start_time).num_seconds();
@@ -142,14 +124,9 @@ impl DataSync {
 
         let start = Utc::now();
 
-        // TODO: 从 TDengine 读取分钟线数据
-        // let tdengine_client = TDengineClient::new().await?;
-        // let minute_data = tdengine_client.get_minute_klines(start_time, end_time).await?;
+        let minute_data = Self::fetch_minute_source_data(&self.config, start_time, end_time).await?;
 
-        // 临时模拟数据
-        let mock_data: Vec<KlineData> = vec![];
-
-        let records_synced = self.write_klines_to_clickhouse(&mock_data).await?;
+        let records_synced = self.write_klines_to_clickhouse(&minute_data).await?;
 
         let end = Utc::now();
         let elapsed = end.signed_duration_since(start).num_seconds();
@@ -224,6 +201,26 @@ impl DataSync {
         Ok(klines.len())
     }
 
+    async fn fetch_daily_source_data(
+        _config: &SyncConfig,
+        _start_date: chrono::NaiveDate,
+        _end_date: chrono::NaiveDate,
+    ) -> Result<Vec<KlineData>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "DataSync::fetch_daily_source_data 尚未接入 PostgreSQL 日线来源".to_string(),
+        ))
+    }
+
+    async fn fetch_minute_source_data(
+        _config: &SyncConfig,
+        _start_time: DateTime<Utc>,
+        _end_time: DateTime<Utc>,
+    ) -> Result<Vec<KlineData>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "DataSync::fetch_minute_source_data 尚未接入分钟线来源".to_string(),
+        ))
+    }
+
     /// 运行定时同步
     pub async fn run_sync_schedule(&self) -> Result<()> {
         info!("启动定时同步任务");
@@ -250,23 +247,43 @@ impl DataSync {
     }
 }
 
-impl Default for DataSync {
-    fn default() -> Self {
-        Self {
-            config: unsafe { std::mem::zeroed() },            // Placeholder
-            clickhouse_client: unsafe { std::mem::zeroed() }, // Placeholder
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::QuantixError;
 
     #[test]
     fn test_sync_config_default() {
         let config = SyncConfig::default();
         assert_eq!(config.batch_size, 1000);
         assert_eq!(config.sync_interval, 300);
+    }
+
+    #[tokio::test]
+    async fn test_fetch_daily_source_data_returns_unsupported() {
+        let config = SyncConfig::default();
+        let err = DataSync::fetch_daily_source_data(
+            &config,
+            chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            chrono::NaiveDate::from_ymd_opt(2026, 1, 31).unwrap(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_minute_source_data_returns_unsupported() {
+        let config = SyncConfig::default();
+        let err = DataSync::fetch_minute_source_data(
+            &config,
+            Utc::now() - chrono::Duration::days(1),
+            Utc::now(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 }

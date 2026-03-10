@@ -41,7 +41,7 @@ fn generate_price_series_local(start_price: f64, count: usize, trend: PriceTrend
             price = 1.0;
         }
 
-        let date = NaiveDate::from_ymd_opt(2024, 1, 1 + i as u32).unwrap();
+        let date = make_test_date(i);
         klines.push(Kline {
             code: "000001".to_string(),
             date,
@@ -60,11 +60,18 @@ fn generate_price_series_local(start_price: f64, count: usize, trend: PriceTrend
 
     klines
 }
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use std::collections::HashMap;
+
+fn make_test_date(offset_days: usize) -> NaiveDate {
+    NaiveDate::from_ymd_opt(2024, 1, 1)
+        .unwrap()
+        .checked_add_signed(Duration::days(offset_days as i64))
+        .unwrap()
+}
 
 /// 创建测试数据
 fn create_test_data() -> HashMap<String, Vec<Kline>> {
@@ -85,7 +92,57 @@ fn create_test_data() -> HashMap<String, Vec<Kline>> {
         .iter()
         .enumerate()
         .map(|(i, &price)| {
-            let date = NaiveDate::from_ymd_opt(2024, 1, 1 + i as u32).unwrap();
+            let date = make_test_date(i);
+            Kline {
+                code: "000001".to_string(),
+                date,
+                open: Decimal::from_str(price.to_string().as_str()).unwrap(),
+                high: Decimal::from_str((price + 1.0).to_string().as_str()).unwrap(),
+                low: Decimal::from_str((price - 1.0).to_string().as_str()).unwrap(),
+                close: Decimal::from_str(price.to_string().as_str()).unwrap(),
+                volume: 1000000,
+                amount: Some(
+                    Decimal::from_str(price.to_string().as_str()).unwrap()
+                        * Decimal::from(1000000),
+                ),
+                adjust_type: AdjustType::None,
+            }
+        })
+        .collect();
+
+    data.insert("000001".to_string(), klines);
+    data
+}
+
+/// 创建适用于 MA Cross 的测试数据
+fn create_ma_cross_test_data() -> HashMap<String, Vec<Kline>> {
+    let mut data = HashMap::new();
+    let mut prices = Vec::new();
+    let mut price = 100.0;
+
+    // 先下跌，确保短均线位于长均线下方
+    for _ in 0..20 {
+        prices.push(price);
+        price -= 0.5;
+    }
+
+    // 再上涨，触发金叉买入
+    for _ in 0..40 {
+        prices.push(price);
+        price += 0.5;
+    }
+
+    // 最后回落，触发死叉卖出
+    for _ in 0..40 {
+        prices.push(price);
+        price -= 0.5;
+    }
+
+    let klines: Vec<Kline> = prices
+        .iter()
+        .enumerate()
+        .map(|(i, &price)| {
+            let date = make_test_date(i);
             Kline {
                 code: "000001".to_string(),
                 date,
@@ -110,13 +167,48 @@ fn create_test_data() -> HashMap<String, Vec<Kline>> {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    use quantix_cli::strategy::Strategy;
+
+    #[test]
+    fn test_create_test_data_supports_dates_beyond_january() {
+        let data = create_test_data();
+        let klines = data.get("000001").unwrap();
+
+        assert_eq!(klines.len(), 100);
+        assert_eq!(klines[0].date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
+        assert_eq!(klines[31].date, NaiveDate::from_ymd_opt(2024, 2, 1).unwrap());
+        assert_eq!(klines[99].date, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_create_ma_cross_test_data_generates_buy_and_sell_signals() {
+        let data = create_ma_cross_test_data();
+        let klines = data.get("000001").unwrap();
+        let mut strategy = MACrossStrategy::new(5, 10);
+        let mut has_buy = false;
+        let mut has_sell_after_buy = false;
+
+        for kline in klines {
+            match strategy.on_bar(kline).await.unwrap() {
+                quantix_cli::strategy::trait_def::Signal::Buy => has_buy = true,
+                quantix_cli::strategy::trait_def::Signal::Sell if has_buy => {
+                    has_sell_after_buy = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(has_buy, "MA Cross 测试夹具应该触发买入信号");
+        assert!(has_sell_after_buy, "MA Cross 测试夹具应该在买入后触发卖出信号");
+    }
 
     /// 测试 MA Cross 策略与回测引擎集成
     #[tokio::test]
     async fn test_ma_cross_backtest_integration() {
         let mut engine = BacktestEngine::with_default_config();
         let mut strategy = MACrossStrategy::new(5, 10);
-        let data = create_test_data();
+        let data = create_ma_cross_test_data();
 
         let result = engine.run(&mut strategy, &data).await.unwrap();
 
@@ -201,7 +293,7 @@ mod integration_tests {
                 .iter()
                 .enumerate()
                 .map(|(i, &price)| {
-                    let date = NaiveDate::from_ymd_opt(2024, 1, 1 + i as u32).unwrap();
+                    let date = make_test_date(i);
                     Kline {
                         code: code.to_string(),
                         date,
@@ -288,7 +380,7 @@ mod integration_tests {
             .iter()
             .enumerate()
             .map(|(i, &price)| {
-                let date = NaiveDate::from_ymd_opt(2024, 1, 1 + i as u32).unwrap();
+                let date = make_test_date(i);
                 Kline {
                     code: "000001".to_string(),
                     date,

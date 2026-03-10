@@ -5,6 +5,11 @@ use config::{Config, Environment, File};
 use serde::Deserialize;
 use std::path::Path;
 
+pub const CLICKHOUSE_URL_ENV: &str = "CLICKHOUSE_URL";
+pub const CLICKHOUSE_DB_ENV: &str = "CLICKHOUSE_DB";
+pub const DEFAULT_CLICKHOUSE_URL: &str = "http://localhost:8123";
+pub const DEFAULT_CLICKHOUSE_DB: &str = "quantix";
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseConfig {
     pub tdengine: Option<TDengineConfig>,

@@ -24,21 +24,21 @@ impl AkShareSource {
 
 #[async_trait]
 impl Fetcher for AkShareSource {
-    async fn get_stock_info(&self, code: &str) -> Result<Option<StockInfo>> {
-        // TODO: 实现 AkShare API 调用
-        tracing::warn!("AkShareSource::get_stock_info not implemented yet");
-        Ok(None)
+    async fn get_stock_info(&self, _code: &str) -> Result<Option<StockInfo>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "AkShareSource::get_stock_info 尚未接入真实 API".to_string(),
+        ))
     }
 
     async fn get_kline(
         &self,
-        code: &str,
-        start: chrono::NaiveDate,
-        end: chrono::NaiveDate,
+        _code: &str,
+        _start: chrono::NaiveDate,
+        _end: chrono::NaiveDate,
     ) -> Result<Vec<Kline>> {
-        // TODO: 实现 AkShare K线获取
-        tracing::warn!("AkShareSource::get_kline not implemented yet");
-        Ok(vec![])
+        Err(crate::core::QuantixError::Unsupported(
+            "AkShareSource::get_kline 尚未接入真实 API".to_string(),
+        ))
     }
 
     async fn check_connection(&self) -> Result<()> {
@@ -48,5 +48,33 @@ impl Fetcher for AkShareSource {
             .await
             .map_err(|e| crate::core::error::QuantixError::Http(e))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::QuantixError;
+
+    #[tokio::test]
+    async fn test_akshare_get_stock_info_returns_unsupported() {
+        let source = AkShareSource::new("http://localhost:8000".to_string()).unwrap();
+        let err = source.get_stock_info("000001").await.unwrap_err();
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_akshare_get_kline_returns_unsupported() {
+        let source = AkShareSource::new("http://localhost:8000".to_string()).unwrap();
+        let err = source
+            .get_kline(
+                "000001",
+                chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                chrono::NaiveDate::from_ymd_opt(2026, 1, 31).unwrap(),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 }

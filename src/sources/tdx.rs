@@ -250,23 +250,21 @@ impl TdxSource {
 
 #[async_trait]
 impl Fetcher for TdxSource {
-    async fn get_stock_info(&self, code: &str) -> Result<Option<StockInfo>> {
-        // TODO: 从数据库或 TDX 获取股票基本信息
-        // 目前返回 None，建议从共享的 PostgreSQL 数据库读取
-        tracing::warn!("TdxSource::get_stock_info 建议从数据库读取");
-        Ok(None)
+    async fn get_stock_info(&self, _code: &str) -> Result<Option<StockInfo>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "TdxSource::get_stock_info 尚未接入真实股票信息来源".to_string(),
+        ))
     }
 
     async fn get_kline(
         &self,
-        code: &str,
-        start: chrono::NaiveDate,
-        end: chrono::NaiveDate,
+        _code: &str,
+        _start: chrono::NaiveDate,
+        _end: chrono::NaiveDate,
     ) -> Result<Vec<Kline>> {
-        // TODO: 实现 TDX K线获取
-        // 可以使用 rustdx 的 K线功能，或从 TDengine 读取
-        tracing::warn!("TdxSource::get_kline 建议从 TDengine 或数据库读取");
-        Ok(vec![])
+        Err(crate::core::QuantixError::Unsupported(
+            "TdxSource::get_kline 尚未接入真实 K 线来源".to_string(),
+        ))
     }
 
     async fn check_connection(&self) -> Result<()> {
@@ -294,6 +292,7 @@ impl Default for TdxSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::QuantixError;
 
     #[test]
     fn test_tdx_source_creation() {
@@ -334,5 +333,27 @@ mod tests {
         assert_eq!(quote.price, 10.5);
         assert_eq!(quote.preclose, 10.0);
         assert!((quote.change_percent - 5.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_tdx_get_stock_info_returns_unsupported() {
+        let source = TdxSource::with_default_config().unwrap();
+        let err = source.get_stock_info("000001").await.unwrap_err();
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_tdx_get_kline_returns_unsupported() {
+        let source = TdxSource::with_default_config().unwrap();
+        let err = source
+            .get_kline(
+                "000001",
+                chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                chrono::NaiveDate::from_ymd_opt(2026, 1, 31).unwrap(),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 }

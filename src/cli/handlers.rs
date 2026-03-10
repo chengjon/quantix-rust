@@ -1,10 +1,10 @@
-use super::{AnalyzeCommands, Commands, DataCommands, StrategyCommands, TaskCommands};
+use super::{AnalyzeCommands, DataCommands, StrategyCommands, TaskCommands};
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// CLI 命令处理器
 ///
 /// 实现各个子命令的处理逻辑
-use crate::core::{QuantixError, Result};
+use crate::core::{CliRuntime, QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use chrono::NaiveDate;
@@ -13,6 +13,11 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use std::path::Path;
+
+async fn create_clickhouse_client() -> Result<ClickHouseClient> {
+    let runtime = CliRuntime::load();
+    ClickHouseClient::from_settings(&runtime.clickhouse).await
+}
 
 /// 初始化命令
 pub async fn run_init(config_path: String) -> Result<()> {
@@ -131,10 +136,7 @@ async fn query_kline_data(
         .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 查询数据
     let klines = client
@@ -180,10 +182,7 @@ async fn export_data(code: String, format: String, output: String) -> Result<()>
         .map_err(|e| QuantixError::Other(format!("创建输出目录失败: {}", e)))?;
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 查询数据
     let klines = client
@@ -305,10 +304,7 @@ async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
     println!("  参数: MA5, MA20");
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 获取历史数据
     let klines = client
@@ -430,6 +426,8 @@ async fn show_strategy(name: String) -> Result<()> {
 
 /// 任务命令
 pub async fn run_task_command(cmd: TaskCommands) -> Result<()> {
+    ensure_task_command_supported_for_p0(&cmd)?;
+
     match cmd {
         TaskCommands::Add {
             name,
@@ -454,29 +452,53 @@ pub async fn run_task_command(cmd: TaskCommands) -> Result<()> {
     Ok(())
 }
 
+fn ensure_task_command_supported_for_p0(cmd: &TaskCommands) -> Result<()> {
+    match cmd {
+        TaskCommands::Add { .. } => Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持预置任务模板；`task add` 暂不开放".to_string(),
+        )),
+        TaskCommands::Start { daemon: true } => Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持前台直接执行；`task start --daemon` 暂不支持".to_string(),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// 添加任务
 async fn add_task(name: String, cron: String, command: String) -> Result<()> {
     println!("⏰ 添加任务: {}", name);
     println!("  Cron: {}", cron);
     println!("  命令: {}", command);
 
-    // TODO: 实现 Cron 解析和任务添加
-    println!("💡 提示: 使用 'quantix task start' 启动调度器");
+    Err(QuantixError::Unsupported(
+        "Foundation P0 仅支持预置任务模板；请使用 `quantix task list` 查看可运行任务".to_string(),
+    ))
+}
 
-    Ok(())
+fn foundation_p0_task_template_descriptions() -> Vec<(String, String, String)> {
+    [
+        TaskTemplates::pre_market_check(),
+        TaskTemplates::auction_collection(),
+        TaskTemplates::market_open(),
+        TaskTemplates::market_close(),
+        TaskTemplates::post_market_process(),
+        TaskTemplates::data_sync(),
+    ]
+    .into_iter()
+    .map(|task| (task.name, task.command, task.cron_expr))
+    .collect()
 }
 
 /// 列出所有任务
 async fn list_tasks() -> Result<()> {
-    println!("📋 定时任务列表:");
+    println!("📋 Foundation P0 预置任务模板:");
     println!();
-    println!("  预定义任务模板:");
-    println!("    - market_open:  开盘前任务 (09:20)");
-    println!("    - auction:      竞价采集 (09:25)");
-    println!("    - market_close: 收盘后任务 (15:05)");
-    println!("    - data_sync:    数据同步 (每天 03:00)");
+    println!("  预定义任务模板 (名称 | 描述 | Cron):");
+    for (name, command, cron) in foundation_p0_task_template_descriptions() {
+        println!("    - {} | {} | {}", name, command, cron);
+    }
     println!();
-    println!("💡 使用 'quantix task start' 启动调度器");
+    println!("💡 Foundation P0 只支持前台启动预置模板: `quantix task start`");
 
     Ok(())
 }
@@ -484,10 +506,12 @@ async fn list_tasks() -> Result<()> {
 /// 启动任务调度器
 async fn start_task_scheduler(daemon: bool) -> Result<()> {
     if daemon {
-        println!("⏰ 启动任务调度器 (后台模式)...");
-    } else {
-        println!("⏰ 启动任务调度器...");
+        return Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持前台直接执行；后台守护模式暂不支持".to_string(),
+        ));
     }
+
+    println!("⏰ 启动任务调度器...");
 
     // 创建调度器
     let scheduler = TaskScheduler::new()
@@ -552,12 +576,13 @@ async fn stop_task_scheduler() -> Result<()> {
 
 /// 显示任务状态
 async fn show_task_status() -> Result<()> {
-    println!("📊 任务调度器状态:");
+    println!("📊 Foundation P0 任务状态:");
     println!();
-    println!("  状态: 未运行");
-    println!("  任务数: 0");
+    println!("  状态: 仅支持当前进程内调度器");
+    println!("  持久化: 暂不支持");
+    println!("  后台守护: 暂不支持");
     println!();
-    println!("💡 使用 'quantix task start' 启动调度器");
+    println!("💡 使用 `quantix task start` 以前台模式运行预置任务模板");
 
     Ok(())
 }
@@ -582,10 +607,7 @@ async fn calculate_indicators(code: String, indicators_str: String) -> Result<()
     println!("  指标: {}", indicators_str);
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 获取历史数据
     let klines = client
@@ -650,10 +672,7 @@ pub async fn run_status(health: bool) -> Result<()> {
         println!("🏥 检查数据库连接...");
 
         // 尝试连接 ClickHouse
-        let url =
-            std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-        let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-        match ClickHouseClient::new(&url, &database).await {
+        match create_clickhouse_client().await {
             Ok(_) => println!("  ✅ ClickHouse: 连接正常"),
             Err(e) => println!("  ❌ ClickHouse: 连接失败 - {}", e),
         }
@@ -683,6 +702,109 @@ pub async fn run_status(health: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::config::CLICKHOUSE_DB_ENV;
+    use crate::core::QuantixError;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    struct ClickHouseDbEnvGuard(Option<String>);
+
+    impl ClickHouseDbEnvGuard {
+        fn capture() -> Self {
+            Self(std::env::var(CLICKHOUSE_DB_ENV).ok())
+        }
+    }
+
+    impl Drop for ClickHouseDbEnvGuard {
+        fn drop(&mut self) {
+            match &self.0 {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_DB_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_DB_ENV) },
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_clickhouse_client_uses_runtime_settings() {
+        let _lock = env_lock();
+        let _guard = ClickHouseDbEnvGuard::capture();
+        unsafe {
+            std::env::set_var(CLICKHOUSE_DB_ENV, "quantix_runtime_test");
+        }
+
+        let client = create_clickhouse_client().await.unwrap();
+        assert_eq!(client.database(), "quantix_runtime_test");
+    }
+
+    #[test]
+    fn test_task_add_is_explicitly_unsupported() {
+        let err = ensure_task_command_supported_for_p0(&TaskCommands::Add {
+            name: "demo".to_string(),
+            cron: "0 * * * *".to_string(),
+            command: "echo demo".to_string(),
+        })
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_task_start_daemon_is_explicitly_unsupported() {
+        let err =
+            ensure_task_command_supported_for_p0(&TaskCommands::Start { daemon: true }).unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_foundation_p0_task_templates_match_scheduler_templates() {
+        let templates = foundation_p0_task_template_descriptions();
+
+        assert_eq!(
+            templates,
+            vec![
+                (
+                    "pre_market_check".to_string(),
+                    "检查盘前数据".to_string(),
+                    "0 8 * * 1-5".to_string()
+                ),
+                (
+                    "auction_collection".to_string(),
+                    "竞价数据采集".to_string(),
+                    "30,0 9 * * 1-5".to_string()
+                ),
+                (
+                    "market_open".to_string(),
+                    "开盘检查".to_string(),
+                    "30 9 * * 1-5".to_string()
+                ),
+                (
+                    "market_close".to_string(),
+                    "收盘检查".to_string(),
+                    "0 15 * * 1-5".to_string()
+                ),
+                (
+                    "post_market_process".to_string(),
+                    "盘后数据处理".to_string(),
+                    "30 15 * * 1-5".to_string()
+                ),
+                (
+                    "data_sync".to_string(),
+                    "数据同步".to_string(),
+                    "0 16 * * *".to_string()
+                ),
+            ]
+        );
+    }
 }
 
 // === 菜单辅助函数 ===

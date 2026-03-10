@@ -304,16 +304,6 @@ impl AuctionCollector {
     }
 }
 
-impl Default for AuctionCollector {
-    fn default() -> Self {
-        Self {
-            tcp: Tcp::new().unwrap(),
-            watchlist: Self::default_watchlist(),
-            calendar: unsafe { std::mem::zeroed() }, // Placeholder
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

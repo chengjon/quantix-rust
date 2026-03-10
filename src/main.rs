@@ -7,19 +7,7 @@
 ///   - cargo run -- data query   # 查询数据
 ///   - cargo run -- menu         # 交互菜单
 use clap::Parser;
-
-mod analysis;
-mod cli;
-mod core;
-mod data;
-mod db;
-mod sources;
-mod strategy;
-mod sync;
-mod tasks;
-mod tui;
-
-use core::Result;
+use quantix_cli::{Cli, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,5 +19,5 @@ async fn main() -> Result<()> {
         .init();
 
     // 解析 CLI 命令
-    cli::Cli::parse().run().await
+    Cli::parse().run().await
 }

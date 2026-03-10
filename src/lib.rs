@@ -25,6 +25,7 @@ pub mod tasks;
 pub mod tui;
 
 // 重新导出常用类型
+pub use cli::Cli;
 pub use core::{QuantixError, Result};
 pub use data::models::*;
 pub use sources::*;
