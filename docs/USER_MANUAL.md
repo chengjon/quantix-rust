@@ -600,12 +600,13 @@ quantix task status
 
 ### analyze - 分析工具
 
-计算技术指标和查看回测报告。
+计算技术指标、查看回测报告，以及对小范围股票池执行日线选股筛选。
 
 #### 子命令
 
 - `indicators` - 计算技术指标
 - `backtest` - 查看回测报告
+- `screener` - 运行日线选股筛选
 
 #### analyze indicators - 计算技术指标
 
@@ -682,6 +683,75 @@ quantix analyze backtest -i bt_20240101_000001
 ```
 回测报告: bt_20240101_000001
 ```
+
+---
+
+#### analyze screener - 日线选股筛选
+
+按你提供的小范围股票池运行参数化 preset。P0 只支持单指标 preset，多个 `--preset` 之间使用 `AND` 组合。
+
+##### 用法
+
+```bash
+quantix analyze screener preset-list
+quantix analyze screener run (--codes <CSV> | --watchlist [--group <NAME>]) --preset <SPEC> [--preset <SPEC> ...] [--sort-by <FIELD>] [--limit <N>]
+```
+
+##### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--codes` | 显式股票代码列表，逗号分隔 | 无 |
+| `--watchlist` | 使用本地自选池作为股票池 | false |
+| `--group` | 自选池分组，仅在 `--watchlist` 下生效 | 无 |
+| `--preset` | 单个筛选条件，可重复传入 | 必填 |
+| `--sort-by` | 排序字段：`code` 或 `score` | `code` |
+| `--limit` | 限制返回条数 | 无 |
+
+##### P0 约束
+
+- 仅支持日线数据
+- 必须二选一指定 `--codes` 或 `--watchlist`
+- 不支持全市场扫描
+- 不支持 DSL、自定义表达式、OR 逻辑
+- `preset` 必须写成 `name:key=value,key=value`
+
+##### 支持的 preset
+
+| Preset | 参数 | 说明 |
+|--------|------|------|
+| `close_above_ma` | `period=<n>` | 收盘价高于均线 |
+| `close_below_ma` | `period=<n>` | 收盘价低于均线 |
+| `rsi_gte` | `period=<n>,value=<x>` | RSI 大于等于阈值 |
+| `rsi_lte` | `period=<n>,value=<x>` | RSI 小于等于阈值 |
+| `volume_ratio_gte` | `window=<n>,value=<x>` | 量比大于等于阈值 |
+
+##### 示例
+
+```bash
+# 查看 preset 列表
+quantix analyze screener preset-list
+
+# 对显式代码列表筛选
+quantix analyze screener run \
+  --codes 000001,600519 \
+  --preset close_above_ma:period=20
+
+# 对自选池分组做 AND 组合筛选
+quantix analyze screener run \
+  --watchlist \
+  --group core \
+  --preset close_above_ma:period=20 \
+  --preset volume_ratio_gte:window=5,value=1.5 \
+  --sort-by score \
+  --limit 20
+```
+
+##### 输出说明
+
+- `命中=yes/no` 表示该股票是否同时满足全部 preset
+- `评分` 仅用于当前 P0 排序，代表规则相对阈值的简单偏离度
+- 数据不足时不会中断整次筛选，该规则会显示为未命中并附带原因
 
 ---
 
