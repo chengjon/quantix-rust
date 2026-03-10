@@ -102,6 +102,23 @@ fn quote_row(code: &str, last_price: f64, change_pct: f64) -> MonitorQuoteRow {
     }
 }
 
+fn quote_row_at(
+    code: &str,
+    last_price: f64,
+    change_pct: f64,
+    quote_time: Option<DateTime<Utc>>,
+) -> MonitorQuoteRow {
+    MonitorQuoteRow {
+        code: code.to_string(),
+        group: String::new(),
+        tags: Vec::new(),
+        last_price: Some(last_price),
+        change_pct: Some(change_pct),
+        quote_time,
+        note: None,
+    }
+}
+
 fn price_alert(id: i64, code: &str, kind: PriceAlertKind, target_price: f64) -> PriceAlert {
     PriceAlert {
         id,
@@ -172,6 +189,7 @@ async fn matching_above_alerts_are_returned_as_triggered_alerts() {
     assert_eq!(snapshot.triggered_alerts[0].code, "000001");
     assert_eq!(snapshot.triggered_alerts[0].current_price, 16.2);
     assert_eq!(snapshot.triggered_alerts[0].target_price, 16.0);
+    assert_eq!(snapshot.triggered_alerts[0].triggered_at, Some(sample_time()));
 }
 
 #[tokio::test]
@@ -201,6 +219,7 @@ async fn matching_below_alerts_are_returned_as_triggered_alerts() {
     assert_eq!(snapshot.triggered_alerts[0].code, "000002");
     assert_eq!(snapshot.triggered_alerts[0].current_price, 11.8);
     assert_eq!(snapshot.triggered_alerts[0].target_price, 12.0);
+    assert_eq!(snapshot.triggered_alerts[0].triggered_at, Some(sample_time()));
 }
 
 #[tokio::test]
@@ -250,4 +269,130 @@ async fn empty_watchlist_returns_an_empty_result_without_crashing() {
     assert!(snapshot.rows.is_empty());
     assert!(snapshot.triggered_alerts.is_empty());
     assert!(snapshot.warnings.is_empty());
+}
+
+#[tokio::test]
+async fn triggered_alerts_without_quote_time_leave_trigger_time_empty() {
+    let store = FakeAlertStore::default();
+    store
+        .state
+        .lock()
+        .unwrap()
+        .alerts
+        .push(price_alert(9, "000001", PriceAlertKind::Above, 10.0));
+
+    let service = MonitorService::new(
+        FakeWatchlistReader {
+            items: vec![watchlist_item("000001", "core", &[])],
+        },
+        FakeQuoteReader {
+            quotes: vec![quote_row_at("000001", 10.5, 1.2, None)],
+        },
+        store,
+    );
+
+    let snapshot = service.load_watchlist_snapshot().await.unwrap();
+
+    assert_eq!(snapshot.triggered_alerts.len(), 1);
+    assert_eq!(snapshot.triggered_alerts[0].alert_id, 9);
+    assert_eq!(snapshot.triggered_alerts[0].triggered_at, None);
+}
+
+#[tokio::test]
+async fn duplicate_watchlist_entries_do_not_duplicate_triggered_alerts() {
+    let store = FakeAlertStore::default();
+    store
+        .state
+        .lock()
+        .unwrap()
+        .alerts
+        .push(price_alert(11, "000001", PriceAlertKind::Above, 9.5));
+
+    let service = MonitorService::new(
+        FakeWatchlistReader {
+            items: vec![
+                watchlist_item("000001", "core", &["watch"]),
+                watchlist_item("000001", "swing", &["momentum"]),
+            ],
+        },
+        FakeQuoteReader {
+            quotes: vec![quote_row("000001", 10.2, 1.6)],
+        },
+        store,
+    );
+
+    let snapshot = service.load_watchlist_snapshot().await.unwrap();
+
+    assert_eq!(snapshot.rows.len(), 2);
+    assert_eq!(snapshot.triggered_alerts.len(), 1);
+    assert_eq!(snapshot.triggered_alerts[0].alert_id, 11);
+}
+
+#[tokio::test]
+async fn add_alert_delegates_to_store_and_returns_created_alert() {
+    let service = MonitorService::new(
+        FakeWatchlistReader { items: Vec::new() },
+        FakeQuoteReader { quotes: Vec::new() },
+        FakeAlertStore::default(),
+    );
+
+    let created = service
+        .add_alert("000001", PriceAlertKind::Above, 12.5, sample_time())
+        .await
+        .unwrap();
+
+    assert_eq!(created.id, 1);
+    assert_eq!(created.code, "000001");
+    assert_eq!(created.kind, PriceAlertKind::Above);
+    assert_eq!(created.target_price, 12.5);
+    assert_eq!(created.created_at, sample_time());
+}
+
+#[tokio::test]
+async fn list_alerts_returns_alerts_from_store() {
+    let store = FakeAlertStore::default();
+    store
+        .state
+        .lock()
+        .unwrap()
+        .alerts
+        .extend([
+            price_alert(1, "000001", PriceAlertKind::Above, 12.0),
+            price_alert(2, "000002", PriceAlertKind::Below, 8.8),
+        ]);
+
+    let service = MonitorService::new(
+        FakeWatchlistReader { items: Vec::new() },
+        FakeQuoteReader { quotes: Vec::new() },
+        store,
+    );
+
+    let alerts = service.list_alerts().await.unwrap();
+
+    assert_eq!(alerts.len(), 2);
+    assert_eq!(alerts[0].id, 1);
+    assert_eq!(alerts[1].id, 2);
+}
+
+#[tokio::test]
+async fn remove_alert_deletes_alert_from_store() {
+    let store = FakeAlertStore::default();
+    store
+        .state
+        .lock()
+        .unwrap()
+        .alerts
+        .push(price_alert(3, "000003", PriceAlertKind::Below, 6.2));
+
+    let service = MonitorService::new(
+        FakeWatchlistReader { items: Vec::new() },
+        FakeQuoteReader { quotes: Vec::new() },
+        store.clone(),
+    );
+
+    let removed = service.remove_alert(3).await.unwrap();
+    let remaining = service.list_alerts().await.unwrap();
+
+    assert!(removed);
+    assert!(remaining.is_empty());
 }

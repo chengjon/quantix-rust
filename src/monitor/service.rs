@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::core::Result;
 use crate::monitor::models::{
@@ -78,24 +78,31 @@ where
             rows.push(build_snapshot_row(item, quote_map.get(&code), &mut warnings));
         }
 
-        let triggered_alerts = rows
-            .iter()
-            .flat_map(|row| match row.last_price {
-                Some(current_price) => alerts
-                    .iter()
-                    .filter(move |alert| alert.code == row.code && is_triggered(alert, current_price))
-                    .map(|alert| TriggeredAlert {
-                        alert_id: alert.id,
-                        code: alert.code.clone(),
-                        kind: alert.kind,
-                        target_price: alert.target_price,
-                        current_price,
-                        triggered_at: row.quote_time.unwrap_or(alert.created_at),
-                    })
-                    .collect::<Vec<_>>(),
-                None => Vec::new(),
-            })
-            .collect();
+        let mut seen_alert_ids = HashSet::new();
+        let mut triggered_alerts = Vec::new();
+        for row in &rows {
+            let Some(current_price) = row.last_price else {
+                continue;
+            };
+
+            for alert in &alerts {
+                if alert.code != row.code || !is_triggered(alert, current_price) {
+                    continue;
+                }
+                if !seen_alert_ids.insert(alert.id) {
+                    continue;
+                }
+
+                triggered_alerts.push(TriggeredAlert {
+                    alert_id: alert.id,
+                    code: alert.code.clone(),
+                    kind: alert.kind,
+                    target_price: alert.target_price,
+                    current_price,
+                    triggered_at: row.quote_time,
+                });
+            }
+        }
 
         Ok(MonitorWatchlistSnapshot {
             rows,
