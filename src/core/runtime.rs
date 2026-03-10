@@ -4,6 +4,7 @@ use crate::core::config::{
 use std::path::PathBuf;
 
 pub const WATCHLIST_PATH_ENV: &str = "QUANTIX_WATCHLIST_PATH";
+pub const MONITOR_DB_PATH_ENV: &str = "QUANTIX_MONITOR_DB_PATH";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClickHouseSettings {
@@ -26,6 +27,7 @@ impl ClickHouseSettings {
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
     pub watchlist_path: PathBuf,
+    pub monitor_db_path: PathBuf,
 }
 
 impl CliRuntime {
@@ -33,6 +35,7 @@ impl CliRuntime {
         Self {
             clickhouse: ClickHouseSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
+            monitor_db_path: resolve_monitor_db_path(),
         }
     }
 }
@@ -54,6 +57,21 @@ fn resolve_watchlist_path() -> PathBuf {
         .join("watchlist.json")
 }
 
+fn resolve_monitor_db_path() -> PathBuf {
+    if let Some(path) = std::env::var_os(MONITOR_DB_PATH_ENV) {
+        return PathBuf::from(path);
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".quantix")
+            .join("monitor")
+            .join("alerts.db");
+    }
+
+    PathBuf::from(".quantix").join("monitor").join("alerts.db")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,6 +88,8 @@ mod tests {
         url: Option<String>,
         database: Option<String>,
         watchlist_path: Option<String>,
+        monitor_db_path: Option<String>,
+        home: Option<String>,
     }
 
     impl ClickHouseEnvGuard {
@@ -78,6 +98,8 @@ mod tests {
                 url: std::env::var(CLICKHOUSE_URL_ENV).ok(),
                 database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
                 watchlist_path: std::env::var(WATCHLIST_PATH_ENV).ok(),
+                monitor_db_path: std::env::var(MONITOR_DB_PATH_ENV).ok(),
+                home: std::env::var("HOME").ok(),
             }
         }
     }
@@ -97,6 +119,16 @@ mod tests {
             match &self.watchlist_path {
                 Some(value) => unsafe { std::env::set_var(WATCHLIST_PATH_ENV, value) },
                 None => unsafe { std::env::remove_var(WATCHLIST_PATH_ENV) },
+            }
+
+            match &self.monitor_db_path {
+                Some(value) => unsafe { std::env::set_var(MONITOR_DB_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(MONITOR_DB_PATH_ENV) },
+            }
+
+            match &self.home {
+                Some(value) => unsafe { std::env::set_var("HOME", value) },
+                None => unsafe { std::env::remove_var("HOME") },
             }
         }
     }
@@ -155,6 +187,40 @@ mod tests {
         assert_eq!(
             runtime.watchlist_path,
             PathBuf::from("/tmp/quantix/watchlist.json")
+        );
+    }
+
+    #[test]
+    fn test_monitor_db_path_env_override() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(MONITOR_DB_PATH_ENV, "/tmp/quantix/monitor/custom-alerts.db");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.monitor_db_path,
+            PathBuf::from("/tmp/quantix/monitor/custom-alerts.db")
+        );
+    }
+
+    #[test]
+    fn test_monitor_db_path_falls_back_to_home_directory() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::remove_var(MONITOR_DB_PATH_ENV);
+            std::env::set_var("HOME", "/tmp/quantix-home");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.monitor_db_path,
+            PathBuf::from("/tmp/quantix-home")
+                .join(".quantix")
+                .join("monitor")
+                .join("alerts.db")
         );
     }
 }
