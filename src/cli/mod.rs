@@ -233,7 +233,7 @@ pub enum MonitorCommands {
     /// 运行自选池监控
     Watchlist {
         /// 执行一次监控
-        #[arg(long)]
+        #[arg(long, required = true)]
         once: bool,
     },
 
@@ -257,11 +257,11 @@ pub enum MonitorAlertCommands {
 
         /// 高于阈值时告警
         #[arg(long)]
-        above: Option<String>,
+        above: Option<f64>,
 
         /// 低于阈值时告警
         #[arg(long)]
-        below: Option<String>,
+        below: Option<f64>,
     },
 
     /// 列出价格告警
@@ -519,6 +519,7 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::error::ErrorKind;
     use clap::Parser;
 
     #[test]
@@ -715,6 +716,14 @@ mod tests {
     }
 
     #[test]
+    fn parses_monitor_watchlist_rejects_missing_once() {
+        let err = Cli::try_parse_from(["quantix", "monitor", "watchlist"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--once"));
+    }
+
+    #[test]
     fn parses_monitor_alert_add_command_with_above() {
         let cli = Cli::try_parse_from([
             "quantix",
@@ -734,7 +743,7 @@ mod tests {
                 below,
             })) => {
                 assert_eq!(code, "000001");
-                assert_eq!(above.as_deref(), Some("16.0"));
+                assert_eq!(above, Some(16.0));
                 assert_eq!(below, None);
             }
             other => panic!("unexpected command: {:?}", other),
@@ -762,7 +771,7 @@ mod tests {
             })) => {
                 assert_eq!(code, "000001");
                 assert_eq!(above, None);
-                assert_eq!(below.as_deref(), Some("15.0"));
+                assert_eq!(below, Some(15.0));
             }
             other => panic!("unexpected command: {:?}", other),
         }
@@ -793,9 +802,10 @@ mod tests {
     #[test]
     fn parses_monitor_alert_add_rejects_missing_threshold() {
         let err = Cli::try_parse_from(["quantix", "monitor", "alert", "add", "000001"]).unwrap_err();
-        let message = err.to_string();
 
-        assert!(message.contains("--above") || message.contains("--below"));
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--above"));
+        assert!(err.to_string().contains("--below"));
     }
 
     #[test]
@@ -812,9 +822,27 @@ mod tests {
             "15.0",
         ])
         .unwrap_err();
-        let message = err.to_string();
 
-        assert!(message.contains("--above") || message.contains("--below"));
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+        assert!(err.to_string().contains("--above"));
+        assert!(err.to_string().contains("--below"));
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_non_numeric_threshold() {
+        let err = Cli::try_parse_from([
+            "quantix",
+            "monitor",
+            "alert",
+            "add",
+            "000001",
+            "--above",
+            "not-a-number",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
+        assert!(err.to_string().contains("not-a-number"));
     }
 
     #[test]
