@@ -31,6 +31,8 @@ pub trait MonitorAlertStore: Send + Sync {
     async fn list_alerts(&self) -> Result<Vec<PriceAlert>>;
 
     async fn remove_alert(&self, id: i64) -> Result<bool>;
+
+    async fn mark_triggered(&self, id: i64, triggered_at: DateTime<Utc>) -> Result<bool>;
 }
 
 #[derive(Debug, Clone)]
