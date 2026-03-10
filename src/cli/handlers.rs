@@ -1,6 +1,6 @@
 use super::{
-    AnalyzeCommands, DataCommands, ScreenerCommands, StrategyCommands, TaskCommands, WatchlistCommands,
-    WatchlistGroupCommands, WatchlistTagCommands,
+    AnalyzeCommands, DataCommands, MarketCommands, ScreenerCommands, StrategyCommands, TaskCommands,
+    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -613,6 +613,12 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub async fn run_market_command(_cmd: MarketCommands) -> Result<()> {
+    Err(QuantixError::Unsupported(
+        "Phase 23 市场分析尚未实现".to_string(),
+    ))
 }
 
 async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
