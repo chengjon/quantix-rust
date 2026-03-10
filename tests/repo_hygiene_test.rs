@@ -35,4 +35,38 @@ fn readme_documents_foundation_p0_workspace_constraints() {
         contents.contains("daemon"),
         "expected README to describe daemon support boundary"
     );
+    assert!(
+        contents.contains("quantix market sector"),
+        "expected README to advertise market sector command"
+    );
+    assert!(
+        contents.contains("quantix market overview"),
+        "expected README to advertise market overview command"
+    );
+    assert!(
+        contents.contains("历史/详情/实时功能延后"),
+        "expected README to describe deferred market features"
+    );
+}
+
+#[test]
+fn user_manual_documents_phase23_market_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "### market - 市场分析",
+        "quantix market sector [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]",
+        "quantix market concept [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]",
+        "quantix market north [--date <YYYY-MM-DD>]",
+        "quantix market sentiment [--date <YYYY-MM-DD>]",
+        "quantix market leader (--sector <NAME> | --concept <NAME> | --all) [--limit <N>] [--date <YYYY-MM-DD>]",
+        "quantix market overview [--top <N>] [--date <YYYY-MM-DD>]",
+        "历史/详情/实时能力延后到后续 Phase",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
 }

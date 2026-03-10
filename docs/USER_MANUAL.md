@@ -13,6 +13,7 @@
   - [task - 任务调度](#task---任务调度)
   - [analyze - 分析工具](#analyze---分析工具)
   - [watchlist - 自选池](#watchlist---自选池)
+  - [market - 市场分析](#market---市场分析)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -140,6 +141,22 @@ quantix watchlist list --group core --with-price
 
 # 查看本地历史
 quantix watchlist history --code 000001 --limit 20
+```
+
+### 市场分析快速开始
+
+```bash
+# 查看行业板块和概念板块
+quantix market sector --top 10
+quantix market concept --date 2026-03-09
+
+# 查看北向资金和市场情绪
+quantix market north --date 2026-03-09
+quantix market sentiment
+
+# 查看龙头股和概览
+quantix market leader --sector 银行 --limit 5
+quantix market overview --top 5
 ```
 
 ---
@@ -800,6 +817,54 @@ quantix watchlist tag remove --code 000001 --tag bank
 quantix watchlist tag list --code 000001
 quantix watchlist history [--code 000001] [--limit 20]
 ```
+
+---
+
+### market - 市场分析
+
+查看 Phase 23 P0 的市场日度快照，包括板块排名、北向资金、市场情绪、龙头股和综合概览。
+
+#### P0 范围
+
+- 仅支持日度快照
+- 仅支持只读查询
+- 历史/详情/实时能力延后到后续 Phase
+
+#### 命令摘要
+
+```bash
+quantix market sector [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]
+quantix market concept [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]
+quantix market north [--date <YYYY-MM-DD>]
+quantix market sentiment [--date <YYYY-MM-DD>]
+quantix market leader (--sector <NAME> | --concept <NAME> | --all) [--limit <N>] [--date <YYYY-MM-DD>]
+quantix market overview [--top <N>] [--date <YYYY-MM-DD>]
+```
+
+#### 参数约束
+
+- `--date` 格式必须是 `YYYY-MM-DD`
+- `sector` / `concept` 的 `--sort-by` 当前只支持 `change` 或 `change_pct`
+- `leader` 必须且只能指定 `--sector`、`--concept`、`--all` 之一
+- `overview` 会组合行业、概念、北向资金和市场情绪四部分数据
+
+#### 常用示例
+
+```bash
+quantix market sector --top 10
+quantix market concept --date 2026-03-09
+quantix market north
+quantix market sentiment --date 2026-03-09
+quantix market leader --concept 人工智能 --limit 10
+quantix market overview --top 5
+```
+
+#### 延后能力
+
+- 历史/详情/实时能力延后到后续 Phase
+- 当前不支持 `sector show` / `concept show`
+- 当前不支持 `north --history` / `north --stocks`
+- 当前不支持 `sentiment --detail`
 
 ---
 

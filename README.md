@@ -186,6 +186,20 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 条件完全参数化，例如 `close_above_ma:period=20`
   - 不支持全市场扫描、DSL、实时筛选、OR 逻辑
 
+#### Phase 23: 市场分析 ✅
+- **市场分析命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/market/*`)
+  - `quantix market sector` - 行业板块排名
+  - `quantix market concept` - 概念板块排名
+  - `quantix market north` - 北向资金概览
+  - `quantix market sentiment` - 市场情绪快照
+  - `quantix market leader` - 龙头股识别
+  - `quantix market overview` - 综合概览
+- **P0 约束**
+  - 仅覆盖日度快照和只读查询
+  - `leader` 只支持 `--sector`、`--concept`、`--all` 三选一
+  - `sort-by` 仅保留极小集合，当前支持涨跌幅排序
+  - 历史/详情/实时功能延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
@@ -508,6 +522,25 @@ quantix analyze screener run \
   --sort-by score \
   --limit 20
 ```
+
+### 市场分析 CLI
+
+```bash
+# 查看行业和概念板块
+quantix market sector --top 10
+quantix market concept --date 2026-03-09
+
+# 查看北向资金和市场情绪
+quantix market north --date 2026-03-09
+quantix market sentiment
+
+# 查看龙头股和综合概览
+quantix market leader --sector 银行 --limit 5
+quantix market overview --top 5
+```
+
+- 当前只文档化已经实现的 Phase 23 P0 行为。
+- 历史/详情/实时功能延后到后续 Phase。
 
 ### 回测示例
 
