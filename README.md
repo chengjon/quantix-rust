@@ -161,6 +161,20 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **CSV 数据导出** - 使用 csv crate 实现
 - **进度条支持** - indicatif 进度显示
 
+#### Phase 21: 自选池管理 ✅
+- **自选池命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`)
+  - `watchlist add/remove/list/move` - 基础自选池维护
+  - `watchlist group create/list` - 分组管理
+  - `watchlist tag add/remove/list` - 标签管理
+  - `watchlist history` - 本地操作历史
+  - `watchlist list --with-price` - 最佳努力价格展示
+- **JSON 持久化** (`src/watchlist/storage.rs`)
+  - 默认路径 `~/.quantix/watchlist/watchlist.json`
+  - 可通过 `QUANTIX_WATCHLIST_PATH` 覆盖
+- **P0 约束**
+  - 价格展示使用前台最佳努力查询
+  - 行情不可用时降级为空价格，不影响 `watchlist list` 返回
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
@@ -424,6 +438,9 @@ export CLICKHOUSE_DB="quantix"
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
+
+# 自选池 JSON 存储路径（可选）
+export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 ```
 
 ### 运行测试
@@ -443,6 +460,22 @@ cargo bench
 ```
 
 ## 使用示例
+
+### 自选池 CLI
+
+```bash
+# 创建分组
+quantix watchlist group create --name core
+
+# 添加股票并打标签
+quantix watchlist add --code 000001 --group core
+quantix watchlist tag add --code 000001 --tag bank
+
+# 查看列表与历史
+quantix watchlist list --group core
+quantix watchlist list --with-price
+quantix watchlist history --code 000001 --limit 20
+```
 
 ### 回测示例
 

@@ -12,6 +12,7 @@
   - [strategy - 策略管理](#strategy---策略管理)
   - [task - 任务调度](#task---任务调度)
   - [analyze - 分析工具](#analyze---分析工具)
+  - [watchlist - 自选池](#watchlist---自选池)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -83,6 +84,9 @@ export CLICKHOUSE_DB="quantix"
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
+
+# 自选池 JSON 存储路径（可选）
+export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 ```
 
 ### 运行测试
@@ -121,6 +125,21 @@ quantix status
 
 ```bash
 quantix status --health
+```
+
+### 自选池快速开始
+
+```bash
+# 创建分组并添加股票
+quantix watchlist group create --name core
+quantix watchlist add --code 000001 --group core
+
+# 添加标签并查看列表
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist list --group core --with-price
+
+# 查看本地历史
+quantix watchlist history --code 000001 --limit 20
 ```
 
 ---
@@ -662,6 +681,54 @@ quantix analyze backtest -i bt_20240101_000001
 
 ```
 回测报告: bt_20240101_000001
+```
+
+---
+
+### watchlist - 自选池
+
+管理本地 JSON 自选池，支持分组、标签、历史和最佳努力价格展示。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/watchlist/watchlist.json`
+- 可通过 `QUANTIX_WATCHLIST_PATH` 覆盖
+- `list --with-price` 会尝试补充名称和实时价格；外部行情不可用时会降级为空值，不影响命令返回
+
+#### 子命令
+
+- `add` - 添加股票
+- `remove` - 删除股票
+- `list` - 列出自选池
+- `move` - 移动股票到目标分组
+- `group create/list` - 分组管理
+- `tag add/remove/list` - 标签管理
+- `history` - 查看本地操作历史
+
+#### 常用示例
+
+```bash
+quantix watchlist add --code 000001
+quantix watchlist add --code 600519 --group core
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist list --tag bank
+quantix watchlist list --with-price
+quantix watchlist history --code 000001 --limit 20
+```
+
+#### 命令摘要
+
+```bash
+quantix watchlist add --code 000001 [--group core]
+quantix watchlist remove --code 000001
+quantix watchlist list [--group core] [--tag bank] [--with-price]
+quantix watchlist move --code 000001 --group core
+quantix watchlist group create --name core
+quantix watchlist group list
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist tag remove --code 000001 --tag bank
+quantix watchlist tag list --code 000001
+quantix watchlist history [--code 000001] [--limit 20]
 ```
 
 ---

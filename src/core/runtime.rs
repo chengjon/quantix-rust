@@ -1,6 +1,9 @@
 use crate::core::config::{
     CLICKHOUSE_DB_ENV, CLICKHOUSE_URL_ENV, DEFAULT_CLICKHOUSE_DB, DEFAULT_CLICKHOUSE_URL,
 };
+use std::path::PathBuf;
+
+pub const WATCHLIST_PATH_ENV: &str = "QUANTIX_WATCHLIST_PATH";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClickHouseSettings {
@@ -22,14 +25,33 @@ impl ClickHouseSettings {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
+    pub watchlist_path: PathBuf,
 }
 
 impl CliRuntime {
     pub fn load() -> Self {
         Self {
             clickhouse: ClickHouseSettings::from_env(),
+            watchlist_path: resolve_watchlist_path(),
         }
     }
+}
+
+fn resolve_watchlist_path() -> PathBuf {
+    if let Some(path) = std::env::var_os(WATCHLIST_PATH_ENV) {
+        return PathBuf::from(path);
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".quantix")
+            .join("watchlist")
+            .join("watchlist.json");
+    }
+
+    PathBuf::from(".quantix")
+        .join("watchlist")
+        .join("watchlist.json")
 }
 
 #[cfg(test)]
@@ -39,12 +61,15 @@ mod tests {
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
     }
 
     struct ClickHouseEnvGuard {
         url: Option<String>,
         database: Option<String>,
+        watchlist_path: Option<String>,
     }
 
     impl ClickHouseEnvGuard {
@@ -52,6 +77,7 @@ mod tests {
             Self {
                 url: std::env::var(CLICKHOUSE_URL_ENV).ok(),
                 database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
+                watchlist_path: std::env::var(WATCHLIST_PATH_ENV).ok(),
             }
         }
     }
@@ -66,6 +92,11 @@ mod tests {
             match &self.database {
                 Some(value) => unsafe { std::env::set_var(CLICKHOUSE_DB_ENV, value) },
                 None => unsafe { std::env::remove_var(CLICKHOUSE_DB_ENV) },
+            }
+
+            match &self.watchlist_path {
+                Some(value) => unsafe { std::env::set_var(WATCHLIST_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(WATCHLIST_PATH_ENV) },
             }
         }
     }
@@ -110,5 +141,20 @@ mod tests {
         let runtime = CliRuntime::load();
         assert_eq!(runtime.clickhouse.url, "http://runtime:8123");
         assert_eq!(runtime.clickhouse.database, "runtime_db");
+    }
+
+    #[test]
+    fn test_cli_runtime_uses_watchlist_path_override() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(WATCHLIST_PATH_ENV, "/tmp/quantix/watchlist.json");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.watchlist_path,
+            PathBuf::from("/tmp/quantix/watchlist.json")
+        );
     }
 }
