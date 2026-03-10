@@ -47,6 +47,10 @@ pub enum Commands {
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
 
+    /// 监控命令
+    #[command(subcommand)]
+    Monitor(MonitorCommands),
+
     /// 自选池命令
     #[command(subcommand)]
     Watchlist(WatchlistCommands),
@@ -221,6 +225,52 @@ pub enum ScreenerCommands {
         /// 排序字段
         #[arg(long)]
         sort_by: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorCommands {
+    /// 运行自选池监控
+    Watchlist {
+        /// 执行一次监控
+        #[arg(long)]
+        once: bool,
+    },
+
+    /// 价格告警管理
+    #[command(subcommand)]
+    Alert(MonitorAlertCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorAlertCommands {
+    /// 添加价格告警
+    #[command(group(
+        ArgGroup::new("monitor_alert_threshold")
+            .args(["above", "below"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Add {
+        /// 股票代码
+        code: String,
+
+        /// 高于阈值时告警
+        #[arg(long)]
+        above: Option<String>,
+
+        /// 低于阈值时告警
+        #[arg(long)]
+        below: Option<String>,
+    },
+
+    /// 列出价格告警
+    List,
+
+    /// 删除价格告警
+    Remove {
+        /// 告警 ID
+        id: u64,
     },
 }
 
@@ -447,6 +497,11 @@ impl Cli {
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
             }
+            Commands::Monitor(_cmd) => {
+                return Err(crate::core::QuantixError::Unsupported(
+                    "Phase 24A 仅包含 monitor CLI parser，handler 尚未实现".to_string(),
+                ));
+            }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
             }
@@ -645,6 +700,121 @@ mod tests {
             }
             other => panic!("unexpected command: {:?}", other),
         }
+    }
+
+    #[test]
+    fn parses_monitor_watchlist_command_with_once() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "watchlist", "--once"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Watchlist { once }) => {
+                assert!(once);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_command_with_above() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "monitor",
+            "alert",
+            "add",
+            "000001",
+            "--above",
+            "16.0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code,
+                above,
+                below,
+            })) => {
+                assert_eq!(code, "000001");
+                assert_eq!(above.as_deref(), Some("16.0"));
+                assert_eq!(below, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_command_with_below() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "monitor",
+            "alert",
+            "add",
+            "000001",
+            "--below",
+            "15.0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code,
+                above,
+                below,
+            })) => {
+                assert_eq!(code, "000001");
+                assert_eq!(above, None);
+                assert_eq!(below.as_deref(), Some("15.0"));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_list_command() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "alert", "list"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::List)) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_remove_command() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "alert", "remove", "12"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Remove { id })) => {
+                assert_eq!(id, 12);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_missing_threshold() {
+        let err = Cli::try_parse_from(["quantix", "monitor", "alert", "add", "000001"]).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("--above") || message.contains("--below"));
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_both_thresholds() {
+        let err = Cli::try_parse_from([
+            "quantix",
+            "monitor",
+            "alert",
+            "add",
+            "000001",
+            "--above",
+            "16.0",
+            "--below",
+            "15.0",
+        ])
+        .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("--above") || message.contains("--below"));
     }
 
     #[test]
