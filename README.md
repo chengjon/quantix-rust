@@ -4,6 +4,12 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 与 Python quantix 项目共享数据源和数据库，提供高性能的量化分析能力。
 
+## Foundation P0 工作约束
+
+- 仓库内本地 worktree 放在 `.worktrees/`，全文检索和批量扫描应排除该目录，避免重复命中。
+- 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
+- Foundation P0 的任务能力只支持直接运行 CLI 前台进程，不假设 daemon、常驻调度服务或任务持久化已经可用。
+
 ## 功能特性
 
 ### 已完成模块

@@ -2,6 +2,7 @@
 ///
 /// 采用 MergeTree 引擎，针对 A股量化分析优化
 use crate::core::{QuantixError, Result};
+use crate::core::runtime::ClickHouseSettings;
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use clickhouse::Client;
 use rust_decimal::Decimal;
@@ -39,18 +40,23 @@ impl ClickHouseClient {
         })
     }
 
+    /// 使用共享设置创建
+    pub async fn from_settings(settings: &ClickHouseSettings) -> Result<Self> {
+        Self::new(&settings.url, &settings.database).await
+    }
+
     /// 使用默认配置创建
     pub async fn with_default_config() -> Result<Self> {
-        let url =
-            std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-        let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-
-        Self::new(&url, &database).await
+        Self::from_settings(&ClickHouseSettings::from_env()).await
     }
 
     /// 获取底层客户端
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    pub fn database(&self) -> &str {
+        &self.database
     }
 
     /// 初始化数据库和表

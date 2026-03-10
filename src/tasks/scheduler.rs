@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// 定时任务
@@ -44,6 +44,7 @@ impl ScheduledTask {
 pub type TaskCallback = Arc<dyn Fn() + Send + Sync + 'static>;
 
 /// 任务调度器
+#[derive(Clone)]
 pub struct TaskScheduler {
     /// tokio-cron-scheduler 实例
     scheduler: Arc<RwLock<Option<JobScheduler>>>,
@@ -173,12 +174,16 @@ impl TaskScheduler {
         if let Some(scheduler) = &*self.scheduler.read().await {
             // 创建 Job - 使用 tokio-cron-scheduler 的 cron 语法
             let task_name_owned = name.to_string();
+            let scheduler_handle = self.clone();
             let job = Job::new_async(task.cron_expr.as_str(), {
                 move |_uuid, _l| {
                     let task_name = task_name_owned.clone();
+                    let scheduler_handle = scheduler_handle.clone();
                     Box::pin(async move {
-                        // 任务执行逻辑
-                        info!("执行任务: {}", task_name);
+                        if let Err(err) = scheduler_handle.execute_registered_callback(&task_name).await
+                        {
+                            warn!("执行任务 {} 失败: {}", task_name, err);
+                        }
                     })
                 }
             })
@@ -244,6 +249,24 @@ impl TaskScheduler {
     pub async fn remove_callback(&self, name: &str) {
         let mut callbacks = self.callbacks.write().await;
         callbacks.remove(name);
+    }
+
+    /// 执行已注册的任务回调
+    pub async fn execute_registered_callback(&self, name: &str) -> Result<(), String> {
+        let callback = {
+            let callbacks = self.callbacks.read().await;
+            callbacks.get(name).cloned()
+        };
+
+        match callback {
+            Some(callback) => {
+                info!("执行任务: {}", name);
+                (callback)();
+            }
+            None => warn!("任务 {} 未注册执行回调，仅记录调度事件", name),
+        }
+
+        Ok(())
     }
 
     /// 获取下次执行时间
@@ -361,6 +384,7 @@ impl TaskTemplates {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[tokio::test]
     async fn test_task_scheduler_creation() {
@@ -390,5 +414,21 @@ mod tests {
         let task = TaskTemplates::market_open();
         assert_eq!(task.name, "market_open");
         assert_eq!(task.cron_expr, "30 9 * * 1-5");
+    }
+
+    #[tokio::test]
+    async fn test_execute_registered_callback_runs_callback() {
+        let scheduler = TaskScheduler::new().await.unwrap();
+        let hit = Arc::new(AtomicBool::new(false));
+        let hit_clone = hit.clone();
+
+        scheduler
+            .set_callback("demo".to_string(), move || {
+                hit_clone.store(true, Ordering::SeqCst);
+            })
+            .await;
+
+        scheduler.execute_registered_callback("demo").await.unwrap();
+        assert!(hit.load(Ordering::SeqCst));
     }
 }

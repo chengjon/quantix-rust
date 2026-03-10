@@ -39,7 +39,7 @@ pub enum Commands {
     #[command(subcommand)]
     Strategy(StrategyCommands),
 
-    /// 任务命令
+    /// 任务命令（实验性，Foundation P0）
     #[command(subcommand)]
     Task(TaskCommands),
 
@@ -126,7 +126,7 @@ pub enum StrategyCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum TaskCommands {
-    /// 添加定时任务
+    /// 添加定时任务（Foundation P0 不支持）
     Add {
         /// 任务名称
         #[arg(short, long)]
@@ -141,20 +141,20 @@ pub enum TaskCommands {
         command: String,
     },
 
-    /// 列出所有任务
+    /// 列出预置任务模板
     List,
 
-    /// 启动任务调度器
+    /// 启动任务调度器（仅支持前台模式）
     Start {
-        /// 后台运行
+        /// 后台运行（Foundation P0 不支持）
         #[arg(long)]
         daemon: bool,
     },
 
-    /// 停止任务调度器
+    /// 停止当前前台调度器
     Stop,
 
-    /// 查看任务状态
+    /// 查看实验性任务能力状态
     Status,
 }
 
