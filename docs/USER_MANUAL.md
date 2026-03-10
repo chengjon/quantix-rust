@@ -14,6 +14,7 @@
   - [analyze - 分析工具](#analyze---分析工具)
   - [watchlist - 自选池](#watchlist---自选池)
   - [market - 市场分析](#market---市场分析)
+  - [monitor - 实时监控](#monitor---实时监控)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -88,6 +89,9 @@ export TDX_PORT=7709
 
 # 自选池 JSON 存储路径（可选）
 export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
+
+# 监控告警 SQLite 路径（可选）
+export QUANTIX_MONITOR_DB_PATH="$HOME/.quantix/monitor/alerts.db"
 ```
 
 ### 运行测试
@@ -157,6 +161,19 @@ quantix market sentiment
 # 查看龙头股和概览
 quantix market leader --sector 银行 --limit 5
 quantix market overview --top 5
+```
+
+### 实时监控快速开始
+
+```bash
+# 一次性扫描自选池并显示触发告警
+quantix monitor watchlist --once
+
+# 添加、查看和删除价格告警
+quantix monitor alert add 000001 --above 16.0
+quantix monitor alert add 000001 --below 15.0
+quantix monitor alert list
+quantix monitor alert remove 1
 ```
 
 ---
@@ -865,6 +882,49 @@ quantix market overview --top 5
 - 当前不支持 `sector show` / `concept show`
 - 当前不支持 `north --history` / `north --stocks`
 - 当前不支持 `sentiment --detail`
+
+---
+
+### monitor - 实时监控
+
+提供 Phase 24A 的最小监控闭环：一次性自选池扫描加持久化价格告警管理。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/monitor/alerts.db`
+- 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
+- 告警使用 SQLite 持久化，`watchlist --once` 命中时会在终端输出并更新最后触发时间
+
+#### P0 范围
+
+- 只支持 `watchlist --once`
+- 只支持价格阈值告警的添加、列表、删除
+- `--refresh`、`--repeat`、系统通知延后到后续 Phase
+
+#### 命令摘要
+
+```bash
+quantix monitor watchlist --once
+quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)
+quantix monitor alert list
+quantix monitor alert remove <ID>
+```
+
+#### 参数约束
+
+- `watchlist` 当前必须显式带 `--once`
+- `alert add` 必须且只能指定一个阈值：`--above` 或 `--below`
+- 当前只复用现有自选池与 TDX 行情链路，不提供板块/概念监控
+
+#### 常用示例
+
+```bash
+quantix monitor watchlist --once
+quantix monitor alert add 000001 --above 16.0
+quantix monitor alert add 000001 --below 15.0
+quantix monitor alert list
+quantix monitor alert remove 1
+```
 
 ---
 
