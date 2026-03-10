@@ -175,6 +175,17 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 价格展示使用前台最佳努力查询
   - 行情不可用时降级为空价格，不影响 `watchlist list` 返回
 
+#### Phase 22: 选股筛选 ✅
+- **选股命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/screener/*`)
+  - `analyze screener preset-list` - 查看内置单指标 preset
+  - `analyze screener run --codes ...` - 对显式代码列表执行筛选
+  - `analyze screener run --watchlist [--group ...]` - 对自选池/分组执行筛选
+- **P0 约束**
+  - 仅支持日线筛选
+  - `preset` 只表达单一指标条件，但支持重复 `--preset` 做 `AND` 组合
+  - 条件完全参数化，例如 `close_above_ma:period=20`
+  - 不支持全市场扫描、DSL、实时筛选、OR 逻辑
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
@@ -475,6 +486,27 @@ quantix watchlist tag add --code 000001 --tag bank
 quantix watchlist list --group core
 quantix watchlist list --with-price
 quantix watchlist history --code 000001 --limit 20
+```
+
+### 选股筛选 CLI
+
+```bash
+# 查看可用 preset
+quantix analyze screener preset-list
+
+# 对显式代码列表做单条件筛选
+quantix analyze screener run \
+  --codes 000001,600519 \
+  --preset close_above_ma:period=20
+
+# 多个单指标 preset 做 AND 组合
+quantix analyze screener run \
+  --watchlist \
+  --group core \
+  --preset close_above_ma:period=20 \
+  --preset volume_ratio_gte:window=5,value=1.5 \
+  --sort-by score \
+  --limit 20
 ```
 
 ### 回测示例

@@ -1,5 +1,5 @@
 use super::{
-    AnalyzeCommands, DataCommands, StrategyCommands, TaskCommands, WatchlistCommands,
+    AnalyzeCommands, DataCommands, ScreenerCommands, StrategyCommands, TaskCommands, WatchlistCommands,
     WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
@@ -9,11 +9,16 @@ use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// 实现各个子命令的处理逻辑
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
+use crate::screener::{
+    DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
+    ScreenUniverse, ScreenerService, parse_preset_invocation,
+};
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
     WatchlistHistoryEvent, WatchlistService, WatchlistStorage, WatchlistStore,
 };
+use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -603,8 +608,278 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id).await?;
         }
+        AnalyzeCommands::Screener(cmd) => {
+            run_screener_command(cmd).await?;
+        }
     }
     Ok(())
+}
+
+async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
+    let output = match cmd {
+        ScreenerCommands::PresetList => execute_screener_command_with_loader(
+            ScreenerCommands::PresetList,
+            NullDailyKlineLoader,
+            create_watchlist_storage(),
+        )
+        .await?,
+        ScreenerCommands::Run { .. } => {
+            let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
+            execute_screener_command_with_loader(cmd, loader, create_watchlist_storage()).await?
+        }
+    };
+
+    match output {
+        ScreenerCommandOutput::PresetList(presets) => print_screener_preset_list(&presets),
+        ScreenerCommandOutput::Rows(rows) => print_screener_rows(&rows),
+    }
+
+    Ok(())
+}
+
+struct ClickHouseDailyKlineLoader {
+    client: ClickHouseClient,
+}
+
+impl ClickHouseDailyKlineLoader {
+    fn new(client: ClickHouseClient) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl DailyKlineLoader for ClickHouseDailyKlineLoader {
+    async fn load_daily_klines(
+        &self,
+        code: &str,
+        lookback: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let mut rows = self
+            .client
+            .get_kline_data(code, "1d", None, None, None)
+            .await?;
+
+        if rows.len() > lookback {
+            rows = rows[rows.len() - lookback..].to_vec();
+        }
+
+        Ok(rows)
+    }
+}
+
+struct NullDailyKlineLoader;
+
+#[async_trait]
+impl DailyKlineLoader for NullDailyKlineLoader {
+    async fn load_daily_klines(
+        &self,
+        _code: &str,
+        _lookback: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        Ok(Vec::new())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScreenerPresetSpec {
+    name: &'static str,
+    params: &'static str,
+    description: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ScreenerCommandOutput {
+    PresetList(Vec<ScreenerPresetSpec>),
+    Rows(Vec<ScreenRow>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScreenerRunRequest {
+    universe: ScreenUniverse,
+    presets: Vec<PresetInvocation>,
+    options: ScreenRunOptions,
+}
+
+async fn execute_screener_command_with_loader<L>(
+    cmd: ScreenerCommands,
+    loader: L,
+    storage: WatchlistStorage,
+) -> Result<ScreenerCommandOutput>
+where
+    L: DailyKlineLoader,
+{
+    match cmd {
+        ScreenerCommands::PresetList => Ok(ScreenerCommandOutput::PresetList(
+            screener_preset_specs(),
+        )),
+        ScreenerCommands::Run {
+            codes,
+            watchlist,
+            group,
+            preset,
+            limit,
+            sort_by,
+        } => {
+            let request =
+                build_screener_run_request(codes, watchlist, group, preset, limit, sort_by)?;
+            let service = ScreenerService::new(loader, storage);
+            let rows = service
+                .run(request.universe, &request.presets, request.options)
+                .await?;
+            Ok(ScreenerCommandOutput::Rows(rows))
+        }
+    }
+}
+
+fn screener_preset_specs() -> Vec<ScreenerPresetSpec> {
+    vec![
+        ScreenerPresetSpec {
+            name: "close_above_ma",
+            params: "period=<n>",
+            description: "收盘价高于均线",
+        },
+        ScreenerPresetSpec {
+            name: "close_below_ma",
+            params: "period=<n>",
+            description: "收盘价低于均线",
+        },
+        ScreenerPresetSpec {
+            name: "rsi_gte",
+            params: "period=<n>,value=<x>",
+            description: "RSI 大于等于阈值",
+        },
+        ScreenerPresetSpec {
+            name: "rsi_lte",
+            params: "period=<n>,value=<x>",
+            description: "RSI 小于等于阈值",
+        },
+        ScreenerPresetSpec {
+            name: "volume_ratio_gte",
+            params: "window=<n>,value=<x>",
+            description: "量比大于等于阈值",
+        },
+    ]
+}
+
+fn build_screener_run_request(
+    codes: Option<String>,
+    watchlist: bool,
+    group: Option<String>,
+    preset_specs: Vec<String>,
+    limit: Option<usize>,
+    sort_by: Option<String>,
+) -> Result<ScreenerRunRequest> {
+    let universe = match (codes, watchlist) {
+        (Some(_), true) => {
+            return Err(QuantixError::Other(
+                "--codes 与 --watchlist 不能同时使用".to_string(),
+            ));
+        }
+        (None, false) => {
+            return Err(QuantixError::Other(
+                "必须指定 --codes 或 --watchlist".to_string(),
+            ));
+        }
+        (Some(codes), false) => {
+            let codes = parse_codes_csv(&codes);
+            if codes.is_empty() {
+                return Err(QuantixError::Other("codes 不能为空".to_string()));
+            }
+            if group.is_some() {
+                return Err(QuantixError::Other(
+                    "--group 仅可与 --watchlist 一起使用".to_string(),
+                ));
+            }
+            ScreenUniverse::Codes(codes)
+        }
+        (None, true) => ScreenUniverse::Watchlist { group },
+    };
+
+    if preset_specs.is_empty() {
+        return Err(QuantixError::Other("至少需要一个 --preset".to_string()));
+    }
+
+    let presets = preset_specs
+        .iter()
+        .map(|spec| parse_preset_invocation(spec))
+        .collect::<Result<Vec<_>>>()?;
+
+    let sort_by = match sort_by.as_deref().unwrap_or("code") {
+        "code" => ScreenSortBy::Code,
+        "score" => ScreenSortBy::Score,
+        other => {
+            return Err(QuantixError::Other(format!(
+                "不支持的 sort_by: {}，仅支持 code 或 score",
+                other
+            )));
+        }
+    };
+
+    Ok(ScreenerRunRequest {
+        universe,
+        presets,
+        options: ScreenRunOptions { limit, sort_by },
+    })
+}
+
+fn parse_codes_csv(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(|item| item.to_string())
+        .collect()
+}
+
+fn print_screener_preset_list(presets: &[ScreenerPresetSpec]) {
+    println!("{:<20} {:<24} {}", "Preset", "参数", "说明");
+    println!("{}", "-".repeat(72));
+
+    for preset in presets {
+        println!(
+            "{:<20} {:<24} {}",
+            preset.name, preset.params, preset.description
+        );
+    }
+}
+
+fn print_screener_rows(rows: &[ScreenRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的筛选结果");
+        return;
+    }
+
+    println!("{:<10} {:<8} {:<12} {}", "代码", "命中", "评分", "详情");
+    println!("{}", "-".repeat(96));
+
+    for row in rows {
+        println!(
+            "{:<10} {:<8} {:<12} {}",
+            row.code,
+            if row.matched { "yes" } else { "no" },
+            row.score.round_dp(4),
+            row.details
+                .iter()
+                .map(format_screener_rule_detail)
+                .collect::<Vec<_>>()
+                .join(" | "),
+        );
+    }
+}
+
+fn format_screener_rule_detail(detail: &RuleMatchDetail) -> String {
+    let status = if detail.matched { "Y" } else { "N" };
+
+    match (
+        detail.actual_value.as_ref(),
+        detail.threshold_value.as_ref(),
+        detail.reason.as_deref(),
+    ) {
+        (_, _, Some(reason)) => format!("{}:{}({})", status, detail.preset_name, reason),
+        (Some(actual), Some(threshold), None) => {
+            format!("{}:{} {} / {}", status, detail.preset_name, actual, threshold)
+        }
+        _ => format!("{}:{}", status, detail.preset_name),
+    }
 }
 
 /// 自选池命令
@@ -917,6 +1192,13 @@ mod tests {
     use super::*;
     use crate::core::config::CLICKHOUSE_DB_ENV;
     use crate::core::QuantixError;
+    use crate::data::models::{AdjustType, Kline};
+    use crate::screener::DailyKlineLoader;
+    use async_trait::async_trait;
+    use chrono::{NaiveDate, Utc};
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+    use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
@@ -1012,6 +1294,192 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    fn make_kline(code: &str, day: u32, close: Decimal, volume: i64) -> Kline {
+        Kline {
+            code: code.to_string(),
+            date: NaiveDate::from_ymd_opt(2024, 1, day).unwrap(),
+            open: close,
+            high: close + dec!(1),
+            low: close - dec!(1),
+            close,
+            volume,
+            amount: None,
+            adjust_type: AdjustType::None,
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeLoader {
+        data: HashMap<String, Vec<Kline>>,
+    }
+
+    #[async_trait]
+    impl DailyKlineLoader for FakeLoader {
+        async fn load_daily_klines(
+            &self,
+            code: &str,
+            lookback: usize,
+        ) -> crate::core::Result<Vec<Kline>> {
+            let mut rows = self.data.get(code).cloned().unwrap_or_default();
+            if rows.len() > lookback {
+                rows = rows[rows.len() - lookback..].to_vec();
+            }
+            Ok(rows)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_preset_list_returns_supported_presets() {
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::PresetList,
+            FakeLoader::default(),
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::PresetList(presets) => {
+                let names: Vec<&str> = presets.iter().map(|item| item.name).collect();
+                assert_eq!(
+                    names,
+                    vec![
+                        "close_above_ma",
+                        "close_below_ma",
+                        "rsi_gte",
+                        "rsi_lte",
+                        "volume_ratio_gte",
+                    ]
+                );
+            }
+            ScreenerCommandOutput::Rows(_) => panic!("expected preset list output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_with_codes_returns_rows() {
+        let loader = FakeLoader {
+            data: HashMap::from([
+                (
+                    "000001".to_string(),
+                    vec![
+                        make_kline("000001", 1, dec!(10), 100),
+                        make_kline("000001", 2, dec!(10), 100),
+                        make_kline("000001", 3, dec!(10), 100),
+                        make_kline("000001", 4, dec!(11), 100),
+                        make_kline("000001", 5, dec!(12), 100),
+                    ],
+                ),
+                (
+                    "000002".to_string(),
+                    vec![
+                        make_kline("000002", 1, dec!(10), 100),
+                        make_kline("000002", 2, dec!(10), 100),
+                        make_kline("000002", 3, dec!(10), 100),
+                        make_kline("000002", 4, dec!(12), 100),
+                        make_kline("000002", 5, dec!(15), 100),
+                    ],
+                ),
+            ]),
+        };
+
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: Some("000001,000002".to_string()),
+                watchlist: false,
+                group: None,
+                preset: vec!["close_above_ma:period=3".to_string()],
+                limit: Some(1),
+                sort_by: Some("score".to_string()),
+            },
+            loader,
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::Rows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000002");
+                assert!(rows[0].matched);
+            }
+            ScreenerCommandOutput::PresetList(_) => panic!("expected rows output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_with_watchlist_group_uses_watchlist_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("watchlist.json");
+        let storage = WatchlistStorage::new(&path);
+        let service = WatchlistService::default();
+        let mut store = storage.load_or_create().unwrap();
+        service.create_group(&mut store, "core", Utc::now()).unwrap();
+        service
+            .add(&mut store, "000001", Some("core"), Utc::now())
+            .unwrap();
+        service.add(&mut store, "000002", None, Utc::now()).unwrap();
+        storage.save(&store).unwrap();
+
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                vec![
+                    make_kline("000001", 1, dec!(10), 100),
+                    make_kline("000001", 2, dec!(10), 100),
+                    make_kline("000001", 3, dec!(10), 100),
+                    make_kline("000001", 4, dec!(11), 100),
+                    make_kline("000001", 5, dec!(12), 100),
+                ],
+            )]),
+        };
+
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: None,
+                watchlist: true,
+                group: Some("core".to_string()),
+                preset: vec!["close_above_ma:period=3".to_string()],
+                limit: None,
+                sort_by: None,
+            },
+            loader,
+            storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::Rows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000001");
+            }
+            ScreenerCommandOutput::PresetList(_) => panic!("expected rows output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_rejects_invalid_preset() {
+        let err = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: Some("000001".to_string()),
+                watchlist: false,
+                group: None,
+                preset: vec!["unknown_rule:value=1".to_string()],
+                limit: None,
+                sort_by: None,
+            },
+            FakeLoader::default(),
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("未知的 preset"));
     }
 }
 
