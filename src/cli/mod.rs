@@ -4,7 +4,7 @@
 pub mod handlers;
 
 use crate::core::Result;
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(name = "quantix")]
@@ -50,6 +50,10 @@ pub enum Commands {
     /// 自选池命令
     #[command(subcommand)]
     Watchlist(WatchlistCommands),
+
+    /// 市场分析命令
+    #[command(subcommand)]
+    Market(MarketCommands),
 
     /// 系统状态
     Status {
@@ -221,6 +225,93 @@ pub enum ScreenerCommands {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum MarketCommands {
+    /// 行业板块排名
+    Sector {
+        /// 限制返回条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 排序字段
+        #[arg(long)]
+        sort_by: Option<String>,
+    },
+
+    /// 概念板块排名
+    Concept {
+        /// 限制返回条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 排序字段
+        #[arg(long)]
+        sort_by: Option<String>,
+    },
+
+    /// 北向资金概览
+    North {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 市场情绪概览
+    Sentiment {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 龙头股识别
+    #[command(group(
+        ArgGroup::new("leader_filter")
+            .args(["sector", "concept", "all"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Leader {
+        /// 行业名称
+        #[arg(long)]
+        sector: Option<String>,
+
+        /// 概念名称
+        #[arg(long)]
+        concept: Option<String>,
+
+        /// 全市场龙头
+        #[arg(long)]
+        all: bool,
+
+        /// 限制返回条数
+        #[arg(long)]
+        limit: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 市场综合概览
+    Overview {
+        /// 板块列表条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum WatchlistCommands {
     /// 添加股票到自选池
     Add {
@@ -358,6 +449,9 @@ impl Cli {
             }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
+            }
+            Commands::Market(cmd) => {
+                handlers::run_market_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
@@ -551,5 +645,138 @@ mod tests {
             }
             other => panic!("unexpected command: {:?}", other),
         }
+    }
+
+    #[test]
+    fn parses_market_sector_command_with_top() {
+        let cli = Cli::try_parse_from(["quantix", "market", "sector", "--top", "10"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Sector {
+                top,
+                date,
+                sort_by,
+            }) => {
+                assert_eq!(top, Some(10));
+                assert_eq!(date, None);
+                assert_eq!(sort_by, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_concept_command_with_date() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "concept",
+            "--date",
+            "2026-03-09",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Concept {
+                top,
+                date,
+                sort_by,
+            }) => {
+                assert_eq!(top, None);
+                assert_eq!(date.as_deref(), Some("2026-03-09"));
+                assert_eq!(sort_by, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_north_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "north"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::North { date }) => {
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_sentiment_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "sentiment"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Sentiment { date }) => {
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_leader_command_with_sector_and_limit() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "leader",
+            "--sector",
+            "银行",
+            "--limit",
+            "5",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Leader {
+                sector,
+                concept,
+                all,
+                limit,
+                date,
+            }) => {
+                assert_eq!(sector.as_deref(), Some("银行"));
+                assert_eq!(concept, None);
+                assert!(!all);
+                assert_eq!(limit, Some(5));
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_overview_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "overview"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Overview { top, date }) => {
+                assert_eq!(top, None);
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rejects_market_leader_with_sector_and_concept_together() {
+        let result = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "leader",
+            "--sector",
+            "银行",
+            "--concept",
+            "人工智能",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_market_leader_without_any_filter() {
+        let result = Cli::try_parse_from(["quantix", "market", "leader"]);
+
+        assert!(result.is_err());
     }
 }
