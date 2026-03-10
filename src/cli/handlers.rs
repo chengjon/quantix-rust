@@ -1,6 +1,6 @@
 use super::{
-    AnalyzeCommands, DataCommands, MarketCommands, ScreenerCommands, StrategyCommands, TaskCommands,
-    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    AnalyzeCommands, DataCommands, MarketCommands, ScreenerCommands, StrategyCommands,
+    TaskCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -9,6 +9,10 @@ use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// 实现各个子命令的处理逻辑
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
+use crate::market::{
+    BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
+    MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
+};
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
@@ -615,20 +619,252 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
     Ok(())
 }
 
-pub async fn run_market_command(_cmd: MarketCommands) -> Result<()> {
-    Err(QuantixError::Unsupported(
-        "Phase 23 市场分析尚未实现".to_string(),
-    ))
+pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
+    let output = execute_market_command_with_reader(cmd, create_clickhouse_client().await?).await?;
+
+    match output {
+        MarketCommandOutput::BoardRows(rows) => print_market_board_rows(&rows),
+        MarketCommandOutput::NorthFlow(snapshot) => print_north_flow_snapshot(snapshot.as_ref()),
+        MarketCommandOutput::Sentiment(snapshot) => {
+            print_market_sentiment_snapshot(snapshot.as_ref())
+        }
+        MarketCommandOutput::Leaders(rows) => print_market_leader_rows(&rows),
+        MarketCommandOutput::Overview(overview) => print_market_overview(&overview),
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum MarketCommandOutput {
+    BoardRows(Vec<BoardRankRow>),
+    NorthFlow(Option<NorthFlowSnapshot>),
+    Sentiment(Option<MarketSentimentSnapshot>),
+    Leaders(Vec<LeaderRow>),
+    Overview(MarketOverview),
+}
+
+async fn execute_market_command_with_reader<R>(
+    cmd: MarketCommands,
+    reader: R,
+) -> Result<MarketCommandOutput>
+where
+    R: MarketDataReader,
+{
+    let service = MarketService::new(reader);
+
+    match cmd {
+        MarketCommands::Sector { top, date, sort_by } => {
+            let rows = service
+                .get_board_rankings(
+                    BoardType::Sector,
+                    parse_market_date(date.as_deref())?,
+                    top,
+                    parse_board_sort_by(sort_by.as_deref())?,
+                )
+                .await?;
+            Ok(MarketCommandOutput::BoardRows(rows))
+        }
+        MarketCommands::Concept { top, date, sort_by } => {
+            let rows = service
+                .get_board_rankings(
+                    BoardType::Concept,
+                    parse_market_date(date.as_deref())?,
+                    top,
+                    parse_board_sort_by(sort_by.as_deref())?,
+                )
+                .await?;
+            Ok(MarketCommandOutput::BoardRows(rows))
+        }
+        MarketCommands::North { date } => Ok(MarketCommandOutput::NorthFlow(
+            service
+                .get_north_flow(parse_market_date(date.as_deref())?)
+                .await?,
+        )),
+        MarketCommands::Sentiment { date } => Ok(MarketCommandOutput::Sentiment(
+            service
+                .get_market_sentiment(parse_market_date(date.as_deref())?)
+                .await?,
+        )),
+        MarketCommands::Leader {
+            sector,
+            concept,
+            all,
+            limit,
+            date,
+        } => {
+            let filter = build_leader_filter(sector, concept, all)?;
+            let rows = service
+                .get_leaders(filter, limit, parse_market_date(date.as_deref())?)
+                .await?;
+            Ok(MarketCommandOutput::Leaders(rows))
+        }
+        MarketCommands::Overview { top, date } => Ok(MarketCommandOutput::Overview(
+            service
+                .get_overview(parse_market_date(date.as_deref())?, top)
+                .await?,
+        )),
+    }
+}
+
+fn build_leader_filter(
+    sector: Option<String>,
+    concept: Option<String>,
+    all: bool,
+) -> Result<LeaderFilter> {
+    let mut filter_count = 0usize;
+    if sector.is_some() {
+        filter_count += 1;
+    }
+    if concept.is_some() {
+        filter_count += 1;
+    }
+    if all {
+        filter_count += 1;
+    }
+
+    if filter_count != 1 {
+        return Err(QuantixError::Other(
+            "leader 必须且只能指定 --sector、--concept 或 --all 之一".to_string(),
+        ));
+    }
+
+    match (sector, concept, all) {
+        (Some(name), None, false) => Ok(LeaderFilter::Sector(name)),
+        (None, Some(name), false) => Ok(LeaderFilter::Concept(name)),
+        (None, None, true) => Ok(LeaderFilter::All),
+        _ => Err(QuantixError::Other(
+            "leader 必须且只能指定 --sector、--concept 或 --all 之一".to_string(),
+        )),
+    }
+}
+
+fn parse_market_date(raw: Option<&str>) -> Result<Option<NaiveDate>> {
+    raw.map(|value| {
+        NaiveDate::parse_from_str(value, "%Y-%m-%d")
+            .map_err(|_| QuantixError::Other(format!("无效日期格式: {}，请使用 YYYY-MM-DD", value)))
+    })
+    .transpose()
+}
+
+fn parse_board_sort_by(raw: Option<&str>) -> Result<BoardSortBy> {
+    match raw.unwrap_or("change_pct") {
+        "change" | "change_pct" => Ok(BoardSortBy::ChangePct),
+        other => Err(QuantixError::Other(format!(
+            "不支持的 sort_by: {}，仅支持 change 或 change_pct",
+            other
+        ))),
+    }
+}
+
+fn print_market_board_rows(rows: &[BoardRankRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的板块数据");
+        return;
+    }
+
+    println!("{:<8} {:<12} {:<16} {}", "排名", "代码", "板块", "涨跌幅");
+    println!("{}", "-".repeat(56));
+
+    for row in rows {
+        println!(
+            "{:<8} {:<12} {:<16} {:.2}%",
+            row.rank, row.board_code, row.board_name, row.change_pct
+        );
+    }
+}
+
+fn print_north_flow_snapshot(snapshot: Option<&NorthFlowSnapshot>) {
+    let Some(snapshot) = snapshot else {
+        println!("📭 没有可展示的北向资金数据");
+        return;
+    };
+
+    println!("日期: {}", snapshot.trade_date);
+    println!("沪股通: {:.2}", snapshot.sh_amount);
+    println!("深股通: {:.2}", snapshot.sz_amount);
+    println!("合计: {:.2}", snapshot.total_amount);
+    println!("余额: {:.2}", snapshot.balance);
+}
+
+fn print_market_sentiment_snapshot(snapshot: Option<&MarketSentimentSnapshot>) {
+    let Some(snapshot) = snapshot else {
+        println!("📭 没有可展示的市场情绪数据");
+        return;
+    };
+
+    println!("日期: {}", snapshot.trade_date);
+    println!("上涨: {}", snapshot.up_count);
+    println!("下跌: {}", snapshot.down_count);
+    println!("涨停: {}", snapshot.limit_up_count);
+    println!("跌停: {}", snapshot.limit_down_count);
+    println!("封板率: {:.2}", snapshot.seal_rate);
+    println!("炸板率: {:.2}", snapshot.break_rate);
+    println!("连板股: {}", snapshot.consecutive_board_count);
+}
+
+fn print_market_leader_rows(rows: &[LeaderRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的龙头股数据");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<12} {:<12} {:<12} {}",
+        "代码", "名称", "行业", "概念", "涨跌幅"
+    );
+    println!("{}", "-".repeat(72));
+
+    for row in rows {
+        println!(
+            "{:<10} {:<12} {:<12} {:<12} {:.2}%",
+            row.code,
+            row.name,
+            row.sector_name.as_deref().unwrap_or("-"),
+            row.concept_name.as_deref().unwrap_or("-"),
+            row.change_pct
+        );
+    }
+}
+
+fn print_market_overview(overview: &MarketOverview) {
+    println!("== 市场概览 ==");
+    println!("行业板块: {}", overview.top_sectors.len());
+    println!("概念板块: {}", overview.top_concepts.len());
+
+    match overview.north_flow.as_ref() {
+        Some(snapshot) => println!("北向资金: {:.2}", snapshot.total_amount),
+        None => println!("北向资金: -"),
+    }
+
+    match overview.sentiment.as_ref() {
+        Some(snapshot) => println!("涨停数: {}", snapshot.limit_up_count),
+        None => println!("涨停数: -"),
+    }
+
+    if !overview.top_sectors.is_empty() {
+        println!();
+        println!("Top 行业:");
+        print_market_board_rows(&overview.top_sectors);
+    }
+
+    if !overview.top_concepts.is_empty() {
+        println!();
+        println!("Top 概念:");
+        print_market_board_rows(&overview.top_concepts);
+    }
 }
 
 async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
     let output = match cmd {
-        ScreenerCommands::PresetList => execute_screener_command_with_loader(
-            ScreenerCommands::PresetList,
-            NullDailyKlineLoader,
-            create_watchlist_storage(),
-        )
-        .await?,
+        ScreenerCommands::PresetList => {
+            execute_screener_command_with_loader(
+                ScreenerCommands::PresetList,
+                NullDailyKlineLoader,
+                create_watchlist_storage(),
+            )
+            .await?
+        }
         ScreenerCommands::Run { .. } => {
             let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
             execute_screener_command_with_loader(cmd, loader, create_watchlist_storage()).await?
@@ -715,9 +951,9 @@ where
     L: DailyKlineLoader,
 {
     match cmd {
-        ScreenerCommands::PresetList => Ok(ScreenerCommandOutput::PresetList(
-            screener_preset_specs(),
-        )),
+        ScreenerCommands::PresetList => {
+            Ok(ScreenerCommandOutput::PresetList(screener_preset_specs()))
+        }
         ScreenerCommands::Run {
             codes,
             watchlist,
@@ -882,7 +1118,10 @@ fn format_screener_rule_detail(detail: &RuleMatchDetail) -> String {
     ) {
         (_, _, Some(reason)) => format!("{}:{}({})", status, detail.preset_name, reason),
         (Some(actual), Some(threshold), None) => {
-            format!("{}:{} {} / {}", status, detail.preset_name, actual, threshold)
+            format!(
+                "{}:{} {} / {}",
+                status, detail.preset_name, actual, threshold
+            )
         }
         _ => format!("{}:{}", status, detail.preset_name),
     }
@@ -1196,9 +1435,13 @@ pub async fn run_status(health: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::config::CLICKHOUSE_DB_ENV;
     use crate::core::QuantixError;
+    use crate::core::config::CLICKHOUSE_DB_ENV;
     use crate::data::models::{AdjustType, Kline};
+    use crate::market::{
+        BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
+        MarketSentimentSnapshot, NorthFlowSnapshot,
+    };
     use crate::screener::DailyKlineLoader;
     use async_trait::async_trait;
     use chrono::{NaiveDate, Utc};
@@ -1255,8 +1498,8 @@ mod tests {
 
     #[test]
     fn test_task_start_daemon_is_explicitly_unsupported() {
-        let err =
-            ensure_task_command_supported_for_p0(&TaskCommands::Start { daemon: true }).unwrap_err();
+        let err = ensure_task_command_supported_for_p0(&TaskCommands::Start { daemon: true })
+            .unwrap_err();
 
         assert!(matches!(err, QuantixError::Unsupported(_)));
     }
@@ -1423,7 +1666,9 @@ mod tests {
         let storage = WatchlistStorage::new(&path);
         let service = WatchlistService::default();
         let mut store = storage.load_or_create().unwrap();
-        service.create_group(&mut store, "core", Utc::now()).unwrap();
+        service
+            .create_group(&mut store, "core", Utc::now())
+            .unwrap();
         service
             .add(&mut store, "000001", Some("core"), Utc::now())
             .unwrap();
@@ -1486,6 +1731,308 @@ mod tests {
 
         assert!(matches!(err, QuantixError::Other(_)));
         assert!(err.to_string().contains("未知的 preset"));
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MarketBoardRequest {
+        board_type: BoardType,
+        date: Option<NaiveDate>,
+        limit: usize,
+        sort_by: BoardSortBy,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MarketLeaderRequest {
+        filter: LeaderFilter,
+        limit: usize,
+        date: Option<NaiveDate>,
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct FakeMarketState {
+        board_requests: Vec<MarketBoardRequest>,
+        leader_requests: Vec<MarketLeaderRequest>,
+    }
+
+    #[derive(Clone)]
+    struct FakeMarketReader {
+        state: Arc<Mutex<FakeMarketState>>,
+    }
+
+    impl FakeMarketReader {
+        fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(FakeMarketState::default())),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl MarketDataReader for FakeMarketReader {
+        async fn load_board_rankings(
+            &self,
+            board_type: BoardType,
+            date: Option<NaiveDate>,
+            limit: usize,
+            sort_by: BoardSortBy,
+        ) -> Result<Vec<BoardRankRow>> {
+            self.state
+                .lock()
+                .unwrap()
+                .board_requests
+                .push(MarketBoardRequest {
+                    board_type,
+                    date,
+                    limit,
+                    sort_by,
+                });
+
+            let rows = match board_type {
+                BoardType::Sector => vec![BoardRankRow::new("BK001", "银行", board_type, 1, 2.1)],
+                BoardType::Concept => {
+                    vec![BoardRankRow::new("GN001", "人工智能", board_type, 1, 4.2)]
+                }
+            };
+
+            Ok(rows.into_iter().take(limit).collect())
+        }
+
+        async fn load_north_flow(
+            &self,
+            date: Option<NaiveDate>,
+        ) -> Result<Option<NorthFlowSnapshot>> {
+            Ok(Some(NorthFlowSnapshot::new(
+                date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+                12.3,
+                8.6,
+                20.9,
+                100.0,
+            )))
+        }
+
+        async fn load_market_sentiment(
+            &self,
+            date: Option<NaiveDate>,
+        ) -> Result<Option<MarketSentimentSnapshot>> {
+            Ok(Some(MarketSentimentSnapshot::new(
+                date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+                3210,
+                1875,
+                87,
+                4,
+                0.81,
+                0.19,
+                23,
+            )))
+        }
+
+        async fn load_leaders(
+            &self,
+            filter: LeaderFilter,
+            limit: usize,
+            date: Option<NaiveDate>,
+        ) -> Result<Vec<LeaderRow>> {
+            self.state
+                .lock()
+                .unwrap()
+                .leader_requests
+                .push(MarketLeaderRequest {
+                    filter: filter.clone(),
+                    limit,
+                    date,
+                });
+
+            let rows = match filter {
+                LeaderFilter::Sector(name) => {
+                    vec![LeaderRow::new("600000", "浦发银行", Some(name), None, 5.6)]
+                }
+                LeaderFilter::Concept(name) => {
+                    vec![LeaderRow::new("300024", "机器人", None, Some(name), 7.1)]
+                }
+                LeaderFilter::All => vec![
+                    LeaderRow::new("300024", "机器人", None, Some("人工智能".to_string()), 7.1),
+                    LeaderRow::new("600000", "浦发银行", Some("银行".to_string()), None, 5.6),
+                ],
+            };
+
+            Ok(rows.into_iter().take(limit).collect())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_sector_returns_rows() {
+        let reader = FakeMarketReader::new();
+
+        let output = execute_market_command_with_reader(
+            MarketCommands::Sector {
+                top: Some(1),
+                date: Some("2026-03-09".to_string()),
+                sort_by: Some("change".to_string()),
+            },
+            reader.clone(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::BoardRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].board_name, "银行");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = reader.state.lock().unwrap();
+        assert_eq!(
+            state.board_requests,
+            vec![MarketBoardRequest {
+                board_type: BoardType::Sector,
+                date: Some(NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()),
+                limit: 1,
+                sort_by: BoardSortBy::ChangePct,
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_concept_returns_rows() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Concept {
+                top: Some(1),
+                date: None,
+                sort_by: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::BoardRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].board_name, "人工智能");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_north_returns_snapshot() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::North {
+                date: Some("2026-03-09".to_string()),
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::NorthFlow(Some(snapshot)) => {
+                assert_eq!(
+                    snapshot.trade_date,
+                    NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()
+                );
+                assert_eq!(snapshot.total_amount, 20.9);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_sentiment_returns_snapshot() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Sentiment { date: None },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Sentiment(Some(snapshot)) => {
+                assert_eq!(snapshot.limit_up_count, 87);
+                assert_eq!(snapshot.consecutive_board_count, 23);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_leader_with_sector_returns_rows() {
+        let reader = FakeMarketReader::new();
+
+        let output = execute_market_command_with_reader(
+            MarketCommands::Leader {
+                sector: Some("银行".to_string()),
+                concept: None,
+                all: false,
+                limit: Some(5),
+                date: Some("2026-03-09".to_string()),
+            },
+            reader.clone(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Leaders(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "600000");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = reader.state.lock().unwrap();
+        assert_eq!(
+            state.leader_requests,
+            vec![MarketLeaderRequest {
+                filter: LeaderFilter::Sector("银行".to_string()),
+                limit: 5,
+                date: Some(NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_overview_returns_combined_payload() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Overview {
+                top: Some(1),
+                date: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Overview(overview) => {
+                assert_eq!(overview.top_sectors.len(), 1);
+                assert_eq!(overview.top_concepts.len(), 1);
+                assert_eq!(overview.north_flow.unwrap().total_amount, 20.9);
+                assert_eq!(overview.sentiment.unwrap().limit_up_count, 87);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_leader_rejects_invalid_filter_combination() {
+        let err = execute_market_command_with_reader(
+            MarketCommands::Leader {
+                sector: Some("银行".to_string()),
+                concept: Some("人工智能".to_string()),
+                all: false,
+                limit: None,
+                date: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("必须且只能指定"));
     }
 }
 
