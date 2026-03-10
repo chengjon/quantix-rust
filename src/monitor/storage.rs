@@ -52,18 +52,6 @@ impl SqliteMonitorAlertStore {
         Ok(())
     }
 
-    pub async fn mark_triggered(&self, id: i64, triggered_at: DateTime<Utc>) -> Result<bool> {
-        let result = sqlx::query(
-            "UPDATE price_alerts SET last_triggered_at = ? WHERE id = ? AND is_active = 1",
-        )
-        .bind(triggered_at.to_rfc3339())
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(result.rows_affected() > 0)
-    }
-
     fn row_to_alert(row: SqliteRow) -> Result<PriceAlert> {
         let alert_type: String = row.try_get("alert_type")?;
         let created_at: String = row.try_get("created_at")?;
@@ -128,6 +116,18 @@ impl MonitorAlertStore for SqliteMonitorAlertStore {
                 .bind(id)
                 .execute(&self.pool)
                 .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn mark_triggered(&self, id: i64, triggered_at: DateTime<Utc>) -> Result<bool> {
+        let result = sqlx::query(
+            "UPDATE price_alerts SET last_triggered_at = ? WHERE id = ? AND is_active = 1",
+        )
+        .bind(triggered_at.to_rfc3339())
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -222,6 +222,57 @@ mod tests {
         assert!(updated);
         let alerts = store.list_alerts().await.unwrap();
         assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].last_triggered_at, Some(triggered_at));
+    }
+
+    #[tokio::test]
+    async fn monitor_db_storage_trait_boundary_supports_mark_triggered() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("alerts.db");
+        let store = SqliteMonitorAlertStore::new(&db_path).await.unwrap();
+        let created = store
+            .add_alert("000001", PriceAlertKind::Above, 16.0, sample_time())
+            .await
+            .unwrap();
+        let triggered_at = Utc.with_ymd_and_hms(2026, 3, 11, 10, 6, 0).unwrap();
+        let trait_store: &dyn MonitorAlertStore = &store;
+
+        let updated = trait_store
+            .mark_triggered(created.id, triggered_at)
+            .await
+            .unwrap();
+
+        assert!(updated);
+        let alerts = trait_store.list_alerts().await.unwrap();
+        assert_eq!(alerts[0].last_triggered_at, Some(triggered_at));
+    }
+
+    #[tokio::test]
+    async fn monitor_db_storage_persists_alerts_across_reopen() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("alerts.db");
+        let triggered_at = Utc.with_ymd_and_hms(2026, 3, 11, 10, 7, 0).unwrap();
+
+        let created_id = {
+            let store = SqliteMonitorAlertStore::new(&db_path).await.unwrap();
+            let created = store
+                .add_alert("000001", PriceAlertKind::Below, 15.0, sample_time())
+                .await
+                .unwrap();
+            let updated = store.mark_triggered(created.id, triggered_at).await.unwrap();
+
+            assert!(updated);
+            created.id
+        };
+
+        let reopened = SqliteMonitorAlertStore::new(&db_path).await.unwrap();
+        let alerts = reopened.list_alerts().await.unwrap();
+
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].id, created_id);
+        assert_eq!(alerts[0].code, "000001");
+        assert_eq!(alerts[0].kind, PriceAlertKind::Below);
+        assert_eq!(alerts[0].target_price, 15.0);
         assert_eq!(alerts[0].last_triggered_at, Some(triggered_at));
     }
 }

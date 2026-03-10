@@ -76,6 +76,16 @@ impl MonitorAlertStore for FakeAlertStore {
         state.alerts.retain(|alert| alert.id != id);
         Ok(before != state.alerts.len())
     }
+
+    async fn mark_triggered(&self, id: i64, triggered_at: DateTime<Utc>) -> Result<bool> {
+        let mut state = self.state.lock().unwrap();
+        let Some(alert) = state.alerts.iter_mut().find(|alert| alert.id == id) else {
+            return Ok(false);
+        };
+
+        alert.last_triggered_at = Some(triggered_at);
+        Ok(true)
+    }
 }
 
 fn sample_time() -> DateTime<Utc> {
