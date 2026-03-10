@@ -497,10 +497,8 @@ impl Cli {
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
             }
-            Commands::Monitor(_cmd) => {
-                return Err(crate::core::QuantixError::Unsupported(
-                    "Phase 24A 仅包含 monitor CLI parser，handler 尚未实现".to_string(),
-                ));
+            Commands::Monitor(cmd) => {
+                handlers::run_monitor_command(cmd).await?;
             }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
@@ -519,8 +517,8 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::error::ErrorKind;
     use clap::Parser;
+    use clap::error::ErrorKind;
 
     #[test]
     fn parses_watchlist_add_command() {
@@ -574,15 +572,9 @@ mod tests {
 
     #[test]
     fn parses_watchlist_group_create_command() {
-        let cli = Cli::try_parse_from([
-            "quantix",
-            "watchlist",
-            "group",
-            "create",
-            "--name",
-            "core",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "watchlist", "group", "create", "--name", "core"])
+                .unwrap();
 
         match cli.command {
             Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create {
@@ -726,13 +718,7 @@ mod tests {
     #[test]
     fn parses_monitor_alert_add_command_with_above() {
         let cli = Cli::try_parse_from([
-            "quantix",
-            "monitor",
-            "alert",
-            "add",
-            "000001",
-            "--above",
-            "16.0",
+            "quantix", "monitor", "alert", "add", "000001", "--above", "16.0",
         ])
         .unwrap();
 
@@ -753,13 +739,7 @@ mod tests {
     #[test]
     fn parses_monitor_alert_add_command_with_below() {
         let cli = Cli::try_parse_from([
-            "quantix",
-            "monitor",
-            "alert",
-            "add",
-            "000001",
-            "--below",
-            "15.0",
+            "quantix", "monitor", "alert", "add", "000001", "--below", "15.0",
         ])
         .unwrap();
 
@@ -801,7 +781,8 @@ mod tests {
 
     #[test]
     fn parses_monitor_alert_add_rejects_missing_threshold() {
-        let err = Cli::try_parse_from(["quantix", "monitor", "alert", "add", "000001"]).unwrap_err();
+        let err =
+            Cli::try_parse_from(["quantix", "monitor", "alert", "add", "000001"]).unwrap_err();
 
         assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
         assert!(err.to_string().contains("--above"));
@@ -811,15 +792,7 @@ mod tests {
     #[test]
     fn parses_monitor_alert_add_rejects_both_thresholds() {
         let err = Cli::try_parse_from([
-            "quantix",
-            "monitor",
-            "alert",
-            "add",
-            "000001",
-            "--above",
-            "16.0",
-            "--below",
-            "15.0",
+            "quantix", "monitor", "alert", "add", "000001", "--above", "16.0", "--below", "15.0",
         ])
         .unwrap_err();
 
@@ -850,11 +823,7 @@ mod tests {
         let cli = Cli::try_parse_from(["quantix", "market", "sector", "--top", "10"]).unwrap();
 
         match cli.command {
-            Commands::Market(MarketCommands::Sector {
-                top,
-                date,
-                sort_by,
-            }) => {
+            Commands::Market(MarketCommands::Sector { top, date, sort_by }) => {
                 assert_eq!(top, Some(10));
                 assert_eq!(date, None);
                 assert_eq!(sort_by, None);
@@ -865,21 +834,11 @@ mod tests {
 
     #[test]
     fn parses_market_concept_command_with_date() {
-        let cli = Cli::try_parse_from([
-            "quantix",
-            "market",
-            "concept",
-            "--date",
-            "2026-03-09",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "market", "concept", "--date", "2026-03-09"]).unwrap();
 
         match cli.command {
-            Commands::Market(MarketCommands::Concept {
-                top,
-                date,
-                sort_by,
-            }) => {
+            Commands::Market(MarketCommands::Concept { top, date, sort_by }) => {
                 assert_eq!(top, None);
                 assert_eq!(date.as_deref(), Some("2026-03-09"));
                 assert_eq!(sort_by, None);
@@ -915,13 +874,7 @@ mod tests {
     #[test]
     fn parses_market_leader_command_with_sector_and_limit() {
         let cli = Cli::try_parse_from([
-            "quantix",
-            "market",
-            "leader",
-            "--sector",
-            "银行",
-            "--limit",
-            "5",
+            "quantix", "market", "leader", "--sector", "银行", "--limit", "5",
         ])
         .unwrap();
 
