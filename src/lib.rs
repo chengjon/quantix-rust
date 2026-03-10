@@ -23,6 +23,7 @@ pub mod strategy;
 pub mod sync;
 pub mod tasks;
 pub mod tui;
+pub mod watchlist;
 
 // 重新导出常用类型
 pub use cli::Cli;

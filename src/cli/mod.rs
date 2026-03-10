@@ -47,6 +47,10 @@ pub enum Commands {
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
 
+    /// 自选池命令
+    #[command(subcommand)]
+    Watchlist(WatchlistCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -179,6 +183,117 @@ pub enum AnalyzeCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum WatchlistCommands {
+    /// 添加股票到自选池
+    Add {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 分组名称
+        #[arg(long)]
+        group: Option<String>,
+    },
+
+    /// 从自选池移除股票
+    Remove {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+    },
+
+    /// 列出自选池
+    List {
+        /// 分组过滤
+        #[arg(long)]
+        group: Option<String>,
+
+        /// 标签过滤
+        #[arg(long)]
+        tag: Option<String>,
+
+        /// 展示最佳努力价格
+        #[arg(long)]
+        with_price: bool,
+    },
+
+    /// 移动股票到目标分组
+    Move {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 目标分组
+        #[arg(long)]
+        group: String,
+    },
+
+    /// 分组管理
+    #[command(subcommand)]
+    Group(WatchlistGroupCommands),
+
+    /// 标签管理
+    #[command(subcommand)]
+    Tag(WatchlistTagCommands),
+
+    /// 查看历史
+    History {
+        /// 股票代码
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 返回条数
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WatchlistGroupCommands {
+    /// 创建分组
+    Create {
+        /// 分组名称
+        #[arg(long)]
+        name: String,
+    },
+
+    /// 列出分组
+    List,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WatchlistTagCommands {
+    /// 添加标签
+    Add {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 标签
+        #[arg(long)]
+        tag: String,
+    },
+
+    /// 删除标签
+    Remove {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 标签
+        #[arg(long)]
+        tag: String,
+    },
+
+    /// 列出股票标签
+    List {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -204,10 +319,113 @@ impl Cli {
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
             }
+            Commands::Watchlist(cmd) => {
+                handlers::run_watchlist_command(cmd).await?;
+            }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parses_watchlist_add_command() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "add",
+            "--code",
+            "000001",
+            "--group",
+            "core",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::Add { code, group }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(group.as_deref(), Some("core"));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_list_command_with_filters_and_price_flag() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "list",
+            "--group",
+            "core",
+            "--tag",
+            "bank",
+            "--with-price",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::List {
+                group,
+                tag,
+                with_price,
+            }) => {
+                assert_eq!(group.as_deref(), Some("core"));
+                assert_eq!(tag.as_deref(), Some("bank"));
+                assert!(with_price);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_group_create_command() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "group",
+            "create",
+            "--name",
+            "core",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create {
+                name,
+            })) => {
+                assert_eq!(name, "core");
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_history_command_with_limit() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "history",
+            "--code",
+            "000001",
+            "--limit",
+            "20",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::History { code, limit }) => {
+                assert_eq!(code.as_deref(), Some("000001"));
+                assert_eq!(limit, 20);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
     }
 }
