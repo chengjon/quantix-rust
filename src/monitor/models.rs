@@ -35,7 +35,7 @@ pub struct TriggeredAlert {
     pub kind: PriceAlertKind,
     pub target_price: f64,
     pub current_price: f64,
-    pub triggered_at: DateTime<Utc>,
+    pub triggered_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
