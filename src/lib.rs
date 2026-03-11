@@ -20,6 +20,7 @@ pub mod io;
 pub mod market;
 pub mod monitor;
 pub mod monitoring;
+pub mod risk;
 pub mod screener;
 pub mod sources;
 pub mod stop;
