@@ -3,7 +3,7 @@
 /// 处理命令行参数解析和交互式菜单
 pub mod handlers;
 
-use crate::core::{QuantixError, Result};
+use crate::core::Result;
 use clap::{ArgGroup, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -608,10 +608,8 @@ impl Cli {
             Commands::Market(cmd) => {
                 handlers::run_market_command(cmd).await?;
             }
-            Commands::Trade(_) => {
-                return Err(QuantixError::Other(
-                    "trade commands are not implemented yet".to_string(),
-                ));
+            Commands::Trade(cmd) => {
+                handlers::run_trade_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
