@@ -1,6 +1,7 @@
 pub mod fees;
 pub mod models;
 pub mod service;
+pub mod storage;
 
 pub use fees::calculate_fee_breakdown;
 pub use models::{
@@ -8,3 +9,4 @@ pub use models::{
     TradeOrderRequest, TradePosition, TradeRecord, TradeSide,
 };
 pub use service::{PaperTradeStore, TradeService};
+pub use storage::JsonPaperTradeStore;
