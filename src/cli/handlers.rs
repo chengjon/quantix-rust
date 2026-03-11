@@ -1,7 +1,7 @@
 use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    ScreenerCommands, StrategyCommands, TaskCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, TaskCommands, WatchlistCommands,
+    WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -23,6 +23,7 @@ use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
+use crate::stop::{SqliteStopRuleStore, StopRule, StopRuleStore, StopService};
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
@@ -642,12 +643,27 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
     Ok(())
 }
 
+pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
+    let watchlist_storage = create_watchlist_storage();
+    let service = StopService::new(create_stop_rule_store().await?);
+    let output = execute_stop_command_with_service(cmd, &service, &watchlist_storage).await?;
+    print_stop_command_output(&output);
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum MonitorCommandOutput {
     Watchlist(MonitorWatchlistSnapshot),
     AlertAdded(PriceAlert),
     AlertList(Vec<PriceAlert>),
     AlertRemoved { id: u64, removed: bool },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum StopCommandOutput {
+    RuleSet(StopRule),
+    RuleList(Vec<StopRule>),
+    RuleRemoved { code: String, removed: bool },
 }
 
 pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
@@ -774,6 +790,35 @@ where
     }
 }
 
+async fn execute_stop_command_with_service<RS>(
+    cmd: StopCommands,
+    service: &StopService<RS>,
+    watchlist_storage: &WatchlistStorage,
+) -> Result<StopCommandOutput>
+where
+    RS: StopRuleStore,
+{
+    match cmd {
+        StopCommands::Set {
+            code,
+            loss,
+            profit,
+            trailing,
+        } => {
+            ensure_watchlist_contains_code(watchlist_storage, &code)?;
+            let rule = service
+                .set_rule(&code, loss, profit, trailing, Utc::now())
+                .await?;
+            Ok(StopCommandOutput::RuleSet(rule))
+        }
+        StopCommands::List => Ok(StopCommandOutput::RuleList(service.list_rules().await?)),
+        StopCommands::Remove { code } => {
+            let removed = service.remove_rule(&code).await?;
+            Ok(StopCommandOutput::RuleRemoved { code, removed })
+        }
+    }
+}
+
 async fn execute_market_command_with_reader<R>(
     cmd: MarketCommands,
     reader: R,
@@ -878,6 +923,11 @@ async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
     SqliteMonitorAlertStore::new(runtime.monitor_db_path).await
 }
 
+async fn create_stop_rule_store() -> Result<SqliteStopRuleStore> {
+    let runtime = CliRuntime::load();
+    SqliteStopRuleStore::new(runtime.monitor_db_path).await
+}
+
 async fn persist_triggered_monitor_alerts<RS>(
     store: &RS,
     snapshot: &MonitorWatchlistSnapshot,
@@ -891,6 +941,15 @@ where
         store.mark_triggered(alert.alert_id, triggered_at).await?;
     }
     Ok(())
+}
+
+fn ensure_watchlist_contains_code(storage: &WatchlistStorage, code: &str) -> Result<()> {
+    let store = load_watchlist_store_for_read(storage)?;
+    if store.entries.contains_key(code) {
+        Ok(())
+    } else {
+        Err(QuantixError::Other(format!("股票不在自选池: {}", code)))
+    }
 }
 
 fn build_leader_filter(
@@ -958,6 +1017,59 @@ fn print_market_board_rows(rows: &[BoardRankRow]) {
             row.rank, row.board_code, row.board_name, row.change_pct
         );
     }
+}
+
+fn print_stop_command_output(output: &StopCommandOutput) {
+    match output {
+        StopCommandOutput::RuleSet(rule) => {
+            println!("✅ 已设置 {} 的止盈止损规则", rule.code);
+        }
+        StopCommandOutput::RuleList(rules) => print_stop_rules(rules),
+        StopCommandOutput::RuleRemoved { code, removed } => {
+            if *removed {
+                println!("✅ 已移除 {} 的止盈止损规则", code);
+            } else {
+                println!("⚠️  未找到 {} 的止盈止损规则", code);
+            }
+        }
+    }
+}
+
+fn print_stop_rules(rules: &[StopRule]) {
+    if rules.is_empty() {
+        println!("📭 暂无止盈止损规则");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<12} {:<12} {:<10} {:<12} {}",
+        "代码", "止损价", "止盈价", "追踪%", "最高价", "最近触发"
+    );
+    println!("{}", "-".repeat(80));
+
+    for rule in rules {
+        println!(
+            "{:<10} {:<12} {:<12} {:<10} {:<12} {}",
+            rule.code,
+            format_optional_price(rule.stop_loss_price),
+            format_optional_price(rule.take_profit_price),
+            format_optional_price(rule.trailing_pct),
+            format_optional_price(rule.highest_price),
+            format_optional_timestamp(rule.last_triggered_at),
+        );
+    }
+}
+
+fn format_optional_price(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{:.2}", value))
+        .unwrap_or_else(|| "-".to_string())
+}
+
+fn format_optional_timestamp(value: Option<chrono::DateTime<Utc>>) -> String {
+    value
+        .map(|value| value.to_rfc3339())
+        .unwrap_or_else(|| "-".to_string())
 }
 
 fn print_north_flow_snapshot(snapshot: Option<&NorthFlowSnapshot>) {
@@ -1728,7 +1840,7 @@ pub async fn run_status(health: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{MonitorAlertCommands, MonitorCommands};
+    use crate::cli::{MonitorAlertCommands, MonitorCommands, StopCommands};
     use crate::core::QuantixError;
     use crate::core::config::{
         CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
@@ -1743,6 +1855,7 @@ mod tests {
         MonitorWatchlistReader, PriceAlert, PriceAlertKind, TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
+    use crate::stop::{StopRule, StopRuleStore, StopService};
     use crate::watchlist::WatchlistListItem;
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
@@ -2135,6 +2248,79 @@ mod tests {
         state: Arc<Mutex<FakeMonitorAlertState>>,
     }
 
+    #[derive(Debug, Clone, Default)]
+    struct FakeStopRuleState {
+        rules: Vec<StopRule>,
+        removed_codes: Vec<String>,
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeStopRuleStore {
+        state: Arc<Mutex<FakeStopRuleState>>,
+    }
+
+    #[async_trait]
+    impl StopRuleStore for FakeStopRuleStore {
+        async fn upsert_rule(&self, rule: StopRule) -> Result<StopRule> {
+            let mut state = self.state.lock().unwrap();
+            if let Some(existing) = state
+                .rules
+                .iter_mut()
+                .find(|existing| existing.code == rule.code)
+            {
+                *existing = rule.clone();
+            } else {
+                state.rules.push(rule.clone());
+            }
+            Ok(rule)
+        }
+
+        async fn list_rules(&self) -> Result<Vec<StopRule>> {
+            Ok(self.state.lock().unwrap().rules.clone())
+        }
+
+        async fn remove_rule(&self, code: &str) -> Result<bool> {
+            let mut state = self.state.lock().unwrap();
+            let before = state.rules.len();
+            state.rules.retain(|rule| rule.code != code);
+            if before != state.rules.len() {
+                state.removed_codes.push(code.to_string());
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+    }
+
+    fn stop_sample_time() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 11, 12, 0, 0).unwrap()
+    }
+
+    fn stop_rule(code: &str) -> StopRule {
+        StopRule {
+            code: code.to_string(),
+            stop_loss_price: Some(14.5),
+            take_profit_price: None,
+            trailing_pct: None,
+            highest_price: None,
+            last_triggered_at: None,
+            created_at: stop_sample_time(),
+            updated_at: stop_sample_time(),
+        }
+    }
+
+    fn stop_watchlist_storage(codes: &[&str]) -> (tempfile::TempDir, WatchlistStorage) {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = WatchlistStorage::new(dir.path().join("watchlist.json"));
+        let service = WatchlistService::default();
+        let mut store = storage.load_or_create().unwrap();
+        for code in codes {
+            service.add(&mut store, code, None, Utc::now()).unwrap();
+        }
+        storage.save(&store).unwrap();
+        (dir, storage)
+    }
+
     #[async_trait]
     impl MonitorAlertStore for FakeMonitorAlertStore {
         async fn add_alert(
@@ -2186,6 +2372,208 @@ mod tests {
             alert.last_triggered_at = Some(triggered_at);
             Ok(true)
         }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_set_loss_succeeds() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore::default();
+        let service = StopService::new(store.clone());
+
+        let output = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: Some(14.5),
+                profit: None,
+                trailing: None,
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.code, "000001");
+                assert_eq!(rule.stop_loss_price, Some(14.5));
+                assert_eq!(rule.take_profit_price, None);
+                assert_eq!(rule.trailing_pct, None);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        assert_eq!(store.state.lock().unwrap().rules.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_set_profit_succeeds() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let service = StopService::new(FakeStopRuleStore::default());
+
+        let output = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: None,
+                profit: Some(18.0),
+                trailing: None,
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.take_profit_price, Some(18.0));
+                assert_eq!(rule.stop_loss_price, None);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_set_trailing_succeeds() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let service = StopService::new(FakeStopRuleStore::default());
+
+        let output = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: None,
+                profit: Some(18.0),
+                trailing: Some(5.0),
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.trailing_pct, Some(5.0));
+                assert_eq!(rule.take_profit_price, Some(18.0));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_set_rejects_invalid_condition_combinations() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let service = StopService::new(FakeStopRuleStore::default());
+
+        let none_err = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: None,
+                profit: None,
+                trailing: None,
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(none_err, QuantixError::Other(_)));
+        assert!(none_err.to_string().contains("至少需要一个条件"));
+
+        let conflict_err = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: Some(14.5),
+                profit: None,
+                trailing: Some(5.0),
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(conflict_err, QuantixError::Other(_)));
+        assert!(conflict_err.to_string().contains("--loss 和 --trailing"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_set_rejects_codes_outside_watchlist() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let service = StopService::new(FakeStopRuleStore::default());
+
+        let err = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000002".to_string(),
+                loss: Some(14.5),
+                profit: None,
+                trailing: None,
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("不在自选池"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_list_returns_persisted_rules() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![stop_rule("000001")],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = StopService::new(store);
+
+        let output = execute_stop_command_with_service(StopCommands::List, &service, &storage)
+            .await
+            .unwrap();
+
+        match output {
+            StopCommandOutput::RuleList(rules) => {
+                assert_eq!(rules.len(), 1);
+                assert_eq!(rules[0].code, "000001");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_remove_succeeds() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![stop_rule("000001")],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = StopService::new(store.clone());
+
+        let output = execute_stop_command_with_service(
+            StopCommands::Remove {
+                code: "000001".to_string(),
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleRemoved { code, removed } => {
+                assert_eq!(code, "000001");
+                assert!(removed);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert!(state.rules.is_empty());
+        assert_eq!(state.removed_codes, vec!["000001".to_string()]);
     }
 
     #[tokio::test]
@@ -2272,10 +2660,12 @@ mod tests {
             FakeMonitorAlertStore::default(),
         );
 
-        let err =
-            execute_monitor_command_with_service(MonitorCommands::Watchlist { once: false }, &service)
-                .await
-                .unwrap_err();
+        let err = execute_monitor_command_with_service(
+            MonitorCommands::Watchlist { once: false },
+            &service,
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(err, QuantixError::Other(_)));
         assert!(err.to_string().contains("仅支持 --once"));
