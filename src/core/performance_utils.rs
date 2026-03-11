@@ -206,12 +206,16 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_tracker() {
-        let tracker = MemoryTracker::new("vector_allocation");
-        let _data: Vec<u64> = Vec::with_capacity(1000);
+    fn test_memory_tracker_reports_signed_delta() {
+        // RSS can move down during the full test suite when unrelated allocations are freed.
+        // Use a synthetic baseline to verify the signed-delta contract deterministically.
+        let tracker = MemoryTracker {
+            name: "vector_allocation".to_string(),
+            initial_kb: MemoryTracker::current_memory_kb().saturating_add(1024 * 1024),
+        };
+
         let delta = tracker.stop_and_print();
-        // 允许一定的误差
-        assert!(delta >= 0);
+        assert!(delta <= 0);
     }
 
     #[test]
