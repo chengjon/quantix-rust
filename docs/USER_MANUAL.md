@@ -15,6 +15,7 @@
   - [watchlist - 自选池](#watchlist---自选池)
   - [market - 市场分析](#market---市场分析)
   - [monitor - 实时监控](#monitor---实时监控)
+  - [stop - 止盈止损](#stop---止盈止损)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -90,7 +91,7 @@ export TDX_PORT=7709
 # 自选池 JSON 存储路径（可选）
 export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 
-# 监控告警 SQLite 路径（可选）
+# 监控告警 / 止盈止损 SQLite 路径（可选）
 export QUANTIX_MONITOR_DB_PATH="$HOME/.quantix/monitor/alerts.db"
 ```
 
@@ -174,6 +175,21 @@ quantix monitor alert add 000001 --above 16.0
 quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
+```
+
+### 止盈止损快速开始
+
+```bash
+# 为自选池代码设置规则
+quantix stop set 000001 --loss 14.5
+quantix stop set 000001 --trailing 5 --profit 18.0
+
+# 通过 monitor 扫描同时评估价格告警和止盈止损
+quantix monitor watchlist --once
+
+# 查看和删除规则
+quantix stop list
+quantix stop remove 000001
 ```
 
 ---
@@ -924,6 +940,52 @@ quantix monitor alert add 000001 --above 16.0
 quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
+```
+
+---
+
+### stop - 止盈止损
+
+提供 Phase 25A 的最小止盈止损闭环：为自选池代码维护单条规则，并在 `monitor watchlist --once` 里直接复用当前快照价格做评估。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/monitor/alerts.db`
+- 复用 `QUANTIX_MONITOR_DB_PATH` 指向的 SQLite 路径
+- 止盈止损规则与价格告警共用同一个 monitor DB
+
+#### P0 范围
+
+- 仅支持固定止损价、固定止盈价、跟踪止损百分比
+- 仅允许为当前本地自选池中的代码设置规则
+- 每个代码只保留一条有效规则，重复 `stop set` 会整条覆盖旧规则
+- `quantix monitor watchlist --once` 会在输出监控快照后继续评估止盈止损规则
+- `stop status`、`stop history`、`stop update`、`--loss-pct`、`--profit-pct` 延后到后续 Phase
+
+#### 命令摘要
+
+```bash
+quantix stop set <CODE> [--loss <PRICE>] [--profit <PRICE>] [--trailing <PCT>]
+quantix stop list
+quantix stop remove <CODE>
+```
+
+#### 参数约束
+
+- `stop set` 至少需要一个条件：`--loss`、`--profit`、`--trailing`
+- `--loss` 与 `--trailing` 不能同时使用
+- `--loss`、`--profit` 必须是有限正数
+- `--trailing` 必须在 0 到 100 之间，且可以与 `--profit` 组合
+
+#### 常用示例
+
+```bash
+quantix stop set 000001 --loss 14.5
+quantix stop set 000001 --profit 18.0
+quantix stop set 000001 --trailing 5 --profit 18.0
+quantix stop list
+quantix monitor watchlist --once
+quantix stop remove 000001
 ```
 
 ---
