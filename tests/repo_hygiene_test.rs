@@ -71,6 +71,28 @@ fn readme_documents_phase24_monitor_boundary() {
 }
 
 #[test]
+fn readme_documents_phase25_stop_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 25: 止盈止损",
+        "quantix stop set 000001 --loss 14.5",
+        "quantix stop set 000001 --trailing 5 --profit 18.0",
+        "quantix stop list",
+        "quantix stop remove 000001",
+        "仅允许对已在本地自选池中的股票设置规则",
+        "quantix monitor watchlist --once 会在监控快照阶段继续评估止盈止损规则",
+        "stop status / stop history / stop update / 百分比止损止盈参数延后到后续 Phase",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase23_market_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
@@ -84,6 +106,28 @@ fn user_manual_documents_phase23_market_commands() {
         "quantix market leader (--sector <NAME> | --concept <NAME> | --all) [--limit <N>] [--date <YYYY-MM-DD>]",
         "quantix market overview [--top <N>] [--date <YYYY-MM-DD>]",
         "历史/详情/实时能力延后到后续 Phase",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_phase25_stop_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "### stop - 止盈止损",
+        "quantix stop set <CODE> [--loss <PRICE>] [--profit <PRICE>] [--trailing <PCT>]",
+        "quantix stop list",
+        "quantix stop remove <CODE>",
+        "仅允许为当前本地自选池中的代码设置规则",
+        "复用 `QUANTIX_MONITOR_DB_PATH` 指向的 SQLite 路径",
+        "`quantix monitor watchlist --once` 会在输出监控快照后继续评估止盈止损规则",
+        "`stop status`、`stop history`、`stop update`、`--loss-pct`、`--profit-pct` 延后到后续 Phase",
     ] {
         assert!(
             contents.contains(expected),
