@@ -157,3 +157,47 @@ fn user_manual_documents_phase24_monitor_commands() {
         );
     }
 }
+
+#[test]
+fn readme_documents_phase26_trade_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 26: 模拟交易",
+        "quantix trade init",
+        "quantix trade buy",
+        "quantix trade sell",
+        "quantix trade position",
+        "quantix trade cash",
+        "QUANTIX_TRADE_PATH",
+        "trade history / trade overview / trade fees / --current 延后到后续 Phase",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_phase26_trade_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "### trade - 模拟交易",
+        "quantix trade init [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]",
+        "quantix trade buy <CODE> --price <PRICE> --volume <N>",
+        "quantix trade sell <CODE> --price <PRICE> --volume <N>",
+        "quantix trade position",
+        "quantix trade cash",
+        "QUANTIX_TRADE_PATH",
+        "`trade history`、`trade overview`、`trade fees`、`--current` 延后到后续 Phase",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}

@@ -16,6 +16,7 @@
   - [market - 市场分析](#market---市场分析)
   - [monitor - 实时监控](#monitor---实时监控)
   - [stop - 止盈止损](#stop---止盈止损)
+  - [trade - 模拟交易](#trade---模拟交易)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -93,6 +94,9 @@ export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 
 # 监控告警 / 止盈止损 SQLite 路径（可选）
 export QUANTIX_MONITOR_DB_PATH="$HOME/.quantix/monitor/alerts.db"
+
+# 模拟交易 JSON 路径（可选）
+export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 ```
 
 ### 运行测试
@@ -189,6 +193,21 @@ quantix monitor watchlist --once
 # 查看和删除规则
 quantix stop list
 quantix stop remove 000001
+```
+
+### 模拟交易快速开始
+
+```bash
+# 初始化默认模拟账户
+quantix trade init --capital 1000000
+
+# 立即成交的限价买卖
+quantix trade buy 000001 --price 15.0 --volume 1000
+quantix trade sell 000001 --price 16.0 --volume 500
+
+# 查看持仓与现金快照
+quantix trade position
+quantix trade cash
 ```
 ---
 
@@ -983,6 +1002,52 @@ quantix stop set 000001 --trailing 5 --profit 18.0
 quantix stop list
 quantix monitor watchlist --once
 quantix stop remove 000001
+```
+
+---
+
+### trade - 模拟交易
+
+提供 Phase 26A 的最小模拟交易闭环：初始化/重置单账户、本地 JSON 持久化、按输入价格立即成交的限价买卖，以及查看当前持仓和现金快照。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/trade/paper_trade.json`
+- 可通过 `QUANTIX_TRADE_PATH` 覆盖
+
+#### P0 范围
+
+- 仅支持单账户、本地纸上交易
+- 买卖单按输入价格立即成交，不包含挂单、撤单、部分成交
+- 手续费参数只允许通过 `trade init` / `trade reset` 设置
+- `trade history`、`trade overview`、`trade fees`、`--current` 延后到后续 Phase
+
+#### 命令摘要
+
+```bash
+quantix trade init [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]
+quantix trade reset [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]
+quantix trade buy <CODE> --price <PRICE> --volume <N>
+quantix trade sell <CODE> --price <PRICE> --volume <N>
+quantix trade position
+quantix trade cash
+```
+
+#### 参数约束
+
+- `trade init` / `trade reset` 只管理默认账户和费率配置
+- `trade buy` / `trade sell` 的 `--price` 必须是有限正数，`--volume` 必须是正整数
+- `trade sell` 仅允许卖出当前已持有且数量足够的代码
+
+#### 常用示例
+
+```bash
+quantix trade init --capital 1000000 --commission-rate 0.00025
+quantix trade reset --capital 500000
+quantix trade buy 000001 --price 15.0 --volume 1000
+quantix trade sell 000001 --price 16.0 --volume 500
+quantix trade position
+quantix trade cash
 ```
 
 ---
