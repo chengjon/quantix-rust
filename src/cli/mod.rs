@@ -3,7 +3,7 @@
 /// 处理命令行参数解析和交互式菜单
 pub mod handlers;
 
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use clap::{ArgGroup, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -62,6 +62,10 @@ pub enum Commands {
     /// 市场分析命令
     #[command(subcommand)]
     Market(MarketCommands),
+
+    /// 模拟交易命令
+    #[command(subcommand)]
+    Trade(TradeCommands),
 
     /// 系统状态
     Status {
@@ -512,6 +516,61 @@ pub enum WatchlistTagCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum TradeCommands {
+    /// 初始化默认模拟账户
+    Init {
+        #[arg(long)]
+        capital: Option<f64>,
+        #[arg(long)]
+        commission_rate: Option<f64>,
+        #[arg(long)]
+        commission_min: Option<f64>,
+        #[arg(long)]
+        stamp_duty_rate: Option<f64>,
+        #[arg(long)]
+        transfer_fee_rate: Option<f64>,
+    },
+
+    /// 重置默认模拟账户
+    Reset {
+        #[arg(long)]
+        capital: Option<f64>,
+        #[arg(long)]
+        commission_rate: Option<f64>,
+        #[arg(long)]
+        commission_min: Option<f64>,
+        #[arg(long)]
+        stamp_duty_rate: Option<f64>,
+        #[arg(long)]
+        transfer_fee_rate: Option<f64>,
+    },
+
+    /// 立即成交的限价买入
+    Buy {
+        code: String,
+        #[arg(long)]
+        price: f64,
+        #[arg(long)]
+        volume: i64,
+    },
+
+    /// 立即成交的限价卖出
+    Sell {
+        code: String,
+        #[arg(long)]
+        price: f64,
+        #[arg(long)]
+        volume: i64,
+    },
+
+    /// 查看当前持仓
+    Position,
+
+    /// 查看当前现金快照
+    Cash,
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -548,6 +607,11 @@ impl Cli {
             }
             Commands::Market(cmd) => {
                 handlers::run_market_command(cmd).await?;
+            }
+            Commands::Trade(_) => {
+                return Err(QuantixError::Other(
+                    "trade commands are not implemented yet".to_string(),
+                ));
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
@@ -996,6 +1060,119 @@ mod tests {
         assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
         assert!(err.to_string().contains("--loss"));
         assert!(err.to_string().contains("--trailing"));
+    }
+
+    #[test]
+    fn parses_trade() {
+        let cli = Cli::try_parse_from(["quantix", "trade", "init"]).unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Init {
+                capital,
+                commission_rate,
+                commission_min,
+                stamp_duty_rate,
+                transfer_fee_rate,
+            }) => {
+                assert_eq!(capital, None);
+                assert_eq!(commission_rate, None);
+                assert_eq!(commission_min, None);
+                assert_eq!(stamp_duty_rate, None);
+                assert_eq!(transfer_fee_rate, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "trade",
+            "init",
+            "--capital",
+            "1500000",
+            "--commission-rate",
+            "0.0003",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Init {
+                capital,
+                commission_rate,
+                ..
+            }) => {
+                assert_eq!(capital, Some(1_500_000.0));
+                assert_eq!(commission_rate, Some(0.0003));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from(["quantix", "trade", "reset", "--capital", "500000"])
+            .unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Reset { capital, .. }) => {
+                assert_eq!(capital, Some(500000.0));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from([
+            "quantix", "trade", "buy", "000001", "--price", "15.0", "--volume", "1000",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Buy {
+                code,
+                price,
+                volume,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(price, 15.0);
+                assert_eq!(volume, 1000);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from([
+            "quantix", "trade", "sell", "000001", "--price", "16.0", "--volume", "500",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Sell {
+                code,
+                price,
+                volume,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(price, 16.0);
+                assert_eq!(volume, 500);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from(["quantix", "trade", "position"]).unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Position) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let cli = Cli::try_parse_from(["quantix", "trade", "cash"]).unwrap();
+        match cli.command {
+            Commands::Trade(TradeCommands::Cash) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_trade_rejects_missing_price_or_volume() {
+        let err =
+            Cli::try_parse_from(["quantix", "trade", "buy", "000001", "--volume", "1000"])
+                .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--price"));
+
+        let err =
+            Cli::try_parse_from(["quantix", "trade", "sell", "000001", "--price", "16.0"])
+                .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--volume"));
     }
 
     #[test]
