@@ -26,6 +26,7 @@ pub mod stop;
 pub mod strategy;
 pub mod sync;
 pub mod tasks;
+pub mod trade;
 pub mod tui;
 pub mod watchlist;
 
