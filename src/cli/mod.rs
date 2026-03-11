@@ -540,10 +540,8 @@ impl Cli {
             Commands::Monitor(cmd) => {
                 handlers::run_monitor_command(cmd).await?;
             }
-            Commands::Stop(_cmd) => {
-                return Err(crate::core::QuantixError::Unsupported(
-                    "Phase 25A 仅包含 stop CLI parser，handler 尚未实现".to_string(),
-                ));
+            Commands::Stop(cmd) => {
+                handlers::run_stop_command(cmd).await?;
             }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
@@ -865,8 +863,8 @@ mod tests {
 
     #[test]
     fn parses_stop_set_command_with_loss() {
-        let cli = Cli::try_parse_from(["quantix", "stop", "set", "000001", "--loss", "14.5"])
-            .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "stop", "set", "000001", "--loss", "14.5"]).unwrap();
 
         match cli.command {
             Commands::Stop(StopCommands::Set {
@@ -886,8 +884,8 @@ mod tests {
 
     #[test]
     fn parses_stop_set_command_with_profit() {
-        let cli = Cli::try_parse_from(["quantix", "stop", "set", "000001", "--profit", "18.0"])
-            .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "stop", "set", "000001", "--profit", "18.0"]).unwrap();
 
         match cli.command {
             Commands::Stop(StopCommands::Set {
@@ -984,7 +982,14 @@ mod tests {
     #[test]
     fn parses_stop_set_rejects_loss_and_trailing_together() {
         let err = Cli::try_parse_from([
-            "quantix", "stop", "set", "000001", "--loss", "14.5", "--trailing", "5",
+            "quantix",
+            "stop",
+            "set",
+            "000001",
+            "--loss",
+            "14.5",
+            "--trailing",
+            "5",
         ])
         .unwrap_err();
 
