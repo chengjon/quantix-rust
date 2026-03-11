@@ -231,6 +231,22 @@ A 股量化交易 CLI 工具 - Rust 实现
   - quantix monitor watchlist --once 会在监控快照阶段继续评估止盈止损规则
   - `stop status / stop history / stop update / 百分比止损止盈参数延后到后续 Phase`
 
+#### Phase 26: 模拟交易 ✅
+- **模拟交易命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/trade/*`)
+  - `quantix trade init [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]` - 初始化默认模拟账户
+  - `quantix trade reset [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]` - 重置默认模拟账户
+  - `quantix trade buy <CODE> --price <PRICE> --volume <N>` - 按输入价立即成交买入
+  - `quantix trade sell <CODE> --price <PRICE> --volume <N>` - 按输入价立即成交卖出
+  - `quantix trade position` - 查看当前持仓
+  - `quantix trade cash` - 查看现金与资产快照
+- **JSON 持久化** (`src/trade/storage.rs`)
+  - 默认路径 `~/.quantix/trade/paper_trade.json`
+  - 可通过 `QUANTIX_TRADE_PATH` 覆盖
+- **P0 约束**
+  - 仅支持单账户、本地 JSON 持久化、立即成交的限价买卖
+  - 手续费参数仅通过 `trade init/reset` 配置
+  - trade history / trade overview / trade fees / --current 延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
