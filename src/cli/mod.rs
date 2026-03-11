@@ -3,7 +3,7 @@
 /// 处理命令行参数解析和交互式菜单
 pub mod handlers;
 
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use clap::{ArgGroup, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -66,6 +66,10 @@ pub enum Commands {
     /// 模拟交易命令
     #[command(subcommand)]
     Trade(TradeCommands),
+
+    /// 风险管理命令
+    #[command(subcommand)]
+    Risk(RiskCommands),
 
     /// 系统状态
     Status {
@@ -315,6 +319,47 @@ pub enum StopCommands {
     Remove {
         /// 股票代码
         code: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskCommands {
+    /// 风控规则管理
+    #[command(subcommand)]
+    Rule(RiskRuleCommands),
+
+    /// 查看当前风控状态
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskRuleCommands {
+    /// 设置风控规则
+    Set {
+        /// 规则类型
+        #[arg(long = "type")]
+        rule_type: String,
+
+        /// 规则值
+        #[arg(long)]
+        value: String,
+    },
+
+    /// 列出所有风控规则
+    List,
+
+    /// 启用风控规则
+    Enable {
+        /// 规则类型
+        #[arg(long = "type")]
+        rule_type: String,
+    },
+
+    /// 禁用风控规则
+    Disable {
+        /// 规则类型
+        #[arg(long = "type")]
+        rule_type: String,
     },
 }
 
@@ -610,6 +655,11 @@ impl Cli {
             }
             Commands::Trade(cmd) => {
                 handlers::run_trade_command(cmd).await?;
+            }
+            Commands::Risk(_cmd) => {
+                return Err(QuantixError::Unsupported(
+                    "Phase 27A risk handlers 尚未接入，请先完成后续任务".to_string(),
+                ));
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
