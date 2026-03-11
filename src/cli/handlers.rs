@@ -23,7 +23,9 @@ use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
-use crate::stop::{SqliteStopRuleStore, StopRule, StopRuleStore, StopService};
+use crate::stop::{
+    SqliteStopRuleStore, StopRule, StopRuleStore, StopService, StopTriggerKind, TriggeredStop,
+};
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
@@ -633,9 +635,24 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
     let quote_reader = TdxMonitorQuoteReader;
     let alert_store = create_monitor_alert_store().await?;
     let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
-    let output = execute_monitor_command_with_service(cmd, &service).await?;
+    let output = match cmd {
+        MonitorCommands::Watchlist { once } => {
+            let stop_store = create_stop_rule_store().await?;
+            execute_monitor_command_with_stop_store(
+                MonitorCommands::Watchlist { once },
+                &service,
+                &stop_store,
+            )
+            .await?
+        }
+        other => execute_monitor_command_with_service(other, &service).await?,
+    };
 
-    if let MonitorCommandOutput::Watchlist(snapshot) = &output {
+    if let MonitorCommandOutput::Watchlist {
+        snapshot,
+        triggered_stops: _,
+    } = &output
+    {
         persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
     }
 
@@ -653,10 +670,16 @@ pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
 
 #[derive(Debug, Clone, PartialEq)]
 enum MonitorCommandOutput {
-    Watchlist(MonitorWatchlistSnapshot),
+    Watchlist {
+        snapshot: MonitorWatchlistSnapshot,
+        triggered_stops: Vec<TriggeredStop>,
+    },
     AlertAdded(PriceAlert),
     AlertList(Vec<PriceAlert>),
-    AlertRemoved { id: u64, removed: bool },
+    AlertRemoved {
+        id: u64,
+        removed: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -762,9 +785,10 @@ where
     match cmd {
         MonitorCommands::Watchlist { once } => {
             validate_monitor_watchlist_command(once)?;
-            Ok(MonitorCommandOutput::Watchlist(
-                service.load_watchlist_snapshot().await?,
-            ))
+            Ok(MonitorCommandOutput::Watchlist {
+                snapshot: service.load_watchlist_snapshot().await?,
+                triggered_stops: Vec::new(),
+            })
         }
         MonitorCommands::Alert(alert_cmd) => match alert_cmd {
             MonitorAlertCommands::Add { code, above, below } => {
@@ -788,6 +812,66 @@ where
             }
         },
     }
+}
+
+async fn execute_monitor_command_with_stop_store<RW, RQ, RS, SS>(
+    cmd: MonitorCommands,
+    service: &MonitorService<RW, RQ, RS>,
+    stop_store: &SS,
+) -> Result<MonitorCommandOutput>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    RS: MonitorAlertStore,
+    SS: StopRuleStore + Clone,
+{
+    match cmd {
+        MonitorCommands::Watchlist { once } => {
+            validate_monitor_watchlist_command(once)?;
+            let snapshot = service.load_watchlist_snapshot().await?;
+            let triggered_stops = evaluate_stop_rules_for_snapshot(&snapshot, stop_store).await?;
+            Ok(MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops,
+            })
+        }
+        other => execute_monitor_command_with_service(other, service).await,
+    }
+}
+
+async fn evaluate_stop_rules_for_snapshot<SS>(
+    snapshot: &MonitorWatchlistSnapshot,
+    stop_store: &SS,
+) -> Result<Vec<TriggeredStop>>
+where
+    SS: StopRuleStore + Clone,
+{
+    let rules = stop_store.list_rules().await?;
+    if rules.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let observed_at = snapshot
+        .rows
+        .iter()
+        .filter_map(|row| row.quote_time)
+        .max()
+        .unwrap_or_else(Utc::now);
+    let stop_service = StopService::new(stop_store.clone());
+    let results = stop_service.evaluate_rules(&rules, &snapshot.rows, observed_at);
+    let mut triggered_stops = Vec::new();
+
+    for (original_rule, result) in rules.iter().zip(results.into_iter()) {
+        if result.updated_rule != *original_rule {
+            stop_store.upsert_rule(result.updated_rule.clone()).await?;
+        }
+
+        if let Some(triggered_stop) = result.triggered_stop {
+            triggered_stops.push(triggered_stop);
+        }
+    }
+
+    Ok(triggered_stops)
 }
 
 async fn execute_stop_command_with_service<RS>(
@@ -1155,7 +1239,10 @@ fn print_market_overview(overview: &MarketOverview) {
 
 fn print_monitor_command_output(output: &MonitorCommandOutput) {
     match output {
-        MonitorCommandOutput::Watchlist(snapshot) => print_monitor_watchlist_snapshot(snapshot),
+        MonitorCommandOutput::Watchlist {
+            snapshot,
+            triggered_stops,
+        } => print_monitor_watchlist_snapshot(snapshot, triggered_stops),
         MonitorCommandOutput::AlertAdded(alert) => println!(
             "✅ 已添加价格告警 #{} {} {} {:.2}",
             alert.id,
@@ -1174,7 +1261,10 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
     }
 }
 
-fn print_monitor_watchlist_snapshot(snapshot: &MonitorWatchlistSnapshot) {
+fn print_monitor_watchlist_snapshot(
+    snapshot: &MonitorWatchlistSnapshot,
+    triggered_stops: &[TriggeredStop],
+) {
     if snapshot.rows.is_empty() {
         println!("📭 自选池为空");
         return;
@@ -1217,11 +1307,50 @@ fn print_monitor_watchlist_snapshot(snapshot: &MonitorWatchlistSnapshot) {
         }
     }
 
+    if !triggered_stops.is_empty() {
+        println!();
+        println!("== 止盈止损 ==");
+        for triggered_stop in triggered_stops {
+            println!("{}", format_triggered_stop_message(triggered_stop));
+        }
+    }
+
     if !snapshot.warnings.is_empty() {
         println!();
         println!("== 警告 ==");
         for warning in &snapshot.warnings {
             println!("{}", warning);
+        }
+    }
+}
+
+fn format_triggered_stop_message(triggered_stop: &TriggeredStop) -> String {
+    match triggered_stop.kind {
+        StopTriggerKind::Loss => format!(
+            "{} 当前价 {:.2} 触发 stop-loss {:.2}",
+            triggered_stop.code, triggered_stop.current_price, triggered_stop.threshold_price
+        ),
+        StopTriggerKind::Profit => format!(
+            "{} 当前价 {:.2} 触发 take-profit {:.2}",
+            triggered_stop.code, triggered_stop.current_price, triggered_stop.threshold_price
+        ),
+        StopTriggerKind::TrailingLoss => {
+            let trailing_pct = triggered_stop
+                .highest_price
+                .map(|highest| (1.0 - triggered_stop.threshold_price / highest) * 100.0)
+                .unwrap_or_default();
+            match triggered_stop.highest_price {
+                Some(highest_price) => format!(
+                    "{} 当前价 {:.2} 触发 trailing-stop {:.2}% (highest {:.2})",
+                    triggered_stop.code, triggered_stop.current_price, trailing_pct, highest_price
+                ),
+                None => format!(
+                    "{} 当前价 {:.2} 触发 trailing-stop {:.2}",
+                    triggered_stop.code,
+                    triggered_stop.current_price,
+                    triggered_stop.threshold_price
+                ),
+            }
         }
     }
 }
@@ -1855,7 +1984,7 @@ mod tests {
         MonitorWatchlistReader, PriceAlert, PriceAlertKind, TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
-    use crate::stop::{StopRule, StopRuleStore, StopService};
+    use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
     use crate::watchlist::WatchlistListItem;
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
@@ -2519,6 +2648,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_stop_set_overwrites_existing_rule_shape() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![StopRule {
+                    code: "000001".to_string(),
+                    stop_loss_price: Some(14.5),
+                    take_profit_price: Some(18.0),
+                    trailing_pct: None,
+                    highest_price: Some(19.2),
+                    last_triggered_at: Some(stop_sample_time()),
+                    created_at: stop_sample_time(),
+                    updated_at: stop_sample_time(),
+                }],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = StopService::new(store.clone());
+
+        let output = execute_stop_command_with_service(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: None,
+                profit: Some(21.0),
+                trailing: Some(5.0),
+            },
+            &service,
+            &storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.code, "000001");
+                assert_eq!(rule.stop_loss_price, None);
+                assert_eq!(rule.take_profit_price, Some(21.0));
+                assert_eq!(rule.trailing_pct, Some(5.0));
+                assert_eq!(rule.highest_price, None);
+                assert_eq!(rule.last_triggered_at, None);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert_eq!(state.rules.len(), 1);
+        assert_eq!(state.rules[0].stop_loss_price, None);
+        assert_eq!(state.rules[0].take_profit_price, Some(21.0));
+        assert_eq!(state.rules[0].trailing_pct, Some(5.0));
+        assert_eq!(state.rules[0].highest_price, None);
+        assert_eq!(state.rules[0].last_triggered_at, None);
+    }
+
+    #[tokio::test]
     async fn test_execute_stop_list_returns_persisted_rules() {
         let (_dir, storage) = stop_watchlist_storage(&["000001"]);
         let store = FakeStopRuleStore {
@@ -2602,13 +2785,17 @@ mod tests {
         .unwrap();
 
         match output {
-            MonitorCommandOutput::Watchlist(snapshot) => {
+            MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops,
+            } => {
                 assert_eq!(snapshot.rows.len(), 2);
                 assert_eq!(snapshot.rows[0].code, "000001");
                 assert_eq!(snapshot.rows[0].group, "core");
                 assert_eq!(snapshot.rows[0].tags, vec!["bank".to_string()]);
                 assert_eq!(snapshot.rows[0].last_price, Some(16.2));
                 assert!(snapshot.triggered_alerts.is_empty());
+                assert!(triggered_stops.is_empty());
             }
             other => panic!("unexpected output: {:?}", other),
         }
@@ -2641,12 +2828,16 @@ mod tests {
         .unwrap();
 
         match output {
-            MonitorCommandOutput::Watchlist(snapshot) => {
+            MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops,
+            } => {
                 assert_eq!(snapshot.rows.len(), 1);
                 assert_eq!(snapshot.triggered_alerts.len(), 1);
                 assert_eq!(snapshot.triggered_alerts[0].alert_id, 1);
                 assert_eq!(snapshot.triggered_alerts[0].code, "000001");
                 assert_eq!(snapshot.triggered_alerts[0].current_price, 16.8);
+                assert!(triggered_stops.is_empty());
             }
             other => panic!("unexpected output: {:?}", other),
         }
@@ -2669,6 +2860,232 @@ mod tests {
 
         assert!(matches!(err, QuantixError::Other(_)));
         assert!(err.to_string().contains("仅支持 --once"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_stop_fixed_loss_triggers_from_snapshot_price() {
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![stop_rule("000001")],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 14.2, -2.1)],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_stop_store(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops,
+            } => {
+                assert_eq!(snapshot.rows.len(), 1);
+                assert_eq!(triggered_stops.len(), 1);
+                assert_eq!(triggered_stops[0].kind, StopTriggerKind::Loss);
+                assert_eq!(triggered_stops[0].code, "000001");
+                assert_eq!(triggered_stops[0].current_price, 14.2);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_stop_fixed_profit_triggers_from_snapshot_price() {
+        let mut rule = stop_rule("000001");
+        rule.stop_loss_price = None;
+        rule.take_profit_price = Some(18.0);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![rule],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 18.3, 4.8)],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_stop_store(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist {
+                snapshot: _,
+                triggered_stops,
+            } => {
+                assert_eq!(triggered_stops.len(), 1);
+                assert_eq!(triggered_stops[0].kind, StopTriggerKind::Profit);
+                assert_eq!(triggered_stops[0].threshold_price, 18.0);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_stop_trailing_updates_highest_price() {
+        let mut rule = stop_rule("000001");
+        rule.stop_loss_price = None;
+        rule.trailing_pct = Some(5.0);
+        rule.highest_price = Some(15.0);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![rule],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.1)],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_stop_store(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist {
+                snapshot: _,
+                triggered_stops,
+            } => {
+                assert!(triggered_stops.is_empty());
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert_eq!(state.rules[0].highest_price, Some(16.8));
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_stop_trailing_triggers_after_drawdown() {
+        let mut rule = stop_rule("000001");
+        rule.stop_loss_price = None;
+        rule.trailing_pct = Some(5.0);
+        rule.highest_price = Some(20.0);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![rule],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 18.8, -3.4)],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_stop_store(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist {
+                snapshot: _,
+                triggered_stops,
+            } => {
+                assert_eq!(triggered_stops.len(), 1);
+                assert_eq!(triggered_stops[0].kind, StopTriggerKind::TrailingLoss);
+                assert_eq!(triggered_stops[0].threshold_price, 19.0);
+                assert_eq!(triggered_stops[0].highest_price, Some(20.0));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert_eq!(
+            state.rules[0].last_triggered_at,
+            Some(monitor_sample_time())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_stop_missing_prices_do_not_trigger() {
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![stop_rule("000001")],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = MonitorService::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![MonitorQuoteRow {
+                    code: "000001".to_string(),
+                    group: String::new(),
+                    tags: Vec::new(),
+                    last_price: None,
+                    change_pct: None,
+                    quote_time: Some(monitor_sample_time()),
+                    note: Some("quote unavailable".to_string()),
+                }],
+            },
+            FakeMonitorAlertStore::default(),
+        );
+
+        let output = execute_monitor_command_with_stop_store(
+            MonitorCommands::Watchlist { once: true },
+            &service,
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Watchlist {
+                snapshot: _,
+                triggered_stops,
+            } => {
+                assert!(triggered_stops.is_empty());
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = store.state.lock().unwrap();
+        assert_eq!(state.rules[0].highest_price, None);
+        assert_eq!(state.rules[0].last_triggered_at, None);
     }
 
     #[tokio::test]
