@@ -117,6 +117,52 @@ async fn set_rule_persists_trailing_rule() {
 }
 
 #[tokio::test]
+async fn set_rule_rejects_invalid_threshold_values() {
+    let service = StopService::new(FakeStopRuleStore::default());
+
+    let loss_err = service
+        .set_rule("000001", Some(0.0), None, None, sample_time())
+        .await
+        .unwrap_err();
+    assert!(loss_err.to_string().contains("--loss 必须是有限正数"));
+
+    let profit_err = service
+        .set_rule("000001", None, Some(-1.0), None, sample_time())
+        .await
+        .unwrap_err();
+    assert!(profit_err.to_string().contains("--profit 必须是有限正数"));
+
+    let trailing_err = service
+        .set_rule("000001", None, None, Some(150.0), sample_time())
+        .await
+        .unwrap_err();
+    assert!(trailing_err.to_string().contains("--trailing 必须在 0 到 100 之间"));
+}
+
+#[tokio::test]
+async fn set_rule_rejects_non_finite_threshold_values() {
+    let service = StopService::new(FakeStopRuleStore::default());
+
+    let loss_err = service
+        .set_rule("000001", Some(f64::NAN), None, None, sample_time())
+        .await
+        .unwrap_err();
+    assert!(loss_err.to_string().contains("--loss 必须是有限正数"));
+
+    let profit_err = service
+        .set_rule("000001", None, Some(f64::INFINITY), None, sample_time())
+        .await
+        .unwrap_err();
+    assert!(profit_err.to_string().contains("--profit 必须是有限正数"));
+
+    let trailing_err = service
+        .set_rule("000001", None, None, Some(f64::NEG_INFINITY), sample_time())
+        .await
+        .unwrap_err();
+    assert!(trailing_err.to_string().contains("--trailing 必须在 0 到 100 之间"));
+}
+
+#[tokio::test]
 async fn list_rules_returns_store_rules() {
     let store = FakeStopRuleStore::default();
     store

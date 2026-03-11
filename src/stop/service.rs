@@ -174,5 +174,38 @@ fn validate_stop_rule_inputs(
         ));
     }
 
+    validate_positive_price("--loss", stop_loss_price)?;
+    validate_positive_price("--profit", take_profit_price)?;
+    validate_trailing_pct(trailing_pct)?;
+
+    Ok(())
+}
+
+fn validate_positive_price(flag: &str, value: Option<f64>) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    if !value.is_finite() || value <= 0.0 {
+        return Err(QuantixError::Other(format!(
+            "stop set {} 必须是有限正数",
+            flag
+        )));
+    }
+
+    Ok(())
+}
+
+fn validate_trailing_pct(value: Option<f64>) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    if !value.is_finite() || value <= 0.0 || value >= 100.0 {
+        return Err(QuantixError::Other(
+            "stop set --trailing 必须在 0 到 100 之间".to_string(),
+        ));
+    }
+
     Ok(())
 }
