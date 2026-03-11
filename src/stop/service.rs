@@ -13,14 +13,6 @@ pub trait StopRuleStore: Send + Sync {
     async fn list_rules(&self) -> Result<Vec<StopRule>>;
 
     async fn remove_rule(&self, code: &str) -> Result<bool>;
-
-    async fn update_runtime_state(
-        &self,
-        code: &str,
-        highest_price: Option<f64>,
-        last_triggered_at: Option<DateTime<Utc>>,
-        updated_at: DateTime<Utc>,
-    ) -> Result<bool>;
 }
 
 #[derive(Debug, Clone)]
@@ -152,7 +144,8 @@ where
             .map(|row| (row.code.as_str(), row.last_price))
             .collect::<HashMap<_, _>>();
 
-        rules.iter()
+        rules
+            .iter()
             .map(|rule| {
                 self.evaluate_rule(
                     rule,

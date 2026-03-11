@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::monitor::MonitorQuoteRow;
-use quantix_cli::stop::{
-    StopRule, StopRuleStore, StopService, StopTriggerKind,
-};
+use quantix_cli::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
@@ -21,7 +19,11 @@ struct FakeStopRuleStoreState {
 impl StopRuleStore for FakeStopRuleStore {
     async fn upsert_rule(&self, rule: StopRule) -> Result<StopRule> {
         let mut state = self.state.lock().unwrap();
-        if let Some(existing) = state.rules.iter_mut().find(|existing| existing.code == rule.code) {
+        if let Some(existing) = state
+            .rules
+            .iter_mut()
+            .find(|existing| existing.code == rule.code)
+        {
             *existing = rule.clone();
         } else {
             state.rules.push(rule.clone());
@@ -38,24 +40,6 @@ impl StopRuleStore for FakeStopRuleStore {
         let before = state.rules.len();
         state.rules.retain(|rule| rule.code != code);
         Ok(before != state.rules.len())
-    }
-
-    async fn update_runtime_state(
-        &self,
-        code: &str,
-        highest_price: Option<f64>,
-        last_triggered_at: Option<DateTime<Utc>>,
-        updated_at: DateTime<Utc>,
-    ) -> Result<bool> {
-        let mut state = self.state.lock().unwrap();
-        let Some(rule) = state.rules.iter_mut().find(|rule| rule.code == code) else {
-            return Ok(false);
-        };
-
-        rule.highest_price = highest_price;
-        rule.last_triggered_at = last_triggered_at;
-        rule.updated_at = updated_at;
-        Ok(true)
     }
 }
 
@@ -140,10 +124,7 @@ async fn list_rules_returns_store_rules() {
         .lock()
         .unwrap()
         .rules
-        .extend([
-            sample_rule("000001"),
-            sample_rule("000002"),
-        ]);
+        .extend([sample_rule("000001"), sample_rule("000002")]);
     let service = StopService::new(store);
 
     let rules = service.list_rules().await.unwrap();
@@ -249,11 +230,17 @@ fn evaluate_rules_matches_quotes_by_code() {
 
     assert_eq!(results.len(), 2);
     assert_eq!(
-        results[0].triggered_stop.as_ref().map(|trigger| trigger.kind),
+        results[0]
+            .triggered_stop
+            .as_ref()
+            .map(|trigger| trigger.kind),
         Some(StopTriggerKind::Loss)
     );
     assert_eq!(
-        results[1].triggered_stop.as_ref().map(|trigger| trigger.kind),
+        results[1]
+            .triggered_stop
+            .as_ref()
+            .map(|trigger| trigger.kind),
         Some(StopTriggerKind::Profit)
     );
 }
