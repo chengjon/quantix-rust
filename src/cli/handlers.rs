@@ -1436,7 +1436,9 @@ pub async fn run_status(health: bool) -> Result<()> {
 mod tests {
     use super::*;
     use crate::core::QuantixError;
-    use crate::core::config::CLICKHOUSE_DB_ENV;
+    use crate::core::config::{
+        CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
+    };
     use crate::data::models::{AdjustType, Kline};
     use crate::market::{
         BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
@@ -1455,19 +1457,44 @@ mod tests {
         LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
     }
 
-    struct ClickHouseDbEnvGuard(Option<String>);
+    struct ClickHouseDbEnvGuard {
+        url: Option<String>,
+        database: Option<String>,
+        user: Option<String>,
+        password: Option<String>,
+    }
 
     impl ClickHouseDbEnvGuard {
         fn capture() -> Self {
-            Self(std::env::var(CLICKHOUSE_DB_ENV).ok())
+            Self {
+                url: std::env::var(CLICKHOUSE_URL_ENV).ok(),
+                database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
+                user: std::env::var(CLICKHOUSE_USER_ENV).ok(),
+                password: std::env::var(CLICKHOUSE_PASSWORD_ENV).ok(),
+            }
         }
     }
 
     impl Drop for ClickHouseDbEnvGuard {
         fn drop(&mut self) {
-            match &self.0 {
+            match &self.url {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_URL_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_URL_ENV) },
+            }
+
+            match &self.database {
                 Some(value) => unsafe { std::env::set_var(CLICKHOUSE_DB_ENV, value) },
                 None => unsafe { std::env::remove_var(CLICKHOUSE_DB_ENV) },
+            }
+
+            match &self.user {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_USER_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_USER_ENV) },
+            }
+
+            match &self.password {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_PASSWORD_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_PASSWORD_ENV) },
             }
         }
     }
@@ -1477,11 +1504,16 @@ mod tests {
         let _lock = env_lock();
         let _guard = ClickHouseDbEnvGuard::capture();
         unsafe {
+            std::env::set_var(CLICKHOUSE_URL_ENV, "http://runtime-host:8123");
             std::env::set_var(CLICKHOUSE_DB_ENV, "quantix_runtime_test");
+            std::env::set_var(CLICKHOUSE_USER_ENV, "handler_user");
+            std::env::set_var(CLICKHOUSE_PASSWORD_ENV, "handler_password");
         }
 
         let client = create_clickhouse_client().await.unwrap();
         assert_eq!(client.database(), "quantix_runtime_test");
+        assert_eq!(client.http_auth_for_test().0, "handler_user");
+        assert_eq!(client.http_auth_for_test().1, "handler_password");
     }
 
     #[test]

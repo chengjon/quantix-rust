@@ -20,6 +20,12 @@ pub struct ClickHouseClient {
     database: String,
     /// 批量插入的批次大小
     batch_size: usize,
+    /// HTTP URL for direct queries (bypasses RowBinary)
+    http_url: String,
+    /// HTTP user
+    http_user: String,
+    /// HTTP password
+    http_password: String,
 }
 
 /// 默认批次大小
@@ -31,21 +37,30 @@ impl ClickHouseClient {
     /// ## 参数
     /// - `url`: ClickHouse HTTP 地址，如 "http://localhost:8123"
     /// - `database`: 数据库名称
-    pub async fn new(url: &str, database: &str) -> Result<Self> {
-        let client = Client::default().with_url(url).with_database(database);
+    /// - `user`: 用户名
+    /// - `password`: 密码
+    pub async fn new(url: &str, database: &str, user: &str, password: &str) -> Result<Self> {
+        let client = Client::default()
+            .with_url(url)
+            .with_database(database)
+            .with_user(user)
+            .with_password(password);
 
-        info!("ClickHouse 客户端初始化: {} -> {}", url, database);
+        info!("ClickHouse 客户端初始化: {} -> {} (user: {})", url, database, user);
 
         Ok(Self {
             client,
             database: database.to_string(),
             batch_size: DEFAULT_BATCH_SIZE,
+            http_url: url.to_string(),
+            http_user: user.to_string(),
+            http_password: password.to_string(),
         })
     }
 
     /// 使用共享设置创建
     pub async fn from_settings(settings: &ClickHouseSettings) -> Result<Self> {
-        Self::new(&settings.url, &settings.database).await
+        Self::new(&settings.url, &settings.database, &settings.user, &settings.password).await
     }
 
     /// 使用默认配置创建
@@ -60,6 +75,62 @@ impl ClickHouseClient {
 
     pub fn database(&self) -> &str {
         &self.database
+    }
+
+    #[cfg(test)]
+    pub(crate) fn http_auth_for_test(&self) -> (&str, &str) {
+        (&self.http_user, &self.http_password)
+    }
+
+    /// Execute a query using HTTP with JSON format (bypasses RowBinary encoding issues)
+    pub async fn query_json<T: for<'de> Deserialize<'de>>(&self, sql: &str) -> Result<Vec<T>> {
+        let client = reqwest::Client::new();
+
+        // Use POST request to avoid URL encoding issues with special characters
+        let url = format!("{}/?user={}&password={}&database={}",
+            self.http_url,
+            urlencoding::encode(&self.http_user),
+            urlencoding::encode(&self.http_password),
+            self.database,
+        );
+
+        let query_with_format = format!("{}\nFORMAT JSONEachRow", sql);
+
+        let response = client
+            .post(&url)
+            .body(query_with_format)
+            .send()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP query failed: {}", e)))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP response read failed: {}", e)))?;
+
+        if !status.is_success() {
+            return Err(QuantixError::DatabaseQuery(format!(
+                "Query failed ({}): {}",
+                status, body
+            )));
+        }
+
+        if body.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut results = Vec::new();
+        for line in body.lines() {
+            if line.is_empty() {
+                continue;
+            }
+            let item: T = serde_json::from_str(line)
+                .map_err(|e| QuantixError::DatabaseQuery(format!("JSON parse failed: {} in {}", e, line)))?;
+            results.push(item);
+        }
+
+        Ok(results)
     }
 
     /// 初始化数据库和表
@@ -734,7 +805,7 @@ pub struct StockInfoCH {
     pub market: u8,
     pub list_date: chrono::NaiveDate,
     pub status: String,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: chrono::NaiveDateTime,
 }
 
 /// 股票实时行情 (ClickHouse Row)
@@ -817,7 +888,7 @@ pub struct SectorDailyCH {
     pub leader_code: Option<String>,
     pub leader_name: Option<String>,
     pub leader_change: Option<f64>,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: String,
 }
 
 impl SectorDailyCH {
@@ -870,7 +941,7 @@ pub struct NorthFlowDailyCH {
     pub sz_amount: f64,
     pub total_amount: f64,
     pub balance: f64,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: String,
 }
 
 impl NorthFlowDailyCH {
@@ -896,7 +967,7 @@ pub struct MarketSentimentDailyCH {
     pub seal_rate: f64,
     pub break_rate: f64,
     pub consecutive_board_count: u32,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: String,
 }
 
 impl MarketSentimentDailyCH {
@@ -991,6 +1062,9 @@ impl Default for ClickHouseClient {
             client: Client::default(),
             database: "quantix".to_string(),
             batch_size: DEFAULT_BATCH_SIZE,
+            http_url: "http://localhost:8123".to_string(),
+            http_user: "default".to_string(),
+            http_password: "".to_string(),
         }
     }
 }
@@ -1022,7 +1096,7 @@ mod tests {
             market: 0,
             list_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
             status: "active".to_string(),
-            updated_at: Utc::now(),
+            updated_at: chrono::Utc::now().naive_utc(),
         };
         assert_eq!(info.code, "000001");
     }
@@ -1052,7 +1126,7 @@ mod tests {
             leader_code: Some("600000".to_string()),
             leader_name: Some("浦发银行".to_string()),
             leader_change: Some(5.61),
-            updated_at: Utc::now(),
+            updated_at: "2026-03-10 15:00:00".to_string(),
         };
 
         let board = row.clone().try_into_board_rank().unwrap();
@@ -1077,7 +1151,7 @@ mod tests {
             sz_amount: 8.6,
             total_amount: 20.9,
             balance: 99.1,
-            updated_at: Utc::now(),
+            updated_at: "2026-03-10 15:00:00".to_string(),
         };
 
         let snapshot = row.into_snapshot();
@@ -1101,7 +1175,7 @@ mod tests {
             seal_rate: 0.81,
             break_rate: 0.19,
             consecutive_board_count: 23,
-            updated_at: Utc::now(),
+            updated_at: "2026-03-10 15:00:00".to_string(),
         };
 
         let snapshot = row.into_snapshot();
@@ -1109,5 +1183,43 @@ mod tests {
         assert_eq!(snapshot.limit_up_count, 87);
         assert_eq!(snapshot.consecutive_board_count, 23);
         assert_eq!(snapshot.seal_rate, 0.81);
+    }
+
+    #[test]
+    fn test_market_sector_row_deserializes_json_each_row_payload() {
+        let row: SectorDailyCH = serde_json::from_str(
+            r#"{"sector_code":"BK0001","sector_name":"银行","sector_type":"industry","trade_date":"2026-03-14","change_pct":2.35,"rank":1,"leader_code":null,"leader_name":null,"leader_change":null,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.sector_code, "BK0001");
+        assert_eq!(row.sector_name, "银行");
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
+        assert!(row.leader_code.is_none());
+    }
+
+    #[test]
+    fn test_market_north_flow_row_deserializes_json_each_row_payload() {
+        let row: NorthFlowDailyCH = serde_json::from_str(
+            r#"{"trade_date":"2026-03-14","sh_amount":50.5,"sz_amount":35.2,"total_amount":85.7,"balance":12500.0,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.total_amount, 85.7);
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
+    }
+
+    #[test]
+    fn test_market_sentiment_row_deserializes_json_each_row_payload() {
+        let row: MarketSentimentDailyCH = serde_json::from_str(
+            r#"{"trade_date":"2026-03-14","up_count":2800,"down_count":2100,"limit_up_count":45,"limit_down_count":12,"seal_rate":0.78,"break_rate":0.15,"consecutive_board_count":120,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.limit_up_count, 45);
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
     }
 }

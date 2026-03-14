@@ -162,9 +162,7 @@ impl MarketDataReader for ClickHouseClient {
         );
 
         let rows: Vec<SectorDailyCH> = self
-            .client()
-            .query(&sql)
-            .fetch_all()
+            .query_json(&sql)
             .await
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询板块排名失败: {}", e)))?;
 
@@ -193,9 +191,7 @@ impl MarketDataReader for ClickHouseClient {
         );
 
         let row = self
-            .client()
-            .query(&sql)
-            .fetch_all::<NorthFlowDailyCH>()
+            .query_json::<NorthFlowDailyCH>(&sql)
             .await
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询北向资金失败: {}", e)))?
             .into_iter()
@@ -230,9 +226,7 @@ impl MarketDataReader for ClickHouseClient {
         );
 
         let row = self
-            .client()
-            .query(&sql)
-            .fetch_all::<MarketSentimentDailyCH>()
+            .query_json::<MarketSentimentDailyCH>(&sql)
             .await
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询市场情绪失败: {}", e)))?
             .into_iter()
@@ -278,9 +272,7 @@ impl MarketDataReader for ClickHouseClient {
         );
 
         let rows: Vec<SectorDailyCH> = self
-            .client()
-            .query(&sql)
-            .fetch_all()
+            .query_json(&sql)
             .await
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询龙头股失败: {}", e)))?;
 

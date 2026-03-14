@@ -7,8 +7,12 @@ use std::path::Path;
 
 pub const CLICKHOUSE_URL_ENV: &str = "CLICKHOUSE_URL";
 pub const CLICKHOUSE_DB_ENV: &str = "CLICKHOUSE_DB";
+pub const CLICKHOUSE_USER_ENV: &str = "CLICKHOUSE_USER";
+pub const CLICKHOUSE_PASSWORD_ENV: &str = "CLICKHOUSE_PASSWORD";
 pub const DEFAULT_CLICKHOUSE_URL: &str = "http://localhost:8123";
 pub const DEFAULT_CLICKHOUSE_DB: &str = "quantix";
+pub const DEFAULT_CLICKHOUSE_USER: &str = "default";
+pub const DEFAULT_CLICKHOUSE_PASSWORD: &str = "";
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseConfig {
