@@ -19,6 +19,10 @@ pub struct SyncConfig {
     pub clickhouse_url: String,
     /// ClickHouse 数据库名
     pub clickhouse_db: String,
+    /// ClickHouse 用户名
+    pub clickhouse_user: String,
+    /// ClickHouse 密码
+    pub clickhouse_password: String,
     /// 批量大小
     pub batch_size: usize,
     /// 同步延迟（秒）
@@ -33,6 +37,10 @@ impl Default for SyncConfig {
             clickhouse_url: std::env::var("CLICKHOUSE_URL")
                 .unwrap_or_else(|_| "http://localhost:8123".to_string()),
             clickhouse_db: std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string()),
+            clickhouse_user: std::env::var("CLICKHOUSE_USER")
+                .unwrap_or_else(|_| "default".to_string()),
+            clickhouse_password: std::env::var("CLICKHOUSE_PASSWORD")
+                .unwrap_or_else(|_| "".to_string()),
             batch_size: 1000,
             sync_interval: 300, // 5分钟
         }
@@ -63,8 +71,13 @@ pub struct DataSync {
 impl DataSync {
     /// 创建新的同步器
     pub async fn new(config: SyncConfig) -> Result<Self> {
-        let clickhouse_client =
-            ClickHouseClient::new(&config.clickhouse_url, &config.clickhouse_db).await?;
+        let clickhouse_client = ClickHouseClient::new(
+            &config.clickhouse_url,
+            &config.clickhouse_db,
+            &config.clickhouse_user,
+            &config.clickhouse_password,
+        )
+        .await?;
 
         info!("数据同步器初始化完成");
 
@@ -251,12 +264,71 @@ impl DataSync {
 mod tests {
     use super::*;
     use crate::core::QuantixError;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+    }
+
+    struct SyncEnvGuard {
+        clickhouse_user: Option<String>,
+        clickhouse_password: Option<String>,
+    }
+
+    impl SyncEnvGuard {
+        fn capture() -> Self {
+            Self {
+                clickhouse_user: std::env::var("CLICKHOUSE_USER").ok(),
+                clickhouse_password: std::env::var("CLICKHOUSE_PASSWORD").ok(),
+            }
+        }
+    }
+
+    impl Drop for SyncEnvGuard {
+        fn drop(&mut self) {
+            match &self.clickhouse_user {
+                Some(value) => unsafe { std::env::set_var("CLICKHOUSE_USER", value) },
+                None => unsafe { std::env::remove_var("CLICKHOUSE_USER") },
+            }
+
+            match &self.clickhouse_password {
+                Some(value) => unsafe { std::env::set_var("CLICKHOUSE_PASSWORD", value) },
+                None => unsafe { std::env::remove_var("CLICKHOUSE_PASSWORD") },
+            }
+        }
+    }
 
     #[test]
     fn test_sync_config_default() {
+        let _lock = env_lock();
+        let _guard = SyncEnvGuard::capture();
+        unsafe {
+            std::env::remove_var("CLICKHOUSE_USER");
+            std::env::remove_var("CLICKHOUSE_PASSWORD");
+        }
+
         let config = SyncConfig::default();
         assert_eq!(config.batch_size, 1000);
         assert_eq!(config.sync_interval, 300);
+        assert_eq!(config.clickhouse_user, "default");
+        assert_eq!(config.clickhouse_password, "");
+    }
+
+    #[test]
+    fn test_sync_config_reads_clickhouse_auth_from_env() {
+        let _lock = env_lock();
+        let _guard = SyncEnvGuard::capture();
+        unsafe {
+            std::env::set_var("CLICKHOUSE_USER", "sync_user");
+            std::env::set_var("CLICKHOUSE_PASSWORD", "sync_password");
+        }
+
+        let config = SyncConfig::default();
+        assert_eq!(config.clickhouse_user, "sync_user");
+        assert_eq!(config.clickhouse_password, "sync_password");
     }
 
     #[tokio::test]
