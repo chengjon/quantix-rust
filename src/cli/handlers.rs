@@ -1,18 +1,39 @@
-use super::{AnalyzeCommands, Commands, DataCommands, StrategyCommands, TaskCommands};
+use super::{
+    AnalyzeCommands, DataCommands, MarketCommands, ScreenerCommands, StrategyCommands,
+    TaskCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+};
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// CLI 命令处理器
 ///
 /// 实现各个子命令的处理逻辑
-use crate::core::{QuantixError, Result};
+use crate::core::{CliRuntime, QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
+use crate::market::{
+    BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
+    MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
+};
+use crate::screener::{
+    DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
+    ScreenUniverse, ScreenerService, parse_preset_invocation,
+};
 use crate::tasks::{TaskScheduler, TaskTemplates};
-use chrono::NaiveDate;
+use crate::watchlist::{
+    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
+    WatchlistHistoryEvent, WatchlistService, WatchlistStorage, WatchlistStore,
+};
+use async_trait::async_trait;
+use chrono::{NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
-use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use std::path::Path;
+use std::sync::Arc;
+
+async fn create_clickhouse_client() -> Result<ClickHouseClient> {
+    let runtime = CliRuntime::load();
+    ClickHouseClient::from_settings(&runtime.clickhouse).await
+}
 
 /// 初始化命令
 pub async fn run_init(config_path: String) -> Result<()> {
@@ -131,10 +152,7 @@ async fn query_kline_data(
         .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 查询数据
     let klines = client
@@ -180,10 +198,7 @@ async fn export_data(code: String, format: String, output: String) -> Result<()>
         .map_err(|e| QuantixError::Other(format!("创建输出目录失败: {}", e)))?;
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 查询数据
     let klines = client
@@ -305,10 +320,7 @@ async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
     println!("  参数: MA5, MA20");
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 获取历史数据
     let klines = client
@@ -430,6 +442,8 @@ async fn show_strategy(name: String) -> Result<()> {
 
 /// 任务命令
 pub async fn run_task_command(cmd: TaskCommands) -> Result<()> {
+    ensure_task_command_supported_for_p0(&cmd)?;
+
     match cmd {
         TaskCommands::Add {
             name,
@@ -454,29 +468,53 @@ pub async fn run_task_command(cmd: TaskCommands) -> Result<()> {
     Ok(())
 }
 
+fn ensure_task_command_supported_for_p0(cmd: &TaskCommands) -> Result<()> {
+    match cmd {
+        TaskCommands::Add { .. } => Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持预置任务模板；`task add` 暂不开放".to_string(),
+        )),
+        TaskCommands::Start { daemon: true } => Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持前台直接执行；`task start --daemon` 暂不支持".to_string(),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// 添加任务
 async fn add_task(name: String, cron: String, command: String) -> Result<()> {
     println!("⏰ 添加任务: {}", name);
     println!("  Cron: {}", cron);
     println!("  命令: {}", command);
 
-    // TODO: 实现 Cron 解析和任务添加
-    println!("💡 提示: 使用 'quantix task start' 启动调度器");
+    Err(QuantixError::Unsupported(
+        "Foundation P0 仅支持预置任务模板；请使用 `quantix task list` 查看可运行任务".to_string(),
+    ))
+}
 
-    Ok(())
+fn foundation_p0_task_template_descriptions() -> Vec<(String, String, String)> {
+    [
+        TaskTemplates::pre_market_check(),
+        TaskTemplates::auction_collection(),
+        TaskTemplates::market_open(),
+        TaskTemplates::market_close(),
+        TaskTemplates::post_market_process(),
+        TaskTemplates::data_sync(),
+    ]
+    .into_iter()
+    .map(|task| (task.name, task.command, task.cron_expr))
+    .collect()
 }
 
 /// 列出所有任务
 async fn list_tasks() -> Result<()> {
-    println!("📋 定时任务列表:");
+    println!("📋 Foundation P0 预置任务模板:");
     println!();
-    println!("  预定义任务模板:");
-    println!("    - market_open:  开盘前任务 (09:20)");
-    println!("    - auction:      竞价采集 (09:25)");
-    println!("    - market_close: 收盘后任务 (15:05)");
-    println!("    - data_sync:    数据同步 (每天 03:00)");
+    println!("  预定义任务模板 (名称 | 描述 | Cron):");
+    for (name, command, cron) in foundation_p0_task_template_descriptions() {
+        println!("    - {} | {} | {}", name, command, cron);
+    }
     println!();
-    println!("💡 使用 'quantix task start' 启动调度器");
+    println!("💡 Foundation P0 只支持前台启动预置模板: `quantix task start`");
 
     Ok(())
 }
@@ -484,10 +522,12 @@ async fn list_tasks() -> Result<()> {
 /// 启动任务调度器
 async fn start_task_scheduler(daemon: bool) -> Result<()> {
     if daemon {
-        println!("⏰ 启动任务调度器 (后台模式)...");
-    } else {
-        println!("⏰ 启动任务调度器...");
+        return Err(QuantixError::Unsupported(
+            "Foundation P0 仅支持前台直接执行；后台守护模式暂不支持".to_string(),
+        ));
     }
+
+    println!("⏰ 启动任务调度器...");
 
     // 创建调度器
     let scheduler = TaskScheduler::new()
@@ -552,12 +592,13 @@ async fn stop_task_scheduler() -> Result<()> {
 
 /// 显示任务状态
 async fn show_task_status() -> Result<()> {
-    println!("📊 任务调度器状态:");
+    println!("📊 Foundation P0 任务状态:");
     println!();
-    println!("  状态: 未运行");
-    println!("  任务数: 0");
+    println!("  状态: 仅支持当前进程内调度器");
+    println!("  持久化: 暂不支持");
+    println!("  后台守护: 暂不支持");
     println!();
-    println!("💡 使用 'quantix task start' 启动调度器");
+    println!("💡 使用 `quantix task start` 以前台模式运行预置任务模板");
 
     Ok(())
 }
@@ -571,8 +612,720 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id).await?;
         }
+        AnalyzeCommands::Screener(cmd) => {
+            run_screener_command(cmd).await?;
+        }
     }
     Ok(())
+}
+
+pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
+    let output = execute_market_command_with_reader(cmd, create_clickhouse_client().await?).await?;
+
+    match output {
+        MarketCommandOutput::BoardRows(rows) => print_market_board_rows(&rows),
+        MarketCommandOutput::NorthFlow(snapshot) => print_north_flow_snapshot(snapshot.as_ref()),
+        MarketCommandOutput::Sentiment(snapshot) => {
+            print_market_sentiment_snapshot(snapshot.as_ref())
+        }
+        MarketCommandOutput::Leaders(rows) => print_market_leader_rows(&rows),
+        MarketCommandOutput::Overview(overview) => print_market_overview(&overview),
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum MarketCommandOutput {
+    BoardRows(Vec<BoardRankRow>),
+    NorthFlow(Option<NorthFlowSnapshot>),
+    Sentiment(Option<MarketSentimentSnapshot>),
+    Leaders(Vec<LeaderRow>),
+    Overview(MarketOverview),
+}
+
+async fn execute_market_command_with_reader<R>(
+    cmd: MarketCommands,
+    reader: R,
+) -> Result<MarketCommandOutput>
+where
+    R: MarketDataReader,
+{
+    let service = MarketService::new(reader);
+
+    match cmd {
+        MarketCommands::Sector { top, date, sort_by } => {
+            let rows = service
+                .get_board_rankings(
+                    BoardType::Sector,
+                    parse_market_date(date.as_deref())?,
+                    top,
+                    parse_board_sort_by(sort_by.as_deref())?,
+                )
+                .await?;
+            Ok(MarketCommandOutput::BoardRows(rows))
+        }
+        MarketCommands::Concept { top, date, sort_by } => {
+            let rows = service
+                .get_board_rankings(
+                    BoardType::Concept,
+                    parse_market_date(date.as_deref())?,
+                    top,
+                    parse_board_sort_by(sort_by.as_deref())?,
+                )
+                .await?;
+            Ok(MarketCommandOutput::BoardRows(rows))
+        }
+        MarketCommands::North { date } => Ok(MarketCommandOutput::NorthFlow(
+            service
+                .get_north_flow(parse_market_date(date.as_deref())?)
+                .await?,
+        )),
+        MarketCommands::Sentiment { date } => Ok(MarketCommandOutput::Sentiment(
+            service
+                .get_market_sentiment(parse_market_date(date.as_deref())?)
+                .await?,
+        )),
+        MarketCommands::Leader {
+            sector,
+            concept,
+            all,
+            limit,
+            date,
+        } => {
+            let filter = build_leader_filter(sector, concept, all)?;
+            let rows = service
+                .get_leaders(filter, limit, parse_market_date(date.as_deref())?)
+                .await?;
+            Ok(MarketCommandOutput::Leaders(rows))
+        }
+        MarketCommands::Overview { top, date } => Ok(MarketCommandOutput::Overview(
+            service
+                .get_overview(parse_market_date(date.as_deref())?, top)
+                .await?,
+        )),
+    }
+}
+
+fn build_leader_filter(
+    sector: Option<String>,
+    concept: Option<String>,
+    all: bool,
+) -> Result<LeaderFilter> {
+    let mut filter_count = 0usize;
+    if sector.is_some() {
+        filter_count += 1;
+    }
+    if concept.is_some() {
+        filter_count += 1;
+    }
+    if all {
+        filter_count += 1;
+    }
+
+    if filter_count != 1 {
+        return Err(QuantixError::Other(
+            "leader 必须且只能指定 --sector、--concept 或 --all 之一".to_string(),
+        ));
+    }
+
+    match (sector, concept, all) {
+        (Some(name), None, false) => Ok(LeaderFilter::Sector(name)),
+        (None, Some(name), false) => Ok(LeaderFilter::Concept(name)),
+        (None, None, true) => Ok(LeaderFilter::All),
+        _ => Err(QuantixError::Other(
+            "leader 必须且只能指定 --sector、--concept 或 --all 之一".to_string(),
+        )),
+    }
+}
+
+fn parse_market_date(raw: Option<&str>) -> Result<Option<NaiveDate>> {
+    raw.map(|value| {
+        NaiveDate::parse_from_str(value, "%Y-%m-%d")
+            .map_err(|_| QuantixError::Other(format!("无效日期格式: {}，请使用 YYYY-MM-DD", value)))
+    })
+    .transpose()
+}
+
+fn parse_board_sort_by(raw: Option<&str>) -> Result<BoardSortBy> {
+    match raw.unwrap_or("change_pct") {
+        "change" | "change_pct" => Ok(BoardSortBy::ChangePct),
+        other => Err(QuantixError::Other(format!(
+            "不支持的 sort_by: {}，仅支持 change 或 change_pct",
+            other
+        ))),
+    }
+}
+
+fn print_market_board_rows(rows: &[BoardRankRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的板块数据");
+        return;
+    }
+
+    println!("{:<8} {:<12} {:<16} {}", "排名", "代码", "板块", "涨跌幅");
+    println!("{}", "-".repeat(56));
+
+    for row in rows {
+        println!(
+            "{:<8} {:<12} {:<16} {:.2}%",
+            row.rank, row.board_code, row.board_name, row.change_pct
+        );
+    }
+}
+
+fn print_north_flow_snapshot(snapshot: Option<&NorthFlowSnapshot>) {
+    let Some(snapshot) = snapshot else {
+        println!("📭 没有可展示的北向资金数据");
+        return;
+    };
+
+    println!("日期: {}", snapshot.trade_date);
+    println!("沪股通: {:.2}", snapshot.sh_amount);
+    println!("深股通: {:.2}", snapshot.sz_amount);
+    println!("合计: {:.2}", snapshot.total_amount);
+    println!("余额: {:.2}", snapshot.balance);
+}
+
+fn print_market_sentiment_snapshot(snapshot: Option<&MarketSentimentSnapshot>) {
+    let Some(snapshot) = snapshot else {
+        println!("📭 没有可展示的市场情绪数据");
+        return;
+    };
+
+    println!("日期: {}", snapshot.trade_date);
+    println!("上涨: {}", snapshot.up_count);
+    println!("下跌: {}", snapshot.down_count);
+    println!("涨停: {}", snapshot.limit_up_count);
+    println!("跌停: {}", snapshot.limit_down_count);
+    println!("封板率: {:.2}", snapshot.seal_rate);
+    println!("炸板率: {:.2}", snapshot.break_rate);
+    println!("连板股: {}", snapshot.consecutive_board_count);
+}
+
+fn print_market_leader_rows(rows: &[LeaderRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的龙头股数据");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<12} {:<12} {:<12} {}",
+        "代码", "名称", "行业", "概念", "涨跌幅"
+    );
+    println!("{}", "-".repeat(72));
+
+    for row in rows {
+        println!(
+            "{:<10} {:<12} {:<12} {:<12} {:.2}%",
+            row.code,
+            row.name,
+            row.sector_name.as_deref().unwrap_or("-"),
+            row.concept_name.as_deref().unwrap_or("-"),
+            row.change_pct
+        );
+    }
+}
+
+fn print_market_overview(overview: &MarketOverview) {
+    println!("== 市场概览 ==");
+    println!("行业板块: {}", overview.top_sectors.len());
+    println!("概念板块: {}", overview.top_concepts.len());
+
+    match overview.north_flow.as_ref() {
+        Some(snapshot) => println!("北向资金: {:.2}", snapshot.total_amount),
+        None => println!("北向资金: -"),
+    }
+
+    match overview.sentiment.as_ref() {
+        Some(snapshot) => println!("涨停数: {}", snapshot.limit_up_count),
+        None => println!("涨停数: -"),
+    }
+
+    if !overview.top_sectors.is_empty() {
+        println!();
+        println!("Top 行业:");
+        print_market_board_rows(&overview.top_sectors);
+    }
+
+    if !overview.top_concepts.is_empty() {
+        println!();
+        println!("Top 概念:");
+        print_market_board_rows(&overview.top_concepts);
+    }
+}
+
+async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
+    let output = match cmd {
+        ScreenerCommands::PresetList => {
+            execute_screener_command_with_loader(
+                ScreenerCommands::PresetList,
+                NullDailyKlineLoader,
+                create_watchlist_storage(),
+            )
+            .await?
+        }
+        ScreenerCommands::Run { .. } => {
+            let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
+            execute_screener_command_with_loader(cmd, loader, create_watchlist_storage()).await?
+        }
+    };
+
+    match output {
+        ScreenerCommandOutput::PresetList(presets) => print_screener_preset_list(&presets),
+        ScreenerCommandOutput::Rows(rows) => print_screener_rows(&rows),
+    }
+
+    Ok(())
+}
+
+struct ClickHouseDailyKlineLoader {
+    client: ClickHouseClient,
+}
+
+impl ClickHouseDailyKlineLoader {
+    fn new(client: ClickHouseClient) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl DailyKlineLoader for ClickHouseDailyKlineLoader {
+    async fn load_daily_klines(
+        &self,
+        code: &str,
+        lookback: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let mut rows = self
+            .client
+            .get_kline_data(code, "1d", None, None, None)
+            .await?;
+
+        if rows.len() > lookback {
+            rows = rows[rows.len() - lookback..].to_vec();
+        }
+
+        Ok(rows)
+    }
+}
+
+struct NullDailyKlineLoader;
+
+#[async_trait]
+impl DailyKlineLoader for NullDailyKlineLoader {
+    async fn load_daily_klines(
+        &self,
+        _code: &str,
+        _lookback: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        Ok(Vec::new())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScreenerPresetSpec {
+    name: &'static str,
+    params: &'static str,
+    description: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ScreenerCommandOutput {
+    PresetList(Vec<ScreenerPresetSpec>),
+    Rows(Vec<ScreenRow>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScreenerRunRequest {
+    universe: ScreenUniverse,
+    presets: Vec<PresetInvocation>,
+    options: ScreenRunOptions,
+}
+
+async fn execute_screener_command_with_loader<L>(
+    cmd: ScreenerCommands,
+    loader: L,
+    storage: WatchlistStorage,
+) -> Result<ScreenerCommandOutput>
+where
+    L: DailyKlineLoader,
+{
+    match cmd {
+        ScreenerCommands::PresetList => {
+            Ok(ScreenerCommandOutput::PresetList(screener_preset_specs()))
+        }
+        ScreenerCommands::Run {
+            codes,
+            watchlist,
+            group,
+            preset,
+            limit,
+            sort_by,
+        } => {
+            let request =
+                build_screener_run_request(codes, watchlist, group, preset, limit, sort_by)?;
+            let service = ScreenerService::new(loader, storage);
+            let rows = service
+                .run(request.universe, &request.presets, request.options)
+                .await?;
+            Ok(ScreenerCommandOutput::Rows(rows))
+        }
+    }
+}
+
+fn screener_preset_specs() -> Vec<ScreenerPresetSpec> {
+    vec![
+        ScreenerPresetSpec {
+            name: "close_above_ma",
+            params: "period=<n>",
+            description: "收盘价高于均线",
+        },
+        ScreenerPresetSpec {
+            name: "close_below_ma",
+            params: "period=<n>",
+            description: "收盘价低于均线",
+        },
+        ScreenerPresetSpec {
+            name: "rsi_gte",
+            params: "period=<n>,value=<x>",
+            description: "RSI 大于等于阈值",
+        },
+        ScreenerPresetSpec {
+            name: "rsi_lte",
+            params: "period=<n>,value=<x>",
+            description: "RSI 小于等于阈值",
+        },
+        ScreenerPresetSpec {
+            name: "volume_ratio_gte",
+            params: "window=<n>,value=<x>",
+            description: "量比大于等于阈值",
+        },
+    ]
+}
+
+fn build_screener_run_request(
+    codes: Option<String>,
+    watchlist: bool,
+    group: Option<String>,
+    preset_specs: Vec<String>,
+    limit: Option<usize>,
+    sort_by: Option<String>,
+) -> Result<ScreenerRunRequest> {
+    let universe = match (codes, watchlist) {
+        (Some(_), true) => {
+            return Err(QuantixError::Other(
+                "--codes 与 --watchlist 不能同时使用".to_string(),
+            ));
+        }
+        (None, false) => {
+            return Err(QuantixError::Other(
+                "必须指定 --codes 或 --watchlist".to_string(),
+            ));
+        }
+        (Some(codes), false) => {
+            let codes = parse_codes_csv(&codes);
+            if codes.is_empty() {
+                return Err(QuantixError::Other("codes 不能为空".to_string()));
+            }
+            if group.is_some() {
+                return Err(QuantixError::Other(
+                    "--group 仅可与 --watchlist 一起使用".to_string(),
+                ));
+            }
+            ScreenUniverse::Codes(codes)
+        }
+        (None, true) => ScreenUniverse::Watchlist { group },
+    };
+
+    if preset_specs.is_empty() {
+        return Err(QuantixError::Other("至少需要一个 --preset".to_string()));
+    }
+
+    let presets = preset_specs
+        .iter()
+        .map(|spec| parse_preset_invocation(spec))
+        .collect::<Result<Vec<_>>>()?;
+
+    let sort_by = match sort_by.as_deref().unwrap_or("code") {
+        "code" => ScreenSortBy::Code,
+        "score" => ScreenSortBy::Score,
+        other => {
+            return Err(QuantixError::Other(format!(
+                "不支持的 sort_by: {}，仅支持 code 或 score",
+                other
+            )));
+        }
+    };
+
+    Ok(ScreenerRunRequest {
+        universe,
+        presets,
+        options: ScreenRunOptions { limit, sort_by },
+    })
+}
+
+fn parse_codes_csv(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(|item| item.to_string())
+        .collect()
+}
+
+fn print_screener_preset_list(presets: &[ScreenerPresetSpec]) {
+    println!("{:<20} {:<24} {}", "Preset", "参数", "说明");
+    println!("{}", "-".repeat(72));
+
+    for preset in presets {
+        println!(
+            "{:<20} {:<24} {}",
+            preset.name, preset.params, preset.description
+        );
+    }
+}
+
+fn print_screener_rows(rows: &[ScreenRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的筛选结果");
+        return;
+    }
+
+    println!("{:<10} {:<8} {:<12} {}", "代码", "命中", "评分", "详情");
+    println!("{}", "-".repeat(96));
+
+    for row in rows {
+        println!(
+            "{:<10} {:<8} {:<12} {}",
+            row.code,
+            if row.matched { "yes" } else { "no" },
+            row.score.round_dp(4),
+            row.details
+                .iter()
+                .map(format_screener_rule_detail)
+                .collect::<Vec<_>>()
+                .join(" | "),
+        );
+    }
+}
+
+fn format_screener_rule_detail(detail: &RuleMatchDetail) -> String {
+    let status = if detail.matched { "Y" } else { "N" };
+
+    match (
+        detail.actual_value.as_ref(),
+        detail.threshold_value.as_ref(),
+        detail.reason.as_deref(),
+    ) {
+        (_, _, Some(reason)) => format!("{}:{}({})", status, detail.preset_name, reason),
+        (Some(actual), Some(threshold), None) => {
+            format!(
+                "{}:{} {} / {}",
+                status, detail.preset_name, actual, threshold
+            )
+        }
+        _ => format!("{}:{}", status, detail.preset_name),
+    }
+}
+
+/// 自选池命令
+pub async fn run_watchlist_command(cmd: WatchlistCommands) -> Result<()> {
+    let storage = create_watchlist_storage();
+    let service = WatchlistService::default();
+
+    match cmd {
+        WatchlistCommands::Add { code, group } => {
+            let mut store = storage.load_or_create()?;
+            service.add(&mut store, &code, group.as_deref(), Utc::now())?;
+            storage.save(&store)?;
+            println!("✅ 已添加 {} 到自选池", code);
+        }
+        WatchlistCommands::Remove { code } => {
+            let mut store = storage.load_or_create()?;
+            service.remove(&mut store, &code, Utc::now())?;
+            storage.save(&store)?;
+            println!("✅ 已从自选池移除 {}", code);
+        }
+        WatchlistCommands::List {
+            group,
+            tag,
+            with_price,
+        } => {
+            let store = load_watchlist_store_for_read(&storage)?;
+            let items = service.list(&store, group.as_deref(), tag.as_deref());
+
+            if with_price {
+                let resolver = crate::watchlist::WatchlistResolver::new(
+                    Arc::new(PostgresWatchlistNameLookup),
+                    Arc::new(TdxWatchlistQuoteLookup),
+                );
+                let rows = resolver.resolve_rows(&items, true).await;
+                print_watchlist_rows(&rows);
+            } else {
+                print_basic_watchlist_items(&items);
+            }
+        }
+        WatchlistCommands::Move { code, group } => {
+            let mut store = storage.load_or_create()?;
+            service.move_code(&mut store, &code, &group, Utc::now())?;
+            storage.save(&store)?;
+            println!("✅ 已将 {} 移动到分组 {}", code, group);
+        }
+        WatchlistCommands::Group(group_cmd) => match group_cmd {
+            WatchlistGroupCommands::Create { name } => {
+                let mut store = storage.load_or_create()?;
+                service.create_group(&mut store, &name, Utc::now())?;
+                storage.save(&store)?;
+                println!("✅ 已创建分组 {}", name);
+            }
+            WatchlistGroupCommands::List => {
+                let store = load_watchlist_store_for_read(&storage)?;
+                print_watchlist_groups(&store);
+            }
+        },
+        WatchlistCommands::Tag(tag_cmd) => match tag_cmd {
+            WatchlistTagCommands::Add { code, tag } => {
+                let mut store = storage.load_or_create()?;
+                service.add_tag(&mut store, &code, &tag, Utc::now())?;
+                storage.save(&store)?;
+                println!("✅ 已为 {} 添加标签 {}", code, tag);
+            }
+            WatchlistTagCommands::Remove { code, tag } => {
+                let mut store = storage.load_or_create()?;
+                service.remove_tag(&mut store, &code, &tag, Utc::now())?;
+                storage.save(&store)?;
+                println!("✅ 已为 {} 移除标签 {}", code, tag);
+            }
+            WatchlistTagCommands::List { code } => {
+                let store = load_watchlist_store_for_read(&storage)?;
+                let entry = store
+                    .entries
+                    .get(&code)
+                    .ok_or_else(|| QuantixError::Other(format!("股票不存在: {}", code)))?;
+                print_watchlist_tags(&code, &entry.tags);
+            }
+        },
+        WatchlistCommands::History { code, limit } => {
+            let store = load_watchlist_store_for_read(&storage)?;
+            let events = service.history(&store, code.as_deref(), Some(limit));
+            print_watchlist_history(&events);
+        }
+    }
+
+    Ok(())
+}
+
+fn create_watchlist_storage() -> WatchlistStorage {
+    let runtime = CliRuntime::load();
+    WatchlistStorage::new(runtime.watchlist_path)
+}
+
+fn load_watchlist_store_for_read(storage: &WatchlistStorage) -> Result<WatchlistStore> {
+    Ok(storage.load()?.unwrap_or_default())
+}
+
+fn print_basic_watchlist_items(items: &[crate::watchlist::WatchlistListItem]) {
+    if items.is_empty() {
+        println!("📭 自选池为空");
+        return;
+    }
+
+    println!("{:<10} {:<12} {}", "代码", "分组", "标签");
+    println!("{}", "-".repeat(48));
+
+    for item in items {
+        println!(
+            "{:<10} {:<12} {}",
+            item.code,
+            item.group,
+            format_tags(&item.tags)
+        );
+    }
+}
+
+fn print_watchlist_rows(rows: &[WatchlistDisplayRow]) {
+    if rows.is_empty() {
+        println!("📭 自选池为空");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<12} {:<12} {:<16} {:<12} {}",
+        "代码", "名称", "分组", "标签", "最新价", "涨跌幅"
+    );
+    println!("{}", "-".repeat(84));
+
+    for row in rows {
+        let price = row
+            .latest_price
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "-".to_string());
+        let change_pct = row
+            .price_change_pct
+            .map(|value| format!("{}%", value))
+            .unwrap_or_else(|| "-".to_string());
+
+        println!(
+            "{:<10} {:<12} {:<12} {:<16} {:<12} {}",
+            row.code,
+            row.name.as_deref().unwrap_or("-"),
+            row.group,
+            format_tags(&row.tags),
+            price,
+            change_pct
+        );
+    }
+}
+
+fn print_watchlist_groups(store: &WatchlistStore) {
+    let mut groups: Vec<(&String, usize)> = store
+        .groups
+        .iter()
+        .map(|(name, codes)| (name, codes.len()))
+        .collect();
+    groups.sort_by(|left, right| left.0.cmp(right.0));
+
+    println!("{:<16} {}", "分组", "数量");
+    println!("{}", "-".repeat(28));
+
+    for (name, size) in groups {
+        println!("{:<16} {}", name, size);
+    }
+}
+
+fn print_watchlist_tags(code: &str, tags: &[String]) {
+    println!("🏷️  {} 标签: {}", code, format_tags(tags));
+}
+
+fn print_watchlist_history(events: &[WatchlistHistoryEvent]) {
+    if events.is_empty() {
+        println!("🕘 暂无历史记录");
+        return;
+    }
+
+    println!(
+        "{:<22} {:<12} {:<10} {:<12} {}",
+        "时间", "动作", "代码", "分组", "标签"
+    );
+    println!("{}", "-".repeat(72));
+
+    for event in events {
+        println!(
+            "{:<22} {:<12} {:<10} {:<12} {}",
+            event.ts.to_rfc3339(),
+            format!("{:?}", event.action),
+            event.code.as_deref().unwrap_or("-"),
+            event.group.as_deref().unwrap_or("-"),
+            event.tag.as_deref().unwrap_or("-")
+        );
+    }
+}
+
+fn format_tags(tags: &[String]) -> String {
+    if tags.is_empty() {
+        "-".to_string()
+    } else {
+        tags.join(",")
+    }
 }
 
 /// 计算技术指标
@@ -582,10 +1335,7 @@ async fn calculate_indicators(code: String, indicators_str: String) -> Result<()
     println!("  指标: {}", indicators_str);
 
     // 连接 ClickHouse
-    let url =
-        std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-    let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-    let client = ClickHouseClient::new(&url, &database).await?;
+    let client = create_clickhouse_client().await?;
 
     // 获取历史数据
     let klines = client
@@ -650,10 +1400,7 @@ pub async fn run_status(health: bool) -> Result<()> {
         println!("🏥 检查数据库连接...");
 
         // 尝试连接 ClickHouse
-        let url =
-            std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-        let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-        match ClickHouseClient::new(&url, &database).await {
+        match create_clickhouse_client().await {
             Ok(_) => println!("  ✅ ClickHouse: 连接正常"),
             Err(e) => println!("  ❌ ClickHouse: 连接失败 - {}", e),
         }
@@ -683,6 +1430,642 @@ pub async fn run_status(health: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::QuantixError;
+    use crate::core::config::{
+        CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
+    };
+    use crate::data::models::{AdjustType, Kline};
+    use crate::market::{
+        BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
+        MarketSentimentSnapshot, NorthFlowSnapshot,
+    };
+    use crate::screener::DailyKlineLoader;
+    use async_trait::async_trait;
+    use chrono::{NaiveDate, Utc};
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    }
+
+    struct ClickHouseDbEnvGuard {
+        url: Option<String>,
+        database: Option<String>,
+        user: Option<String>,
+        password: Option<String>,
+    }
+
+    impl ClickHouseDbEnvGuard {
+        fn capture() -> Self {
+            Self {
+                url: std::env::var(CLICKHOUSE_URL_ENV).ok(),
+                database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
+                user: std::env::var(CLICKHOUSE_USER_ENV).ok(),
+                password: std::env::var(CLICKHOUSE_PASSWORD_ENV).ok(),
+            }
+        }
+    }
+
+    impl Drop for ClickHouseDbEnvGuard {
+        fn drop(&mut self) {
+            match &self.url {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_URL_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_URL_ENV) },
+            }
+
+            match &self.database {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_DB_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_DB_ENV) },
+            }
+
+            match &self.user {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_USER_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_USER_ENV) },
+            }
+
+            match &self.password {
+                Some(value) => unsafe { std::env::set_var(CLICKHOUSE_PASSWORD_ENV, value) },
+                None => unsafe { std::env::remove_var(CLICKHOUSE_PASSWORD_ENV) },
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_clickhouse_client_uses_runtime_settings() {
+        let _lock = env_lock();
+        let _guard = ClickHouseDbEnvGuard::capture();
+        unsafe {
+            std::env::set_var(CLICKHOUSE_URL_ENV, "http://runtime-host:8123");
+            std::env::set_var(CLICKHOUSE_DB_ENV, "quantix_runtime_test");
+            std::env::set_var(CLICKHOUSE_USER_ENV, "handler_user");
+            std::env::set_var(CLICKHOUSE_PASSWORD_ENV, "handler_password");
+        }
+
+        let client = create_clickhouse_client().await.unwrap();
+        assert_eq!(client.database(), "quantix_runtime_test");
+        assert_eq!(client.http_auth_for_test().0, "handler_user");
+        assert_eq!(client.http_auth_for_test().1, "handler_password");
+    }
+
+    #[test]
+    fn test_task_add_is_explicitly_unsupported() {
+        let err = ensure_task_command_supported_for_p0(&TaskCommands::Add {
+            name: "demo".to_string(),
+            cron: "0 * * * *".to_string(),
+            command: "echo demo".to_string(),
+        })
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_task_start_daemon_is_explicitly_unsupported() {
+        let err = ensure_task_command_supported_for_p0(&TaskCommands::Start { daemon: true })
+            .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_foundation_p0_task_templates_match_scheduler_templates() {
+        let templates = foundation_p0_task_template_descriptions();
+
+        assert_eq!(
+            templates,
+            vec![
+                (
+                    "pre_market_check".to_string(),
+                    "检查盘前数据".to_string(),
+                    "0 8 * * 1-5".to_string()
+                ),
+                (
+                    "auction_collection".to_string(),
+                    "竞价数据采集".to_string(),
+                    "30,0 9 * * 1-5".to_string()
+                ),
+                (
+                    "market_open".to_string(),
+                    "开盘检查".to_string(),
+                    "30 9 * * 1-5".to_string()
+                ),
+                (
+                    "market_close".to_string(),
+                    "收盘检查".to_string(),
+                    "0 15 * * 1-5".to_string()
+                ),
+                (
+                    "post_market_process".to_string(),
+                    "盘后数据处理".to_string(),
+                    "30 15 * * 1-5".to_string()
+                ),
+                (
+                    "data_sync".to_string(),
+                    "数据同步".to_string(),
+                    "0 16 * * *".to_string()
+                ),
+            ]
+        );
+    }
+
+    fn make_kline(code: &str, day: u32, close: Decimal, volume: i64) -> Kline {
+        Kline {
+            code: code.to_string(),
+            date: NaiveDate::from_ymd_opt(2024, 1, day).unwrap(),
+            open: close,
+            high: close + dec!(1),
+            low: close - dec!(1),
+            close,
+            volume,
+            amount: None,
+            adjust_type: AdjustType::None,
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeLoader {
+        data: HashMap<String, Vec<Kline>>,
+    }
+
+    #[async_trait]
+    impl DailyKlineLoader for FakeLoader {
+        async fn load_daily_klines(
+            &self,
+            code: &str,
+            lookback: usize,
+        ) -> crate::core::Result<Vec<Kline>> {
+            let mut rows = self.data.get(code).cloned().unwrap_or_default();
+            if rows.len() > lookback {
+                rows = rows[rows.len() - lookback..].to_vec();
+            }
+            Ok(rows)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_preset_list_returns_supported_presets() {
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::PresetList,
+            FakeLoader::default(),
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::PresetList(presets) => {
+                let names: Vec<&str> = presets.iter().map(|item| item.name).collect();
+                assert_eq!(
+                    names,
+                    vec![
+                        "close_above_ma",
+                        "close_below_ma",
+                        "rsi_gte",
+                        "rsi_lte",
+                        "volume_ratio_gte",
+                    ]
+                );
+            }
+            ScreenerCommandOutput::Rows(_) => panic!("expected preset list output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_with_codes_returns_rows() {
+        let loader = FakeLoader {
+            data: HashMap::from([
+                (
+                    "000001".to_string(),
+                    vec![
+                        make_kline("000001", 1, dec!(10), 100),
+                        make_kline("000001", 2, dec!(10), 100),
+                        make_kline("000001", 3, dec!(10), 100),
+                        make_kline("000001", 4, dec!(11), 100),
+                        make_kline("000001", 5, dec!(12), 100),
+                    ],
+                ),
+                (
+                    "000002".to_string(),
+                    vec![
+                        make_kline("000002", 1, dec!(10), 100),
+                        make_kline("000002", 2, dec!(10), 100),
+                        make_kline("000002", 3, dec!(10), 100),
+                        make_kline("000002", 4, dec!(12), 100),
+                        make_kline("000002", 5, dec!(15), 100),
+                    ],
+                ),
+            ]),
+        };
+
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: Some("000001,000002".to_string()),
+                watchlist: false,
+                group: None,
+                preset: vec!["close_above_ma:period=3".to_string()],
+                limit: Some(1),
+                sort_by: Some("score".to_string()),
+            },
+            loader,
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::Rows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000002");
+                assert!(rows[0].matched);
+            }
+            ScreenerCommandOutput::PresetList(_) => panic!("expected rows output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_with_watchlist_group_uses_watchlist_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("watchlist.json");
+        let storage = WatchlistStorage::new(&path);
+        let service = WatchlistService::default();
+        let mut store = storage.load_or_create().unwrap();
+        service
+            .create_group(&mut store, "core", Utc::now())
+            .unwrap();
+        service
+            .add(&mut store, "000001", Some("core"), Utc::now())
+            .unwrap();
+        service.add(&mut store, "000002", None, Utc::now()).unwrap();
+        storage.save(&store).unwrap();
+
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                vec![
+                    make_kline("000001", 1, dec!(10), 100),
+                    make_kline("000001", 2, dec!(10), 100),
+                    make_kline("000001", 3, dec!(10), 100),
+                    make_kline("000001", 4, dec!(11), 100),
+                    make_kline("000001", 5, dec!(12), 100),
+                ],
+            )]),
+        };
+
+        let output = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: None,
+                watchlist: true,
+                group: Some("core".to_string()),
+                preset: vec!["close_above_ma:period=3".to_string()],
+                limit: None,
+                sort_by: None,
+            },
+            loader,
+            storage,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            ScreenerCommandOutput::Rows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000001");
+            }
+            ScreenerCommandOutput::PresetList(_) => panic!("expected rows output"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_screener_run_rejects_invalid_preset() {
+        let err = execute_screener_command_with_loader(
+            ScreenerCommands::Run {
+                codes: Some("000001".to_string()),
+                watchlist: false,
+                group: None,
+                preset: vec!["unknown_rule:value=1".to_string()],
+                limit: None,
+                sort_by: None,
+            },
+            FakeLoader::default(),
+            WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("未知的 preset"));
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MarketBoardRequest {
+        board_type: BoardType,
+        date: Option<NaiveDate>,
+        limit: usize,
+        sort_by: BoardSortBy,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MarketLeaderRequest {
+        filter: LeaderFilter,
+        limit: usize,
+        date: Option<NaiveDate>,
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct FakeMarketState {
+        board_requests: Vec<MarketBoardRequest>,
+        leader_requests: Vec<MarketLeaderRequest>,
+    }
+
+    #[derive(Clone)]
+    struct FakeMarketReader {
+        state: Arc<Mutex<FakeMarketState>>,
+    }
+
+    impl FakeMarketReader {
+        fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(FakeMarketState::default())),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl MarketDataReader for FakeMarketReader {
+        async fn load_board_rankings(
+            &self,
+            board_type: BoardType,
+            date: Option<NaiveDate>,
+            limit: usize,
+            sort_by: BoardSortBy,
+        ) -> Result<Vec<BoardRankRow>> {
+            self.state
+                .lock()
+                .unwrap()
+                .board_requests
+                .push(MarketBoardRequest {
+                    board_type,
+                    date,
+                    limit,
+                    sort_by,
+                });
+
+            let rows = match board_type {
+                BoardType::Sector => vec![BoardRankRow::new("BK001", "银行", board_type, 1, 2.1)],
+                BoardType::Concept => {
+                    vec![BoardRankRow::new("GN001", "人工智能", board_type, 1, 4.2)]
+                }
+            };
+
+            Ok(rows.into_iter().take(limit).collect())
+        }
+
+        async fn load_north_flow(
+            &self,
+            date: Option<NaiveDate>,
+        ) -> Result<Option<NorthFlowSnapshot>> {
+            Ok(Some(NorthFlowSnapshot::new(
+                date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+                12.3,
+                8.6,
+                20.9,
+                100.0,
+            )))
+        }
+
+        async fn load_market_sentiment(
+            &self,
+            date: Option<NaiveDate>,
+        ) -> Result<Option<MarketSentimentSnapshot>> {
+            Ok(Some(MarketSentimentSnapshot::new(
+                date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()),
+                3210,
+                1875,
+                87,
+                4,
+                0.81,
+                0.19,
+                23,
+            )))
+        }
+
+        async fn load_leaders(
+            &self,
+            filter: LeaderFilter,
+            limit: usize,
+            date: Option<NaiveDate>,
+        ) -> Result<Vec<LeaderRow>> {
+            self.state
+                .lock()
+                .unwrap()
+                .leader_requests
+                .push(MarketLeaderRequest {
+                    filter: filter.clone(),
+                    limit,
+                    date,
+                });
+
+            let rows = match filter {
+                LeaderFilter::Sector(name) => {
+                    vec![LeaderRow::new("600000", "浦发银行", Some(name), None, 5.6)]
+                }
+                LeaderFilter::Concept(name) => {
+                    vec![LeaderRow::new("300024", "机器人", None, Some(name), 7.1)]
+                }
+                LeaderFilter::All => vec![
+                    LeaderRow::new("300024", "机器人", None, Some("人工智能".to_string()), 7.1),
+                    LeaderRow::new("600000", "浦发银行", Some("银行".to_string()), None, 5.6),
+                ],
+            };
+
+            Ok(rows.into_iter().take(limit).collect())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_sector_returns_rows() {
+        let reader = FakeMarketReader::new();
+
+        let output = execute_market_command_with_reader(
+            MarketCommands::Sector {
+                top: Some(1),
+                date: Some("2026-03-09".to_string()),
+                sort_by: Some("change".to_string()),
+            },
+            reader.clone(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::BoardRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].board_name, "银行");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = reader.state.lock().unwrap();
+        assert_eq!(
+            state.board_requests,
+            vec![MarketBoardRequest {
+                board_type: BoardType::Sector,
+                date: Some(NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()),
+                limit: 1,
+                sort_by: BoardSortBy::ChangePct,
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_concept_returns_rows() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Concept {
+                top: Some(1),
+                date: None,
+                sort_by: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::BoardRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].board_name, "人工智能");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_north_returns_snapshot() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::North {
+                date: Some("2026-03-09".to_string()),
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::NorthFlow(Some(snapshot)) => {
+                assert_eq!(
+                    snapshot.trade_date,
+                    NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()
+                );
+                assert_eq!(snapshot.total_amount, 20.9);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_sentiment_returns_snapshot() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Sentiment { date: None },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Sentiment(Some(snapshot)) => {
+                assert_eq!(snapshot.limit_up_count, 87);
+                assert_eq!(snapshot.consecutive_board_count, 23);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_leader_with_sector_returns_rows() {
+        let reader = FakeMarketReader::new();
+
+        let output = execute_market_command_with_reader(
+            MarketCommands::Leader {
+                sector: Some("银行".to_string()),
+                concept: None,
+                all: false,
+                limit: Some(5),
+                date: Some("2026-03-09".to_string()),
+            },
+            reader.clone(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Leaders(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "600000");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let state = reader.state.lock().unwrap();
+        assert_eq!(
+            state.leader_requests,
+            vec![MarketLeaderRequest {
+                filter: LeaderFilter::Sector("银行".to_string()),
+                limit: 5,
+                date: Some(NaiveDate::from_ymd_opt(2026, 3, 9).unwrap()),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_overview_returns_combined_payload() {
+        let output = execute_market_command_with_reader(
+            MarketCommands::Overview {
+                top: Some(1),
+                date: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MarketCommandOutput::Overview(overview) => {
+                assert_eq!(overview.top_sectors.len(), 1);
+                assert_eq!(overview.top_concepts.len(), 1);
+                assert_eq!(overview.north_flow.unwrap().total_amount, 20.9);
+                assert_eq!(overview.sentiment.unwrap().limit_up_count, 87);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_market_leader_rejects_invalid_filter_combination() {
+        let err = execute_market_command_with_reader(
+            MarketCommands::Leader {
+                sector: Some("银行".to_string()),
+                concept: Some("人工智能".to_string()),
+                all: false,
+                limit: None,
+                date: None,
+            },
+            FakeMarketReader::new(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("必须且只能指定"));
+    }
 }
 
 // === 菜单辅助函数 ===

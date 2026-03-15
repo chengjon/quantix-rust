@@ -1,7 +1,11 @@
+use crate::core::runtime::ClickHouseSettings;
 /// ClickHouse 数据库客户端
 ///
 /// 采用 MergeTree 引擎，针对 A股量化分析优化
 use crate::core::{QuantixError, Result};
+use crate::market::{
+    BoardRankRow, BoardType, LeaderFilter, LeaderRow, MarketSentimentSnapshot, NorthFlowSnapshot,
+};
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use clickhouse::Client;
 use rust_decimal::Decimal;
@@ -16,6 +20,12 @@ pub struct ClickHouseClient {
     database: String,
     /// 批量插入的批次大小
     batch_size: usize,
+    /// HTTP URL for direct queries (bypasses RowBinary)
+    http_url: String,
+    /// HTTP user
+    http_user: String,
+    /// HTTP password
+    http_password: String,
 }
 
 /// 默认批次大小
@@ -27,30 +37,100 @@ impl ClickHouseClient {
     /// ## 参数
     /// - `url`: ClickHouse HTTP 地址，如 "http://localhost:8123"
     /// - `database`: 数据库名称
-    pub async fn new(url: &str, database: &str) -> Result<Self> {
-        let client = Client::default().with_url(url).with_database(database);
+    /// - `user`: 用户名
+    /// - `password`: 密码
+    pub async fn new(url: &str, database: &str, user: &str, password: &str) -> Result<Self> {
+        let client = Client::default()
+            .with_url(url)
+            .with_database(database)
+            .with_user(user)
+            .with_password(password);
 
-        info!("ClickHouse 客户端初始化: {} -> {}", url, database);
+        info!("ClickHouse 客户端初始化: {} -> {} (user: {})", url, database, user);
 
         Ok(Self {
             client,
             database: database.to_string(),
             batch_size: DEFAULT_BATCH_SIZE,
+            http_url: url.to_string(),
+            http_user: user.to_string(),
+            http_password: password.to_string(),
         })
+    }
+
+    /// 使用共享设置创建
+    pub async fn from_settings(settings: &ClickHouseSettings) -> Result<Self> {
+        Self::new(&settings.url, &settings.database, &settings.user, &settings.password).await
     }
 
     /// 使用默认配置创建
     pub async fn with_default_config() -> Result<Self> {
-        let url =
-            std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string());
-        let database = std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string());
-
-        Self::new(&url, &database).await
+        Self::from_settings(&ClickHouseSettings::from_env()).await
     }
 
     /// 获取底层客户端
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    pub fn database(&self) -> &str {
+        &self.database
+    }
+
+    #[cfg(test)]
+    pub(crate) fn http_auth_for_test(&self) -> (&str, &str) {
+        (&self.http_user, &self.http_password)
+    }
+
+    /// Execute a query using HTTP with JSON format (bypasses RowBinary encoding issues)
+    pub async fn query_json<T: for<'de> Deserialize<'de>>(&self, sql: &str) -> Result<Vec<T>> {
+        let client = reqwest::Client::new();
+
+        // Use POST request to avoid URL encoding issues with special characters
+        let url = format!("{}/?user={}&password={}&database={}",
+            self.http_url,
+            urlencoding::encode(&self.http_user),
+            urlencoding::encode(&self.http_password),
+            self.database,
+        );
+
+        let query_with_format = format!("{}\nFORMAT JSONEachRow", sql);
+
+        let response = client
+            .post(&url)
+            .body(query_with_format)
+            .send()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP query failed: {}", e)))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP response read failed: {}", e)))?;
+
+        if !status.is_success() {
+            return Err(QuantixError::DatabaseQuery(format!(
+                "Query failed ({}): {}",
+                status, body
+            )));
+        }
+
+        if body.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut results = Vec::new();
+        for line in body.lines() {
+            if line.is_empty() {
+                continue;
+            }
+            let item: T = serde_json::from_str(line)
+                .map_err(|e| QuantixError::DatabaseQuery(format!("JSON parse failed: {} in {}", e, line)))?;
+            results.push(item);
+        }
+
+        Ok(results)
     }
 
     /// 初始化数据库和表
@@ -73,6 +153,7 @@ impl ClickHouseClient {
         self.create_kline_data_table().await?;
         self.create_limit_up_events_table().await?;
         self.create_gbbq_events_table().await?;
+        self.create_market_tables().await?;
 
         info!("所有 ClickHouse 表创建成功");
         Ok(())
@@ -250,6 +331,23 @@ impl ClickHouseClient {
             })?;
 
         info!("gbbq_events 表创建成功");
+        Ok(())
+    }
+
+    /// 创建 Phase 23 市场分析表
+    async fn create_market_tables(&self) -> Result<()> {
+        for (table_name, sql) in market_table_sqls() {
+            self.client
+                .query(sql.replace("'{cluster}'", "single_cluster").as_str())
+                .execute()
+                .await
+                .map_err(|e| {
+                    QuantixError::DatabaseConnection(format!("创建 {} 表失败: {}", table_name, e))
+                })?;
+
+            info!("{} 表创建成功", table_name);
+        }
+
         Ok(())
     }
 
@@ -707,7 +805,7 @@ pub struct StockInfoCH {
     pub market: u8,
     pub list_date: chrono::NaiveDate,
     pub status: String,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: chrono::NaiveDateTime,
 }
 
 /// 股票实时行情 (ClickHouse Row)
@@ -778,12 +876,195 @@ pub struct GbbqEventCH {
     pub record_date: Option<chrono::NaiveDate>,
 }
 
+/// 板块日线 (ClickHouse Row)
+#[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
+pub struct SectorDailyCH {
+    pub sector_code: String,
+    pub sector_name: String,
+    pub sector_type: String,
+    pub trade_date: chrono::NaiveDate,
+    pub change_pct: f64,
+    pub rank: u32,
+    pub leader_code: Option<String>,
+    pub leader_name: Option<String>,
+    pub leader_change: Option<f64>,
+    pub updated_at: String,
+}
+
+impl SectorDailyCH {
+    pub fn try_into_board_rank(self) -> Result<BoardRankRow> {
+        Ok(BoardRankRow::new(
+            self.sector_code,
+            self.sector_name,
+            parse_board_type(&self.sector_type)?,
+            self.rank as usize,
+            self.change_pct,
+        ))
+    }
+
+    pub fn try_into_leader(self, filter: LeaderFilter) -> Result<Option<LeaderRow>> {
+        let board_type = parse_board_type(&self.sector_type)?;
+        let leader_code = match self.leader_code {
+            Some(code) if !code.trim().is_empty() => code,
+            _ => return Ok(None),
+        };
+        let leader_name = match self.leader_name {
+            Some(name) if !name.trim().is_empty() => name,
+            _ => return Ok(None),
+        };
+        let change_pct = self.leader_change.unwrap_or_default();
+
+        let (sector_name, concept_name) = match filter {
+            LeaderFilter::Sector(name) => (Some(name), None),
+            LeaderFilter::Concept(name) => (None, Some(name)),
+            LeaderFilter::All => match board_type {
+                BoardType::Sector => (Some(self.sector_name), None),
+                BoardType::Concept => (None, Some(self.sector_name)),
+            },
+        };
+
+        Ok(Some(LeaderRow::new(
+            leader_code,
+            leader_name,
+            sector_name,
+            concept_name,
+            change_pct,
+        )))
+    }
+}
+
+/// 北向资金日线 (ClickHouse Row)
+#[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
+pub struct NorthFlowDailyCH {
+    pub trade_date: chrono::NaiveDate,
+    pub sh_amount: f64,
+    pub sz_amount: f64,
+    pub total_amount: f64,
+    pub balance: f64,
+    pub updated_at: String,
+}
+
+impl NorthFlowDailyCH {
+    pub fn into_snapshot(self) -> NorthFlowSnapshot {
+        NorthFlowSnapshot::new(
+            self.trade_date,
+            self.sh_amount,
+            self.sz_amount,
+            self.total_amount,
+            self.balance,
+        )
+    }
+}
+
+/// 市场情绪日线 (ClickHouse Row)
+#[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
+pub struct MarketSentimentDailyCH {
+    pub trade_date: chrono::NaiveDate,
+    pub up_count: u32,
+    pub down_count: u32,
+    pub limit_up_count: u32,
+    pub limit_down_count: u32,
+    pub seal_rate: f64,
+    pub break_rate: f64,
+    pub consecutive_board_count: u32,
+    pub updated_at: String,
+}
+
+impl MarketSentimentDailyCH {
+    pub fn into_snapshot(self) -> MarketSentimentSnapshot {
+        MarketSentimentSnapshot::new(
+            self.trade_date,
+            self.up_count as usize,
+            self.down_count as usize,
+            self.limit_up_count as usize,
+            self.limit_down_count as usize,
+            self.seal_rate,
+            self.break_rate,
+            self.consecutive_board_count as usize,
+        )
+    }
+}
+
+fn market_table_sqls() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "sector_daily",
+            r#"
+            CREATE TABLE IF NOT EXISTS sector_daily ON CLUSTER '{cluster}' (
+                sector_code String,
+                sector_name String,
+                sector_type String,
+                trade_date Date,
+                change_pct Float64,
+                rank UInt32,
+                leader_code Nullable(String),
+                leader_name Nullable(String),
+                leader_change Nullable(Float64),
+                updated_at DateTime DEFAULT now()
+            )
+            ENGINE = ReplacingMergeTree(updated_at)
+            PARTITION BY toYYYYMM(trade_date)
+            ORDER BY (trade_date, sector_type, rank, sector_code)
+        "#,
+        ),
+        (
+            "north_flow_daily",
+            r#"
+            CREATE TABLE IF NOT EXISTS north_flow_daily ON CLUSTER '{cluster}' (
+                trade_date Date,
+                sh_amount Float64,
+                sz_amount Float64,
+                total_amount Float64,
+                balance Float64,
+                updated_at DateTime DEFAULT now()
+            )
+            ENGINE = ReplacingMergeTree(updated_at)
+            PARTITION BY toYYYYMM(trade_date)
+            ORDER BY trade_date
+        "#,
+        ),
+        (
+            "market_sentiment_daily",
+            r#"
+            CREATE TABLE IF NOT EXISTS market_sentiment_daily ON CLUSTER '{cluster}' (
+                trade_date Date,
+                up_count UInt32,
+                down_count UInt32,
+                limit_up_count UInt32,
+                limit_down_count UInt32,
+                seal_rate Float64,
+                break_rate Float64,
+                consecutive_board_count UInt32,
+                updated_at DateTime DEFAULT now()
+            )
+            ENGINE = ReplacingMergeTree(updated_at)
+            PARTITION BY toYYYYMM(trade_date)
+            ORDER BY trade_date
+        "#,
+        ),
+    ]
+}
+
+fn parse_board_type(sector_type: &str) -> Result<BoardType> {
+    match sector_type.trim().to_ascii_lowercase().as_str() {
+        "industry" | "sector" => Ok(BoardType::Sector),
+        "concept" => Ok(BoardType::Concept),
+        other => Err(QuantixError::DataParse(format!(
+            "未知的板块类型: {}",
+            other
+        ))),
+    }
+}
+
 impl Default for ClickHouseClient {
     fn default() -> Self {
         Self {
             client: Client::default(),
             database: "quantix".to_string(),
             batch_size: DEFAULT_BATCH_SIZE,
+            http_url: "http://localhost:8123".to_string(),
+            http_user: "default".to_string(),
+            http_password: "".to_string(),
         }
     }
 }
@@ -804,6 +1085,7 @@ impl ClickHouseClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::market::{BoardType, LeaderFilter};
 
     #[test]
     fn test_stock_info_ch_derive() {
@@ -814,8 +1096,130 @@ mod tests {
             market: 0,
             list_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
             status: "active".to_string(),
-            updated_at: Utc::now(),
+            updated_at: chrono::Utc::now().naive_utc(),
         };
         assert_eq!(info.code, "000001");
+    }
+
+    #[test]
+    fn test_market_table_sqls_include_phase23_tables() {
+        let sql = market_table_sqls()
+            .into_iter()
+            .map(|(_, sql)| sql)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS sector_daily"));
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS north_flow_daily"));
+        assert!(sql.contains("CREATE TABLE IF NOT EXISTS market_sentiment_daily"));
+    }
+
+    #[test]
+    fn test_market_sector_row_maps_to_board_rank_and_leader() {
+        let row = SectorDailyCH {
+            sector_code: "BK001".to_string(),
+            sector_name: "银行".to_string(),
+            sector_type: "industry".to_string(),
+            trade_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+            change_pct: 2.35,
+            rank: 1,
+            leader_code: Some("600000".to_string()),
+            leader_name: Some("浦发银行".to_string()),
+            leader_change: Some(5.61),
+            updated_at: "2026-03-10 15:00:00".to_string(),
+        };
+
+        let board = row.clone().try_into_board_rank().unwrap();
+        let leader = row
+            .try_into_leader(LeaderFilter::Sector("银行".to_string()))
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(board.board_type, BoardType::Sector);
+        assert_eq!(board.board_name, "银行");
+        assert_eq!(board.rank, 1);
+        assert_eq!(leader.code, "600000");
+        assert_eq!(leader.sector_name.as_deref(), Some("银行"));
+        assert_eq!(leader.concept_name, None);
+    }
+
+    #[test]
+    fn test_market_north_flow_row_maps_to_snapshot() {
+        let row = NorthFlowDailyCH {
+            trade_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+            sh_amount: 12.3,
+            sz_amount: 8.6,
+            total_amount: 20.9,
+            balance: 99.1,
+            updated_at: "2026-03-10 15:00:00".to_string(),
+        };
+
+        let snapshot = row.into_snapshot();
+
+        assert_eq!(
+            snapshot.trade_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap()
+        );
+        assert_eq!(snapshot.total_amount, 20.9);
+        assert_eq!(snapshot.balance, 99.1);
+    }
+
+    #[test]
+    fn test_market_sentiment_row_maps_to_snapshot() {
+        let row = MarketSentimentDailyCH {
+            trade_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+            up_count: 3210,
+            down_count: 1875,
+            limit_up_count: 87,
+            limit_down_count: 4,
+            seal_rate: 0.81,
+            break_rate: 0.19,
+            consecutive_board_count: 23,
+            updated_at: "2026-03-10 15:00:00".to_string(),
+        };
+
+        let snapshot = row.into_snapshot();
+
+        assert_eq!(snapshot.limit_up_count, 87);
+        assert_eq!(snapshot.consecutive_board_count, 23);
+        assert_eq!(snapshot.seal_rate, 0.81);
+    }
+
+    #[test]
+    fn test_market_sector_row_deserializes_json_each_row_payload() {
+        let row: SectorDailyCH = serde_json::from_str(
+            r#"{"sector_code":"BK0001","sector_name":"银行","sector_type":"industry","trade_date":"2026-03-14","change_pct":2.35,"rank":1,"leader_code":null,"leader_name":null,"leader_change":null,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.sector_code, "BK0001");
+        assert_eq!(row.sector_name, "银行");
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
+        assert!(row.leader_code.is_none());
+    }
+
+    #[test]
+    fn test_market_north_flow_row_deserializes_json_each_row_payload() {
+        let row: NorthFlowDailyCH = serde_json::from_str(
+            r#"{"trade_date":"2026-03-14","sh_amount":50.5,"sz_amount":35.2,"total_amount":85.7,"balance":12500.0,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.total_amount, 85.7);
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
+    }
+
+    #[test]
+    fn test_market_sentiment_row_deserializes_json_each_row_payload() {
+        let row: MarketSentimentDailyCH = serde_json::from_str(
+            r#"{"trade_date":"2026-03-14","up_count":2800,"down_count":2100,"limit_up_count":45,"limit_down_count":12,"seal_rate":0.78,"break_rate":0.15,"consecutive_board_count":120,"updated_at":"2026-03-14 15:12:16"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(row.limit_up_count, 45);
+        assert_eq!(row.updated_at, "2026-03-14 15:12:16");
     }
 }

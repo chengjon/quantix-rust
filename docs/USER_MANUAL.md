@@ -12,6 +12,7 @@
   - [strategy - 策略管理](#strategy---策略管理)
   - [task - 任务调度](#task---任务调度)
   - [analyze - 分析工具](#analyze---分析工具)
+  - [watchlist - 自选池](#watchlist---自选池)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -83,6 +84,9 @@ export CLICKHOUSE_DB="quantix"
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
+
+# 自选池 JSON 存储路径（可选）
+export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 ```
 
 ### 运行测试
@@ -121,6 +125,21 @@ quantix status
 
 ```bash
 quantix status --health
+```
+
+### 自选池快速开始
+
+```bash
+# 创建分组并添加股票
+quantix watchlist group create --name core
+quantix watchlist add --code 000001 --group core
+
+# 添加标签并查看列表
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist list --group core --with-price
+
+# 查看本地历史
+quantix watchlist history --code 000001 --limit 20
 ```
 
 ---
@@ -581,12 +600,13 @@ quantix task status
 
 ### analyze - 分析工具
 
-计算技术指标和查看回测报告。
+计算技术指标、查看回测报告，以及对小范围股票池执行日线选股筛选。
 
 #### 子命令
 
 - `indicators` - 计算技术指标
 - `backtest` - 查看回测报告
+- `screener` - 运行日线选股筛选
 
 #### analyze indicators - 计算技术指标
 
@@ -662,6 +682,123 @@ quantix analyze backtest -i bt_20240101_000001
 
 ```
 回测报告: bt_20240101_000001
+```
+
+---
+
+#### analyze screener - 日线选股筛选
+
+按你提供的小范围股票池运行参数化 preset。P0 只支持单指标 preset，多个 `--preset` 之间使用 `AND` 组合。
+
+##### 用法
+
+```bash
+quantix analyze screener preset-list
+quantix analyze screener run (--codes <CSV> | --watchlist [--group <NAME>]) --preset <SPEC> [--preset <SPEC> ...] [--sort-by <FIELD>] [--limit <N>]
+```
+
+##### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--codes` | 显式股票代码列表，逗号分隔 | 无 |
+| `--watchlist` | 使用本地自选池作为股票池 | false |
+| `--group` | 自选池分组，仅在 `--watchlist` 下生效 | 无 |
+| `--preset` | 单个筛选条件，可重复传入 | 必填 |
+| `--sort-by` | 排序字段：`code` 或 `score` | `code` |
+| `--limit` | 限制返回条数 | 无 |
+
+##### P0 约束
+
+- 仅支持日线数据
+- 必须二选一指定 `--codes` 或 `--watchlist`
+- 不支持全市场扫描
+- 不支持 DSL、自定义表达式、OR 逻辑
+- `preset` 必须写成 `name:key=value,key=value`
+
+##### 支持的 preset
+
+| Preset | 参数 | 说明 |
+|--------|------|------|
+| `close_above_ma` | `period=<n>` | 收盘价高于均线 |
+| `close_below_ma` | `period=<n>` | 收盘价低于均线 |
+| `rsi_gte` | `period=<n>,value=<x>` | RSI 大于等于阈值 |
+| `rsi_lte` | `period=<n>,value=<x>` | RSI 小于等于阈值 |
+| `volume_ratio_gte` | `window=<n>,value=<x>` | 量比大于等于阈值 |
+
+##### 示例
+
+```bash
+# 查看 preset 列表
+quantix analyze screener preset-list
+
+# 对显式代码列表筛选
+quantix analyze screener run \
+  --codes 000001,600519 \
+  --preset close_above_ma:period=20
+
+# 对自选池分组做 AND 组合筛选
+quantix analyze screener run \
+  --watchlist \
+  --group core \
+  --preset close_above_ma:period=20 \
+  --preset volume_ratio_gte:window=5,value=1.5 \
+  --sort-by score \
+  --limit 20
+```
+
+##### 输出说明
+
+- `命中=yes/no` 表示该股票是否同时满足全部 preset
+- `评分` 仅用于当前 P0 排序，代表规则相对阈值的简单偏离度
+- 数据不足时不会中断整次筛选，该规则会显示为未命中并附带原因
+
+---
+
+### watchlist - 自选池
+
+管理本地 JSON 自选池，支持分组、标签、历史和最佳努力价格展示。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/watchlist/watchlist.json`
+- 可通过 `QUANTIX_WATCHLIST_PATH` 覆盖
+- `list --with-price` 会尝试补充名称和实时价格；外部行情不可用时会降级为空值，不影响命令返回
+
+#### 子命令
+
+- `add` - 添加股票
+- `remove` - 删除股票
+- `list` - 列出自选池
+- `move` - 移动股票到目标分组
+- `group create/list` - 分组管理
+- `tag add/remove/list` - 标签管理
+- `history` - 查看本地操作历史
+
+#### 常用示例
+
+```bash
+quantix watchlist add --code 000001
+quantix watchlist add --code 600519 --group core
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist list --tag bank
+quantix watchlist list --with-price
+quantix watchlist history --code 000001 --limit 20
+```
+
+#### 命令摘要
+
+```bash
+quantix watchlist add --code 000001 [--group core]
+quantix watchlist remove --code 000001
+quantix watchlist list [--group core] [--tag bank] [--with-price]
+quantix watchlist move --code 000001 --group core
+quantix watchlist group create --name core
+quantix watchlist group list
+quantix watchlist tag add --code 000001 --tag bank
+quantix watchlist tag remove --code 000001 --tag bank
+quantix watchlist tag list --code 000001
+quantix watchlist history [--code 000001] [--limit 20]
 ```
 
 ---

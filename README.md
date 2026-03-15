@@ -4,6 +4,12 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 与 Python quantix 项目共享数据源和数据库，提供高性能的量化分析能力。
 
+## Foundation P0 工作约束
+
+- 仓库内本地 worktree 放在 `.worktrees/`，全文检索和批量扫描应排除该目录，避免重复命中。
+- 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
+- Foundation P0 的任务能力只支持直接运行 CLI 前台进程，不假设 daemon、常驻调度服务或任务持久化已经可用。
+
 ## 功能特性
 
 ### 已完成模块
@@ -154,6 +160,31 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 数据导出菜单
 - **CSV 数据导出** - 使用 csv crate 实现
 - **进度条支持** - indicatif 进度显示
+
+#### Phase 21: 自选池管理 ✅
+- **自选池命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`)
+  - `watchlist add/remove/list/move` - 基础自选池维护
+  - `watchlist group create/list` - 分组管理
+  - `watchlist tag add/remove/list` - 标签管理
+  - `watchlist history` - 本地操作历史
+  - `watchlist list --with-price` - 最佳努力价格展示
+- **JSON 持久化** (`src/watchlist/storage.rs`)
+  - 默认路径 `~/.quantix/watchlist/watchlist.json`
+  - 可通过 `QUANTIX_WATCHLIST_PATH` 覆盖
+- **P0 约束**
+  - 价格展示使用前台最佳努力查询
+  - 行情不可用时降级为空价格，不影响 `watchlist list` 返回
+
+#### Phase 22: 选股筛选 ✅
+- **选股命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/screener/*`)
+  - `analyze screener preset-list` - 查看内置单指标 preset
+  - `analyze screener run --codes ...` - 对显式代码列表执行筛选
+  - `analyze screener run --watchlist [--group ...]` - 对自选池/分组执行筛选
+- **P0 约束**
+  - 仅支持日线筛选
+  - `preset` 只表达单一指标条件，但支持重复 `--preset` 做 `AND` 组合
+  - 条件完全参数化，例如 `close_above_ma:period=20`
+  - 不支持全市场扫描、DSL、实时筛选、OR 逻辑
 
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
@@ -418,6 +449,9 @@ export CLICKHOUSE_DB="quantix"
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
+
+# 自选池 JSON 存储路径（可选）
+export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
 ```
 
 ### 运行测试
@@ -437,6 +471,43 @@ cargo bench
 ```
 
 ## 使用示例
+
+### 自选池 CLI
+
+```bash
+# 创建分组
+quantix watchlist group create --name core
+
+# 添加股票并打标签
+quantix watchlist add --code 000001 --group core
+quantix watchlist tag add --code 000001 --tag bank
+
+# 查看列表与历史
+quantix watchlist list --group core
+quantix watchlist list --with-price
+quantix watchlist history --code 000001 --limit 20
+```
+
+### 选股筛选 CLI
+
+```bash
+# 查看可用 preset
+quantix analyze screener preset-list
+
+# 对显式代码列表做单条件筛选
+quantix analyze screener run \
+  --codes 000001,600519 \
+  --preset close_above_ma:period=20
+
+# 多个单指标 preset 做 AND 组合
+quantix analyze screener run \
+  --watchlist \
+  --group core \
+  --preset close_above_ma:period=20 \
+  --preset volume_ratio_gte:window=5,value=1.5 \
+  --sort-by score \
+  --limit 20
+```
 
 ### 回测示例
 

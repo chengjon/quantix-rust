@@ -19,6 +19,10 @@ pub struct SyncConfig {
     pub clickhouse_url: String,
     /// ClickHouse 数据库名
     pub clickhouse_db: String,
+    /// ClickHouse 用户名
+    pub clickhouse_user: String,
+    /// ClickHouse 密码
+    pub clickhouse_password: String,
     /// 批量大小
     pub batch_size: usize,
     /// 同步延迟（秒）
@@ -33,6 +37,10 @@ impl Default for SyncConfig {
             clickhouse_url: std::env::var("CLICKHOUSE_URL")
                 .unwrap_or_else(|_| "http://localhost:8123".to_string()),
             clickhouse_db: std::env::var("CLICKHOUSE_DB").unwrap_or_else(|_| "quantix".to_string()),
+            clickhouse_user: std::env::var("CLICKHOUSE_USER")
+                .unwrap_or_else(|_| "default".to_string()),
+            clickhouse_password: std::env::var("CLICKHOUSE_PASSWORD")
+                .unwrap_or_else(|_| "".to_string()),
             batch_size: 1000,
             sync_interval: 300, // 5分钟
         }
@@ -63,8 +71,13 @@ pub struct DataSync {
 impl DataSync {
     /// 创建新的同步器
     pub async fn new(config: SyncConfig) -> Result<Self> {
-        let clickhouse_client =
-            ClickHouseClient::new(&config.clickhouse_url, &config.clickhouse_db).await?;
+        let clickhouse_client = ClickHouseClient::new(
+            &config.clickhouse_url,
+            &config.clickhouse_db,
+            &config.clickhouse_user,
+            &config.clickhouse_password,
+        )
+        .await?;
 
         info!("数据同步器初始化完成");
 
@@ -90,28 +103,10 @@ impl DataSync {
 
         let start_time = Utc::now();
 
-        // TODO: 从 PostgreSQL 读取日线数据
-        // let postgres_client = PostgresClient::connect(&self.config.postgres_url).await?;
-        // let daily_data = postgres_client.get_daily_klines(start_date, end_date).await?;
-
-        // 临时模拟数据
-        let mock_data = vec![KlineData {
-            timestamp: Utc::now(),
-            code: "000001".to_string(),
-            name: "平安银行".to_string(),
-            period: crate::sources::kline_aggregator::KlinePeriod::Daily,
-            open: 10.0,
-            high: 10.5,
-            low: 9.8,
-            close: 10.3,
-            volume: 1000000.0,
-            amount: 10300000.0,
-            trade_count: 5000,
-            source: "sync".to_string(),
-        }];
+        let daily_data = Self::fetch_daily_source_data(&self.config, start_date, end_date).await?;
 
         // 写入 ClickHouse
-        let records_synced = self.write_klines_to_clickhouse(&mock_data).await?;
+        let records_synced = self.write_klines_to_clickhouse(&daily_data).await?;
 
         let end_time = Utc::now();
         let elapsed = end_time.signed_duration_since(start_time).num_seconds();
@@ -142,14 +137,9 @@ impl DataSync {
 
         let start = Utc::now();
 
-        // TODO: 从 TDengine 读取分钟线数据
-        // let tdengine_client = TDengineClient::new().await?;
-        // let minute_data = tdengine_client.get_minute_klines(start_time, end_time).await?;
+        let minute_data = Self::fetch_minute_source_data(&self.config, start_time, end_time).await?;
 
-        // 临时模拟数据
-        let mock_data: Vec<KlineData> = vec![];
-
-        let records_synced = self.write_klines_to_clickhouse(&mock_data).await?;
+        let records_synced = self.write_klines_to_clickhouse(&minute_data).await?;
 
         let end = Utc::now();
         let elapsed = end.signed_duration_since(start).num_seconds();
@@ -224,6 +214,26 @@ impl DataSync {
         Ok(klines.len())
     }
 
+    async fn fetch_daily_source_data(
+        _config: &SyncConfig,
+        _start_date: chrono::NaiveDate,
+        _end_date: chrono::NaiveDate,
+    ) -> Result<Vec<KlineData>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "DataSync::fetch_daily_source_data 尚未接入 PostgreSQL 日线来源".to_string(),
+        ))
+    }
+
+    async fn fetch_minute_source_data(
+        _config: &SyncConfig,
+        _start_time: DateTime<Utc>,
+        _end_time: DateTime<Utc>,
+    ) -> Result<Vec<KlineData>> {
+        Err(crate::core::QuantixError::Unsupported(
+            "DataSync::fetch_minute_source_data 尚未接入分钟线来源".to_string(),
+        ))
+    }
+
     /// 运行定时同步
     pub async fn run_sync_schedule(&self) -> Result<()> {
         info!("启动定时同步任务");
@@ -250,23 +260,102 @@ impl DataSync {
     }
 }
 
-impl Default for DataSync {
-    fn default() -> Self {
-        Self {
-            config: unsafe { std::mem::zeroed() },            // Placeholder
-            clickhouse_client: unsafe { std::mem::zeroed() }, // Placeholder
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::QuantixError;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+    }
+
+    struct SyncEnvGuard {
+        clickhouse_user: Option<String>,
+        clickhouse_password: Option<String>,
+    }
+
+    impl SyncEnvGuard {
+        fn capture() -> Self {
+            Self {
+                clickhouse_user: std::env::var("CLICKHOUSE_USER").ok(),
+                clickhouse_password: std::env::var("CLICKHOUSE_PASSWORD").ok(),
+            }
+        }
+    }
+
+    impl Drop for SyncEnvGuard {
+        fn drop(&mut self) {
+            match &self.clickhouse_user {
+                Some(value) => unsafe { std::env::set_var("CLICKHOUSE_USER", value) },
+                None => unsafe { std::env::remove_var("CLICKHOUSE_USER") },
+            }
+
+            match &self.clickhouse_password {
+                Some(value) => unsafe { std::env::set_var("CLICKHOUSE_PASSWORD", value) },
+                None => unsafe { std::env::remove_var("CLICKHOUSE_PASSWORD") },
+            }
+        }
+    }
 
     #[test]
     fn test_sync_config_default() {
+        let _lock = env_lock();
+        let _guard = SyncEnvGuard::capture();
+        unsafe {
+            std::env::remove_var("CLICKHOUSE_USER");
+            std::env::remove_var("CLICKHOUSE_PASSWORD");
+        }
+
         let config = SyncConfig::default();
         assert_eq!(config.batch_size, 1000);
         assert_eq!(config.sync_interval, 300);
+        assert_eq!(config.clickhouse_user, "default");
+        assert_eq!(config.clickhouse_password, "");
+    }
+
+    #[test]
+    fn test_sync_config_reads_clickhouse_auth_from_env() {
+        let _lock = env_lock();
+        let _guard = SyncEnvGuard::capture();
+        unsafe {
+            std::env::set_var("CLICKHOUSE_USER", "sync_user");
+            std::env::set_var("CLICKHOUSE_PASSWORD", "sync_password");
+        }
+
+        let config = SyncConfig::default();
+        assert_eq!(config.clickhouse_user, "sync_user");
+        assert_eq!(config.clickhouse_password, "sync_password");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_daily_source_data_returns_unsupported() {
+        let config = SyncConfig::default();
+        let err = DataSync::fetch_daily_source_data(
+            &config,
+            chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            chrono::NaiveDate::from_ymd_opt(2026, 1, 31).unwrap(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_minute_source_data_returns_unsupported() {
+        let config = SyncConfig::default();
+        let err = DataSync::fetch_minute_source_data(
+            &config,
+            Utc::now() - chrono::Duration::days(1),
+            Utc::now(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 }

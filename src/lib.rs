@@ -17,14 +17,18 @@ pub mod core;
 pub mod data;
 pub mod db;
 pub mod io;
+pub mod market;
 pub mod monitoring;
+pub mod screener;
 pub mod sources;
 pub mod strategy;
 pub mod sync;
 pub mod tasks;
 pub mod tui;
+pub mod watchlist;
 
 // 重新导出常用类型
+pub use cli::Cli;
 pub use core::{QuantixError, Result};
 pub use data::models::*;
 pub use sources::*;

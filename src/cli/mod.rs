@@ -4,7 +4,7 @@
 pub mod handlers;
 
 use crate::core::Result;
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(name = "quantix")]
@@ -39,13 +39,21 @@ pub enum Commands {
     #[command(subcommand)]
     Strategy(StrategyCommands),
 
-    /// 任务命令
+    /// 任务命令（实验性，Foundation P0）
     #[command(subcommand)]
     Task(TaskCommands),
 
     /// 分析命令
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
+
+    /// 自选池命令
+    #[command(subcommand)]
+    Watchlist(WatchlistCommands),
+
+    /// 市场分析命令
+    #[command(subcommand)]
+    Market(MarketCommands),
 
     /// 系统状态
     Status {
@@ -126,7 +134,7 @@ pub enum StrategyCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum TaskCommands {
-    /// 添加定时任务
+    /// 添加定时任务（Foundation P0 不支持）
     Add {
         /// 任务名称
         #[arg(short, long)]
@@ -141,20 +149,20 @@ pub enum TaskCommands {
         command: String,
     },
 
-    /// 列出所有任务
+    /// 列出预置任务模板
     List,
 
-    /// 启动任务调度器
+    /// 启动任务调度器（仅支持前台模式）
     Start {
-        /// 后台运行
+        /// 后台运行（Foundation P0 不支持）
         #[arg(long)]
         daemon: bool,
     },
 
-    /// 停止任务调度器
+    /// 停止当前前台调度器
     Stop,
 
-    /// 查看任务状态
+    /// 查看实验性任务能力状态
     Status,
 }
 
@@ -176,6 +184,241 @@ pub enum AnalyzeCommands {
         /// 回测 ID
         #[arg(short, long)]
         id: String,
+    },
+
+    /// 选股筛选
+    #[command(subcommand)]
+    Screener(ScreenerCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ScreenerCommands {
+    /// 列出内置筛选条件模板
+    PresetList,
+
+    /// 运行选股筛选
+    Run {
+        /// 显式股票代码列表，逗号分隔
+        #[arg(long)]
+        codes: Option<String>,
+
+        /// 使用自选池作为筛选股票池
+        #[arg(long)]
+        watchlist: bool,
+
+        /// 自选池分组，仅在 --watchlist 时生效
+        #[arg(long)]
+        group: Option<String>,
+
+        /// 筛选条件模板，可重复传入
+        #[arg(long = "preset")]
+        preset: Vec<String>,
+
+        /// 限制返回条数
+        #[arg(long)]
+        limit: Option<usize>,
+
+        /// 排序字段
+        #[arg(long)]
+        sort_by: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MarketCommands {
+    /// 行业板块排名
+    Sector {
+        /// 限制返回条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 排序字段
+        #[arg(long)]
+        sort_by: Option<String>,
+    },
+
+    /// 概念板块排名
+    Concept {
+        /// 限制返回条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 排序字段
+        #[arg(long)]
+        sort_by: Option<String>,
+    },
+
+    /// 北向资金概览
+    North {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 市场情绪概览
+    Sentiment {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 龙头股识别
+    #[command(group(
+        ArgGroup::new("leader_filter")
+            .args(["sector", "concept", "all"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Leader {
+        /// 行业名称
+        #[arg(long)]
+        sector: Option<String>,
+
+        /// 概念名称
+        #[arg(long)]
+        concept: Option<String>,
+
+        /// 全市场龙头
+        #[arg(long)]
+        all: bool,
+
+        /// 限制返回条数
+        #[arg(long)]
+        limit: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+
+    /// 市场综合概览
+    Overview {
+        /// 板块列表条数
+        #[arg(long)]
+        top: Option<usize>,
+
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WatchlistCommands {
+    /// 添加股票到自选池
+    Add {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 分组名称
+        #[arg(long)]
+        group: Option<String>,
+    },
+
+    /// 从自选池移除股票
+    Remove {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+    },
+
+    /// 列出自选池
+    List {
+        /// 分组过滤
+        #[arg(long)]
+        group: Option<String>,
+
+        /// 标签过滤
+        #[arg(long)]
+        tag: Option<String>,
+
+        /// 展示最佳努力价格
+        #[arg(long)]
+        with_price: bool,
+    },
+
+    /// 移动股票到目标分组
+    Move {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 目标分组
+        #[arg(long)]
+        group: String,
+    },
+
+    /// 分组管理
+    #[command(subcommand)]
+    Group(WatchlistGroupCommands),
+
+    /// 标签管理
+    #[command(subcommand)]
+    Tag(WatchlistTagCommands),
+
+    /// 查看历史
+    History {
+        /// 股票代码
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 返回条数
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WatchlistGroupCommands {
+    /// 创建分组
+    Create {
+        /// 分组名称
+        #[arg(long)]
+        name: String,
+    },
+
+    /// 列出分组
+    List,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WatchlistTagCommands {
+    /// 添加标签
+    Add {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 标签
+        #[arg(long)]
+        tag: String,
+    },
+
+    /// 删除标签
+    Remove {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 标签
+        #[arg(long)]
+        tag: String,
+    },
+
+    /// 列出股票标签
+    List {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
     },
 }
 
@@ -204,10 +447,336 @@ impl Cli {
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
             }
+            Commands::Watchlist(cmd) => {
+                handlers::run_watchlist_command(cmd).await?;
+            }
+            Commands::Market(cmd) => {
+                handlers::run_market_command(cmd).await?;
+            }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn parses_watchlist_add_command() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "add",
+            "--code",
+            "000001",
+            "--group",
+            "core",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::Add { code, group }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(group.as_deref(), Some("core"));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_list_command_with_filters_and_price_flag() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "list",
+            "--group",
+            "core",
+            "--tag",
+            "bank",
+            "--with-price",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::List {
+                group,
+                tag,
+                with_price,
+            }) => {
+                assert_eq!(group.as_deref(), Some("core"));
+                assert_eq!(tag.as_deref(), Some("bank"));
+                assert!(with_price);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_group_create_command() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "group",
+            "create",
+            "--name",
+            "core",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create {
+                name,
+            })) => {
+                assert_eq!(name, "core");
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_watchlist_history_command_with_limit() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "watchlist",
+            "history",
+            "--code",
+            "000001",
+            "--limit",
+            "20",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Watchlist(WatchlistCommands::History { code, limit }) => {
+                assert_eq!(code.as_deref(), Some("000001"));
+                assert_eq!(limit, 20);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_screener_preset_list_command() {
+        let cli = Cli::try_parse_from(["quantix", "analyze", "screener", "preset-list"]).unwrap();
+
+        match cli.command {
+            Commands::Analyze(AnalyzeCommands::Screener(ScreenerCommands::PresetList)) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_screener_run_command_with_codes_and_preset() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "analyze",
+            "screener",
+            "run",
+            "--codes",
+            "000001,600519",
+            "--preset",
+            "close_above_ma:period=20",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Analyze(AnalyzeCommands::Screener(ScreenerCommands::Run {
+                codes,
+                watchlist,
+                group,
+                preset,
+                limit,
+                sort_by,
+            })) => {
+                assert_eq!(codes.as_deref(), Some("000001,600519"));
+                assert!(!watchlist);
+                assert_eq!(group, None);
+                assert_eq!(preset, vec!["close_above_ma:period=20"]);
+                assert_eq!(limit, None);
+                assert_eq!(sort_by.as_deref(), None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_screener_run_command_with_watchlist_group_and_multiple_presets() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "analyze",
+            "screener",
+            "run",
+            "--watchlist",
+            "--group",
+            "core",
+            "--preset",
+            "close_above_ma:period=20",
+            "--preset",
+            "rsi_gte:period=14,value=55",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Analyze(AnalyzeCommands::Screener(ScreenerCommands::Run {
+                codes,
+                watchlist,
+                group,
+                preset,
+                limit,
+                sort_by,
+            })) => {
+                assert_eq!(codes, None);
+                assert!(watchlist);
+                assert_eq!(group.as_deref(), Some("core"));
+                assert_eq!(
+                    preset,
+                    vec![
+                        "close_above_ma:period=20".to_string(),
+                        "rsi_gte:period=14,value=55".to_string()
+                    ]
+                );
+                assert_eq!(limit, None);
+                assert_eq!(sort_by.as_deref(), None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_sector_command_with_top() {
+        let cli = Cli::try_parse_from(["quantix", "market", "sector", "--top", "10"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Sector {
+                top,
+                date,
+                sort_by,
+            }) => {
+                assert_eq!(top, Some(10));
+                assert_eq!(date, None);
+                assert_eq!(sort_by, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_concept_command_with_date() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "concept",
+            "--date",
+            "2026-03-09",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Concept {
+                top,
+                date,
+                sort_by,
+            }) => {
+                assert_eq!(top, None);
+                assert_eq!(date.as_deref(), Some("2026-03-09"));
+                assert_eq!(sort_by, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_north_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "north"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::North { date }) => {
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_sentiment_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "sentiment"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Sentiment { date }) => {
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_leader_command_with_sector_and_limit() {
+        let cli = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "leader",
+            "--sector",
+            "银行",
+            "--limit",
+            "5",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Leader {
+                sector,
+                concept,
+                all,
+                limit,
+                date,
+            }) => {
+                assert_eq!(sector.as_deref(), Some("银行"));
+                assert_eq!(concept, None);
+                assert!(!all);
+                assert_eq!(limit, Some(5));
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_market_overview_command() {
+        let cli = Cli::try_parse_from(["quantix", "market", "overview"]).unwrap();
+
+        match cli.command {
+            Commands::Market(MarketCommands::Overview { top, date }) => {
+                assert_eq!(top, None);
+                assert_eq!(date, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rejects_market_leader_with_sector_and_concept_together() {
+        let result = Cli::try_parse_from([
+            "quantix",
+            "market",
+            "leader",
+            "--sector",
+            "银行",
+            "--concept",
+            "人工智能",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_market_leader_without_any_filter() {
+        let result = Cli::try_parse_from(["quantix", "market", "leader"]);
+
+        assert!(result.is_err());
     }
 }

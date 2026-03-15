@@ -4,6 +4,7 @@
 pub mod config;
 pub mod error;
 pub mod performance_utils;
+pub mod runtime;
 pub mod trading_calendar;
 pub mod trading_time;
 
@@ -12,3 +13,4 @@ pub use performance_utils::{
     analyze_performance, BatchOptimizationConfig, MemoryTracker, OptimizationSuggestion,
     PerfTimer,
 };
+pub use runtime::{CliRuntime, ClickHouseSettings};
