@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 use crate::core::Result;
 use crate::trade::{PaperTradeState, PaperTradeStore};
@@ -37,8 +39,42 @@ impl PaperTradeStore for JsonPaperTradeStore {
             fs::create_dir_all(parent)?;
         }
 
-        let raw = serde_json::to_string_pretty(state)?;
-        fs::write(&self.path, raw)?;
+        let raw = serde_json::to_vec_pretty(state)?;
+        let temp_path = temporary_path_for(&self.path);
+
+        let write_result = (|| -> Result<()> {
+            let mut file = fs::File::create(&temp_path)?;
+            file.write_all(&raw)?;
+            file.sync_all()?;
+            replace_file(&temp_path, &self.path)?;
+            Ok(())
+        })();
+
+        if write_result.is_err() && temp_path.exists() {
+            let _ = fs::remove_file(&temp_path);
+        }
+
+        write_result?;
         Ok(())
     }
+}
+
+fn temporary_path_for(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("paper_trade.json");
+
+    path.with_file_name(format!(".{file_name}.{}.tmp", Uuid::new_v4()))
+}
+
+fn replace_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        if to.exists() {
+            fs::remove_file(to)?;
+        }
+    }
+
+    fs::rename(from, to)
 }

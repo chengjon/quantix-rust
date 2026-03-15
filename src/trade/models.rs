@@ -177,6 +177,7 @@ impl TradeOrderRequest {
         if code.is_empty() {
             return Err(QuantixError::Other("trade order code 不能为空".to_string()));
         }
+        validate_trade_code(&code)?;
 
         Ok(Self {
             code,
@@ -222,4 +223,15 @@ fn validate_positive_volume(volume: i64) -> Result<i64> {
     }
 
     Ok(volume)
+}
+
+fn validate_trade_code(code: &str) -> Result<()> {
+    let is_valid = code.len() == 6 && code.chars().all(|ch| ch.is_ascii_digit());
+    if is_valid {
+        Ok(())
+    } else {
+        Err(QuantixError::Other(format!(
+            "trade order 股票代码格式不合法: {code}"
+        )))
+    }
 }

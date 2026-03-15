@@ -409,6 +409,15 @@ fn invalid_capital_rate_price_and_volume_inputs_are_rejected() {
 }
 
 #[test]
+fn invalid_trade_code_is_rejected() {
+    let short_err = TradeOrderRequest::new("12345", 10.0, 100).unwrap_err();
+    assert!(short_err.to_string().contains("代码"));
+
+    let non_digit_err = TradeOrderRequest::new("60000A", 10.0, 100).unwrap_err();
+    assert!(non_digit_err.to_string().contains("代码"));
+}
+
+#[test]
 fn fee_calculation_for_shanghai_buy_and_sell_applies_expected_fees() {
     let fee_config = FeeConfig::default();
 

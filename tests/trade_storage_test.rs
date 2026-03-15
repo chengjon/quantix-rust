@@ -5,6 +5,7 @@ use quantix_cli::trade::{
 };
 use rust_decimal_macros::dec;
 use std::collections::BTreeMap;
+use std::fs;
 use tempfile::tempdir;
 
 fn fixed_ts() -> chrono::DateTime<Utc> {
@@ -121,4 +122,32 @@ async fn reset_state_persistence_overwrites_previous_content_cleanly() {
 
     assert_eq!(loaded.trade_records, Vec::<TradeRecord>::new());
     assert!(loaded.account.unwrap().positions.is_empty());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn save_state_replaces_file_via_atomic_rename() {
+    use std::os::unix::fs::MetadataExt;
+
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("paper_trade.json");
+    let store = JsonPaperTradeStore::new(path.clone());
+    store.save_state(&initialized_state()).await.unwrap();
+    let before_inode = fs::metadata(&path).unwrap().ino();
+
+    let reset_state = PaperTradeState {
+        version: 1,
+        account: None,
+        trade_records: Vec::new(),
+    };
+    store.save_state(&reset_state).await.unwrap();
+
+    let after_inode = fs::metadata(&path).unwrap().ino();
+    let loaded = store.load_state().await.unwrap().unwrap();
+
+    assert_ne!(
+        before_inode, after_inode,
+        "expected atomic replace via temp-file rename"
+    );
+    assert_eq!(loaded, reset_state);
 }
