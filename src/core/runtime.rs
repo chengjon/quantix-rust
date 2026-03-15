@@ -6,6 +6,7 @@ use crate::core::config::{
 use std::path::PathBuf;
 
 pub const WATCHLIST_PATH_ENV: &str = "QUANTIX_WATCHLIST_PATH";
+pub const TRADE_PATH_ENV: &str = "QUANTIX_TRADE_PATH";
 pub const MONITOR_DB_PATH_ENV: &str = "QUANTIX_MONITOR_DB_PATH";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,6 +36,7 @@ impl ClickHouseSettings {
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
     pub watchlist_path: PathBuf,
+    pub trade_path: PathBuf,
     pub monitor_db_path: PathBuf,
 }
 
@@ -43,6 +45,7 @@ impl CliRuntime {
         Self {
             clickhouse: ClickHouseSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
+            trade_path: resolve_trade_path(),
             monitor_db_path: resolve_monitor_db_path(),
         }
     }
@@ -80,6 +83,23 @@ fn resolve_monitor_db_path() -> PathBuf {
     PathBuf::from(".quantix").join("monitor").join("alerts.db")
 }
 
+fn resolve_trade_path() -> PathBuf {
+    if let Some(path) = std::env::var_os(TRADE_PATH_ENV) {
+        return PathBuf::from(path);
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".quantix")
+            .join("trade")
+            .join("paper_trade.json");
+    }
+
+    PathBuf::from(".quantix")
+        .join("trade")
+        .join("paper_trade.json")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,6 +118,7 @@ mod tests {
         user: Option<String>,
         password: Option<String>,
         watchlist_path: Option<String>,
+        trade_path: Option<String>,
         monitor_db_path: Option<String>,
         home: Option<String>,
     }
@@ -110,6 +131,7 @@ mod tests {
                 user: std::env::var(CLICKHOUSE_USER_ENV).ok(),
                 password: std::env::var(CLICKHOUSE_PASSWORD_ENV).ok(),
                 watchlist_path: std::env::var(WATCHLIST_PATH_ENV).ok(),
+                trade_path: std::env::var(TRADE_PATH_ENV).ok(),
                 monitor_db_path: std::env::var(MONITOR_DB_PATH_ENV).ok(),
                 home: std::env::var("HOME").ok(),
             }
@@ -141,6 +163,11 @@ mod tests {
             match &self.watchlist_path {
                 Some(value) => unsafe { std::env::set_var(WATCHLIST_PATH_ENV, value) },
                 None => unsafe { std::env::remove_var(WATCHLIST_PATH_ENV) },
+            }
+
+            match &self.trade_path {
+                Some(value) => unsafe { std::env::set_var(TRADE_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(TRADE_PATH_ENV) },
             }
 
             match &self.monitor_db_path {
@@ -236,6 +263,40 @@ mod tests {
         assert_eq!(
             runtime.monitor_db_path,
             PathBuf::from("/tmp/quantix/monitor/custom-alerts.db")
+        );
+    }
+
+    #[test]
+    fn test_cli_runtime_uses_trade_path_override() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(TRADE_PATH_ENV, "/tmp/quantix/trade/custom-paper-trade.json");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.trade_path,
+            PathBuf::from("/tmp/quantix/trade/custom-paper-trade.json")
+        );
+    }
+
+    #[test]
+    fn test_trade_path_falls_back_to_home_directory() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::remove_var(TRADE_PATH_ENV);
+            std::env::set_var("HOME", "/tmp/quantix-home");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.trade_path,
+            PathBuf::from("/tmp/quantix-home")
+                .join(".quantix")
+                .join("trade")
+                .join("paper_trade.json")
         );
     }
 
