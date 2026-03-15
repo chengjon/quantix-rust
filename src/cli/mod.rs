@@ -47,6 +47,10 @@ pub enum Commands {
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
 
+    /// 监控命令
+    #[command(subcommand)]
+    Monitor(MonitorCommands),
+
     /// 自选池命令
     #[command(subcommand)]
     Watchlist(WatchlistCommands),
@@ -221,6 +225,52 @@ pub enum ScreenerCommands {
         /// 排序字段
         #[arg(long)]
         sort_by: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorCommands {
+    /// 运行自选池监控
+    Watchlist {
+        /// 执行一次监控
+        #[arg(long, required = true)]
+        once: bool,
+    },
+
+    /// 价格告警管理
+    #[command(subcommand)]
+    Alert(MonitorAlertCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorAlertCommands {
+    /// 添加价格告警
+    #[command(group(
+        ArgGroup::new("monitor_alert_threshold")
+            .args(["above", "below"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Add {
+        /// 股票代码
+        code: String,
+
+        /// 高于阈值时告警
+        #[arg(long)]
+        above: Option<f64>,
+
+        /// 低于阈值时告警
+        #[arg(long)]
+        below: Option<f64>,
+    },
+
+    /// 列出价格告警
+    List,
+
+    /// 删除价格告警
+    Remove {
+        /// 告警 ID
+        id: u64,
     },
 }
 
@@ -447,6 +497,9 @@ impl Cli {
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
             }
+            Commands::Monitor(cmd) => {
+                handlers::run_monitor_command(cmd).await?;
+            }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
             }
@@ -465,6 +518,7 @@ impl Cli {
 mod tests {
     use super::*;
     use clap::Parser;
+    use clap::error::ErrorKind;
 
     #[test]
     fn parses_watchlist_add_command() {
@@ -518,15 +572,9 @@ mod tests {
 
     #[test]
     fn parses_watchlist_group_create_command() {
-        let cli = Cli::try_parse_from([
-            "quantix",
-            "watchlist",
-            "group",
-            "create",
-            "--name",
-            "core",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "watchlist", "group", "create", "--name", "core"])
+                .unwrap();
 
         match cli.command {
             Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create {
@@ -648,15 +696,134 @@ mod tests {
     }
 
     #[test]
+    fn parses_monitor_watchlist_command_with_once() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "watchlist", "--once"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Watchlist { once }) => {
+                assert!(once);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_watchlist_rejects_missing_once() {
+        let err = Cli::try_parse_from(["quantix", "monitor", "watchlist"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--once"));
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_command_with_above() {
+        let cli = Cli::try_parse_from([
+            "quantix", "monitor", "alert", "add", "000001", "--above", "16.0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code,
+                above,
+                below,
+            })) => {
+                assert_eq!(code, "000001");
+                assert_eq!(above, Some(16.0));
+                assert_eq!(below, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_command_with_below() {
+        let cli = Cli::try_parse_from([
+            "quantix", "monitor", "alert", "add", "000001", "--below", "15.0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Add {
+                code,
+                above,
+                below,
+            })) => {
+                assert_eq!(code, "000001");
+                assert_eq!(above, None);
+                assert_eq!(below, Some(15.0));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_list_command() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "alert", "list"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::List)) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_remove_command() {
+        let cli = Cli::try_parse_from(["quantix", "monitor", "alert", "remove", "12"]).unwrap();
+
+        match cli.command {
+            Commands::Monitor(MonitorCommands::Alert(MonitorAlertCommands::Remove { id })) => {
+                assert_eq!(id, 12);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_missing_threshold() {
+        let err =
+            Cli::try_parse_from(["quantix", "monitor", "alert", "add", "000001"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--above"));
+        assert!(err.to_string().contains("--below"));
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_both_thresholds() {
+        let err = Cli::try_parse_from([
+            "quantix", "monitor", "alert", "add", "000001", "--above", "16.0", "--below", "15.0",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+        assert!(err.to_string().contains("--above"));
+        assert!(err.to_string().contains("--below"));
+    }
+
+    #[test]
+    fn parses_monitor_alert_add_rejects_non_numeric_threshold() {
+        let err = Cli::try_parse_from([
+            "quantix",
+            "monitor",
+            "alert",
+            "add",
+            "000001",
+            "--above",
+            "not-a-number",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
+        assert!(err.to_string().contains("not-a-number"));
+    }
+
+    #[test]
     fn parses_market_sector_command_with_top() {
         let cli = Cli::try_parse_from(["quantix", "market", "sector", "--top", "10"]).unwrap();
 
         match cli.command {
-            Commands::Market(MarketCommands::Sector {
-                top,
-                date,
-                sort_by,
-            }) => {
+            Commands::Market(MarketCommands::Sector { top, date, sort_by }) => {
                 assert_eq!(top, Some(10));
                 assert_eq!(date, None);
                 assert_eq!(sort_by, None);
@@ -667,21 +834,11 @@ mod tests {
 
     #[test]
     fn parses_market_concept_command_with_date() {
-        let cli = Cli::try_parse_from([
-            "quantix",
-            "market",
-            "concept",
-            "--date",
-            "2026-03-09",
-        ])
-        .unwrap();
+        let cli =
+            Cli::try_parse_from(["quantix", "market", "concept", "--date", "2026-03-09"]).unwrap();
 
         match cli.command {
-            Commands::Market(MarketCommands::Concept {
-                top,
-                date,
-                sort_by,
-            }) => {
+            Commands::Market(MarketCommands::Concept { top, date, sort_by }) => {
                 assert_eq!(top, None);
                 assert_eq!(date.as_deref(), Some("2026-03-09"));
                 assert_eq!(sort_by, None);
@@ -717,13 +874,7 @@ mod tests {
     #[test]
     fn parses_market_leader_command_with_sector_and_limit() {
         let cli = Cli::try_parse_from([
-            "quantix",
-            "market",
-            "leader",
-            "--sector",
-            "银行",
-            "--limit",
-            "5",
+            "quantix", "market", "leader", "--sector", "银行", "--limit", "5",
         ])
         .unwrap();
 

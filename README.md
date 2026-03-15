@@ -186,6 +186,34 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 条件完全参数化，例如 `close_above_ma:period=20`
   - 不支持全市场扫描、DSL、实时筛选、OR 逻辑
 
+#### Phase 23: 市场分析 ✅
+- **市场分析命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/market/*`)
+  - `quantix market sector` - 行业板块排名
+  - `quantix market concept` - 概念板块排名
+  - `quantix market north` - 北向资金概览
+  - `quantix market sentiment` - 市场情绪快照
+  - `quantix market leader` - 龙头股识别
+  - `quantix market overview` - 综合概览
+- **P0 约束**
+  - 仅覆盖日度快照和只读查询
+  - `leader` 只支持 `--sector`、`--concept`、`--all` 三选一
+  - `sort-by` 仅保留极小集合，当前支持涨跌幅排序
+  - 历史/详情/实时功能延后到后续 Phase
+
+#### Phase 24: 实时监控 ✅
+- **监控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/monitor/*`)
+  - `quantix monitor watchlist --once` - 扫描当前自选池并输出终端监控快照
+  - `quantix monitor alert add 000001 --above 16.0` - 添加向上突破价格告警
+  - `quantix monitor alert add 000001 --below 15.0` - 添加向下跌破价格告警
+  - `quantix monitor alert list` - 查看当前有效价格告警
+  - `quantix monitor alert remove 1` - 删除指定价格告警
+- **SQLite 告警持久化** (`src/monitor/storage.rs`)
+  - 默认路径 `~/.quantix/monitor/alerts.db`
+  - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
+- **P0 约束**
+  - 仅支持一次性 `watchlist --once` 扫描和终端输出
+  - 复用现有自选池加载与 TDX 行情查询链路
+  - `--refresh / --repeat / 系统通知延后到后续 Phase`
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
