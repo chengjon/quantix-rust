@@ -17,6 +17,7 @@
   - [monitor - 实时监控](#monitor---实时监控)
   - [stop - 止盈止损](#stop---止盈止损)
   - [trade - 模拟交易](#trade---模拟交易)
+  - [risk - 风险管理](#risk---风险管理)
   - [status - 系统状态](#status---系统状态)
 - [数据源](#数据源)
 - [API 参考](#api-参考)
@@ -97,6 +98,9 @@ export QUANTIX_MONITOR_DB_PATH="$HOME/.quantix/monitor/alerts.db"
 
 # 模拟交易 JSON 路径（可选）
 export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
+
+# 风控 JSON 路径（可选）
+export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
 ```
 
 ### 运行测试
@@ -180,6 +184,7 @@ quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
 ```
+
 ### 止盈止损快速开始
 
 ```bash
@@ -209,6 +214,23 @@ quantix trade sell 000001 --price 16.0 --volume 500
 quantix trade position
 quantix trade cash
 ```
+
+### 风控快速开始
+
+```bash
+# 基于纸面账户设置风控规则
+quantix risk rule set --type position-limit --value 20%
+quantix risk rule set --type daily-loss-limit --value 50000
+
+# 查看规则和当前状态
+quantix risk rule list
+quantix risk status
+quantix risk log
+
+# 触发当日买入锁后可手动释放
+quantix risk lock release
+```
+
 ---
 
 ## 命令参考
@@ -960,6 +982,7 @@ quantix monitor alert remove 1
 ```
 
 ---
+
 ### stop - 止盈止损
 
 提供 Phase 25A 的最小止盈止损闭环：为自选池代码维护单条规则，并在 `monitor watchlist --once` 里直接复用当前快照价格做评估。
@@ -1051,6 +1074,75 @@ quantix trade cash
 ```
 
 ---
+
+### risk - 风险管理
+
+提供 Phase 27A 的最小纸上交易风控闭环：本地规则配置、状态快照、当日买入锁手动释放，以及在 `trade buy` / `trade init` / `trade reset` / `trade sell` 上的 CLI 集成。
+
+#### 存储路径
+
+- 默认路径：`~/.quantix/risk/risk_state.json`
+- 可通过 `QUANTIX_RISK_PATH` 覆盖
+
+#### P0 范围
+
+- 仅支持本地 paper-trade 账户
+- 仅支持 `position-limit` 与 `daily-loss-limit` 两类规则
+- `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交
+- `trade init` / `trade reset` 会清除当日买入锁并保留已配置规则
+- 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
+- `risk status` 会显示锁状态来源、作用交易日、触发原因、触发时间
+- `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件
+- `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
+- `risk log` 当前支持按事件写入日 `--date` 和事件类型 `--type` 过滤
+- 实盘导入、波动率规则、行业规则、自动减仓 延后到后续 Phase
+
+#### 命令摘要
+
+```bash
+quantix risk rule set --type position-limit --value 20%
+quantix risk rule set --type daily-loss-limit --value 50000
+quantix risk rule set --type daily-loss-limit --value 5%
+quantix risk rule list
+quantix risk rule enable --type position-limit
+quantix risk rule disable --type daily-loss-limit
+quantix risk status
+quantix risk pnl
+quantix risk position
+quantix risk log [--limit <N>] [--date <YYYY-MM-DD>] [--type <EVENT>]
+quantix risk lock release
+```
+
+#### 参数约束
+
+- `position-limit` 仅接受百分比值，例如 `20%`
+- `daily-loss-limit` 同时支持金额值和百分比值，例如 `50000` 或 `5%`
+- `risk status`、`risk pnl`、`risk position` 依赖已初始化的 paper-trade 账户；首次使用前请先执行 `quantix trade init`
+- 当日买入锁触发后，新的 `trade buy` 会被拒绝，但 `trade sell` 仍允许执行
+- `risk status` 的 `状态来源` 当前只区分 `open`、`daily_loss_locked`、`manual_release_active`
+- `risk log` 不依赖已初始化的 paper-trade 账户；没有事件时返回空列表视图
+- `risk log` 默认返回最近 20 条事件，可用 `--limit` 调整，并支持 `--date`、`--type` 单独或组合过滤
+- `risk log --date` 匹配事件写入日，也就是 `event.ts` 所在日期
+- `risk lock release` 仅在存在活动买入锁时可用；若同日已手动释放，再次执行会返回成功且保持幂等
+- `risk lock release` 在当日内抑制基于日亏损规则的自动重新加锁；次日或 `trade init/reset` 会清除该手动释放标记
+
+#### 常用示例
+
+```bash
+quantix trade init --capital 1000000
+quantix risk rule set --type position-limit --value 20%
+quantix risk rule set --type daily-loss-limit --value 5%
+quantix risk status
+quantix risk pnl
+quantix risk position
+quantix risk log --limit 10
+quantix risk log --date 2026-03-12 --type buy-lock-released
+quantix trade buy 000001 --price 15.0 --volume 1000
+quantix risk lock release
+```
+
+---
+
 ### status - 系统状态
 
 查看系统状态和健康检查。

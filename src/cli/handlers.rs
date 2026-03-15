@@ -1,8 +1,8 @@
 use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    ScreenerCommands, StopCommands, StrategyCommands, TaskCommands, TradeCommands,
-    WatchlistCommands,
-    WatchlistGroupCommands, WatchlistTagCommands,
+    RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands,
+    StrategyCommands, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
+    WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -19,6 +19,10 @@ use crate::monitor::storage::SqliteMonitorAlertStore;
 use crate::monitor::{
     MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService, MonitorWatchlistReader,
     MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+};
+use crate::risk::{
+    BuyLockState, JsonRiskStore, PositionRiskRow, RiskAccountSnapshot, RiskLockStateSource,
+    RiskLogEvent, RiskLogEventType, RiskRule, RiskService, RiskStatus,
 };
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
@@ -45,6 +49,10 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use std::path::Path;
 use std::sync::Arc;
+
+mod risk;
+
+pub use self::risk::run_risk_command;
 
 async fn create_clickhouse_client() -> Result<ClickHouseClient> {
     let runtime = CliRuntime::load();
@@ -674,8 +682,10 @@ pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
 }
 
 pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {
-    let service = TradeService::new(create_trade_store());
-    let output = execute_trade_command_with_service(cmd, &service).await?;
+    let trade_store = create_trade_store();
+    let service = TradeService::new(trade_store.clone());
+    let risk_service = RiskService::new(create_risk_store());
+    let output = execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
     print_trade_command_output(&output);
     Ok(())
 }
@@ -992,6 +1002,86 @@ where
         }
         TradeCommands::Position => Ok(TradeCommandOutput::PositionList(service.positions().await?)),
         TradeCommands::Cash => Ok(TradeCommandOutput::Cash(service.cash_snapshot().await?)),
+    }
+}
+
+async fn execute_trade_command_with_risk<TradeStore, RiskStore>(
+    cmd: TradeCommands,
+    trade_service: &TradeService<TradeStore>,
+    trade_store: &TradeStore,
+    risk_service: &RiskService<RiskStore>,
+) -> Result<TradeCommandOutput>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    match cmd {
+        TradeCommands::Init {
+            capital,
+            commission_rate,
+            commission_min,
+            stamp_duty_rate,
+            transfer_fee_rate,
+        } => {
+            let request = build_trade_init_request(
+                "trade init",
+                capital,
+                commission_rate,
+                commission_min,
+                stamp_duty_rate,
+                transfer_fee_rate,
+            )?;
+            let account = trade_service.init_account(request, Utc::now()).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            Ok(TradeCommandOutput::AccountInitialized(account))
+        }
+        TradeCommands::Reset {
+            capital,
+            commission_rate,
+            commission_min,
+            stamp_duty_rate,
+            transfer_fee_rate,
+        } => {
+            let request = build_trade_init_request(
+                "trade reset",
+                capital,
+                commission_rate,
+                commission_min,
+                stamp_duty_rate,
+                transfer_fee_rate,
+            )?;
+            let account = trade_service.reset_account(request, Utc::now()).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            Ok(TradeCommandOutput::AccountReset(account))
+        }
+        TradeCommands::Buy {
+            code,
+            price,
+            volume,
+        } => {
+            let request = build_trade_order_request("trade buy", code, price, volume)?;
+            let account = load_initialized_trade_account(trade_store).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            let projected_buy = build_projected_buy_impact(&account, &request);
+            risk_service.check_buy(&snapshot, &projected_buy, Utc::now()).await?;
+
+            let record = trade_service.buy(request, Utc::now()).await?;
+            sync_risk_from_trade_store(trade_store, risk_service).await?;
+            Ok(TradeCommandOutput::TradeExecuted(record))
+        }
+        TradeCommands::Sell {
+            code,
+            price,
+            volume,
+        } => {
+            let request = build_trade_order_request("trade sell", code, price, volume)?;
+            let record = trade_service.sell(request, Utc::now()).await?;
+            sync_risk_from_trade_store(trade_store, risk_service).await?;
+            Ok(TradeCommandOutput::TradeExecuted(record))
+        }
+        other => execute_trade_command_with_service(other, trade_service).await,
     }
 }
 
@@ -1955,6 +2045,77 @@ fn create_watchlist_storage() -> WatchlistStorage {
 fn create_trade_store() -> JsonPaperTradeStore {
     let runtime = CliRuntime::load();
     JsonPaperTradeStore::new(runtime.trade_path)
+}
+
+fn create_risk_store() -> JsonRiskStore {
+    let runtime = CliRuntime::load();
+    JsonRiskStore::new(runtime.risk_path)
+}
+
+async fn sync_risk_from_trade_store<TradeStore, RiskStore>(
+    trade_store: &TradeStore,
+    risk_service: &RiskService<RiskStore>,
+) -> Result<()>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    let account = load_initialized_trade_account(trade_store).await?;
+    let snapshot = build_risk_account_snapshot(&account);
+    risk_service
+        .sync_after_trade_snapshot(&snapshot, Utc::now())
+        .await?;
+    Ok(())
+}
+
+async fn load_initialized_trade_account<Store>(trade_store: &Store) -> Result<PaperTradeAccount>
+where
+    Store: PaperTradeStore,
+{
+    trade_store
+        .load_state()
+        .await?
+        .and_then(|state| state.account)
+        .ok_or_else(|| QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string()))
+}
+
+fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapshot {
+    let positions: Vec<(String, rust_decimal::Decimal)> = account
+        .positions
+        .values()
+        .map(|position| {
+            (
+                position.code.clone(),
+                rust_decimal::Decimal::from(position.volume) * position.last_trade_price,
+            )
+        })
+        .collect();
+    let position_value = positions
+        .iter()
+        .fold(rust_decimal::Decimal::ZERO, |acc, (_, value)| acc + *value);
+
+    RiskAccountSnapshot::new(
+        account.account_id.clone(),
+        account.available_cash + position_value,
+        positions,
+    )
+}
+
+fn build_projected_buy_impact(
+    account: &PaperTradeAccount,
+    request: &TradeOrderRequest,
+) -> crate::risk::ProjectedBuyImpact {
+    let current_position_value = account
+        .positions
+        .get(&request.code)
+        .map(|position| rust_decimal::Decimal::from(position.volume) * position.last_trade_price)
+        .unwrap_or(rust_decimal::Decimal::ZERO);
+
+    crate::risk::ProjectedBuyImpact::new(
+        request.code.clone(),
+        current_position_value + request.price * rust_decimal::Decimal::from(request.volume),
+        build_risk_account_snapshot(account).total_assets,
+    )
 }
 
 fn load_watchlist_store_for_read(storage: &WatchlistStorage) -> Result<WatchlistStore> {

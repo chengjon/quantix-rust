@@ -201,3 +201,64 @@ fn user_manual_documents_phase26_trade_commands() {
         );
     }
 }
+
+#[test]
+fn readme_documents_phase27_risk_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 27: 风险管理",
+        "quantix risk rule set --type position-limit --value 20%",
+        "quantix risk rule set --type daily-loss-limit --value 50000",
+        "quantix risk rule list",
+        "quantix risk status",
+        "quantix risk pnl",
+        "quantix risk position",
+        "quantix risk log",
+        "quantix risk lock release",
+        "QUANTIX_RISK_PATH",
+        "trade buy` 会执行风控预检查，`trade sell` 仍然允许成交",
+        "risk status` 会额外显示锁状态来源、作用交易日、触发原因、触发时间",
+        "risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件",
+        "当日内不再自动重新锁定",
+        "risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤",
+        "实盘导入 / 波动率和行业规则 / 自动减仓",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_phase27_risk_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "### risk - 风险管理",
+        "quantix risk rule set --type position-limit --value 20%",
+        "quantix risk rule set --type daily-loss-limit --value 50000",
+        "quantix risk rule enable --type position-limit",
+        "quantix risk rule disable --type daily-loss-limit",
+        "quantix risk status",
+        "quantix risk pnl",
+        "quantix risk position",
+        "quantix risk log [--limit <N>] [--date <YYYY-MM-DD>] [--type <EVENT>]",
+        "quantix risk lock release",
+        "QUANTIX_RISK_PATH",
+        "`risk status`、`risk pnl`、`risk position` 依赖已初始化的 paper-trade 账户",
+        "`risk status` 的 `状态来源` 当前只区分 `open`、`daily_loss_locked`、`manual_release_active`",
+        "当日买入锁触发后，新的 `trade buy` 会被拒绝，但 `trade sell` 仍允许执行",
+        "`risk log` 默认返回最近 20 条事件，可用 `--limit` 调整，并支持 `--date`、`--type` 单独或组合过滤",
+        "`risk log --date` 匹配事件写入日，也就是 `event.ts` 所在日期",
+        "`risk lock release` 在当日内抑制基于日亏损规则的自动重新加锁",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
