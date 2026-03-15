@@ -1,13 +1,16 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use crate::core::{QuantixError, Result};
 use crate::risk::models::{
     BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact, RiskAccountSnapshot,
-    RiskRule, RiskRuleSnapshot, RiskRuleType, RiskState, RiskStatus, RuleValue,
+    RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot,
+    RiskRuleType, RiskState, RiskStatus, RuleValue,
 };
+
+const DEFAULT_RISK_EVENT_LIMIT: usize = 100;
 
 #[async_trait]
 pub trait RiskStore: Send + Sync {
@@ -19,6 +22,7 @@ pub trait RiskStore: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct RiskService<Store> {
     store: Store,
+    event_limit: usize,
 }
 
 impl<Store> RiskService<Store>
@@ -26,7 +30,10 @@ where
     Store: RiskStore,
 {
     pub fn new(store: Store) -> Self {
-        Self { store }
+        Self {
+            store,
+            event_limit: DEFAULT_RISK_EVENT_LIMIT,
+        }
     }
 
     pub async fn set_rule(
@@ -40,6 +47,16 @@ where
         let parsed_value = RuleValue::parse(parsed_type, value)?;
 
         let rule = upsert_rule(&mut state, parsed_type, parsed_value, now);
+        push_risk_event(
+            &mut state,
+            self.event_limit,
+            RiskLogEvent {
+                ts: now,
+                event_type: RiskLogEventType::RuleSet,
+                trading_date: None,
+                detail: format!("{} = {}", rule.rule_type.as_cli_str(), rule.value.display()),
+            },
+        );
         self.store.save_state(&state).await?;
         Ok(rule)
     }
@@ -48,6 +65,30 @@ where
         let mut rules = self.load_state().await?.rules;
         rules.sort_by_key(|rule| rule.rule_type);
         Ok(rules)
+    }
+
+    pub async fn list_log(
+        &self,
+        limit: Option<usize>,
+        date: Option<NaiveDate>,
+        event_type: Option<RiskLogEventType>,
+    ) -> Result<Vec<RiskLogEvent>> {
+        let state = self.load_state().await?;
+        let limit = limit.unwrap_or(20);
+        Ok(state
+            .events
+            .iter()
+            .rev()
+            .filter(|event| {
+                date.map(|target| event.ts.date_naive() == target)
+                    .unwrap_or(true)
+                    && event_type
+                        .map(|target| event.event_type == target)
+                        .unwrap_or(true)
+            })
+            .take(limit)
+            .cloned()
+            .collect())
     }
 
     pub async fn enable_rule(&self, rule_type: &str, now: DateTime<Utc>) -> Result<RiskRule> {
@@ -116,11 +157,57 @@ where
             trading_date: now.date_naive(),
             starting_total_assets: snapshot.total_assets,
         });
+        if state.buy_lock.locked || state.buy_lock.released_for_date.is_some() {
+            push_risk_event(
+                &mut state,
+                self.event_limit,
+                RiskLogEvent {
+                    ts: now,
+                    event_type: RiskLogEventType::BuyLockCleared,
+                    trading_date: Some(now.date_naive()),
+                    detail: "trade init/reset".to_string(),
+                },
+            );
+        }
         state.buy_lock = BuyLockState::default();
 
         let status = build_status(&state, snapshot, now.date_naive());
         self.store.save_state(&state).await?;
         Ok(status)
+    }
+
+    pub async fn release_buy_lock(&self, now: DateTime<Utc>) -> Result<BuyLockState> {
+        let mut state = self.load_state().await?;
+        let trading_date = now.date_naive();
+
+        if state.buy_lock.locked {
+            let previous_reason = state
+                .buy_lock
+                .reason
+                .clone()
+                .unwrap_or_else(|| "manual release".to_string());
+            state.buy_lock.locked = false;
+            state.buy_lock.released_for_date = Some(trading_date);
+            push_risk_event(
+                &mut state,
+                self.event_limit,
+                RiskLogEvent {
+                    ts: now,
+                    event_type: RiskLogEventType::BuyLockReleased,
+                    trading_date: Some(trading_date),
+                    detail: previous_reason,
+                },
+            );
+            let released = state.buy_lock.clone();
+            self.store.save_state(&state).await?;
+            return Ok(released);
+        }
+
+        if state.buy_lock.released_for_date == Some(trading_date) {
+            return Ok(state.buy_lock.clone());
+        }
+
+        Err(QuantixError::Other("当前无活动买入锁".to_string()))
     }
 
     async fn toggle_rule(
@@ -143,6 +230,20 @@ where
         rule.updated_at = now;
 
         let updated = rule.clone();
+        push_risk_event(
+            &mut state,
+            self.event_limit,
+            RiskLogEvent {
+                ts: now,
+                event_type: if enabled {
+                    RiskLogEventType::RuleEnabled
+                } else {
+                    RiskLogEventType::RuleDisabled
+                },
+                trading_date: None,
+                detail: parsed_type.as_cli_str().to_string(),
+            },
+        );
         self.store.save_state(&state).await?;
         Ok(updated)
     }
@@ -167,6 +268,18 @@ where
             .unwrap_or(true);
 
         if baseline_needs_reset {
+            if state.buy_lock.locked || state.buy_lock.released_for_date.is_some() {
+                push_risk_event(
+                    state,
+                    self.event_limit,
+                    RiskLogEvent {
+                        ts: now,
+                        event_type: RiskLogEventType::BuyLockCleared,
+                        trading_date: Some(trading_date),
+                        detail: "day rollover".to_string(),
+                    },
+                );
+            }
             state.daily_baseline = Some(DailyRiskBaseline {
                 trading_date,
                 starting_total_assets: snapshot.total_assets,
@@ -175,7 +288,7 @@ where
         }
 
         if let Some(rule) = find_enabled_rule(state, RiskRuleType::DailyLossLimit).cloned() {
-            apply_daily_loss_rule(state, &rule, snapshot.total_assets, now);
+            apply_daily_loss_rule(state, self.event_limit, &rule, snapshot.total_assets, now);
         }
 
         build_status(state, snapshot, trading_date)
@@ -219,6 +332,7 @@ fn find_enabled_rule(state: &RiskState, rule_type: RiskRuleType) -> Option<&Risk
 
 fn apply_daily_loss_rule(
     state: &mut RiskState,
+    event_limit: usize,
     rule: &RiskRule,
     current_total_assets: Decimal,
     now: DateTime<Utc>,
@@ -232,13 +346,28 @@ fn apply_daily_loss_rule(
         RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
     };
 
-    if triggered && !state.buy_lock.locked {
+    if triggered
+        && !state.buy_lock.locked
+        && state.buy_lock.released_for_date != Some(now.date_naive())
+    {
+        let reason = format!("daily-loss-limit {} 已触发", rule.value.display());
         state.buy_lock = BuyLockState {
             locked: true,
-            reason: Some(format!("daily-loss-limit {} 已触发", rule.value.display())),
+            reason: Some(reason.clone()),
             triggered_at: Some(now),
             trading_date: Some(now.date_naive()),
+            released_for_date: None,
         };
+        push_risk_event(
+            state,
+            event_limit,
+            RiskLogEvent {
+                ts: now,
+                event_type: RiskLogEventType::DailyLossLockTriggered,
+                trading_date: Some(now.date_naive()),
+                detail: reason,
+            },
+        );
     }
 }
 
@@ -298,6 +427,36 @@ fn build_status(
         })
         .collect();
 
+    let manual_release_active =
+        !state.buy_lock.locked && state.buy_lock.released_for_date == Some(trading_date);
+    let lock_state_source = if state.buy_lock.locked {
+        RiskLockStateSource::DailyLossLocked
+    } else if manual_release_active {
+        RiskLockStateSource::ManualReleaseActive
+    } else {
+        RiskLockStateSource::Open
+    };
+    let lock_trigger_reason = match lock_state_source {
+        RiskLockStateSource::Open => None,
+        RiskLockStateSource::DailyLossLocked | RiskLockStateSource::ManualReleaseActive => {
+            state.buy_lock.reason.clone()
+        }
+    };
+    let lock_triggered_at = match lock_state_source {
+        RiskLockStateSource::Open => None,
+        RiskLockStateSource::DailyLossLocked | RiskLockStateSource::ManualReleaseActive => {
+            state.buy_lock.triggered_at
+        }
+    };
+    let lock_effective_trading_date = match lock_state_source {
+        RiskLockStateSource::Open => None,
+        RiskLockStateSource::DailyLossLocked => state.buy_lock.trading_date,
+        RiskLockStateSource::ManualReleaseActive => state
+            .buy_lock
+            .released_for_date
+            .or(state.buy_lock.trading_date),
+    };
+
     RiskStatus {
         account_id: state.account_id.clone(),
         trading_date,
@@ -306,7 +465,12 @@ fn build_status(
         daily_pnl,
         daily_pnl_pct,
         buy_locked: state.buy_lock.locked,
+        manual_release_active,
+        lock_state_source,
         lock_reason: state.buy_lock.reason.clone(),
+        lock_trigger_reason,
+        lock_triggered_at,
+        lock_effective_trading_date,
         position_ratios,
         rules,
     }
@@ -317,5 +481,13 @@ fn pct_change(numerator: Decimal, denominator: Decimal) -> Decimal {
         Decimal::ZERO
     } else {
         numerator / denominator * dec!(100)
+    }
+}
+
+fn push_risk_event(state: &mut RiskState, event_limit: usize, event: RiskLogEvent) {
+    state.events.push(event);
+    if state.events.len() > event_limit {
+        let overflow = state.events.len() - event_limit;
+        state.events.drain(0..overflow);
     }
 }

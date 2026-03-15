@@ -14,6 +14,8 @@ pub struct RiskState {
     pub rules: Vec<RiskRule>,
     pub daily_baseline: Option<DailyRiskBaseline>,
     pub buy_lock: BuyLockState,
+    #[serde(default)]
+    pub events: Vec<RiskLogEvent>,
 }
 
 impl Default for RiskState {
@@ -24,6 +26,7 @@ impl Default for RiskState {
             rules: Vec::new(),
             daily_baseline: None,
             buy_lock: BuyLockState::default(),
+            events: Vec::new(),
         }
     }
 }
@@ -124,6 +127,71 @@ pub struct BuyLockState {
     pub reason: Option<String>,
     pub triggered_at: Option<DateTime<Utc>>,
     pub trading_date: Option<NaiveDate>,
+    pub released_for_date: Option<NaiveDate>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RiskLockStateSource {
+    Open,
+    DailyLossLocked,
+    ManualReleaseActive,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskLogEventType {
+    RuleSet,
+    RuleEnabled,
+    RuleDisabled,
+    DailyLossLockTriggered,
+    BuyLockReleased,
+    BuyLockCleared,
+}
+
+impl RiskLogEventType {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim() {
+            "rule-set" => Ok(Self::RuleSet),
+            "rule-enabled" => Ok(Self::RuleEnabled),
+            "rule-disabled" => Ok(Self::RuleDisabled),
+            "daily-loss-lock-triggered" => Ok(Self::DailyLossLockTriggered),
+            "buy-lock-released" => Ok(Self::BuyLockReleased),
+            "buy-lock-cleared" => Ok(Self::BuyLockCleared),
+            other => Err(QuantixError::Other(format!(
+                "risk log 不支持的类型: {other}"
+            ))),
+        }
+    }
+
+    pub fn as_cli_str(self) -> &'static str {
+        match self {
+            Self::RuleSet => "rule-set",
+            Self::RuleEnabled => "rule-enabled",
+            Self::RuleDisabled => "rule-disabled",
+            Self::DailyLossLockTriggered => "daily-loss-lock-triggered",
+            Self::BuyLockReleased => "buy-lock-released",
+            Self::BuyLockCleared => "buy-lock-cleared",
+        }
+    }
+
+    pub fn display_label(self) -> &'static str {
+        match self {
+            Self::RuleSet => "规则设置",
+            Self::RuleEnabled => "规则启用",
+            Self::RuleDisabled => "规则禁用",
+            Self::DailyLossLockTriggered => "日亏损锁触发",
+            Self::BuyLockReleased => "买入锁释放",
+            Self::BuyLockCleared => "买入锁清除",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RiskLogEvent {
+    pub ts: DateTime<Utc>,
+    pub event_type: RiskLogEventType,
+    pub trading_date: Option<NaiveDate>,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +203,12 @@ pub struct RiskStatus {
     pub daily_pnl: Decimal,
     pub daily_pnl_pct: Decimal,
     pub buy_locked: bool,
+    pub manual_release_active: bool,
+    pub lock_state_source: RiskLockStateSource,
     pub lock_reason: Option<String>,
+    pub lock_trigger_reason: Option<String>,
+    pub lock_triggered_at: Option<DateTime<Utc>>,
+    pub lock_effective_trading_date: Option<NaiveDate>,
     pub position_ratios: Vec<PositionRiskRow>,
     pub rules: Vec<RiskRuleSnapshot>,
 }

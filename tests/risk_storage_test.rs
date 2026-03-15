@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use quantix_cli::risk::{
-    BuyLockState, DailyRiskBaseline, JsonRiskStore, RiskRule, RiskRuleType, RiskState, RiskStore,
-    RuleValue,
+    BuyLockState, DailyRiskBaseline, JsonRiskStore, RiskLogEvent, RiskLogEventType, RiskRule,
+    RiskRuleType, RiskState, RiskStore, RuleValue,
 };
 use rust_decimal_macros::dec;
 use std::fs;
@@ -41,7 +41,14 @@ fn configured_state() -> RiskState {
             reason: Some("daily-loss-limit 50000 已触发".to_string()),
             triggered_at: Some(ts),
             trading_date: Some(ts.date_naive()),
+            released_for_date: None,
         },
+        events: vec![RiskLogEvent {
+            ts,
+            event_type: RiskLogEventType::DailyLossLockTriggered,
+            trading_date: Some(ts.date_naive()),
+            detail: "daily-loss-limit 50000 已触发".to_string(),
+        }],
     }
 }
 

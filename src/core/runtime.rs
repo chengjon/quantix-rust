@@ -115,7 +115,9 @@ fn resolve_risk_path() -> PathBuf {
             .join("risk_state.json");
     }
 
-    PathBuf::from(".quantix").join("risk").join("risk_state.json")
+    PathBuf::from(".quantix")
+        .join("risk")
+        .join("risk_state.json")
 }
 
 #[cfg(test)]

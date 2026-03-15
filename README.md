@@ -214,6 +214,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 仅支持一次性 `watchlist --once` 扫描和终端输出
   - 复用现有自选池加载与 TDX 行情查询链路
   - `--refresh / --repeat / 系统通知延后到后续 Phase`
+
 #### Phase 25: 止盈止损 ✅
 - **止盈止损命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/stop/*`)
   - `quantix stop set 000001 --loss 14.5` - 为自选池代码设置固定止损价
@@ -245,6 +246,33 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 仅支持单账户、本地 JSON 持久化、立即成交的限价买卖
   - 手续费参数仅通过 `trade init/reset` 配置
   - trade history / trade overview / trade fees / --current 延后到后续 Phase
+
+#### Phase 27: 风险管理 ✅
+- **风控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/risk/*`)
+  - `quantix risk rule set --type position-limit --value 20%` - 设置单票仓位上限
+  - `quantix risk rule set --type daily-loss-limit --value 50000` - 设置日亏损金额阈值
+  - `quantix risk rule set --type daily-loss-limit --value 5%` - 设置日亏损比例阈值
+  - `quantix risk rule list` - 查看当前风控规则
+  - `quantix risk rule enable --type position-limit` - 启用指定规则
+  - `quantix risk rule disable --type daily-loss-limit` - 禁用指定规则
+  - `quantix risk status` - 查看当前纸面账户风控状态
+  - `quantix risk pnl` - 查看当前当日盈亏快照
+  - `quantix risk position` - 查看当前持仓风险分布
+  - `quantix risk log` - 查看最近风控事件
+  - `quantix risk lock release` - 手动释放当前交易日买入锁
+- **JSON 持久化** (`src/risk/storage.rs`)
+  - 默认路径 `~/.quantix/risk/risk_state.json`
+  - 可通过 `QUANTIX_RISK_PATH` 覆盖
+- **P0 约束**
+  - 仅支持本地 paper-trade 账户，不覆盖实盘账户导入/监控
+  - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交，`trade init/reset` 会清除当日买入锁但保留已配置规则
+  - 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
+  - `risk status` 会额外显示锁状态来源、作用交易日、触发原因、触发时间，便于区分真实锁定与同日手动释放生效
+  - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件，不记录每次买入拒单
+  - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
+  - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
+  - `实盘导入 / 波动率和行业规则 / 自动减仓` 延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
@@ -511,6 +539,7 @@ export TDX_PORT=7709
 
 # 自选池 JSON 存储路径（可选）
 export QUANTIX_WATCHLIST_PATH="$HOME/.quantix/watchlist/watchlist.json"
+export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
 ```
 
 ### 运行测试
@@ -567,6 +596,25 @@ quantix analyze screener run \
   --sort-by score \
   --limit 20
 ```
+
+### 市场分析 CLI
+
+```bash
+# 查看行业和概念板块
+quantix market sector --top 10
+quantix market concept --date 2026-03-09
+
+# 查看北向资金和市场情绪
+quantix market north --date 2026-03-09
+quantix market sentiment
+
+# 查看龙头股和综合概览
+quantix market leader --sector 银行 --limit 5
+quantix market overview --top 5
+```
+
+- 当前只文档化已经实现的 Phase 23 P0 行为。
+- 历史/详情/实时功能延后到后续 Phase。
 
 ### 回测示例
 
