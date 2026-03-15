@@ -22,6 +22,7 @@ pub mod monitor;
 pub mod monitoring;
 pub mod screener;
 pub mod sources;
+pub mod stop;
 pub mod strategy;
 pub mod sync;
 pub mod tasks;

@@ -214,6 +214,21 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 仅支持一次性 `watchlist --once` 扫描和终端输出
   - 复用现有自选池加载与 TDX 行情查询链路
   - `--refresh / --repeat / 系统通知延后到后续 Phase`
+#### Phase 25: 止盈止损 ✅
+- **止盈止损命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/stop/*`)
+  - `quantix stop set 000001 --loss 14.5` - 为自选池代码设置固定止损价
+  - `quantix stop set 000001 --profit 18.0` - 为自选池代码设置固定止盈价
+  - `quantix stop set 000001 --trailing 5 --profit 18.0` - 为自选池代码设置跟踪止损并可叠加止盈价
+  - `quantix stop list` - 查看当前有效规则
+  - `quantix stop remove 000001` - 删除指定代码的规则
+- **复用监控 SQLite** (`src/monitor/storage.rs`, `src/stop/storage.rs`)
+  - 默认路径 `~/.quantix/monitor/alerts.db`
+  - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
+- **P0 约束**
+  - 仅允许对已在本地自选池中的股票设置规则
+  - 每个代码只保留一条有效规则，重复 `stop set` 会整条覆盖旧规则
+  - quantix monitor watchlist --once 会在监控快照阶段继续评估止盈止损规则
+  - `stop status / stop history / stop update / 百分比止损止盈参数延后到后续 Phase`
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑

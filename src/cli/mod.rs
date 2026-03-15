@@ -51,6 +51,10 @@ pub enum Commands {
     #[command(subcommand)]
     Monitor(MonitorCommands),
 
+    /// 止盈止损命令
+    #[command(subcommand)]
+    Stop(StopCommands),
+
     /// 自选池命令
     #[command(subcommand)]
     Watchlist(WatchlistCommands),
@@ -271,6 +275,42 @@ pub enum MonitorAlertCommands {
     Remove {
         /// 告警 ID
         id: u64,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StopCommands {
+    /// 设置止盈止损规则
+    #[command(group(
+        ArgGroup::new("stop_rule_threshold")
+            .args(["loss", "profit", "trailing"])
+            .required(true)
+            .multiple(true)
+    ))]
+    Set {
+        /// 股票代码
+        code: String,
+
+        /// 固定止损价
+        #[arg(long, conflicts_with = "trailing")]
+        loss: Option<f64>,
+
+        /// 固定止盈价
+        #[arg(long)]
+        profit: Option<f64>,
+
+        /// 跟踪止损百分比
+        #[arg(long, conflicts_with = "loss")]
+        trailing: Option<f64>,
+    },
+
+    /// 列出止盈止损规则
+    List,
+
+    /// 删除止盈止损规则
+    Remove {
+        /// 股票代码
+        code: String,
     },
 }
 
@@ -499,6 +539,9 @@ impl Cli {
             }
             Commands::Monitor(cmd) => {
                 handlers::run_monitor_command(cmd).await?;
+            }
+            Commands::Stop(cmd) => {
+                handlers::run_stop_command(cmd).await?;
             }
             Commands::Watchlist(cmd) => {
                 handlers::run_watchlist_command(cmd).await?;
@@ -816,6 +859,143 @@ mod tests {
 
         assert_eq!(err.kind(), ErrorKind::ValueValidation);
         assert!(err.to_string().contains("not-a-number"));
+    }
+
+    #[test]
+    fn parses_stop_set_command_with_loss() {
+        let cli =
+            Cli::try_parse_from(["quantix", "stop", "set", "000001", "--loss", "14.5"]).unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::Set {
+                code,
+                loss,
+                profit,
+                trailing,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(loss, Some(14.5));
+                assert_eq!(profit, None);
+                assert_eq!(trailing, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_set_command_with_profit() {
+        let cli =
+            Cli::try_parse_from(["quantix", "stop", "set", "000001", "--profit", "18.0"]).unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::Set {
+                code,
+                loss,
+                profit,
+                trailing,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(loss, None);
+                assert_eq!(profit, Some(18.0));
+                assert_eq!(trailing, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_set_command_with_loss_and_profit() {
+        let cli = Cli::try_parse_from([
+            "quantix", "stop", "set", "000001", "--loss", "14.5", "--profit", "18.0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::Set {
+                code,
+                loss,
+                profit,
+                trailing,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(loss, Some(14.5));
+                assert_eq!(profit, Some(18.0));
+                assert_eq!(trailing, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_set_command_with_trailing() {
+        let cli =
+            Cli::try_parse_from(["quantix", "stop", "set", "000001", "--trailing", "5"]).unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::Set {
+                code,
+                loss,
+                profit,
+                trailing,
+            }) => {
+                assert_eq!(code, "000001");
+                assert_eq!(loss, None);
+                assert_eq!(profit, None);
+                assert_eq!(trailing, Some(5.0));
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_list_command() {
+        let cli = Cli::try_parse_from(["quantix", "stop", "list"]).unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::List) => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_remove_command() {
+        let cli = Cli::try_parse_from(["quantix", "stop", "remove", "000001"]).unwrap();
+
+        match cli.command {
+            Commands::Stop(StopCommands::Remove { code }) => {
+                assert_eq!(code, "000001");
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parses_stop_set_rejects_missing_thresholds() {
+        let err = Cli::try_parse_from(["quantix", "stop", "set", "000001"]).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        assert!(err.to_string().contains("--loss"));
+        assert!(err.to_string().contains("--profit"));
+        assert!(err.to_string().contains("--trailing"));
+    }
+
+    #[test]
+    fn parses_stop_set_rejects_loss_and_trailing_together() {
+        let err = Cli::try_parse_from([
+            "quantix",
+            "stop",
+            "set",
+            "000001",
+            "--loss",
+            "14.5",
+            "--trailing",
+            "5",
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+        assert!(err.to_string().contains("--loss"));
+        assert!(err.to_string().contains("--trailing"));
     }
 
     #[test]
