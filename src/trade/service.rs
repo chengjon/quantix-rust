@@ -187,6 +187,10 @@ where
         })
     }
 
+    pub async fn state_snapshot(&self) -> Result<PaperTradeState> {
+        self.load_initialized_state().await
+    }
+
     async fn load_initialized_state(&self) -> Result<PaperTradeState> {
         let state = self.store.load_state().await?.unwrap_or_default();
         if state.account.is_none() {

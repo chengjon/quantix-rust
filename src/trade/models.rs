@@ -138,6 +138,65 @@ pub struct CashSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TradeHistoryRow {
+    pub executed_at: DateTime<Utc>,
+    pub code: String,
+    pub side: TradeSide,
+    pub price: Decimal,
+    pub volume: i64,
+    pub amount: Decimal,
+    pub total_fee: Decimal,
+    pub net_cash_impact: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TradeFeeRow {
+    pub executed_at: DateTime<Utc>,
+    pub code: String,
+    pub side: TradeSide,
+    pub commission: Decimal,
+    pub stamp_duty: Decimal,
+    pub transfer_fee: Decimal,
+    pub total_fee: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TradeOverview {
+    pub initial_capital: Decimal,
+    pub available_cash: Decimal,
+    pub booked_position_value: Decimal,
+    pub booked_total_assets: Decimal,
+    pub trade_count: usize,
+    pub holding_count: usize,
+    pub total_buy_amount: Decimal,
+    pub total_sell_amount: Decimal,
+    pub total_fee: Decimal,
+    pub live_position_value: Option<Decimal>,
+    pub live_total_assets: Option<Decimal>,
+    pub quote_coverage: Option<(usize, usize)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TradeQuoteStatus {
+    BookOnly,
+    Live,
+    Missing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TradePositionCurrentRow {
+    pub code: String,
+    pub volume: i64,
+    pub avg_cost: Decimal,
+    pub last_trade_price: Decimal,
+    pub current_price: Option<Decimal>,
+    pub current_market_value: Option<Decimal>,
+    pub unrealized_pnl: Option<Decimal>,
+    pub unrealized_pnl_pct: Option<Decimal>,
+    pub quote_status: TradeQuoteStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InitAccountRequest {
     pub capital: Decimal,
     pub fee_config: FeeConfig,

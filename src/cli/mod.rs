@@ -638,8 +638,33 @@ pub enum TradeCommands {
         volume: i64,
     },
 
+    /// 查看成交历史
+    History {
+        #[arg(long)]
+        code: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+    },
+
+    /// 查看费用明细
+    Fees {
+        #[arg(long)]
+        code: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+    },
+
+    /// 查看账户概览
+    Overview {
+        #[arg(long)]
+        current: bool,
+    },
+
     /// 查看当前持仓
-    Position,
+    Position {
+        #[arg(long)]
+        current: bool,
+    },
 
     /// 查看当前现金快照
     Cash,

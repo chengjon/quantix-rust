@@ -84,9 +84,89 @@ fn parses_trade() {
         other => panic!("unexpected command: {:?}", other),
     }
 
+    let cli = Cli::try_parse_from(["quantix", "trade", "history"]).unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::History { code, limit }) => {
+            assert_eq!(code, None);
+            assert_eq!(limit, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "trade",
+        "history",
+        "--code",
+        "000001",
+        "--limit",
+        "5",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::History { code, limit }) => {
+            assert_eq!(code, Some("000001".to_string()));
+            assert_eq!(limit, Some(5));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "trade", "fees"]).unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::Fees { code, limit }) => {
+            assert_eq!(code, None);
+            assert_eq!(limit, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "trade",
+        "fees",
+        "--code",
+        "600000",
+        "--limit",
+        "10",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::Fees { code, limit }) => {
+            assert_eq!(code, Some("600000".to_string()));
+            assert_eq!(limit, Some(10));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "trade", "overview"]).unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::Overview { current }) => {
+            assert!(!current);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "trade", "overview", "--current"]).unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::Overview { current }) => {
+            assert!(current);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
     let cli = Cli::try_parse_from(["quantix", "trade", "position"]).unwrap();
     match cli.command {
-        Commands::Trade(TradeCommands::Position) => {}
+        Commands::Trade(TradeCommands::Position { current }) => {
+            assert!(!current);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "trade", "position", "--current"]).unwrap();
+    match cli.command {
+        Commands::Trade(TradeCommands::Position { current }) => {
+            assert!(current);
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 

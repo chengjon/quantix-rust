@@ -237,7 +237,11 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix trade reset [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]` - 重置默认模拟账户
   - `quantix trade buy <CODE> --price <PRICE> --volume <N>` - 按输入价立即成交买入
   - `quantix trade sell <CODE> --price <PRICE> --volume <N>` - 按输入价立即成交卖出
-  - `quantix trade position` - 查看当前持仓
+  - `quantix trade history [--code <CODE>] [--limit <N>]` - 查看成交历史
+  - `quantix trade fees [--code <CODE>] [--limit <N>]` - 查看费用明细
+  - `quantix trade overview [--current]` - 查看账户概览
+  - `quantix trade position [--current]` - 查看当前持仓，可选实时估值
+  - `quantix trade position --current` - 使用 best-effort 实时行情查看当前估值
   - `quantix trade cash` - 查看现金与资产快照
 - **JSON 持久化** (`src/trade/storage.rs`)
   - 默认路径 `~/.quantix/trade/paper_trade.json`
@@ -245,7 +249,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **P0 约束**
   - 仅支持单账户、本地 JSON 持久化、立即成交的限价买卖
   - 手续费参数仅通过 `trade init/reset` 配置
-  - trade history / trade overview / trade fees / --current 延后到后续 Phase
+  - `--current` 复用 best-effort 实时行情查询；实时价格获取失败时降级为空，不让命令整体失败
 
 #### Phase 27: 风险管理 ✅
 - **风控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/risk/*`)
