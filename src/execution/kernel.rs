@@ -80,6 +80,26 @@ where
         request: ExecutionRunRequest,
         envelope: SignalEnvelope,
     ) -> Result<KernelExecutionResult> {
+        if let Some(existing_run) = self
+            .store
+            .find_run_by_dedupe_key(
+                &request.strategy_name,
+                &request.mode,
+                &request.symbol,
+                &request.timeframe,
+                request.bar_end,
+            )
+            .await?
+        {
+            let existing_order = self.store.find_first_order_for_run(&existing_run.run_id).await?;
+            return Ok(KernelExecutionResult {
+                run_id: existing_run.run_id,
+                signal: envelope.signal,
+                order_status: existing_order.as_ref().map(|order| order.status),
+                client_order_id: existing_order.map(|order| order.client_order_id),
+            });
+        }
+
         let now = Utc::now();
         self.store
             .insert_run(&StrategyRunRecord {

@@ -218,6 +218,43 @@ INSERT INTO strategy_runs (
         Ok(())
     }
 
+    pub async fn find_run_by_dedupe_key(
+        &self,
+        strategy_name: &str,
+        mode: &str,
+        symbol: &str,
+        timeframe: &str,
+        bar_end: DateTime<Utc>,
+    ) -> Result<Option<StrategyRunRecord>> {
+        let row = sqlx::query(
+            r#"
+SELECT
+    run_id,
+    strategy_name,
+    mode,
+    trigger_type,
+    status,
+    symbol,
+    timeframe,
+    bar_end,
+    started_at,
+    finished_at,
+    metadata_json
+FROM strategy_runs
+WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ? AND bar_end = ?
+"#,
+        )
+        .bind(strategy_name)
+        .bind(mode)
+        .bind(symbol)
+        .bind(timeframe)
+        .bind(bar_end.to_rfc3339())
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(Self::row_to_run).transpose()
+    }
+
     pub async fn insert_signal_event(&self, event: &SignalEventRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -340,6 +377,38 @@ WHERE client_order_id = ?
 "#,
         )
         .bind(client_order_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(Self::row_to_order).transpose()
+    }
+
+    pub async fn find_first_order_for_run(&self, run_id: &str) -> Result<Option<OrderRecord>> {
+        let row = sqlx::query(
+            r#"
+SELECT
+    order_id,
+    client_order_id,
+    run_id,
+    symbol,
+    side,
+    order_type,
+    requested_quantity,
+    requested_price,
+    filled_quantity,
+    avg_fill_price,
+    status,
+    adapter,
+    created_at,
+    updated_at,
+    payload_json
+FROM orders
+WHERE run_id = ?
+ORDER BY created_at ASC, order_id ASC
+LIMIT 1
+"#,
+        )
+        .bind(run_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -494,6 +563,10 @@ ORDER BY event_time ASC, event_id ASC
         self.count_table_rows("orders").await
     }
 
+    pub async fn count_signal_events(&self) -> Result<i64> {
+        self.count_table_rows("signal_events").await
+    }
+
     async fn count_table_rows(&self, table_name: &str) -> Result<i64> {
         let sql = format!("SELECT COUNT(1) FROM {table_name}");
         Ok(sqlx::query_scalar::<_, i64>(&sql)
@@ -532,6 +605,30 @@ ORDER BY event_time ASC, event_id ASC
             created_at: parse_timestamp(&created_at)?,
             updated_at: parse_timestamp(&updated_at)?,
             payload_json: serde_json::from_str(&payload_json)?,
+        })
+    }
+
+    fn row_to_run(row: SqliteRow) -> Result<StrategyRunRecord> {
+        let status: String = row.try_get("status")?;
+        let bar_end: String = row.try_get("bar_end")?;
+        let started_at: String = row.try_get("started_at")?;
+        let finished_at: Option<String> = row.try_get("finished_at")?;
+        let metadata_json: String = row.try_get("metadata_json")?;
+
+        Ok(StrategyRunRecord {
+            run_id: row.try_get("run_id")?,
+            strategy_name: row.try_get("strategy_name")?,
+            mode: row.try_get("mode")?,
+            trigger: row.try_get("trigger_type")?,
+            status: StrategyRunStatus::from_str(&status).ok_or_else(|| {
+                QuantixError::DataParse(format!("invalid strategy run status: {status}"))
+            })?,
+            symbol: row.try_get("symbol")?,
+            timeframe: row.try_get("timeframe")?,
+            bar_end: parse_timestamp(&bar_end)?,
+            started_at: parse_timestamp(&started_at)?,
+            finished_at: finished_at.as_deref().map(parse_timestamp).transpose()?,
+            metadata_json: serde_json::from_str(&metadata_json)?,
         })
     }
 
