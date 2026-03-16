@@ -11,6 +11,16 @@ pub trait StrategyBarLoader: Send + Sync {
     async fn load_daily_bars(&self, code: &str, limit: usize) -> Result<Vec<Kline>>;
 }
 
+#[async_trait]
+impl<T> StrategyBarLoader for &T
+where
+    T: StrategyBarLoader + Send + Sync,
+{
+    async fn load_daily_bars(&self, code: &str, limit: usize) -> Result<Vec<Kline>> {
+        (*self).load_daily_bars(code, limit).await
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StrategyRuntime<L> {
     loader: L,

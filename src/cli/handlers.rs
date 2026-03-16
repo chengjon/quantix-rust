@@ -12,6 +12,12 @@ use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// 实现各个子命令的处理逻辑
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
+use crate::execution::kernel::{
+    ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RiskDecision, RiskEvaluator,
+};
+use crate::execution::models::{ExecutionPolicy, OrderIntent, OrderStatus};
+use crate::execution::paper::PaperExecutionAdapter;
+use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::market::{
     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
     MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
@@ -32,6 +38,8 @@ use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
+use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
+use crate::strategy::trait_def::Signal;
 use crate::stop::{
     SqliteStopRuleStore, StopRule, StopRuleStore, StopService, StopTriggerKind, TriggeredStop,
 };
@@ -320,6 +328,207 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StrategyRunSummary {
+    run_id: String,
+    strategy_name: String,
+    mode: String,
+    symbol: String,
+    signal: Signal,
+    order_status: Option<OrderStatus>,
+    message: String,
+}
+
+#[derive(Debug, Clone)]
+struct StrategyRiskBridge<TradeStore, RiskStore> {
+    trade_store: TradeStore,
+    risk_service: RiskService<RiskStore>,
+}
+
+impl<TradeStore, RiskStore> StrategyRiskBridge<TradeStore, RiskStore> {
+    fn new(trade_store: TradeStore, risk_service: RiskService<RiskStore>) -> Self {
+        Self {
+            trade_store,
+            risk_service,
+        }
+    }
+}
+
+#[async_trait]
+impl<TradeStore, RiskStore> RiskEvaluator for StrategyRiskBridge<TradeStore, RiskStore>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
+        if intent.side == crate::execution::models::OrderSide::Sell {
+            return Ok(RiskDecision::Allow);
+        }
+
+        let account = load_initialized_trade_account(&self.trade_store).await?;
+        let snapshot = build_risk_account_snapshot(&account);
+        let request = TradeOrderRequest::new(
+            intent.symbol.clone(),
+            decimal_to_f64(intent.requested_price, "strategy run --mode paper")?,
+            intent.requested_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode paper"))?;
+        let projected_buy = build_projected_buy_impact(&account, &request);
+
+        match self
+            .risk_service
+            .check_buy(&snapshot, &projected_buy, Utc::now())
+            .await
+        {
+            Ok(()) => Ok(RiskDecision::Allow),
+            Err(QuantixError::Other(reason)) => Ok(RiskDecision::Reject { reason }),
+            Err(other) => Err(other),
+        }
+    }
+
+    async fn sync_after_fill(&self) -> Result<()> {
+        sync_risk_from_trade_store(&self.trade_store, &self.risk_service).await
+    }
+}
+
+async fn execute_strategy_run_with_components<L, TS, RS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_store: RS,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore + Clone,
+{
+    match mode {
+        "live" => {
+            return Err(QuantixError::Unsupported(
+                "strategy live 模式尚未实现".to_string(),
+            ));
+        }
+        "paper" => {}
+        other => {
+            return Err(QuantixError::Unsupported(format!(
+                "strategy {other} 模式尚未实现"
+            )));
+        }
+    }
+
+    if name != "ma_cross" {
+        return Err(QuantixError::Other(format!("未知策略: {name}")));
+    }
+
+    let symbol = code.ok_or_else(|| {
+        QuantixError::Other("strategy run --mode paper 需要显式指定 --code".to_string())
+    })?;
+
+    let account = load_initialized_trade_account(&trade_store).await?;
+    let held_volume = account.positions.get(&symbol).map(|position| position.volume);
+
+    let bars = loader.load_daily_bars(&symbol, 10_000).await?;
+    let latest_bar = bars
+        .last()
+        .cloned()
+        .ok_or_else(|| QuantixError::Other(format!("strategy paper 未找到 {} 的日线数据", symbol)))?;
+    let bar_end = DateTime::<Utc>::from_naive_utc_and_offset(
+        latest_bar.date.and_hms_opt(15, 0, 0).unwrap(),
+        Utc,
+    );
+
+    let runtime = StrategyRuntime::new(&loader);
+    let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;
+
+    let trade_service = TradeService::new(trade_store.clone());
+    let adapter = PaperExecutionAdapter::new(trade_service);
+    let risk_service = RiskService::new(risk_store.clone());
+    let risk = StrategyRiskBridge::new(trade_store, risk_service);
+    let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
+
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let client_order_id = format!("{run_id}_{symbol}_1");
+    let result = kernel
+        .execute_once(
+            ExecutionRunRequest {
+                run_id: run_id.clone(),
+                strategy_name: name.to_string(),
+                mode: mode.to_string(),
+                trigger: "once".to_string(),
+                symbol: symbol.clone(),
+                timeframe: "1d".to_string(),
+                bar_end,
+                market_price: latest_bar.close,
+                held_volume,
+                policy: ExecutionPolicy {
+                    fixed_cash_per_buy: dec!(10000),
+                    slippage_bps: 0,
+                },
+                client_order_id,
+            },
+            envelope.clone(),
+        )
+        .await?;
+
+    Ok(build_strategy_run_summary(
+        name,
+        mode,
+        &symbol,
+        result,
+        envelope.signal,
+    ))
+}
+
+fn build_strategy_run_summary(
+    strategy_name: &str,
+    mode: &str,
+    symbol: &str,
+    result: KernelExecutionResult,
+    signal: Signal,
+) -> StrategyRunSummary {
+    let message = match result.order_status {
+        Some(status) => format!("signal={} order_status={}", signal_label(signal), order_status_label(status)),
+        None => format!("signal={} no_order", signal_label(signal)),
+    };
+
+    StrategyRunSummary {
+        run_id: result.run_id,
+        strategy_name: strategy_name.to_string(),
+        mode: mode.to_string(),
+        symbol: symbol.to_string(),
+        signal,
+        order_status: result.order_status,
+        message,
+    }
+}
+
+fn signal_label(signal: Signal) -> &'static str {
+    match signal {
+        Signal::Buy => "buy",
+        Signal::Sell => "sell",
+        Signal::Hold => "hold",
+    }
+}
+
+fn order_status_label(status: OrderStatus) -> &'static str {
+    status.as_str()
+}
+
+fn print_strategy_run_summary(summary: &StrategyRunSummary) {
+    println!("🧾 运行 ID: {}", summary.run_id);
+    println!("  策略: {}", summary.strategy_name);
+    println!("  模式: {}", summary.mode);
+    println!("  代码: {}", summary.symbol);
+    println!("  信号: {}", signal_label(summary.signal));
+    if let Some(status) = summary.order_status {
+        println!("  订单状态: {}", order_status_label(status));
+    }
+    println!("  结果: {}", summary.message);
+}
+
 /// 运行策略
 async fn run_strategy(name: String, mode: String, code: Option<String>) -> Result<()> {
     println!("🎯 运行策略: {} ({})", name, mode);
@@ -331,8 +540,22 @@ async fn run_strategy(name: String, mode: String, code: Option<String>) -> Resul
         "ma_cross" => {
             if mode == "backtest" {
                 run_ma_cross_backtest(code).await?;
+            } else if mode == "paper" || mode == "live" {
+                let runtime = CliRuntime::load();
+                let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+                let summary = execute_strategy_run_with_components(
+                    &name,
+                    &mode,
+                    code,
+                    ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+                    create_trade_store(),
+                    create_risk_store(),
+                    &runtime_store,
+                )
+                .await?;
+                print_strategy_run_summary(&summary);
             } else {
-                println!("⚠️  暂不支持实时模式");
+                println!("⚠️  暂不支持该运行模式");
             }
         }
         _ => {
@@ -1283,6 +1506,14 @@ fn build_trade_order_request(
 ) -> Result<TradeOrderRequest> {
     TradeOrderRequest::new(code, price, volume)
         .map_err(|err| remap_trade_request_error(err, command_name))
+}
+
+fn decimal_to_f64(value: Decimal, command_name: &str) -> Result<f64> {
+    value.to_f64().ok_or_else(|| {
+        QuantixError::Other(format!(
+            "{command_name} 无法将价格 {value} 转换为 f64"
+        ))
+    })
 }
 
 fn remap_trade_request_error(err: QuantixError, command_name: &str) -> QuantixError {
@@ -2402,6 +2633,21 @@ impl DailyKlineLoader for ClickHouseDailyKlineLoader {
     }
 }
 
+#[async_trait]
+impl StrategyBarLoader for ClickHouseDailyKlineLoader {
+    async fn load_daily_bars(
+        &self,
+        code: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let mut rows = self.client.get_kline_data(code, "1d", None, None, None).await?;
+        if rows.len() > limit {
+            rows = rows[rows.len() - limit..].to_vec();
+        }
+        Ok(rows)
+    }
+}
+
 struct NullDailyKlineLoader;
 
 #[async_trait]
@@ -3047,8 +3293,12 @@ mod tests {
         TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
+    use crate::strategy::runtime::StrategyBarLoader;
     use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
-    use crate::trade::{PaperTradeState, PaperTradeStore, TradeService, TradeSide};
+    use crate::trade::{
+        JsonPaperTradeStore, PaperTradeState, PaperTradeStore, TradeService, TradeSide,
+    };
+    use crate::{execution::runtime_store::StrategyRuntimeStore, risk::JsonRiskStore};
     use crate::watchlist::{WatchlistListItem, WatchlistQuoteLookup, WatchlistQuoteSnapshot};
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
@@ -3215,6 +3465,91 @@ mod tests {
             }
             Ok(rows)
         }
+    }
+
+    #[async_trait]
+    impl StrategyBarLoader for FakeLoader {
+        async fn load_daily_bars(&self, code: &str, limit: usize) -> crate::core::Result<Vec<Kline>> {
+            let mut rows = self.data.get(code).cloned().unwrap_or_default();
+            if rows.len() > limit {
+                rows = rows[rows.len() - limit..].to_vec();
+            }
+            Ok(rows)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_requires_explicit_code() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            None,
+            FakeLoader::default(),
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("--code"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_requires_initialized_account() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                (1..=30)
+                    .map(|day| make_kline("000001", day, dec!(10) + Decimal::from(day), 1000))
+                    .collect(),
+            )]),
+        };
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            Some("000001".to_string()),
+            loader,
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("trade init"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_live_remains_unsupported() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "live",
+            Some("000001".to_string()),
+            FakeLoader::default(),
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 
     #[tokio::test]
