@@ -57,11 +57,19 @@ fn readme_documents_phase24_monitor_boundary() {
     for expected in [
         "Phase 24: 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add 000001 --above 16.0",
         "quantix monitor alert add 000001 --below 15.0",
+        "quantix monitor config show",
+        "quantix monitor daemon run",
+        "quantix monitor service install",
+        "quantix monitor event list",
         "QUANTIX_MONITOR_DB_PATH",
         "~/.quantix/monitor/alerts.db",
-        "--refresh / --repeat / 系统通知延后到后续 Phase",
+        "QUANTIX_MONITOR_CONFIG_PATH",
+        "~/.quantix/monitor/config.json",
+        "systemd --user",
+        "系统通知延后到后续 Phase",
     ] {
         assert!(
             contents.contains(expected),
@@ -144,12 +152,20 @@ fn user_manual_documents_phase24_monitor_commands() {
     for expected in [
         "### monitor - 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)",
         "quantix monitor alert list",
         "quantix monitor alert remove <ID>",
+        "quantix monitor config show",
+        "quantix monitor daemon run",
+        "quantix monitor service install",
+        "quantix monitor event list",
         "QUANTIX_MONITOR_DB_PATH",
         "~/.quantix/monitor/alerts.db",
-        "--refresh`、`--repeat`、系统通知延后到后续 Phase",
+        "QUANTIX_MONITOR_CONFIG_PATH",
+        "~/.quantix/monitor/config.json",
+        "systemd --user",
+        "系统通知延后到后续 Phase",
     ] {
         assert!(
             contents.contains(expected),
