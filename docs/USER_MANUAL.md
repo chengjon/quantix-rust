@@ -956,13 +956,22 @@ quantix market overview --top 5
 - 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
 - `watchlist --repeat`、`daemon run`、`service` 命令共享同一份 monitor 配置
 
+#### Service 配置路径
+
+- 默认路径：`~/.quantix/monitor/service.json`
+- service wrapper 路径：`~/.local/bin/quantix-monitor-run`
+- `service install` 会从 `service.json` 读取稳定的 `quantix` 二进制绝对路径
+
 #### P0 范围
 
 - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run`
 - 支持 `systemd --user` 用户服务的安装、启停、状态查看、自启开关
+- 支持 `service-config show` / `service-config set --quantix-bin`
 - 支持价格阈值告警的添加、列表、删除，以及业务事件历史查看
 - 业务事件历史只记录价格告警命中和 stop 触发，不记录服务生命周期日志
 - 当前后台服务能力面向 WSL2/Linux 的 `systemd --user`
+- `service install` 要求 `service.json` 中的 `quantix` 路径存在且可执行
+- `service uninstall` 会要求先执行 `service stop`
 - `--refresh`、系统通知延后到后续 Phase
 
 #### 命令摘要
@@ -986,6 +995,8 @@ quantix monitor service stop
 quantix monitor service status
 quantix monitor service enable
 quantix monitor service disable
+quantix monitor service-config show
+quantix monitor service-config set --quantix-bin /absolute/path/to/quantix
 quantix monitor event list [--limit <N>] [--code <CODE>] [--type <TYPE>]
 ```
 
@@ -996,6 +1007,7 @@ quantix monitor event list [--limit <N>] [--code <CODE>] [--type <TYPE>]
 - `config set` 每次只允许修改一个字段
 - `event list` 默认返回最近 20 条业务事件
 - `service` 命令调用 `systemctl --user`
+- `service-config set --quantix-bin` 必须传绝对路径
 - 当前只复用现有自选池与 TDX 行情链路，不提供板块/概念监控
 
 #### 常用示例
@@ -1009,6 +1021,7 @@ quantix monitor alert list
 quantix monitor alert remove 1
 quantix monitor config show
 quantix monitor service install
+quantix monitor service-config set --quantix-bin /usr/local/bin/quantix
 quantix monitor event list --limit 10
 ```
 

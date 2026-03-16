@@ -211,6 +211,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix monitor config show` - 查看当前监控配置
   - `quantix monitor daemon run` - 运行 monitor 守护进程
   - `quantix monitor service install` - 安装 `systemd --user` 监控服务
+  - `quantix monitor service-config show` - 查看 monitor service 二进制配置
+  - `quantix monitor service-config set --quantix-bin /abs/path/to/quantix` - 设置稳定的 service 二进制路径
   - `quantix monitor event list` - 查看最近监控业务事件
 - **SQLite 告警持久化** (`src/monitor/storage.rs`)
   - 默认路径 `~/.quantix/monitor/alerts.db`
@@ -218,11 +220,16 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **JSON 配置持久化** (`src/monitor/config.rs`)
   - 默认路径 `~/.quantix/monitor/config.json`
   - 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
+- **Service 配置与包装脚本** (`src/monitor/service_config.rs`, `src/monitor/systemd.rs`)
+  - service 配置路径 `~/.quantix/monitor/service.json`
+  - wrapper 脚本路径 `~/.local/bin/quantix-monitor-run`
 - **P0 约束**
   - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run` 与 `systemd --user` 用户服务
   - 复用现有自选池加载、TDX 行情查询与 stop 规则评估链路
   - 业务事件只持久化价格告警命中与 stop 触发，不持久化服务生命周期日志
   - `systemd --user` 当前面向 WSL2/Linux 用户环境
+  - `service install` 要求先配置稳定的 `quantix` 二进制绝对路径
+  - `service uninstall` 必须先停服务再卸载
   - 系统通知延后到后续 Phase
 
 #### Phase 25: 止盈止损 ✅
