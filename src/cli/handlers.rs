@@ -1,8 +1,8 @@
 use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands,
-    StrategyCommands, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, RiskCommands,
+    RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands, StrategyCommands,
+    TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -17,7 +17,9 @@ use crate::market::{
 };
 use crate::monitor::storage::SqliteMonitorAlertStore;
 use crate::monitor::{
-    MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService, MonitorWatchlistReader,
+    JsonMonitorConfigStore, MonitorAlertStore, MonitorConfig, MonitorEventFilter, MonitorEventRow,
+    MonitorEventType, MonitorIterationOutput, MonitorQuoteReader, MonitorQuoteRow,
+    MonitorRunMode, MonitorRunner, MonitorService, MonitorWatchlistReader,
     MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
 };
 use crate::risk::{
@@ -44,7 +46,7 @@ use crate::watchlist::{
     WatchlistStorage, WatchlistStore,
 };
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
 use rust_decimal::Decimal;
@@ -53,6 +55,7 @@ use rust_decimal_macros::dec;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 mod risk;
 
@@ -648,33 +651,76 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
 }
 
 pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
-    let watchlist_reader = ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
-    let quote_reader = TdxMonitorQuoteReader;
-    let alert_store = create_monitor_alert_store().await?;
-    let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
-    let output = match cmd {
-        MonitorCommands::Watchlist { once, repeat } => {
-            let stop_store = create_stop_rule_store().await?;
-            execute_monitor_command_with_stop_store(
-                MonitorCommands::Watchlist { once, repeat },
-                &service,
-                &stop_store,
-            )
-            .await?
+    match cmd {
+        MonitorCommands::Watchlist {
+            once: true,
+            repeat: false,
         }
-        other => execute_monitor_command_with_service(other, &service).await?,
-    };
+        | MonitorCommands::Alert(_) => {
+            let watchlist_reader = ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
+            let quote_reader = TdxMonitorQuoteReader;
+            let alert_store = create_monitor_alert_store().await?;
+            let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
+            let output = match cmd {
+                MonitorCommands::Watchlist { once, repeat } => {
+                    let stop_store = create_stop_rule_store().await?;
+                    execute_monitor_command_with_stop_store(
+                        MonitorCommands::Watchlist { once, repeat },
+                        &service,
+                        &stop_store,
+                    )
+                    .await?
+                }
+                other => execute_monitor_command_with_service(other, &service).await?,
+            };
 
-    if let MonitorCommandOutput::Watchlist {
-        snapshot,
-        triggered_stops: _,
-    } = &output
-    {
-        persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
+            if let MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops: _,
+            } = &output
+            {
+                persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
+            }
+
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Config(config_cmd) => {
+            let runtime = CliRuntime::load();
+            let store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let output = execute_monitor_config_command_with_store(config_cmd, &store)?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Event(event_cmd) => {
+            let store = create_monitor_alert_store().await?;
+            let output = execute_monitor_event_command_with_store(event_cmd, &store).await?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Watchlist {
+            once: false,
+            repeat: true,
+        } => {
+            let runtime = CliRuntime::load();
+            let config_store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let runner = create_configured_monitor_runner().await?;
+            run_monitor_loop(&config_store, &runner, MonitorRunMode::Foreground).await
+        }
+        MonitorCommands::Daemon(MonitorDaemonCommands::Run) => {
+            let runtime = CliRuntime::load();
+            let config_store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let runner = create_configured_monitor_runner().await?;
+            run_monitor_loop(&config_store, &runner, MonitorRunMode::Daemon).await
+        }
+        MonitorCommands::Service(_) => Err(QuantixError::Unsupported(
+            "monitor service 尚未实现".to_string(),
+        )),
+        MonitorCommands::Watchlist { once, repeat } => Err(QuantixError::Other(format!(
+            "invalid monitor watchlist mode: once={}, repeat={}",
+            once, repeat
+        ))),
     }
-
-    print_monitor_command_output(&output);
-    Ok(())
 }
 
 pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
@@ -700,8 +746,14 @@ enum MonitorCommandOutput {
         snapshot: MonitorWatchlistSnapshot,
         triggered_stops: Vec<TriggeredStop>,
     },
+    AutomationIteration {
+        run_mode: MonitorRunMode,
+        output: MonitorIterationOutput,
+    },
     AlertAdded(PriceAlert),
     AlertList(Vec<PriceAlert>),
+    Config(MonitorConfig),
+    EventList(Vec<MonitorEventRow>),
     AlertRemoved {
         id: u64,
         removed: bool,
@@ -1326,6 +1378,19 @@ fn monitor_alert_id_to_i64(id: u64) -> Result<i64> {
     i64::try_from(id).map_err(|_| QuantixError::Other(format!("告警 ID 超出支持范围: {}", id)))
 }
 
+fn parse_monitor_event_type(value: &str) -> Result<MonitorEventType> {
+    match value {
+        "price-alert" => Ok(MonitorEventType::PriceAlert),
+        "stop-loss" => Ok(MonitorEventType::StopLoss),
+        "stop-profit" => Ok(MonitorEventType::StopProfit),
+        "trailing-stop" => Ok(MonitorEventType::TrailingStop),
+        other => Err(QuantixError::Other(format!(
+            "monitor event list 不支持的事件类型: {}",
+            other
+        ))),
+    }
+}
+
 async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
     let runtime = CliRuntime::load();
     SqliteMonitorAlertStore::new(runtime.monitor_db_path).await
@@ -1334,6 +1399,137 @@ async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
 async fn create_stop_rule_store() -> Result<SqliteStopRuleStore> {
     let runtime = CliRuntime::load();
     SqliteStopRuleStore::new(runtime.monitor_db_path).await
+}
+
+async fn create_configured_monitor_runner()
+-> Result<MonitorRunner<ConfiguredMonitorWatchlistReader, TdxMonitorQuoteReader, SqliteStopRuleStore>>
+{
+    let alert_store = create_monitor_alert_store().await?;
+    let stop_store = create_stop_rule_store().await?;
+    Ok(MonitorRunner::new(
+        ConfiguredMonitorWatchlistReader::new(create_watchlist_storage()),
+        TdxMonitorQuoteReader,
+        alert_store,
+        stop_store,
+    ))
+}
+
+fn execute_monitor_config_command_with_store(
+    cmd: MonitorConfigCommands,
+    store: &JsonMonitorConfigStore,
+) -> Result<MonitorCommandOutput> {
+    let mut config = store.load_or_create()?;
+
+    match cmd {
+        MonitorConfigCommands::Show => Ok(MonitorCommandOutput::Config(config)),
+        MonitorConfigCommands::Set {
+            interval_seconds,
+            group,
+            persist_events,
+        } => {
+            if let Some(value) = interval_seconds {
+                config.interval_seconds = value.max(1);
+            }
+            if let Some(value) = group {
+                config.watchlist_group = Some(value);
+            }
+            if let Some(value) = persist_events {
+                config.persist_events = value;
+            }
+
+            store.save(&config)?;
+            Ok(MonitorCommandOutput::Config(config))
+        }
+        MonitorConfigCommands::ClearGroup => {
+            config.watchlist_group = None;
+            store.save(&config)?;
+            Ok(MonitorCommandOutput::Config(config))
+        }
+    }
+}
+
+async fn execute_monitor_event_command_with_store(
+    cmd: MonitorEventCommands,
+    store: &SqliteMonitorAlertStore,
+) -> Result<MonitorCommandOutput> {
+    match cmd {
+        MonitorEventCommands::List {
+            limit,
+            code,
+            event_type,
+        } => Ok(MonitorCommandOutput::EventList(
+            store
+                .list_events(&MonitorEventFilter {
+                    limit,
+                    code,
+                    event_type: event_type
+                        .as_deref()
+                        .map(parse_monitor_event_type)
+                        .transpose()?,
+                })
+                .await?,
+        )),
+    }
+}
+
+async fn execute_monitor_iteration_with_runner<RW, RQ, SS>(
+    cmd: MonitorCommands,
+    config: &MonitorConfig,
+    runner: &MonitorRunner<RW, RQ, SS>,
+    now: DateTime<Utc>,
+) -> Result<MonitorCommandOutput>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    SS: StopRuleStore + Clone,
+{
+    match cmd {
+        MonitorCommands::Watchlist {
+            once: false,
+            repeat: true,
+        } => Ok(MonitorCommandOutput::AutomationIteration {
+            run_mode: MonitorRunMode::Foreground,
+            output: runner.run_once(config, MonitorRunMode::Foreground, now).await?,
+        }),
+        MonitorCommands::Daemon(MonitorDaemonCommands::Run) => {
+            Ok(MonitorCommandOutput::AutomationIteration {
+                run_mode: MonitorRunMode::Daemon,
+                output: runner.run_once(config, MonitorRunMode::Daemon, now).await?,
+            })
+        }
+        other => Err(QuantixError::Unsupported(format!(
+            "monitor iteration helper does not support {:?}",
+            other
+        ))),
+    }
+}
+
+async fn run_monitor_loop<RW, RQ, SS>(
+    config_store: &JsonMonitorConfigStore,
+    runner: &MonitorRunner<RW, RQ, SS>,
+    run_mode: MonitorRunMode,
+) -> Result<()>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    SS: StopRuleStore + Clone,
+{
+    loop {
+        let config = config_store.load_or_create()?;
+        let output = runner.run_once(&config, run_mode, Utc::now()).await?;
+        print_monitor_command_output(&MonitorCommandOutput::AutomationIteration {
+            run_mode,
+            output,
+        });
+
+        let sleep_duration = Duration::from_secs(config.interval_seconds.max(1));
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => break,
+            _ = tokio::time::sleep(sleep_duration) => {}
+        }
+    }
+
+    Ok(())
 }
 
 async fn persist_triggered_monitor_alerts<RS>(
@@ -1762,6 +1958,13 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             snapshot,
             triggered_stops,
         } => print_monitor_watchlist_snapshot(snapshot, triggered_stops),
+        MonitorCommandOutput::AutomationIteration { run_mode: _, output } => {
+            print_monitor_watchlist_snapshot(&output.snapshot, &output.triggered_stops);
+            if !output.new_events.is_empty() {
+                println!();
+                print_monitor_events(&output.new_events);
+            }
+        }
         MonitorCommandOutput::AlertAdded(alert) => println!(
             "✅ 已添加价格告警 #{} {} {} {:.2}",
             alert.id,
@@ -1770,6 +1973,16 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             alert.target_price
         ),
         MonitorCommandOutput::AlertList(alerts) => print_monitor_alerts(alerts),
+        MonitorCommandOutput::Config(config) => {
+            println!("轮询间隔(秒): {}", config.interval_seconds);
+            println!(
+                "分组过滤: {}",
+                config.watchlist_group.as_deref().unwrap_or("-")
+            );
+            println!("持久化事件: {}", config.persist_events);
+            println!("最大历史条数: {}", config.max_event_history);
+        }
+        MonitorCommandOutput::EventList(rows) => print_monitor_events(rows),
         MonitorCommandOutput::AlertRemoved { id, removed } => {
             if *removed {
                 println!("✅ 已删除价格告警 #{}", id);
@@ -1901,10 +2114,53 @@ fn print_monitor_alerts(alerts: &[PriceAlert]) {
     }
 }
 
+fn print_monitor_events(rows: &[MonitorEventRow]) {
+    if rows.is_empty() {
+        println!("📭 暂无监控事件");
+        return;
+    }
+
+    println!(
+        "{:<20} {:<14} {:<8} {:<8} {:<10}",
+        "时间", "类型", "代码", "价格", "模式"
+    );
+    println!("{}", "-".repeat(72));
+
+    for row in rows {
+        println!(
+            "{:<20} {:<14} {:<8} {:<8} {:<10}",
+            row.event_time.format("%Y-%m-%d %H:%M:%S"),
+            format_monitor_event_type(row.event_type),
+            row.code,
+            row.price
+                .map(|value| format!("{value:.2}"))
+                .unwrap_or_else(|| "-".to_string()),
+            format_monitor_run_mode(row.run_mode),
+        );
+        println!("  {}", row.message);
+    }
+}
+
 fn format_monitor_alert_kind(kind: PriceAlertKind) -> &'static str {
     match kind {
         PriceAlertKind::Above => "above",
         PriceAlertKind::Below => "below",
+    }
+}
+
+fn format_monitor_event_type(event_type: MonitorEventType) -> &'static str {
+    match event_type {
+        MonitorEventType::PriceAlert => "price-alert",
+        MonitorEventType::StopLoss => "stop-loss",
+        MonitorEventType::StopProfit => "stop-profit",
+        MonitorEventType::TrailingStop => "trailing-stop",
+    }
+}
+
+fn format_monitor_run_mode(run_mode: MonitorRunMode) -> &'static str {
+    match run_mode {
+        MonitorRunMode::Foreground => "foreground",
+        MonitorRunMode::Daemon => "daemon",
     }
 }
 
@@ -2585,7 +2841,10 @@ pub async fn run_status(health: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{MonitorAlertCommands, MonitorCommands, StopCommands, TradeCommands};
+    use crate::cli::{
+        MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
+        MonitorEventCommands, StopCommands, TradeCommands,
+    };
     use crate::core::QuantixError;
     use crate::core::config::{
         CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
@@ -2596,8 +2855,9 @@ mod tests {
         MarketSentimentSnapshot, NorthFlowSnapshot,
     };
     use crate::monitor::{
-        MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService,
-        MonitorWatchlistReader, PriceAlert, PriceAlertKind, TriggeredAlert,
+        JsonMonitorConfigStore, MonitorAlertStore, MonitorEventType, MonitorQuoteReader,
+        MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService, MonitorWatchlistReader,
+        PriceAlert, PriceAlertKind, SqliteMonitorAlertStore, TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
     use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
@@ -2609,6 +2869,7 @@ mod tests {
     use rust_decimal_macros::dec;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex, OnceLock};
+    use tempfile::tempdir;
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -4393,7 +4654,8 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Other(_)));
-        assert!(err.to_string().contains("仅支持 --once"));
+        assert!(err.to_string().contains("--once"));
+        assert!(err.to_string().contains("--repeat"));
     }
 
     #[tokio::test]
@@ -4865,6 +5127,170 @@ mod tests {
 
         let alerts = store.state.lock().unwrap().alerts.clone();
         assert_eq!(alerts[0].last_triggered_at, Some(monitor_sample_time()));
+    }
+
+    #[test]
+    fn test_execute_monitor_config_show_returns_default_config() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorConfigStore::new(dir.path().join("monitor-config.json"));
+
+        let output =
+            execute_monitor_config_command_with_store(MonitorConfigCommands::Show, &store).unwrap();
+
+        match output {
+            MonitorCommandOutput::Config(config) => {
+                assert_eq!(config.interval_seconds, 30);
+                assert_eq!(config.watchlist_group, None);
+                assert!(config.persist_events);
+                assert_eq!(config.max_event_history, 1000);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_config_set_updates_persisted_values() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorConfigStore::new(dir.path().join("monitor-config.json"));
+
+        let output = execute_monitor_config_command_with_store(
+            MonitorConfigCommands::Set {
+                interval_seconds: Some(15),
+                group: None,
+                persist_events: None,
+            },
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Config(config) => {
+                assert_eq!(config.interval_seconds, 15);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let reloaded = store.load_or_create().unwrap();
+        assert_eq!(reloaded.interval_seconds, 15);
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_event_list_returns_filtered_rows() {
+        let dir = tempdir().unwrap();
+        let store = SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+            .await
+            .unwrap();
+        store
+            .record_event_edge(
+                "price_alert",
+                "price_alert:000001",
+                true,
+                Some(crate::monitor::NewMonitorEvent {
+                    event_time: monitor_sample_time(),
+                    event_type: MonitorEventType::PriceAlert,
+                    code: "000001".to_string(),
+                    price: Some(16.2),
+                    message: "000001 triggered".to_string(),
+                    source_type: "price_alert".to_string(),
+                    source_key: "price_alert:000001".to_string(),
+                    observed_at: Some(monitor_sample_time()),
+                    run_mode: MonitorRunMode::Daemon,
+                }),
+                1000,
+            )
+            .await
+            .unwrap();
+
+        let output = execute_monitor_event_command_with_store(
+            MonitorEventCommands::List {
+                limit: 10,
+                code: Some("000001".to_string()),
+                event_type: Some("price-alert".to_string()),
+            },
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::EventList(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000001");
+                assert_eq!(rows[0].event_type, MonitorEventType::PriceAlert);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_repeat_uses_runner_in_foreground_mode() {
+        let dir = tempdir().unwrap();
+        let runner = MonitorRunner::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.2)],
+            },
+            SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+                .await
+                .unwrap(),
+            FakeStopRuleStore::default(),
+        );
+
+        let output = execute_monitor_iteration_with_runner(
+            MonitorCommands::Watchlist {
+                once: false,
+                repeat: true,
+            },
+            &crate::monitor::MonitorConfig::default(),
+            &runner,
+            monitor_sample_time(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AutomationIteration { run_mode, output } => {
+                assert_eq!(run_mode, MonitorRunMode::Foreground);
+                assert_eq!(output.snapshot.rows.len(), 1);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_daemon_run_uses_runner_in_daemon_mode() {
+        let dir = tempdir().unwrap();
+        let runner = MonitorRunner::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.2)],
+            },
+            SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+                .await
+                .unwrap(),
+            FakeStopRuleStore::default(),
+        );
+
+        let output = execute_monitor_iteration_with_runner(
+            MonitorCommands::Daemon(MonitorDaemonCommands::Run),
+            &crate::monitor::MonitorConfig::default(),
+            &runner,
+            monitor_sample_time(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AutomationIteration { run_mode, output } => {
+                assert_eq!(run_mode, MonitorRunMode::Daemon);
+                assert_eq!(output.snapshot.rows.len(), 1);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
