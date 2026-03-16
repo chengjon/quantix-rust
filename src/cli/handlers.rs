@@ -1494,9 +1494,13 @@ fn execute_monitor_service_config_command_with_store(
     store: &JsonMonitorServiceConfigStore,
 ) -> Result<MonitorCommandOutput> {
     match cmd {
-        MonitorServiceConfigCommands::Show => Ok(MonitorCommandOutput::ServiceConfig(
-            store.load()?,
-        )),
+        MonitorServiceConfigCommands::Show => match store.load() {
+            Ok(config) => Ok(MonitorCommandOutput::ServiceConfig(config)),
+            Err(QuantixError::Config(_)) => Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service 未配置，请先运行 monitor service-config set --quantix-bin /abs/path/to/quantix".to_string(),
+            )),
+            Err(other) => Err(other),
+        },
         MonitorServiceConfigCommands::Set { quantix_bin } => {
             let config = MonitorServiceConfig {
                 quantix_bin_path: quantix_bin.into(),
@@ -1556,7 +1560,15 @@ impl MonitorServiceInstallerOps for MonitorUserServiceInstaller {
 fn execute_monitor_service_command(cmd: MonitorServiceCommands) -> Result<MonitorCommandOutput> {
     let runtime = CliRuntime::load();
     let store = JsonMonitorServiceConfigStore::with_default_path()?;
-    let service_config = store.load()?;
+    let service_config = match store.load() {
+        Ok(config) => config,
+        Err(QuantixError::Config(_)) if matches!(cmd, MonitorServiceCommands::Status) => {
+            return Ok(MonitorCommandOutput::ServiceStatus(
+                build_unconfigured_monitor_service_status_summary(),
+            ));
+        }
+        Err(other) => return Err(other),
+    };
     let installer = MonitorUserServiceInstaller::new(runtime, service_config);
     execute_monitor_service_command_with_installer(cmd, &installer)
 }
@@ -2298,6 +2310,18 @@ fn print_monitor_service_status_summary(summary: &MonitorServiceStatusSummary) {
     if let Some(raw_status) = &summary.raw_status {
         println!();
         print!("{}", raw_status);
+    }
+}
+
+fn build_unconfigured_monitor_service_status_summary() -> MonitorServiceStatusSummary {
+    MonitorServiceStatusSummary {
+        installed: false,
+        enabled: false,
+        active: "unconfigured".to_string(),
+        unit_path: std::path::PathBuf::from("~/.config/systemd/user/quantix-monitor.service"),
+        wrapper_path: std::path::PathBuf::from("~/.local/bin/quantix-monitor-run"),
+        quantix_bin_path: std::path::PathBuf::from("<unconfigured>"),
+        raw_status: None,
     }
 }
 
@@ -5481,6 +5505,25 @@ mod tests {
     }
 
     #[test]
+    fn test_execute_monitor_service_config_show_reports_not_configured_when_missing() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
+
+        let output = execute_monitor_service_config_command_with_store(
+            MonitorServiceConfigCommands::Show,
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::ServiceMessage(message) => {
+                assert!(message.contains("未配置"));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
     fn test_execute_monitor_service_config_set_persists_binary_path() {
         let dir = tempdir().unwrap();
         let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
@@ -5575,6 +5618,19 @@ mod tests {
         .unwrap_err();
 
         assert!(err.to_string().contains("monitor service stop"));
+    }
+
+    #[test]
+    fn test_build_unconfigured_monitor_service_status_summary_marks_unconfigured() {
+        let summary = build_unconfigured_monitor_service_status_summary();
+
+        assert!(!summary.installed);
+        assert!(!summary.enabled);
+        assert_eq!(summary.active, "unconfigured");
+        assert_eq!(
+            summary.quantix_bin_path,
+            std::path::PathBuf::from("<unconfigured>")
+        );
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
