@@ -1,8 +1,9 @@
 use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, RiskCommands,
-    RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands, StrategyCommands,
-    TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands,
+    StrategyCommands, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
+    WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -19,7 +20,8 @@ use crate::monitor::storage::SqliteMonitorAlertStore;
 use crate::monitor::{
     JsonMonitorConfigStore, MonitorAlertStore, MonitorConfig, MonitorEventFilter, MonitorEventRow,
     MonitorEventType, MonitorIterationOutput, MonitorQuoteReader, MonitorQuoteRow,
-    MonitorRunMode, MonitorRunner, MonitorService, MonitorWatchlistReader,
+    MonitorRunMode, MonitorRunner, MonitorService, MonitorUserServiceInstaller,
+    MonitorWatchlistReader,
     MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
 };
 use crate::risk::{
@@ -713,9 +715,13 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
             let runner = create_configured_monitor_runner().await?;
             run_monitor_loop(&config_store, &runner, MonitorRunMode::Daemon).await
         }
-        MonitorCommands::Service(_) => Err(QuantixError::Unsupported(
-            "monitor service 尚未实现".to_string(),
-        )),
+        MonitorCommands::Service(service_cmd) => {
+            let runtime = CliRuntime::load();
+            let installer = MonitorUserServiceInstaller::new(runtime, std::env::current_exe()?);
+            let output = execute_monitor_service_command(service_cmd, &installer)?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
         MonitorCommands::Watchlist { once, repeat } => Err(QuantixError::Other(format!(
             "invalid monitor watchlist mode: once={}, repeat={}",
             once, repeat
@@ -754,6 +760,7 @@ enum MonitorCommandOutput {
     AlertList(Vec<PriceAlert>),
     Config(MonitorConfig),
     EventList(Vec<MonitorEventRow>),
+    ServiceMessage(String),
     AlertRemoved {
         id: u64,
         removed: bool,
@@ -1472,6 +1479,53 @@ async fn execute_monitor_event_command_with_store(
     }
 }
 
+fn execute_monitor_service_command(
+    cmd: MonitorServiceCommands,
+    installer: &MonitorUserServiceInstaller,
+) -> Result<MonitorCommandOutput> {
+    match cmd {
+        MonitorServiceCommands::Install => {
+            installer.install()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service installed".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Uninstall => {
+            installer.uninstall()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service uninstalled".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Start => {
+            installer.start()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service started".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Stop => {
+            installer.stop()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service stopped".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Status => Ok(MonitorCommandOutput::ServiceMessage(
+            installer.status()?,
+        )),
+        MonitorServiceCommands::Enable => {
+            installer.enable()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service enabled".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Disable => {
+            installer.disable()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service disabled".to_string(),
+            ))
+        }
+    }
+}
+
 async fn execute_monitor_iteration_with_runner<RW, RQ, SS>(
     cmd: MonitorCommands,
     config: &MonitorConfig,
@@ -1983,6 +2037,7 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             println!("最大历史条数: {}", config.max_event_history);
         }
         MonitorCommandOutput::EventList(rows) => print_monitor_events(rows),
+        MonitorCommandOutput::ServiceMessage(message) => println!("{}", message),
         MonitorCommandOutput::AlertRemoved { id, removed } => {
             if *removed {
                 println!("✅ 已删除价格告警 #{}", id);
