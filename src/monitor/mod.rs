@@ -5,6 +5,8 @@ pub mod storage;
 
 pub use config::{JsonMonitorConfigStore, MonitorConfig};
 pub use models::{
-    MonitorQuoteRow, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind, TriggeredAlert,
+    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorQuoteRow, MonitorRunMode,
+    MonitorWatchlistSnapshot, NewMonitorEvent, PriceAlert, PriceAlertKind, TriggeredAlert,
 };
 pub use service::{MonitorAlertStore, MonitorQuoteReader, MonitorService, MonitorWatchlistReader};
+pub use storage::SqliteMonitorAlertStore;
