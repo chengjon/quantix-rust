@@ -16,6 +16,7 @@ pub mod cli;
 pub mod core;
 pub mod data;
 pub mod db;
+pub mod execution;
 pub mod io;
 pub mod market;
 pub mod monitor;

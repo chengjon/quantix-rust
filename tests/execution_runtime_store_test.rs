@@ -1,0 +1,166 @@
+use chrono::{TimeZone, Utc};
+use quantix_cli::execution::models::{
+    OrderRecord, OrderSide, OrderStatus, OrderType, OrderEventRecord, RunnerCheckpointRecord,
+    StrategyRunRecord, StrategyRunStatus,
+};
+use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
+use rust_decimal_macros::dec;
+use serde_json::json;
+use tempfile::tempdir;
+use uuid::Uuid;
+
+fn fixed_ts() -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
+}
+
+fn sample_run(symbol: &str, bar_end: chrono::DateTime<Utc>) -> StrategyRunRecord {
+    StrategyRunRecord {
+        run_id: Uuid::new_v4().to_string(),
+        strategy_name: "ma_cross".to_string(),
+        mode: "paper".to_string(),
+        trigger: "once".to_string(),
+        status: StrategyRunStatus::Running,
+        symbol: symbol.to_string(),
+        timeframe: "1d".to_string(),
+        bar_end,
+        started_at: fixed_ts(),
+        finished_at: None,
+        metadata_json: json!({"short": 5, "long": 20}),
+    }
+}
+
+fn sample_order(run_id: &str, client_order_id: &str) -> OrderRecord {
+    OrderRecord {
+        order_id: Uuid::new_v4().to_string(),
+        client_order_id: client_order_id.to_string(),
+        run_id: run_id.to_string(),
+        symbol: "000001".to_string(),
+        side: OrderSide::Buy,
+        order_type: OrderType::Market,
+        requested_quantity: 100,
+        requested_price: dec!(12.34),
+        filled_quantity: 0,
+        avg_fill_price: None,
+        status: OrderStatus::PendingSubmit,
+        adapter: "paper".to_string(),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        payload_json: json!({"reason": "ma_cross_buy"}),
+    }
+}
+
+#[tokio::test]
+async fn bootstrap_creates_phase29a_schema() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+
+    assert!(store.has_table("strategy_runs").await.unwrap());
+    assert!(store.has_table("signal_events").await.unwrap());
+    assert!(store.has_table("orders").await.unwrap());
+    assert!(store.has_table("order_events").await.unwrap());
+    assert!(store.has_table("runner_checkpoints").await.unwrap());
+}
+
+#[tokio::test]
+async fn insert_run_rejects_duplicate_dedupe_key() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let bar_end = fixed_ts();
+
+    let first = sample_run("000001", bar_end);
+    let second = sample_run("000001", bar_end);
+
+    store.insert_run(&first).await.unwrap();
+    let err = store.insert_run(&second).await.unwrap_err();
+
+    assert!(err.to_string().contains("strategy_runs"));
+}
+
+#[tokio::test]
+async fn insert_order_rejects_duplicate_client_order_id() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let first = sample_order(&run.run_id, "run_000001_1");
+    let second = sample_order(&run.run_id, "run_000001_1");
+
+    store.insert_order(&first).await.unwrap();
+    let err = store.insert_order(&second).await.unwrap_err();
+
+    assert!(err.to_string().contains("client_order_id"));
+}
+
+#[tokio::test]
+async fn checkpoint_upsert_overwrites_existing_row_for_same_stream() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+
+    let first = RunnerCheckpointRecord {
+        checkpoint_id: Uuid::new_v4().to_string(),
+        strategy_name: "ma_cross".to_string(),
+        mode: "paper".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        last_processed_bar: Some(fixed_ts()),
+        last_run_id: Some("run-a".to_string()),
+        state_json: json!({"step": 1}),
+        updated_at: fixed_ts(),
+    };
+    let second = RunnerCheckpointRecord {
+        checkpoint_id: Uuid::new_v4().to_string(),
+        strategy_name: "ma_cross".to_string(),
+        mode: "paper".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        last_processed_bar: Some(fixed_ts() + chrono::Duration::days(1)),
+        last_run_id: Some("run-b".to_string()),
+        state_json: json!({"step": 2}),
+        updated_at: fixed_ts() + chrono::Duration::minutes(5),
+    };
+
+    store.upsert_checkpoint(&first).await.unwrap();
+    store.upsert_checkpoint(&second).await.unwrap();
+
+    let saved = store
+        .load_checkpoint("ma_cross", "paper", "000001", "1d")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(saved.last_run_id.as_deref(), Some("run-b"));
+    assert_eq!(saved.state_json, json!({"step": 2}));
+}
+
+#[tokio::test]
+async fn order_events_round_trip_against_existing_order() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let order = sample_order(&run.run_id, "run_000001_1");
+    store.insert_order(&order).await.unwrap();
+
+    let event = OrderEventRecord {
+        event_id: Uuid::new_v4().to_string(),
+        order_id: order.order_id.clone(),
+        client_order_id: order.client_order_id.clone(),
+        event_type: "submitted".to_string(),
+        event_time: fixed_ts(),
+        details_json: json!({"status": "submitted"}),
+    };
+
+    store.insert_order_event(&event).await.unwrap();
+
+    let events = store.list_order_events(&order.order_id).await.unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event_type, "submitted");
+}
