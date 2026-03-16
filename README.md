@@ -203,27 +203,17 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Phase 24: 实时监控 ✅
 - **监控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/monitor/*`)
   - `quantix monitor watchlist --once` - 扫描当前自选池并输出终端监控快照
-  - `quantix monitor watchlist --repeat` - 在前台持续轮询自选池并输出监控快照
   - `quantix monitor alert add 000001 --above 16.0` - 添加向上突破价格告警
   - `quantix monitor alert add 000001 --below 15.0` - 添加向下跌破价格告警
   - `quantix monitor alert list` - 查看当前有效价格告警
   - `quantix monitor alert remove 1` - 删除指定价格告警
-  - `quantix monitor config show` - 查看当前监控配置
-  - `quantix monitor daemon run` - 运行 monitor 守护进程
-  - `quantix monitor service install` - 安装 `systemd --user` 监控服务
-  - `quantix monitor event list` - 查看最近监控业务事件
 - **SQLite 告警持久化** (`src/monitor/storage.rs`)
   - 默认路径 `~/.quantix/monitor/alerts.db`
   - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
-- **JSON 配置持久化** (`src/monitor/config.rs`)
-  - 默认路径 `~/.quantix/monitor/config.json`
-  - 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
 - **P0 约束**
-  - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run` 与 `systemd --user` 用户服务
-  - 复用现有自选池加载、TDX 行情查询与 stop 规则评估链路
-  - 业务事件只持久化价格告警命中与 stop 触发，不持久化服务生命周期日志
-  - `systemd --user` 当前面向 WSL2/Linux 用户环境
-  - 系统通知延后到后续 Phase
+  - 仅支持一次性 `watchlist --once` 扫描和终端输出
+  - 复用现有自选池加载与 TDX 行情查询链路
+  - `--refresh / --repeat / 系统通知延后到后续 Phase`
 
 #### Phase 25: 止盈止损 ✅
 - **止盈止损命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/stop/*`)
@@ -286,6 +276,20 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
   - `实盘导入 / 波动率和行业规则 / 自动减仓` 延后到后续 Phase
+
+#### Phase 29: 策略 Paper 执行骨架 ✅
+- **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
+  - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
+- **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
+  - 默认路径 `~/.quantix/strategy/runtime.db`
+  - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
+- **P0 约束**
+  - 当前仅支持 `ma_cross`
+  - 当前仅支持单代码、单次执行
+  - 执行前请先运行 `quantix trade init`
+  - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
+  - `live 模式仍在开发中`
+  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
 
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
