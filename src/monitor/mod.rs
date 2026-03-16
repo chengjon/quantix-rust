@@ -1,7 +1,9 @@
+pub mod config;
 pub mod models;
 pub mod service;
 pub mod storage;
 
+pub use config::{JsonMonitorConfigStore, MonitorConfig};
 pub use models::{
     MonitorQuoteRow, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind, TriggeredAlert,
 };
