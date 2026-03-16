@@ -1,0 +1,288 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
+
+use crate::core::{QuantixError, Result};
+use crate::execution::adapter::{AdapterOrderRequest, ExecutionAdapter};
+use crate::execution::models::{
+    ExecutionPolicy, OrderEventRecord, OrderIntent, OrderRecord, OrderStatus, SignalEnvelope,
+    SignalEventRecord, StrategyRunRecord, StrategyRunStatus, translate_signal,
+};
+use crate::execution::runtime_store::StrategyRuntimeStore;
+use crate::strategy::trait_def::Signal;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RiskDecision {
+    Allow,
+    Reject { reason: String },
+}
+
+#[async_trait]
+pub trait RiskEvaluator: Send + Sync {
+    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision>;
+
+    async fn sync_after_fill(&self) -> Result<()>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionRunRequest {
+    pub run_id: String,
+    pub strategy_name: String,
+    pub mode: String,
+    pub trigger: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub bar_end: DateTime<Utc>,
+    pub market_price: rust_decimal::Decimal,
+    pub held_volume: Option<i64>,
+    pub policy: ExecutionPolicy,
+    pub client_order_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KernelExecutionResult {
+    pub run_id: String,
+    pub signal: Signal,
+    pub order_status: Option<OrderStatus>,
+    pub client_order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecoverySummary {
+    pub scanned: usize,
+    pub recovered: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecutionKernel<A, R> {
+    store: StrategyRuntimeStore,
+    adapter: A,
+    risk: R,
+}
+
+impl<A, R> ExecutionKernel<A, R> {
+    pub fn new(store: StrategyRuntimeStore, adapter: A, risk: R) -> Self {
+        Self {
+            store,
+            adapter,
+            risk,
+        }
+    }
+}
+
+impl<A, R> ExecutionKernel<A, R>
+where
+    A: ExecutionAdapter,
+    R: RiskEvaluator,
+{
+    pub async fn execute_once(
+        &self,
+        request: ExecutionRunRequest,
+        envelope: SignalEnvelope,
+    ) -> Result<KernelExecutionResult> {
+        let now = Utc::now();
+        self.store
+            .insert_run(&StrategyRunRecord {
+                run_id: request.run_id.clone(),
+                strategy_name: request.strategy_name.clone(),
+                mode: request.mode.clone(),
+                trigger: request.trigger.clone(),
+                status: StrategyRunStatus::Running,
+                symbol: request.symbol.clone(),
+                timeframe: request.timeframe.clone(),
+                bar_end: request.bar_end,
+                started_at: now,
+                finished_at: None,
+                metadata_json: serde_json::json!({}),
+            })
+            .await?;
+
+        self.store
+            .insert_signal_event(&SignalEventRecord {
+                event_id: Uuid::new_v4().to_string(),
+                run_id: request.run_id.clone(),
+                strategy_name: request.strategy_name.clone(),
+                symbol: request.symbol.clone(),
+                signal: signal_to_str(envelope.signal).to_string(),
+                ts: now,
+                payload_json: envelope.metadata_json.clone(),
+            })
+            .await?;
+
+        let maybe_intent = translate_signal(
+            &envelope,
+            &request.symbol,
+            request.market_price,
+            request.held_volume,
+            &request.policy,
+        )?;
+
+        let Some(intent) = maybe_intent else {
+            self.store
+                .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                .await?;
+            return Ok(KernelExecutionResult {
+                run_id: request.run_id,
+                signal: envelope.signal,
+                order_status: None,
+                client_order_id: None,
+            });
+        };
+
+        if let Some(existing) = self
+            .store
+            .find_order_by_client_order_id(&request.client_order_id)
+            .await?
+        {
+            self.store
+                .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                .await?;
+            return Ok(KernelExecutionResult {
+                run_id: request.run_id,
+                signal: envelope.signal,
+                order_status: Some(existing.status),
+                client_order_id: Some(existing.client_order_id),
+            });
+        }
+
+        match self.risk.evaluate(intent.clone()).await? {
+            RiskDecision::Reject { reason } => {
+                let order_id = request.client_order_id.clone();
+                self.store
+                    .insert_order(&OrderRecord {
+                        order_id: order_id.clone(),
+                        client_order_id: request.client_order_id.clone(),
+                        run_id: request.run_id.clone(),
+                        symbol: request.symbol.clone(),
+                        side: intent.side,
+                        order_type: intent.order_type,
+                        requested_quantity: intent.requested_quantity,
+                        requested_price: intent.requested_price,
+                        filled_quantity: 0,
+                        avg_fill_price: None,
+                        status: OrderStatus::Rejected,
+                        adapter: "risk".to_string(),
+                        created_at: now,
+                        updated_at: now,
+                        payload_json: intent.policy_snapshot_json.clone(),
+                    })
+                    .await?;
+                self.store
+                    .insert_order_event(&OrderEventRecord {
+                        event_id: Uuid::new_v4().to_string(),
+                        order_id,
+                        client_order_id: request.client_order_id.clone(),
+                        event_type: "risk_rejected".to_string(),
+                        event_time: now,
+                        details_json: serde_json::json!({ "reason": reason }),
+                    })
+                    .await?;
+                self.store
+                    .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                    .await?;
+                Ok(KernelExecutionResult {
+                    run_id: request.run_id,
+                    signal: envelope.signal,
+                    order_status: Some(OrderStatus::Rejected),
+                    client_order_id: Some(request.client_order_id),
+                })
+            }
+            RiskDecision::Allow => {
+                let order_id = request.client_order_id.clone();
+                self.store
+                    .insert_order(&OrderRecord {
+                        order_id: order_id.clone(),
+                        client_order_id: request.client_order_id.clone(),
+                        run_id: request.run_id.clone(),
+                        symbol: request.symbol.clone(),
+                        side: intent.side,
+                        order_type: intent.order_type,
+                        requested_quantity: intent.requested_quantity,
+                        requested_price: intent.requested_price,
+                        filled_quantity: 0,
+                        avg_fill_price: None,
+                        status: OrderStatus::PendingSubmit,
+                        adapter: "paper".to_string(),
+                        created_at: now,
+                        updated_at: now,
+                        payload_json: intent.policy_snapshot_json.clone(),
+                    })
+                    .await?;
+                self.store
+                    .insert_order_event(&OrderEventRecord {
+                        event_id: Uuid::new_v4().to_string(),
+                        order_id: order_id.clone(),
+                        client_order_id: request.client_order_id.clone(),
+                        event_type: "pending_submit".to_string(),
+                        event_time: now,
+                        details_json: serde_json::json!({}),
+                    })
+                    .await?;
+
+                let response = self
+                    .adapter
+                    .submit_order(AdapterOrderRequest {
+                        client_order_id: request.client_order_id.clone(),
+                        symbol: request.symbol.clone(),
+                        side: intent.side,
+                        quantity: intent.requested_quantity,
+                        price: intent.requested_price,
+                    })
+                    .await
+                    .map_err(|err| QuantixError::Other(err.to_string()))?;
+
+                self.store
+                    .insert_order_event(&OrderEventRecord {
+                        event_id: Uuid::new_v4().to_string(),
+                        order_id: order_id.clone(),
+                        client_order_id: request.client_order_id.clone(),
+                        event_type: response.latest_status.as_str().to_string(),
+                        event_time: Utc::now(),
+                        details_json: serde_json::json!({
+                            "filled_quantity": response.filled_quantity,
+                            "avg_fill_price": response.avg_fill_price,
+                        }),
+                    })
+                    .await?;
+                self.store
+                    .update_order(
+                        &order_id,
+                        response.latest_status,
+                        response.filled_quantity,
+                        response.avg_fill_price,
+                        Utc::now(),
+                    )
+                    .await?;
+
+                if response.latest_status == OrderStatus::Filled {
+                    self.risk.sync_after_fill().await?;
+                }
+
+                self.store
+                    .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                    .await?;
+                Ok(KernelExecutionResult {
+                    run_id: request.run_id,
+                    signal: envelope.signal,
+                    order_status: Some(response.latest_status),
+                    client_order_id: Some(request.client_order_id),
+                })
+            }
+        }
+    }
+
+    pub async fn recover_pending_orders(&self) -> Result<RecoverySummary> {
+        Ok(RecoverySummary {
+            scanned: 0,
+            recovered: 0,
+        })
+    }
+}
+
+fn signal_to_str(signal: Signal) -> &'static str {
+    match signal {
+        Signal::Buy => "buy",
+        Signal::Sell => "sell",
+        Signal::Hold => "hold",
+    }
+}

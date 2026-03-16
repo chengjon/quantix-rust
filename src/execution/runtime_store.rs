@@ -2,7 +2,6 @@ use std::path::Path;
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde_json::Value;
 use sqlx::Row;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
 
@@ -347,6 +346,54 @@ WHERE client_order_id = ?
         row.map(Self::row_to_order).transpose()
     }
 
+    pub async fn update_run_status(
+        &self,
+        run_id: &str,
+        status: StrategyRunStatus,
+        finished_at: Option<DateTime<Utc>>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+UPDATE strategy_runs
+SET status = ?, finished_at = ?
+WHERE run_id = ?
+"#,
+        )
+        .bind(status.as_str())
+        .bind(finished_at.map(|value| value.to_rfc3339()))
+        .bind(run_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_order(
+        &self,
+        order_id: &str,
+        status: OrderStatus,
+        filled_quantity: i64,
+        avg_fill_price: Option<Decimal>,
+        updated_at: DateTime<Utc>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+UPDATE orders
+SET status = ?, filled_quantity = ?, avg_fill_price = ?, updated_at = ?
+WHERE order_id = ?
+"#,
+        )
+        .bind(status.as_str())
+        .bind(filled_quantity)
+        .bind(avg_fill_price.map(|value| value.to_string()))
+        .bind(updated_at.to_rfc3339())
+        .bind(order_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn upsert_checkpoint(&self, checkpoint: &RunnerCheckpointRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -437,6 +484,21 @@ ORDER BY event_time ASC, event_id ASC
         .await?;
 
         rows.into_iter().map(Self::row_to_order_event).collect()
+    }
+
+    pub async fn count_runs(&self) -> Result<i64> {
+        self.count_table_rows("strategy_runs").await
+    }
+
+    pub async fn count_orders(&self) -> Result<i64> {
+        self.count_table_rows("orders").await
+    }
+
+    async fn count_table_rows(&self, table_name: &str) -> Result<i64> {
+        let sql = format!("SELECT COUNT(1) FROM {table_name}");
+        Ok(sqlx::query_scalar::<_, i64>(&sql)
+            .fetch_one(&self.pool)
+            .await?)
     }
 
     fn row_to_order(row: SqliteRow) -> Result<OrderRecord> {
