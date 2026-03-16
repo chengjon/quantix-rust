@@ -101,6 +101,9 @@ export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 
 # 风控 JSON 路径（可选）
 export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
+
+# 策略运行时审计 SQLite 路径（可选）
+export QUANTIX_STRATEGY_RUNTIME_DB_PATH="$HOME/.quantix/strategy/runtime.db"
 ```
 
 ### 运行测试
@@ -451,7 +454,6 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
 | `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
-| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |
 
 ##### 示例
 
@@ -465,9 +467,6 @@ quantix strategy run -n ma_cross -c 000001
 # 使用 paper 模式单次执行
 quantix trade init --capital 1000000
 quantix strategy run -n ma_cross --mode paper -c 000001
-
-# 使用 mock_live 模式单次执行
-quantix strategy run -n ma_cross --mode mock_live -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -484,63 +483,11 @@ quantix strategy run -n ma_cross --mode live
 
 - `paper` 模式当前只支持 `ma_cross`
 - `paper` 模式当前只支持单代码、单次执行
-- `mock_live` 模式当前支持非终态订单生命周期模拟
 - 首次使用前请先执行 `quantix trade init`
 - 运行审计默认写入 `~/.quantix/strategy/runtime.db`
 - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
-- `mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态
 - `live` 模式仍在开发中
 
-##### Phase 29B: 策略信号守护进程
-
-```bash
-quantix strategy config init
-quantix strategy config show
-
-quantix strategy daemon run --once
-quantix strategy daemon run
-
-quantix strategy signal list --approval-status pending
-quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default
-quantix strategy signal reject --signal-id <ID> --reason "manual reject"
-quantix strategy request list --status pending
-
-quantix strategy service-config show
-quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env
-quantix strategy service install
-quantix strategy service start
-quantix strategy service status
-```
-
-默认路径：
-
-- `~/.quantix/strategy/config.json`
-- `~/.quantix/strategy/runtime.db`
-- `~/.quantix/strategy/service.json`
-- `~/.quantix/strategy/service.env`
-- `~/.local/bin/quantix-strategy-run`
-
-当前 Phase 29B 边界：
-
-- `strategy daemon` 当前只支持单代码
-- 同一代码下可配置多个策略实例
-- 首次启动只 bootstrap 到最新 bar，不回补历史 signal
-- `strategy daemon run --once` 首次启动可能只输出 `strategy daemon 未生成新信号`
-- daemon 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
-- `QUANTIX_TDX_ROOT` 用于指定本地 TDX 根目录
-- `QUANTIX_TDX_MARKET` 用于在 `sh/sz/bj/ds` 之间消解同代码歧义
-- signal 批准后只会写入 `execution_request`
-- 不会自动交易，不会修改 paper 账户
-- `strategy run --mode paper` 仍保留为直接执行路径
-- `execution daemon`、自动审批、live adapter 延后到后续 Phase
-
-当前输出语义：
-
-- `strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`
-- `strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
-- `strategy signal reject` 会输出 `signal_id signal_status=<STATUS> approval_status=<STATUS> reason=<TEXT>`
-- `strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
-- `strategy service install/start/stop/enable/disable` 成功时会输出明确消息
 ---
 
 #### strategy list - 列出策略
@@ -1019,29 +966,11 @@ quantix market overview --top 5
 - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
 - 告警使用 SQLite 持久化，`watchlist --once` 命中时会在终端输出并更新最后触发时间
 
-#### 配置路径
-
-- 默认路径：`~/.quantix/monitor/config.json`
-- 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
-- `watchlist --repeat`、`daemon run`、`service` 命令共享同一份 monitor 配置
-
-#### Service 配置路径
-
-- 默认路径：`~/.quantix/monitor/service.json`
-- service wrapper 路径：`~/.local/bin/quantix-monitor-run`
-- `service install` 会从 `service.json` 读取稳定的 `quantix` 二进制绝对路径
-
 #### P0 范围
 
-- 支持 `watchlist --once`、`watchlist --repeat`、`daemon run`
-- 支持 `systemd --user` 用户服务的安装、启停、状态查看、自启开关
-- 支持 `service-config show` / `service-config set --quantix-bin`
-- 支持价格阈值告警的添加、列表、删除，以及业务事件历史查看
-- 业务事件历史只记录价格告警命中和 stop 触发，不记录服务生命周期日志
-- 当前后台服务能力面向 WSL2/Linux 的 `systemd --user`
-- `service install` 要求 `service.json` 中的 `quantix` 路径存在且可执行
-- `service uninstall` 会要求先执行 `service stop`
-- `--refresh`、系统通知延后到后续 Phase
+- 只支持 `watchlist --once`
+- 只支持价格阈值告警的添加、列表、删除
+- `--refresh`、`--repeat`、系统通知延后到后续 Phase
 
 #### 命令摘要
 
@@ -1050,32 +979,12 @@ quantix monitor watchlist --once
 quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)
 quantix monitor alert list
 quantix monitor alert remove <ID>
-quantix monitor config show
-quantix monitor config set --interval-seconds <N>
-quantix monitor config set --group <GROUP>
-quantix monitor config clear-group
-quantix monitor config set --persist-events <true|false>
-quantix monitor daemon run
-quantix monitor service install
-quantix monitor service uninstall
-quantix monitor service start
-quantix monitor service stop
-quantix monitor service status
-quantix monitor service enable
-quantix monitor service disable
-quantix monitor service-config show
-quantix monitor service-config set --quantix-bin /absolute/path/to/quantix
-quantix monitor event list [--limit <N>] [--code <CODE>] [--type <TYPE>]
 ```
 
 #### 参数约束
 
 - `watchlist` 当前必须显式带 `--once`
 - `alert add` 必须且只能指定一个阈值：`--above` 或 `--below`
-- `config set` 每次只允许修改一个字段
-- `event list` 默认返回最近 20 条业务事件
-- `service` 命令调用 `systemctl --user`
-- `service-config set --quantix-bin` 必须传绝对路径
 - 当前只复用现有自选池与 TDX 行情链路，不提供板块/概念监控
 
 #### 常用示例
@@ -1086,10 +995,6 @@ quantix monitor alert add 000001 --above 16.0
 quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
-quantix monitor config show
-quantix monitor service install
-quantix monitor service-config set --quantix-bin /usr/local/bin/quantix
-quantix monitor event list --limit 10
 ```
 
 ---
