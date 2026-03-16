@@ -717,7 +717,10 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
         }
         MonitorCommands::Service(service_cmd) => {
             let runtime = CliRuntime::load();
-            let installer = MonitorUserServiceInstaller::new(runtime, std::env::current_exe()?);
+            let installer = MonitorUserServiceInstaller::from_executable_path(
+                runtime,
+                std::env::current_exe()?,
+            );
             let output = execute_monitor_service_command(service_cmd, &installer)?;
             print_monitor_command_output(&output);
             Ok(())
