@@ -275,6 +275,10 @@ pub enum MonitorCommands {
     #[command(subcommand)]
     Service(MonitorServiceCommands),
 
+    /// 监控服务配置
+    #[command(subcommand)]
+    ServiceConfig(MonitorServiceConfigCommands),
+
     /// 监控事件历史
     #[command(subcommand)]
     Event(MonitorEventCommands),
@@ -364,6 +368,19 @@ pub enum MonitorServiceCommands {
     Enable,
     /// 禁用开机自启
     Disable,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorServiceConfigCommands {
+    /// 显示当前服务配置
+    Show,
+
+    /// 设置 quantix 可执行文件路径
+    Set {
+        /// quantix 二进制绝对路径
+        #[arg(long = "quantix-bin")]
+        quantix_bin: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

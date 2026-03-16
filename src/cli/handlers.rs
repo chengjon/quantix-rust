@@ -1,9 +1,9 @@
 use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands,
-    StrategyCommands, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, TaskCommands, TradeCommands,
+    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
@@ -722,6 +722,9 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
             print_monitor_command_output(&output);
             Ok(())
         }
+        MonitorCommands::ServiceConfig(_) => Err(QuantixError::Unsupported(
+            "monitor service-config 尚未实现".to_string(),
+        )),
         MonitorCommands::Watchlist { once, repeat } => Err(QuantixError::Other(format!(
             "invalid monitor watchlist mode: once={}, repeat={}",
             once, repeat
@@ -920,6 +923,9 @@ where
         )),
         MonitorCommands::Event(_) => Err(QuantixError::Unsupported(
             "monitor event 尚未实现".to_string(),
+        )),
+        MonitorCommands::ServiceConfig(_) => Err(QuantixError::Unsupported(
+            "monitor service-config 尚未实现".to_string(),
         )),
     }
 }

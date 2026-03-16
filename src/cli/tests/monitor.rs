@@ -316,3 +316,67 @@ fn parses_monitor_event_list_command_with_filters() {
         other => panic!("unexpected command: {:?}", other),
     }
 }
+
+#[test]
+fn parses_monitor_service_config_show_command() {
+    let cli = Cli::try_parse_from(["quantix", "monitor", "service-config", "show"]).unwrap();
+
+    match cli.command {
+        Commands::Monitor(MonitorCommands::ServiceConfig(
+            MonitorServiceConfigCommands::Show,
+        )) => {}
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_monitor_service_config_set_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "monitor",
+        "service-config",
+        "set",
+        "--quantix-bin",
+        "/abs/path/to/quantix",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Monitor(MonitorCommands::ServiceConfig(
+            MonitorServiceConfigCommands::Set { quantix_bin },
+        )) => {
+            assert_eq!(quantix_bin, "/abs/path/to/quantix");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_monitor_service_config_set_rejects_missing_quantix_bin() {
+    let err = Cli::try_parse_from(["quantix", "monitor", "service-config", "set"]).unwrap_err();
+
+    assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    assert!(err.to_string().contains("--quantix-bin"));
+}
+
+#[test]
+fn parses_monitor_service_config_set_accepts_relative_path_at_parser_level() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "monitor",
+        "service-config",
+        "set",
+        "--quantix-bin",
+        "relative/path/to/quantix",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Monitor(MonitorCommands::ServiceConfig(
+            MonitorServiceConfigCommands::Set { quantix_bin },
+        )) => {
+            assert_eq!(quantix_bin, "relative/path/to/quantix");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
