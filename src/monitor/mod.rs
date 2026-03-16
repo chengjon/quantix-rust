@@ -2,6 +2,7 @@ pub mod config;
 pub mod models;
 pub mod runner;
 pub mod service;
+pub mod service_config;
 pub mod storage;
 pub mod systemd;
 
@@ -12,5 +13,6 @@ pub use models::{
 };
 pub use runner::{MonitorIterationOutput, MonitorRunner};
 pub use service::{MonitorAlertStore, MonitorQuoteReader, MonitorService, MonitorWatchlistReader};
+pub use service_config::{JsonMonitorServiceConfigStore, MonitorServiceConfig};
 pub use storage::SqliteMonitorAlertStore;
 pub use systemd::MonitorUserServiceInstaller;
