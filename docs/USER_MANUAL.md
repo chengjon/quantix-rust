@@ -1031,7 +1031,7 @@ quantix stop remove 000001
 
 ### trade - 模拟交易
 
-提供 Phase 26A 的最小模拟交易闭环：初始化/重置单账户、本地 JSON 持久化、按输入价格立即成交的限价买卖，以及查看当前持仓和现金快照。
+提供 Phase 26A/28A 的最小模拟交易闭环：初始化/重置单账户、本地 JSON 持久化、按输入价格立即成交的限价买卖，以及查看成交历史、费用明细、账户概览和当前持仓视图。
 
 #### 存储路径
 
@@ -1043,7 +1043,9 @@ quantix stop remove 000001
 - 仅支持单账户、本地纸上交易
 - 买卖单按输入价格立即成交，不包含挂单、撤单、部分成交
 - 手续费参数只允许通过 `trade init` / `trade reset` 设置
-- `trade history`、`trade overview`、`trade fees`、`--current` 延后到后续 Phase
+- `trade history`、`trade fees`、`trade overview` 是本地只读视图
+- `trade overview --current`、`trade position --current` 使用 best-effort 实时行情
+- 拿不到价格时降级为空，不让命令整体失败
 
 #### 命令摘要
 
@@ -1052,7 +1054,10 @@ quantix trade init [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission
 quantix trade reset [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]
 quantix trade buy <CODE> --price <PRICE> --volume <N>
 quantix trade sell <CODE> --price <PRICE> --volume <N>
-quantix trade position
+quantix trade history [--code <CODE>] [--limit <N>]
+quantix trade fees [--code <CODE>] [--limit <N>]
+quantix trade overview [--current]
+quantix trade position [--current]
 quantix trade cash
 ```
 
@@ -1061,6 +1066,9 @@ quantix trade cash
 - `trade init` / `trade reset` 只管理默认账户和费率配置
 - `trade buy` / `trade sell` 的 `--price` 必须是有限正数，`--volume` 必须是正整数
 - `trade sell` 仅允许卖出当前已持有且数量足够的代码
+- `trade history` / `trade fees` 默认返回最近 20 条，支持 `--code` 和 `--limit`
+- `trade overview --current` / `trade position --current` 依赖 best-effort 实时行情
+- best-effort 实时行情拿不到价格时降级为空，不阻塞命令返回
 
 #### 常用示例
 
@@ -1069,7 +1077,10 @@ quantix trade init --capital 1000000 --commission-rate 0.00025
 quantix trade reset --capital 500000
 quantix trade buy 000001 --price 15.0 --volume 1000
 quantix trade sell 000001 --price 16.0 --volume 500
-quantix trade position
+quantix trade history --code 000001 --limit 10
+quantix trade fees --limit 10
+quantix trade overview --current
+quantix trade position --current
 quantix trade cash
 ```
 

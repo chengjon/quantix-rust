@@ -33,8 +33,10 @@ use crate::stop::{
 };
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeStore,
-    TradeOrderRequest, TradePosition, TradeRecord, TradeService,
+    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
+    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview,
+    TradePosition, TradePositionCurrentRow, TradeQuoteStatus, TradeRecord,
+    TradeReportingService, TradeService,
 };
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
@@ -45,8 +47,10 @@ use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
+use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -716,7 +720,11 @@ enum TradeCommandOutput {
     AccountInitialized(PaperTradeAccount),
     AccountReset(PaperTradeAccount),
     TradeExecuted(TradeRecord),
+    HistoryRows(Vec<TradeHistoryRow>),
+    FeeRows(Vec<TradeFeeRow>),
+    Overview(TradeOverview),
     PositionList(Vec<TradePosition>),
+    PositionCurrentList(Vec<TradePositionCurrentRow>),
     Cash(CashSnapshot),
 }
 
@@ -941,6 +949,7 @@ async fn execute_trade_command_with_service<Store>(
 where
     Store: PaperTradeStore,
 {
+    let reporting = TradeReportingService::new();
     match cmd {
         TradeCommands::Init {
             capital,
@@ -1000,8 +1009,82 @@ where
                 service.sell(request, Utc::now()).await?,
             ))
         }
-        TradeCommands::Position => Ok(TradeCommandOutput::PositionList(service.positions().await?)),
+        TradeCommands::History { code, limit } => {
+            let state = service.state_snapshot().await?;
+            Ok(TradeCommandOutput::HistoryRows(
+                reporting.history_rows(&state, code.as_deref(), limit),
+            ))
+        }
+        TradeCommands::Fees { code, limit } => {
+            let state = service.state_snapshot().await?;
+            Ok(TradeCommandOutput::FeeRows(
+                reporting.fee_rows(&state, code.as_deref(), limit),
+            ))
+        }
+        TradeCommands::Overview { current: false } => {
+            let state = service.state_snapshot().await?;
+            Ok(TradeCommandOutput::Overview(reporting.overview(&state)))
+        }
+        TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
+            Err(QuantixError::Unsupported(
+                "trade current views require quote lookup".to_string(),
+            ))
+        }
+        TradeCommands::Position { current: false } => {
+            Ok(TradeCommandOutput::PositionList(service.positions().await?))
+        }
         TradeCommands::Cash => Ok(TradeCommandOutput::Cash(service.cash_snapshot().await?)),
+    }
+}
+
+async fn execute_trade_command_with_quote_lookup<Store, Q>(
+    cmd: TradeCommands,
+    service: &TradeService<Store>,
+    quote_lookup: &Q,
+) -> Result<TradeCommandOutput>
+where
+    Store: PaperTradeStore,
+    Q: WatchlistQuoteLookup,
+{
+    let reporting = TradeReportingService::new();
+
+    match cmd {
+        TradeCommands::Overview { current: true } => {
+            let state = service.state_snapshot().await?;
+            let quotes = load_trade_quote_prices(&state, quote_lookup).await;
+            let total_positions = state
+                .account
+                .as_ref()
+                .map(|account| account.positions.len())
+                .unwrap_or(0);
+            let resolved_positions = quotes.len();
+
+            let mut overview = reporting.overview(&state);
+            overview.quote_coverage = Some((resolved_positions, total_positions));
+
+            if total_positions == 0 {
+                overview.live_position_value = Some(Decimal::ZERO);
+                overview.live_total_assets = Some(overview.booked_total_assets);
+            } else if resolved_positions == total_positions {
+                let rows = reporting.position_rows_with_quotes(&state, &quotes);
+                let live_position_value = rows
+                    .iter()
+                    .filter_map(|row| row.current_market_value)
+                    .sum::<Decimal>();
+                overview.live_position_value = Some(live_position_value);
+                overview.live_total_assets = Some(overview.available_cash + live_position_value);
+            }
+
+            Ok(TradeCommandOutput::Overview(overview))
+        }
+        TradeCommands::Position { current: true } => {
+            let state = service.state_snapshot().await?;
+            let quotes = load_trade_quote_prices(&state, quote_lookup).await;
+            Ok(TradeCommandOutput::PositionCurrentList(
+                reporting.position_rows_with_quotes(&state, &quotes),
+            ))
+        }
+        other => execute_trade_command_with_service(other, service).await,
     }
 }
 
@@ -1080,6 +1163,14 @@ where
             let record = trade_service.sell(request, Utc::now()).await?;
             sync_risk_from_trade_store(trade_store, risk_service).await?;
             Ok(TradeCommandOutput::TradeExecuted(record))
+        }
+        TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
+            execute_trade_command_with_quote_lookup(
+                cmd,
+                trade_service,
+                &TdxWatchlistQuoteLookup,
+            )
+            .await
         }
         other => execute_trade_command_with_service(other, trade_service).await,
     }
@@ -1351,7 +1442,11 @@ fn print_trade_command_output(output: &TradeCommandOutput) {
             print_trade_account_summary(account);
         }
         TradeCommandOutput::TradeExecuted(record) => print_trade_record(record),
+        TradeCommandOutput::HistoryRows(rows) => print_trade_history_rows(rows),
+        TradeCommandOutput::FeeRows(rows) => print_trade_fee_rows(rows),
+        TradeCommandOutput::Overview(overview) => print_trade_overview(overview),
         TradeCommandOutput::PositionList(positions) => print_trade_positions(positions),
+        TradeCommandOutput::PositionCurrentList(rows) => print_trade_current_positions(rows),
         TradeCommandOutput::Cash(snapshot) => print_trade_cash(snapshot),
     }
 }
@@ -1384,6 +1479,13 @@ fn format_trade_side(record: &TradeRecord) -> &'static str {
     }
 }
 
+fn format_trade_side_label(side: crate::trade::TradeSide) -> &'static str {
+    match side {
+        crate::trade::TradeSide::Buy => "买入",
+        crate::trade::TradeSide::Sell => "卖出",
+    }
+}
+
 fn print_trade_positions(positions: &[TradePosition]) {
     if positions.is_empty() {
         println!("📭 暂无持仓");
@@ -1406,6 +1508,122 @@ fn print_trade_cash(snapshot: &CashSnapshot) {
     println!("可用现金: {}", snapshot.available_cash);
     println!("持仓估值: {}", snapshot.estimated_position_value);
     println!("总资产估算: {}", snapshot.estimated_total_assets);
+}
+
+fn print_trade_history_rows(rows: &[TradeHistoryRow]) {
+    if rows.is_empty() {
+        println!("📭 暂无成交历史");
+        return;
+    }
+
+    println!(
+        "{:<20} {:<10} {:<6} {:<10} {:<8} {:<12} {:<10} {}",
+        "时间", "代码", "方向", "价格", "数量", "成交额", "费用", "净现金影响"
+    );
+    println!("{}", "-".repeat(100));
+
+    for row in rows {
+        println!(
+            "{:<20} {:<10} {:<6} {:<10} {:<8} {:<12} {:<10} {}",
+            row.executed_at.format("%Y-%m-%d %H:%M:%S"),
+            row.code,
+            format_trade_side_label(row.side),
+            row.price,
+            row.volume,
+            row.amount,
+            row.total_fee,
+            row.net_cash_impact
+        );
+    }
+}
+
+fn print_trade_fee_rows(rows: &[TradeFeeRow]) {
+    if rows.is_empty() {
+        println!("📭 暂无费用明细");
+        return;
+    }
+
+    println!(
+        "{:<20} {:<10} {:<6} {:<10} {:<10} {:<10} {}",
+        "时间", "代码", "方向", "佣金", "印花税", "过户费", "总费用"
+    );
+    println!("{}", "-".repeat(90));
+
+    for row in rows {
+        println!(
+            "{:<20} {:<10} {:<6} {:<10} {:<10} {:<10} {}",
+            row.executed_at.format("%Y-%m-%d %H:%M:%S"),
+            row.code,
+            format_trade_side_label(row.side),
+            row.commission,
+            row.stamp_duty,
+            row.transfer_fee,
+            row.total_fee
+        );
+    }
+}
+
+fn print_trade_overview(overview: &TradeOverview) {
+    println!("初始资金: {}", overview.initial_capital);
+    println!("可用现金: {}", overview.available_cash);
+    println!("账面持仓估值: {}", overview.booked_position_value);
+    println!("账面总资产: {}", overview.booked_total_assets);
+    println!("成交笔数: {}", overview.trade_count);
+    println!("持仓数: {}", overview.holding_count);
+    println!("累计买入额: {}", overview.total_buy_amount);
+    println!("累计卖出额: {}", overview.total_sell_amount);
+    println!("累计费用: {}", overview.total_fee);
+
+    if let Some((resolved, total)) = overview.quote_coverage {
+        println!("实时价格覆盖: {resolved}/{total}");
+    }
+    if let Some(value) = overview.live_position_value {
+        println!("实时持仓估值: {}", value);
+    }
+    if let Some(value) = overview.live_total_assets {
+        println!("实时总资产: {}", value);
+    }
+}
+
+fn print_trade_current_positions(rows: &[TradePositionCurrentRow]) {
+    if rows.is_empty() {
+        println!("📭 暂无持仓");
+        return;
+    }
+
+    println!(
+        "{:<10} {:<10} {:<14} {:<12} {:<12} {:<12} {:<12} {}",
+        "代码", "数量", "持仓成本", "最新成交价", "当前价", "当前市值", "浮盈亏", "价格状态"
+    );
+    println!("{}", "-".repeat(112));
+
+    for row in rows {
+        println!(
+            "{:<10} {:<10} {:<14} {:<12} {:<12} {:<12} {:<12} {}",
+            row.code,
+            row.volume,
+            row.avg_cost,
+            row.last_trade_price,
+            row.current_price
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".to_string()),
+            row.current_market_value
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".to_string()),
+            row.unrealized_pnl
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".to_string()),
+            format_trade_quote_status(row.quote_status)
+        );
+    }
+}
+
+fn format_trade_quote_status(status: TradeQuoteStatus) -> &'static str {
+    match status {
+        TradeQuoteStatus::BookOnly => "book",
+        TradeQuoteStatus::Live => "live",
+        TradeQuoteStatus::Missing => "missing",
+    }
 }
 
 fn print_stop_rules(rules: &[StopRule]) {
@@ -2079,6 +2297,27 @@ where
         .ok_or_else(|| QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string()))
 }
 
+async fn load_trade_quote_prices<Q>(
+    state: &PaperTradeState,
+    quote_lookup: &Q,
+) -> BTreeMap<String, Decimal>
+where
+    Q: WatchlistQuoteLookup,
+{
+    let Some(account) = &state.account else {
+        return BTreeMap::new();
+    };
+
+    let codes: Vec<String> = account.positions.keys().cloned().collect();
+    quote_lookup
+        .lookup_quotes(&codes)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(code, snapshot)| (code, snapshot.latest_price))
+        .collect()
+}
+
 fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapshot {
     let positions: Vec<(String, rust_decimal::Decimal)> = account
         .positions
@@ -2351,7 +2590,7 @@ mod tests {
     use crate::screener::DailyKlineLoader;
     use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
     use crate::trade::{PaperTradeState, PaperTradeStore, TradeService, TradeSide};
-    use crate::watchlist::WatchlistListItem;
+    use crate::watchlist::{WatchlistListItem, WatchlistQuoteLookup, WatchlistQuoteSnapshot};
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
     use rust_decimal::Decimal;
@@ -2844,6 +3083,26 @@ mod tests {
         (TradeService::new(store.clone()), store)
     }
 
+    #[derive(Clone, Default)]
+    struct FakeTradeQuoteLookup {
+        quotes: HashMap<String, WatchlistQuoteSnapshot>,
+        fail: bool,
+    }
+
+    #[async_trait]
+    impl WatchlistQuoteLookup for FakeTradeQuoteLookup {
+        async fn lookup_quotes(
+            &self,
+            _codes: &[String],
+        ) -> Result<HashMap<String, WatchlistQuoteSnapshot>> {
+            if self.fail {
+                Err(QuantixError::Other("quote lookup failed".to_string()))
+            } else {
+                Ok(self.quotes.clone())
+            }
+        }
+    }
+
     #[tokio::test]
     async fn test_execute_trade_init_succeeds_and_returns_account_summary() {
         let (service, store) = trade_service();
@@ -3046,7 +3305,10 @@ mod tests {
         .await
         .unwrap();
 
-        let output = execute_trade_command_with_service(TradeCommands::Position, &service)
+        let output = execute_trade_command_with_service(
+            TradeCommands::Position { current: false },
+            &service,
+        )
             .await
             .unwrap();
 
@@ -3097,6 +3359,468 @@ mod tests {
                 assert_eq!(snapshot.available_cash, dec!(498995));
                 assert_eq!(snapshot.estimated_position_value, dec!(1000));
                 assert_eq!(snapshot.estimated_total_assets, dec!(499995));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_history_returns_newest_first_rows() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Sell {
+                code: "000001".to_string(),
+                price: 12.0,
+                volume: 40,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_service(
+            TradeCommands::History {
+                code: None,
+                limit: Some(10),
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::HistoryRows(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].side, TradeSide::Sell);
+                assert_eq!(rows[1].side, TradeSide::Buy);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_fees_filters_by_code() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "600000".to_string(),
+                price: 20.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_service(
+            TradeCommands::Fees {
+                code: Some("600000".to_string()),
+                limit: Some(10),
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::FeeRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "600000");
+                assert_eq!(rows[0].transfer_fee, dec!(0.02));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_overview_returns_booked_summary() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: Some(500000.0),
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_service(
+            TradeCommands::Overview { current: false },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::Overview(overview) => {
+                assert_eq!(overview.initial_capital, dec!(500000));
+                assert_eq!(overview.trade_count, 1);
+                assert_eq!(overview.holding_count, 1);
+                assert_eq!(overview.total_buy_amount, dec!(1000));
+                assert_eq!(overview.total_fee, dec!(5));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_overview_before_init_returns_user_facing_error() {
+        let (service, _) = trade_service();
+
+        let err = execute_trade_command_with_service(
+            TradeCommands::Overview { current: false },
+            &service,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Other(_)));
+        assert!(err.to_string().contains("尚未初始化"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_position_current_uses_live_quotes_when_available() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_quote_lookup(
+            TradeCommands::Position { current: true },
+            &service,
+            &FakeTradeQuoteLookup {
+                quotes: HashMap::from([(
+                    "000001".to_string(),
+                    WatchlistQuoteSnapshot {
+                        latest_price: dec!(12),
+                        price_change_pct: Some(dec!(5)),
+                    },
+                )]),
+                fail: false,
+            },
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::PositionCurrentList(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].current_price, Some(dec!(12)));
+                assert_eq!(rows[0].quote_status, crate::trade::TradeQuoteStatus::Live);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_position_current_degrades_when_quotes_are_partial() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "600000".to_string(),
+                price: 20.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_quote_lookup(
+            TradeCommands::Position { current: true },
+            &service,
+            &FakeTradeQuoteLookup {
+                quotes: HashMap::from([(
+                    "000001".to_string(),
+                    WatchlistQuoteSnapshot {
+                        latest_price: dec!(12),
+                        price_change_pct: Some(dec!(5)),
+                    },
+                )]),
+                fail: false,
+            },
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::PositionCurrentList(rows) => {
+                let missing = rows.iter().find(|row| row.code == "600000").unwrap();
+                assert_eq!(missing.current_price, None);
+                assert_eq!(
+                    missing.quote_status,
+                    crate::trade::TradeQuoteStatus::Missing
+                );
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_overview_current_uses_live_totals_when_quotes_are_complete() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: Some(500000.0),
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_quote_lookup(
+            TradeCommands::Overview { current: true },
+            &service,
+            &FakeTradeQuoteLookup {
+                quotes: HashMap::from([(
+                    "000001".to_string(),
+                    WatchlistQuoteSnapshot {
+                        latest_price: dec!(12),
+                        price_change_pct: Some(dec!(5)),
+                    },
+                )]),
+                fail: false,
+            },
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::Overview(overview) => {
+                assert_eq!(overview.live_position_value, Some(dec!(1200)));
+                assert_eq!(overview.live_total_assets, Some(dec!(500195)));
+                assert_eq!(overview.quote_coverage, Some((1, 1)));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_overview_current_withholds_live_totals_on_partial_quotes() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: Some(500000.0),
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "600000".to_string(),
+                price: 20.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_quote_lookup(
+            TradeCommands::Overview { current: true },
+            &service,
+            &FakeTradeQuoteLookup {
+                quotes: HashMap::from([(
+                    "000001".to_string(),
+                    WatchlistQuoteSnapshot {
+                        latest_price: dec!(12),
+                        price_change_pct: Some(dec!(5)),
+                    },
+                )]),
+                fail: false,
+            },
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::Overview(overview) => {
+                assert_eq!(overview.live_position_value, None);
+                assert_eq!(overview.live_total_assets, None);
+                assert_eq!(overview.quote_coverage, Some((1, 2)));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_overview_current_degrades_gracefully_on_quote_failure() {
+        let (service, _) = trade_service();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: Some(500000.0),
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 10.0,
+                volume: 100,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_quote_lookup(
+            TradeCommands::Overview { current: true },
+            &service,
+            &FakeTradeQuoteLookup {
+                quotes: HashMap::new(),
+                fail: true,
+            },
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::Overview(overview) => {
+                assert_eq!(overview.live_position_value, None);
+                assert_eq!(overview.live_total_assets, None);
+                assert_eq!(overview.quote_coverage, Some((0, 1)));
             }
             other => panic!("unexpected output: {:?}", other),
         }

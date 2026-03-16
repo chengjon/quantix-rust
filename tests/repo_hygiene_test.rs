@@ -168,10 +168,13 @@ fn readme_documents_phase26_trade_boundary() {
         "quantix trade init",
         "quantix trade buy",
         "quantix trade sell",
-        "quantix trade position",
+        "quantix trade history",
+        "quantix trade fees",
+        "quantix trade overview",
+        "quantix trade position --current",
         "quantix trade cash",
         "QUANTIX_TRADE_PATH",
-        "trade history / trade overview / trade fees / --current 延后到后续 Phase",
+        "实时价格获取失败时降级为空",
     ] {
         assert!(
             contents.contains(expected),
@@ -190,10 +193,14 @@ fn user_manual_documents_phase26_trade_commands() {
         "quantix trade init [--capital <AMOUNT>] [--commission-rate <RATE>] [--commission-min <AMOUNT>] [--stamp-duty-rate <RATE>] [--transfer-fee-rate <RATE>]",
         "quantix trade buy <CODE> --price <PRICE> --volume <N>",
         "quantix trade sell <CODE> --price <PRICE> --volume <N>",
-        "quantix trade position",
+        "quantix trade history [--code <CODE>] [--limit <N>]",
+        "quantix trade fees [--code <CODE>] [--limit <N>]",
+        "quantix trade overview [--current]",
+        "quantix trade position [--current]",
         "quantix trade cash",
         "QUANTIX_TRADE_PATH",
-        "`trade history`、`trade overview`、`trade fees`、`--current` 延后到后续 Phase",
+        "best-effort 实时行情",
+        "拿不到价格时降级为空",
     ] {
         assert!(
             contents.contains(expected),
