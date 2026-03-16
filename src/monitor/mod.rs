@@ -15,4 +15,4 @@ pub use runner::{MonitorIterationOutput, MonitorRunner};
 pub use service::{MonitorAlertStore, MonitorQuoteReader, MonitorService, MonitorWatchlistReader};
 pub use service_config::{JsonMonitorServiceConfigStore, MonitorServiceConfig};
 pub use storage::SqliteMonitorAlertStore;
-pub use systemd::MonitorUserServiceInstaller;
+pub use systemd::{MonitorServiceStatusSummary, MonitorUserServiceInstaller};
