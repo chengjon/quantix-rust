@@ -653,10 +653,10 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
     let alert_store = create_monitor_alert_store().await?;
     let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
     let output = match cmd {
-        MonitorCommands::Watchlist { once } => {
+        MonitorCommands::Watchlist { once, repeat } => {
             let stop_store = create_stop_rule_store().await?;
             execute_monitor_command_with_stop_store(
-                MonitorCommands::Watchlist { once },
+                MonitorCommands::Watchlist { once, repeat },
                 &service,
                 &stop_store,
             )
@@ -822,8 +822,8 @@ where
     RS: MonitorAlertStore,
 {
     match cmd {
-        MonitorCommands::Watchlist { once } => {
-            validate_monitor_watchlist_command(once)?;
+        MonitorCommands::Watchlist { once, repeat } => {
+            validate_monitor_watchlist_command(once, repeat)?;
             Ok(MonitorCommandOutput::Watchlist {
                 snapshot: service.load_watchlist_snapshot().await?,
                 triggered_stops: Vec::new(),
@@ -850,6 +850,18 @@ where
                 Ok(MonitorCommandOutput::AlertRemoved { id, removed })
             }
         },
+        MonitorCommands::Config(_) => Err(QuantixError::Unsupported(
+            "monitor config 尚未实现".to_string(),
+        )),
+        MonitorCommands::Daemon(_) => Err(QuantixError::Unsupported(
+            "monitor daemon 尚未实现".to_string(),
+        )),
+        MonitorCommands::Service(_) => Err(QuantixError::Unsupported(
+            "monitor service 尚未实现".to_string(),
+        )),
+        MonitorCommands::Event(_) => Err(QuantixError::Unsupported(
+            "monitor event 尚未实现".to_string(),
+        )),
     }
 }
 
@@ -865,8 +877,8 @@ where
     SS: StopRuleStore + Clone,
 {
     match cmd {
-        MonitorCommands::Watchlist { once } => {
-            validate_monitor_watchlist_command(once)?;
+        MonitorCommands::Watchlist { once, repeat } => {
+            validate_monitor_watchlist_command(once, repeat)?;
             let snapshot = service.load_watchlist_snapshot().await?;
             let triggered_stops = evaluate_stop_rules_for_snapshot(&snapshot, stop_store).await?;
             Ok(MonitorCommandOutput::Watchlist {
@@ -1278,12 +1290,12 @@ where
     }
 }
 
-fn validate_monitor_watchlist_command(once: bool) -> Result<()> {
-    if once {
+fn validate_monitor_watchlist_command(once: bool, repeat: bool) -> Result<()> {
+    if once ^ repeat {
         Ok(())
     } else {
         Err(QuantixError::Other(
-            "monitor watchlist 当前仅支持 --once".to_string(),
+            "monitor watchlist 必须且只能指定 --once 或 --repeat 之一".to_string(),
         ))
     }
 }
@@ -4291,7 +4303,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
         )
         .await
@@ -4334,7 +4349,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
         )
         .await
@@ -4365,7 +4383,10 @@ mod tests {
         );
 
         let err = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: false },
+            MonitorCommands::Watchlist {
+                once: false,
+                repeat: false,
+            },
             &service,
         )
         .await
@@ -4394,7 +4415,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4438,7 +4462,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4481,7 +4508,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4525,7 +4555,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4579,7 +4612,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )

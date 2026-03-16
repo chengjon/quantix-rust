@@ -243,15 +243,41 @@ pub enum ScreenerCommands {
 #[derive(Subcommand, Debug)]
 pub enum MonitorCommands {
     /// 运行自选池监控
+    #[command(group(
+        ArgGroup::new("monitor_watchlist_mode")
+            .args(["once", "repeat"])
+            .required(true)
+            .multiple(false)
+    ))]
     Watchlist {
         /// 执行一次监控
-        #[arg(long, required = true)]
+        #[arg(long)]
         once: bool,
+
+        /// 持续重复监控
+        #[arg(long)]
+        repeat: bool,
     },
 
     /// 价格告警管理
     #[command(subcommand)]
     Alert(MonitorAlertCommands),
+
+    /// 监控配置管理
+    #[command(subcommand)]
+    Config(MonitorConfigCommands),
+
+    /// 监控守护进程
+    #[command(subcommand)]
+    Daemon(MonitorDaemonCommands),
+
+    /// systemd 用户服务管理
+    #[command(subcommand)]
+    Service(MonitorServiceCommands),
+
+    /// 监控事件历史
+    #[command(subcommand)]
+    Event(MonitorEventCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -283,6 +309,78 @@ pub enum MonitorAlertCommands {
     Remove {
         /// 告警 ID
         id: u64,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorConfigCommands {
+    /// 显示当前监控配置
+    Show,
+
+    /// 修改监控配置
+    #[command(group(
+        ArgGroup::new("monitor_config_mutation")
+            .args(["interval_seconds", "group", "persist_events"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Set {
+        /// 轮询间隔，单位秒
+        #[arg(long)]
+        interval_seconds: Option<u64>,
+
+        /// 自选池分组
+        #[arg(long)]
+        group: Option<String>,
+
+        /// 是否持久化业务事件
+        #[arg(long)]
+        persist_events: Option<bool>,
+    },
+
+    /// 清除分组限制
+    ClearGroup,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorDaemonCommands {
+    /// 运行监控守护进程
+    Run,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorServiceCommands {
+    /// 安装 systemd 用户服务
+    Install,
+    /// 卸载 systemd 用户服务
+    Uninstall,
+    /// 启动 systemd 用户服务
+    Start,
+    /// 停止 systemd 用户服务
+    Stop,
+    /// 查看 systemd 用户服务状态
+    Status,
+    /// 启用开机自启
+    Enable,
+    /// 禁用开机自启
+    Disable,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorEventCommands {
+    /// 查看监控事件历史
+    List {
+        /// 限制返回条数
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 按事件类型过滤
+        #[arg(long = "type")]
+        event_type: Option<String>,
     },
 }
 
