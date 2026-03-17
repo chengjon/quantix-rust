@@ -263,24 +263,273 @@ fn canonical_case(
     let body_bottom = candle.open.min(candle.close);
     let has_upper_shadow = candle.high > body_top + epsilon;
     let has_lower_shadow = candle.low < body_bottom - epsilon;
+    let body_type = body_type(candle.open, candle.close, epsilon);
 
-    match (relation.open, relation.close, relation.high, relation.low) {
-        (Relation::At, Relation::At, Relation::At, Relation::At) => Some(CanonicalCase::Case01),
-        (Relation::At, Relation::At, Relation::Above, Relation::Below)
-            if has_upper_shadow && has_lower_shadow =>
-        {
-            Some(CanonicalCase::Case04)
-        }
-        (Relation::At, Relation::Below, Relation::At, Relation::Below)
-            if !has_upper_shadow && !has_lower_shadow =>
-        {
-            Some(CanonicalCase::Case05)
-        }
-        (Relation::At, Relation::Above, Relation::Above, Relation::At)
-            if !has_upper_shadow && !has_lower_shadow =>
-        {
-            Some(CanonicalCase::Case07)
-        }
-        _ => None,
-    }
+    canonical_rules()
+        .iter()
+        .find(|rule| {
+            rule.relation == *relation
+                && rule.body_type == body_type
+                && rule.has_upper_shadow == has_upper_shadow
+                && rule.has_lower_shadow == has_lower_shadow
+        })
+        .map(|rule| rule.case)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CanonicalCaseRule {
+    case: CanonicalCase,
+    relation: RelationTuple,
+    body_type: BodyType,
+    has_upper_shadow: bool,
+    has_lower_shadow: bool,
+}
+
+fn canonical_rules() -> &'static [CanonicalCaseRule] {
+    use BodyType::{Bear, Bull, Doji};
+    use CanonicalCase::*;
+    use Relation::{Above, At, Below};
+
+    &[
+        CanonicalCaseRule {
+            case: Case01,
+            relation: RelationTuple {
+                open: At,
+                close: At,
+                high: At,
+                low: At,
+            },
+            body_type: Doji,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case02,
+            relation: RelationTuple {
+                open: At,
+                close: At,
+                high: At,
+                low: Below,
+            },
+            body_type: Doji,
+            has_upper_shadow: false,
+            has_lower_shadow: true,
+        },
+        CanonicalCaseRule {
+            case: Case03,
+            relation: RelationTuple {
+                open: At,
+                close: At,
+                high: Above,
+                low: At,
+            },
+            body_type: Doji,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case04,
+            relation: RelationTuple {
+                open: At,
+                close: At,
+                high: Above,
+                low: Below,
+            },
+            body_type: Doji,
+            has_upper_shadow: true,
+            has_lower_shadow: true,
+        },
+        CanonicalCaseRule {
+            case: Case05,
+            relation: RelationTuple {
+                open: At,
+                close: Below,
+                high: At,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case06,
+            relation: RelationTuple {
+                open: At,
+                close: Below,
+                high: Above,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case07,
+            relation: RelationTuple {
+                open: At,
+                close: Above,
+                high: Above,
+                low: At,
+            },
+            body_type: Bull,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case08,
+            relation: RelationTuple {
+                open: At,
+                close: Above,
+                high: Above,
+                low: At,
+            },
+            body_type: Bull,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case09,
+            relation: RelationTuple {
+                open: Below,
+                close: At,
+                high: At,
+                low: Below,
+            },
+            body_type: Bull,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case10,
+            relation: RelationTuple {
+                open: Below,
+                close: At,
+                high: Above,
+                low: Below,
+            },
+            body_type: Bull,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case11,
+            relation: RelationTuple {
+                open: Below,
+                close: Below,
+                high: Below,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case12,
+            relation: RelationTuple {
+                open: Below,
+                close: Below,
+                high: At,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case13,
+            relation: RelationTuple {
+                open: Below,
+                close: Below,
+                high: Below,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: true,
+        },
+        CanonicalCaseRule {
+            case: Case14,
+            relation: RelationTuple {
+                open: Below,
+                close: Above,
+                high: Above,
+                low: Below,
+            },
+            body_type: Bull,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case15,
+            relation: RelationTuple {
+                open: Above,
+                close: At,
+                high: Above,
+                low: At,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case16,
+            relation: RelationTuple {
+                open: Above,
+                close: At,
+                high: Above,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: true,
+        },
+        CanonicalCaseRule {
+            case: Case17,
+            relation: RelationTuple {
+                open: Above,
+                close: Below,
+                high: Above,
+                low: Below,
+            },
+            body_type: Bear,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case18,
+            relation: RelationTuple {
+                open: Above,
+                close: Above,
+                high: Above,
+                low: Above,
+            },
+            body_type: Bull,
+            has_upper_shadow: false,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case19,
+            relation: RelationTuple {
+                open: Above,
+                close: Above,
+                high: Above,
+                low: Above,
+            },
+            body_type: Bull,
+            has_upper_shadow: true,
+            has_lower_shadow: false,
+        },
+        CanonicalCaseRule {
+            case: Case20,
+            relation: RelationTuple {
+                open: Above,
+                close: Above,
+                high: Above,
+                low: Above,
+            },
+            body_type: Bull,
+            has_upper_shadow: false,
+            has_lower_shadow: true,
+        },
+    ]
 }

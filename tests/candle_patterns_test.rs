@@ -146,3 +146,194 @@ fn recognizes_case07_full_bullish_body_from_reference() {
     assert_eq!(pattern.bias, MarketBias::Bullish);
     assert_eq!(pattern.extended.body_type, BodyType::Bull);
 }
+
+#[test]
+fn recognizes_all_documented_canonical_cases() {
+    let cases = [
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(10),
+                low: dec!(10),
+                close: dec!(10),
+            },
+            CanonicalCase::Case01,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(10),
+                low: dec!(8),
+                close: dec!(10),
+            },
+            CanonicalCase::Case02,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(10),
+                close: dec!(10),
+            },
+            CanonicalCase::Case03,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(10),
+            },
+            CanonicalCase::Case04,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(10),
+                low: dec!(8),
+                close: dec!(8),
+            },
+            CanonicalCase::Case05,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(8),
+            },
+            CanonicalCase::Case06,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(10),
+                close: dec!(12),
+            },
+            CanonicalCase::Case07,
+        ),
+        (
+            CandleInput {
+                open: dec!(10),
+                high: dec!(14),
+                low: dec!(10),
+                close: dec!(12),
+            },
+            CanonicalCase::Case08,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(10),
+                low: dec!(8),
+                close: dec!(10),
+            },
+            CanonicalCase::Case09,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(10),
+            },
+            CanonicalCase::Case10,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(8),
+                low: dec!(6),
+                close: dec!(6),
+            },
+            CanonicalCase::Case11,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(10),
+                low: dec!(6),
+                close: dec!(6),
+            },
+            CanonicalCase::Case12,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(8),
+                low: dec!(5),
+                close: dec!(6),
+            },
+            CanonicalCase::Case13,
+        ),
+        (
+            CandleInput {
+                open: dec!(8),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(12),
+            },
+            CanonicalCase::Case14,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(12),
+                low: dec!(10),
+                close: dec!(10),
+            },
+            CanonicalCase::Case15,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(10),
+            },
+            CanonicalCase::Case16,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(8),
+            },
+            CanonicalCase::Case17,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(14),
+                low: dec!(12),
+                close: dec!(14),
+            },
+            CanonicalCase::Case18,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(16),
+                low: dec!(12),
+                close: dec!(14),
+            },
+            CanonicalCase::Case19,
+        ),
+        (
+            CandleInput {
+                open: dec!(12),
+                high: dec!(14),
+                low: dec!(11),
+                close: dec!(14),
+            },
+            CanonicalCase::Case20,
+        ),
+    ];
+
+    for (candle, expected) in cases {
+        let pattern = recognize_single(&candle, dec!(10), &default_config()).unwrap();
+        assert_eq!(pattern.canonical_case, Some(expected), "failed canonical case {expected:?}");
+    }
+}
