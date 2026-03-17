@@ -711,6 +711,7 @@ quantix task status
 
 - `indicators` - 计算技术指标
 - `backtest` - 查看回测报告
+- `candle-pattern` - K线形态识别
 - `screener` - 运行日线选股筛选
 
 #### analyze indicators - 计算技术指标
@@ -788,6 +789,81 @@ quantix analyze backtest -i bt_20240101_000001
 ```
 回测报告: bt_20240101_000001
 ```
+
+---
+
+#### analyze candle-pattern - K线形态识别
+
+对一根或连续多根 K线做形态识别。当前支持两种参考价策略：
+
+- `--reference <P>`：对每根 K线使用同一个显式参考价
+- `--previous-close`：对第 N 根 K线使用第 N-1 根收盘价作为参考价
+
+##### 用法
+
+```bash
+quantix analyze candle-pattern (--candle <O,H,L,C> [--candle <O,H,L,C> ...] | --code <CODE> [--tdx-root <PATH>] [--market <sh|sz|bj|ds>] [--type <PERIOD>] [--start <YYYYMMDD>] [--end <YYYYMMDD>] [--limit <N>] | --day-file <PATH> [--start <YYYYMMDD>] [--end <YYYYMMDD>] [--limit <N>]) (--reference <P> | --previous-close)
+```
+
+##### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--candle` | 手工输入单根 K线，格式为 `o,h,l,c`，可重复传入 | 二选一 |
+| `--code` | 从已落库 K线读取一段历史数据 | 二选一 |
+| `--tdx-root` | 通达信根目录，例如 `/mnt/d/ProgramData/tdx_20251231`；与 `--code` 一起使用时改为直接读 `vipdoc/*/lday` 源文件 | 无 |
+| `--market` | 指定 TDX 市场目录，支持 `sh`、`sz`、`bj`、`ds` | 无 |
+| `--day-file` | 直接读取通达信 `*.day` 源文件 | 二选一 |
+| `--type` | K线周期，例如 `1d`、`5m`、`60m` | `1d` |
+| `--start` | 开始日期，格式 `YYYYMMDD` | 无 |
+| `--end` | 结束日期，格式 `YYYYMMDD` | 无 |
+| `--limit` | 限制拉取条数 | `20` |
+| `--reference` | 显式参考价 `p` | 二选一 |
+| `--previous-close` | 使用前一根收盘价作为参考价 | 二选一 |
+
+##### 示例
+
+```bash
+# 使用显式参考价识别两根 K线
+quantix analyze candle-pattern \
+  --candle 10,10,8,8 \
+  --candle 10,12,8,10 \
+  --reference 10
+
+# 使用前收盘作为参考价识别序列
+quantix analyze candle-pattern \
+  --candle 10,10,10,10 \
+  --candle 10,12,10,12 \
+  --candle 12,12,8,10 \
+  --previous-close
+
+# 对真实历史 K线做判型
+quantix analyze candle-pattern \
+  --code 000001 \
+  --type 1d \
+  --limit 30 \
+  --previous-close
+
+# 给 TDX 根目录和代码，让程序自动定位 day 文件
+quantix analyze candle-pattern \
+  --code 000001 \
+  --tdx-root /mnt/d/ProgramData/tdx_20251231 \
+  --market sz \
+  --limit 30 \
+  --previous-close
+
+# 直接读取通达信 day 文件做判型
+quantix analyze candle-pattern \
+  --day-file /mnt/d/ProgramData/tdx_20251231/vipdoc/sh/lday/sh000001.day \
+  --limit 30 \
+  --previous-close
+```
+
+##### 输出说明
+
+- `标准形态`：命中 `k-line-20.md` 里的 canonical case 时显示 `CaseXX + 中文名`
+- `偏向`：当前按 `看多 / 看空 / 看平` 输出粗粒度解释
+- `扩展结构`：未命中 canonical case 时，仍会输出扩展结构用于后续研究
 
 ---
 

@@ -39,6 +39,58 @@ pub enum CanonicalCase {
     Case20,
 }
 
+impl CanonicalCase {
+    pub fn id(&self) -> &'static str {
+        match self {
+            Self::Case01 => "Case01",
+            Self::Case02 => "Case02",
+            Self::Case03 => "Case03",
+            Self::Case04 => "Case04",
+            Self::Case05 => "Case05",
+            Self::Case06 => "Case06",
+            Self::Case07 => "Case07",
+            Self::Case08 => "Case08",
+            Self::Case09 => "Case09",
+            Self::Case10 => "Case10",
+            Self::Case11 => "Case11",
+            Self::Case12 => "Case12",
+            Self::Case13 => "Case13",
+            Self::Case14 => "Case14",
+            Self::Case15 => "Case15",
+            Self::Case16 => "Case16",
+            Self::Case17 => "Case17",
+            Self::Case18 => "Case18",
+            Self::Case19 => "Case19",
+            Self::Case20 => "Case20",
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Case01 => "一字线",
+            Self::Case02 => "T字线",
+            Self::Case03 => "倒T字线",
+            Self::Case04 => "十字星",
+            Self::Case05 => "光头光脚阴线",
+            Self::Case06 => "光脚阴线",
+            Self::Case07 => "光头光脚阳线",
+            Self::Case08 => "光头阳线",
+            Self::Case09 => "光头光脚阳线",
+            Self::Case10 => "光脚阳线",
+            Self::Case11 => "光头光脚阴线",
+            Self::Case12 => "光脚阴线",
+            Self::Case13 => "光头阴线",
+            Self::Case14 => "光头光脚阳线",
+            Self::Case15 => "光头光脚阴线",
+            Self::Case16 => "光头阴线",
+            Self::Case17 => "光头光脚阴线",
+            Self::Case18 => "光头光脚阳线",
+            Self::Case19 => "光脚阳线",
+            Self::Case20 => "光头阳线",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferenceSpan {
     EntireBelow,
@@ -225,35 +277,6 @@ fn bias_from_close(close: Decimal, reference: Decimal, epsilon: Decimal) -> Mark
     }
 }
 
-fn features(candle: &CandleInput, reference: Decimal) -> CandleFeatures {
-    let range_size = candle.high - candle.low;
-    let body_top = candle.open.max(candle.close);
-    let body_bottom = candle.open.min(candle.close);
-    let body_size = body_top - body_bottom;
-    let upper_shadow_size = candle.high - body_top;
-    let lower_shadow_size = body_bottom - candle.low;
-
-    CandleFeatures {
-        body_size,
-        range_size,
-        upper_shadow_size,
-        lower_shadow_size,
-        body_ratio: ratio(body_size, range_size),
-        upper_shadow_ratio: ratio(upper_shadow_size, range_size),
-        lower_shadow_ratio: ratio(lower_shadow_size, range_size),
-        close_position_ratio: ratio(candle.close - candle.low, range_size),
-        gap_from_reference: candle.close - reference,
-    }
-}
-
-fn ratio(numerator: Decimal, denominator: Decimal) -> Decimal {
-    if denominator == Decimal::ZERO {
-        Decimal::ZERO
-    } else {
-        numerator / denominator
-    }
-}
-
 fn canonical_case(
     candle: &CandleInput,
     relation: &RelationTuple,
@@ -265,271 +288,138 @@ fn canonical_case(
     let has_lower_shadow = candle.low < body_bottom - epsilon;
     let body_type = body_type(candle.open, candle.close, epsilon);
 
-    canonical_rules()
-        .iter()
-        .find(|rule| {
-            rule.relation == *relation
-                && rule.body_type == body_type
-                && rule.has_upper_shadow == has_upper_shadow
-                && rule.has_lower_shadow == has_lower_shadow
-        })
-        .map(|rule| rule.case)
+    match (relation.open, relation.close, relation.high, relation.low) {
+        (Relation::At, Relation::At, Relation::At, Relation::At) => Some(CanonicalCase::Case01),
+        (Relation::At, Relation::At, Relation::At, Relation::Below)
+            if !has_upper_shadow && has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case02)
+        }
+        (Relation::At, Relation::At, Relation::Above, Relation::At)
+            if has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case03)
+        }
+        (Relation::At, Relation::At, Relation::Above, Relation::Below)
+            if has_upper_shadow && has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case04)
+        }
+        (Relation::At, Relation::Below, Relation::At, Relation::Below)
+            if !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case05)
+        }
+        (Relation::At, Relation::Below, Relation::Above, Relation::Below)
+            if has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case06)
+        }
+        (Relation::At, Relation::Above, Relation::Above, Relation::At)
+            if !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case07)
+        }
+        (Relation::At, Relation::Above, Relation::Above, Relation::At)
+            if has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case08)
+        }
+        (Relation::Below, Relation::At, Relation::At, Relation::Below)
+            if body_type == BodyType::Bull && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case09)
+        }
+        (Relation::Below, Relation::At, Relation::Above, Relation::Below)
+            if body_type == BodyType::Bull && has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case10)
+        }
+        (Relation::Below, Relation::Below, Relation::Below, Relation::Below)
+            if body_type == BodyType::Bear && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case11)
+        }
+        (Relation::Below, Relation::Below, Relation::At, Relation::Below)
+            if body_type == BodyType::Bear && has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case12)
+        }
+        (Relation::Below, Relation::Below, Relation::Below, Relation::Below)
+            if body_type == BodyType::Bear && !has_upper_shadow && has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case13)
+        }
+        (Relation::Below, Relation::Above, Relation::Above, Relation::Below)
+            if body_type == BodyType::Bull && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case14)
+        }
+        (Relation::Above, Relation::At, Relation::Above, Relation::At)
+            if body_type == BodyType::Bear && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case15)
+        }
+        (Relation::Above, Relation::At, Relation::Above, Relation::Below)
+            if body_type == BodyType::Bear && !has_upper_shadow && has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case16)
+        }
+        (Relation::Above, Relation::Below, Relation::Above, Relation::Below)
+            if body_type == BodyType::Bear && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case17)
+        }
+        (Relation::Above, Relation::Above, Relation::Above, Relation::Above)
+            if body_type == BodyType::Bull && !has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case18)
+        }
+        (Relation::Above, Relation::Above, Relation::Above, Relation::Above)
+            if body_type == BodyType::Bull && has_upper_shadow && !has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case19)
+        }
+        (Relation::Above, Relation::Above, Relation::Above, Relation::Above)
+            if body_type == BodyType::Bull && !has_upper_shadow && has_lower_shadow =>
+        {
+            Some(CanonicalCase::Case20)
+        }
+        _ => None,
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct CanonicalCaseRule {
-    case: CanonicalCase,
-    relation: RelationTuple,
-    body_type: BodyType,
-    has_upper_shadow: bool,
-    has_lower_shadow: bool,
-}
+fn features(candle: &CandleInput, reference: Decimal) -> CandleFeatures {
+    let range_size = candle.high - candle.low;
+    let body_size = (candle.close - candle.open).abs();
+    let body_top = candle.open.max(candle.close);
+    let body_bottom = candle.open.min(candle.close);
+    let upper_shadow_size = candle.high - body_top;
+    let lower_shadow_size = body_bottom - candle.low;
 
-fn canonical_rules() -> &'static [CanonicalCaseRule] {
-    use BodyType::{Bear, Bull, Doji};
-    use CanonicalCase::*;
-    use Relation::{Above, At, Below};
+    let ratio = |value: Decimal| {
+        if range_size.is_zero() {
+            Decimal::ZERO
+        } else {
+            value / range_size
+        }
+    };
 
-    &[
-        CanonicalCaseRule {
-            case: Case01,
-            relation: RelationTuple {
-                open: At,
-                close: At,
-                high: At,
-                low: At,
-            },
-            body_type: Doji,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case02,
-            relation: RelationTuple {
-                open: At,
-                close: At,
-                high: At,
-                low: Below,
-            },
-            body_type: Doji,
-            has_upper_shadow: false,
-            has_lower_shadow: true,
-        },
-        CanonicalCaseRule {
-            case: Case03,
-            relation: RelationTuple {
-                open: At,
-                close: At,
-                high: Above,
-                low: At,
-            },
-            body_type: Doji,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case04,
-            relation: RelationTuple {
-                open: At,
-                close: At,
-                high: Above,
-                low: Below,
-            },
-            body_type: Doji,
-            has_upper_shadow: true,
-            has_lower_shadow: true,
-        },
-        CanonicalCaseRule {
-            case: Case05,
-            relation: RelationTuple {
-                open: At,
-                close: Below,
-                high: At,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case06,
-            relation: RelationTuple {
-                open: At,
-                close: Below,
-                high: Above,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case07,
-            relation: RelationTuple {
-                open: At,
-                close: Above,
-                high: Above,
-                low: At,
-            },
-            body_type: Bull,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case08,
-            relation: RelationTuple {
-                open: At,
-                close: Above,
-                high: Above,
-                low: At,
-            },
-            body_type: Bull,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case09,
-            relation: RelationTuple {
-                open: Below,
-                close: At,
-                high: At,
-                low: Below,
-            },
-            body_type: Bull,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case10,
-            relation: RelationTuple {
-                open: Below,
-                close: At,
-                high: Above,
-                low: Below,
-            },
-            body_type: Bull,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case11,
-            relation: RelationTuple {
-                open: Below,
-                close: Below,
-                high: Below,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case12,
-            relation: RelationTuple {
-                open: Below,
-                close: Below,
-                high: At,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case13,
-            relation: RelationTuple {
-                open: Below,
-                close: Below,
-                high: Below,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: true,
-        },
-        CanonicalCaseRule {
-            case: Case14,
-            relation: RelationTuple {
-                open: Below,
-                close: Above,
-                high: Above,
-                low: Below,
-            },
-            body_type: Bull,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case15,
-            relation: RelationTuple {
-                open: Above,
-                close: At,
-                high: Above,
-                low: At,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case16,
-            relation: RelationTuple {
-                open: Above,
-                close: At,
-                high: Above,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: true,
-        },
-        CanonicalCaseRule {
-            case: Case17,
-            relation: RelationTuple {
-                open: Above,
-                close: Below,
-                high: Above,
-                low: Below,
-            },
-            body_type: Bear,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case18,
-            relation: RelationTuple {
-                open: Above,
-                close: Above,
-                high: Above,
-                low: Above,
-            },
-            body_type: Bull,
-            has_upper_shadow: false,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case19,
-            relation: RelationTuple {
-                open: Above,
-                close: Above,
-                high: Above,
-                low: Above,
-            },
-            body_type: Bull,
-            has_upper_shadow: true,
-            has_lower_shadow: false,
-        },
-        CanonicalCaseRule {
-            case: Case20,
-            relation: RelationTuple {
-                open: Above,
-                close: Above,
-                high: Above,
-                low: Above,
-            },
-            body_type: Bull,
-            has_upper_shadow: false,
-            has_lower_shadow: true,
-        },
-    ]
+    let close_position_ratio = if range_size.is_zero() {
+        Decimal::ZERO
+    } else {
+        (candle.close - candle.low) / range_size
+    };
+
+    CandleFeatures {
+        body_size,
+        range_size,
+        upper_shadow_size,
+        lower_shadow_size,
+        body_ratio: ratio(body_size),
+        upper_shadow_ratio: ratio(upper_shadow_size),
+        lower_shadow_ratio: ratio(lower_shadow_size),
+        close_position_ratio,
+        gap_from_reference: candle.open - reference,
+    }
 }

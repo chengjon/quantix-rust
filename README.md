@@ -150,6 +150,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `strategy list/show` - 策略管理
   - `task start/stop/status` - 任务调度器管理
   - `analyze indicators` - 技术指标计算
+  - `analyze candle-pattern` - K线形态识别（支持已落库 K线、TDX day 文件、TDX 根目录自动定位）
   - `status --health` - 数据库健康检查
 - **交互式菜单系统**
   - 数据同步菜单

@@ -80,6 +80,7 @@ fn recognizes_sequence_using_previous_close_reference() {
             .unwrap();
 
     assert_eq!(patterns.len(), 1);
+    assert_eq!(patterns[0].canonical_case, Some(CanonicalCase::Case07));
     assert_eq!(patterns[0].bias, MarketBias::Bullish);
 }
 
@@ -148,8 +149,8 @@ fn recognizes_case07_full_bullish_body_from_reference() {
 }
 
 #[test]
-fn recognizes_all_documented_canonical_cases() {
-    let cases = [
+fn recognizes_all_documented_canonical_examples() {
+    let examples = vec![
         (
             CandleInput {
                 open: dec!(10),
@@ -332,8 +333,42 @@ fn recognizes_all_documented_canonical_cases() {
         ),
     ];
 
-    for (candle, expected) in cases {
+    for (candle, expected_case) in examples {
         let pattern = recognize_single(&candle, dec!(10), &default_config()).unwrap();
-        assert_eq!(pattern.canonical_case, Some(expected), "failed canonical case {expected:?}");
+        assert_eq!(pattern.canonical_case, Some(expected_case));
     }
+}
+
+#[test]
+fn recognizes_sequence_using_explicit_reference_for_each_candle() {
+    let candles = vec![
+        CandleInput {
+            open: dec!(10),
+            high: dec!(10),
+            low: dec!(8),
+            close: dec!(8),
+        },
+        CandleInput {
+            open: dec!(10),
+            high: dec!(12),
+            low: dec!(8),
+            close: dec!(10),
+        },
+    ];
+
+    let patterns = recognize_sequence(&candles, &ReferencePricePolicy::Explicit(dec!(10)), &default_config())
+        .unwrap();
+
+    assert_eq!(patterns.len(), 2);
+    assert_eq!(patterns[0].canonical_case, Some(CanonicalCase::Case05));
+    assert_eq!(patterns[1].canonical_case, Some(CanonicalCase::Case04));
+}
+
+#[test]
+fn exposes_stable_metadata_for_canonical_cases() {
+    assert_eq!(CanonicalCase::Case01.id(), "Case01");
+    assert_eq!(CanonicalCase::Case01.display_name(), "一字线");
+    assert_eq!(CanonicalCase::Case04.display_name(), "十字星");
+    assert_eq!(CanonicalCase::Case14.display_name(), "光头光脚阳线");
+    assert_eq!(CanonicalCase::Case17.display_name(), "光头光脚阴线");
 }

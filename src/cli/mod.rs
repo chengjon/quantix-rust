@@ -202,6 +202,65 @@ pub enum AnalyzeCommands {
         id: String,
     },
 
+    /// K线形态识别
+    #[command(group(
+        ArgGroup::new("candle_pattern_source")
+            .args(["candle", "code", "day_file"])
+            .required(true)
+            .multiple(false)
+    ))]
+    #[command(group(
+        ArgGroup::new("candle_pattern_reference_mode")
+            .args(["reference", "previous_close"])
+            .required(true)
+            .multiple(false)
+    ))]
+    CandlePattern {
+        /// K线，格式为 o,h,l,c，可重复传入表示序列
+        #[arg(long = "candle")]
+        candle: Vec<String>,
+
+        /// 股票代码，从已落库 K线读取一段历史数据
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 通达信根目录，例如 /mnt/d/ProgramData/tdx_20251231
+        #[arg(long = "tdx-root")]
+        tdx_root: Option<String>,
+
+        /// 指定 TDX 市场目录，支持 sh/sz/bj/ds
+        #[arg(long)]
+        market: Option<String>,
+
+        /// 通达信 day 文件路径，直接从源文件读取日线
+        #[arg(long = "day-file")]
+        day_file: Option<String>,
+
+        /// 开始日期 (YYYYMMDD)
+        #[arg(short, long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYYMMDD)
+        #[arg(short, long)]
+        end: Option<String>,
+
+        /// K线周期
+        #[arg(long, default_value = "1d")]
+        r#type: String,
+
+        /// 限制返回条数
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// 显式参考价 p
+        #[arg(long)]
+        reference: Option<String>,
+
+        /// 使用前一根收盘价作为当前 K线参考价
+        #[arg(long)]
+        previous_close: bool,
+    },
+
     /// 选股筛选
     #[command(subcommand)]
     Screener(ScreenerCommands),
