@@ -264,6 +264,26 @@ fn readme_documents_phase27_risk_boundary() {
 }
 
 #[test]
+fn readme_documents_phase29_strategy_paper_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 29: 策略 Paper 执行骨架",
+        "quantix strategy run -n ma_cross --mode paper --code 000001",
+        "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
+        "~/.quantix/strategy/runtime.db",
+        "执行前请先运行 `quantix trade init`",
+        "live 模式仍在开发中",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase27_risk_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
@@ -292,4 +312,36 @@ fn user_manual_documents_phase27_risk_commands() {
             "expected USER_MANUAL to contain {expected}"
         );
     }
+}
+
+#[test]
+fn user_manual_documents_phase29_strategy_paper_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]",
+        "| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |",
+        "quantix strategy run -n ma_cross --mode paper -c 000001",
+        "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
+        "~/.quantix/strategy/runtime.db",
+        "首次使用前请先执行 `quantix trade init`",
+        "`live` 模式仍在开发中",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn quickstart_uses_current_strategy_cli_shape() {
+    let quickstart_path = repo_root().join("docs").join("QUICKSTART.md");
+    let contents = fs::read_to_string(quickstart_path).expect("expected QUICKSTART.md to exist");
+
+    assert!(
+        contents.contains("cargo run -- strategy run -n ma_cross --code 000001"),
+        "expected QUICKSTART to use current strategy CLI syntax"
+    );
 }

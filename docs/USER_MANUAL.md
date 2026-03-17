@@ -101,6 +101,9 @@ export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 
 # 风控 JSON 路径（可选）
 export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
+
+# 策略运行时审计 SQLite 路径（可选）
+export QUANTIX_STRATEGY_RUNTIME_DB_PATH="$HOME/.quantix/strategy/runtime.db"
 ```
 
 ### 运行测试
@@ -450,7 +453,7 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 |------|------|
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
-| `paper` | 模拟盘模式 (开发中) |
+| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
 
 ##### 示例
 
@@ -460,6 +463,10 @@ quantix strategy run -n ma_cross
 
 # 运行策略回测指定股票
 quantix strategy run -n ma_cross -c 000001
+
+# 使用 paper 模式单次执行
+quantix trade init --capital 1000000
+quantix strategy run -n ma_cross --mode paper -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -471,6 +478,15 @@ quantix strategy run -n ma_cross --mode live
 运行策略: ma_cross (backtest)
 股票代码: 000001
 ```
+
+##### 当前 Phase 29A 边界
+
+- `paper` 模式当前只支持 `ma_cross`
+- `paper` 模式当前只支持单代码、单次执行
+- 首次使用前请先执行 `quantix trade init`
+- 运行审计默认写入 `~/.quantix/strategy/runtime.db`
+- 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
+- `live` 模式仍在开发中
 
 ---
 

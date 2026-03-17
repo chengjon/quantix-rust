@@ -294,6 +294,20 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
   - `实盘导入 / 波动率和行业规则 / 自动减仓` 延后到后续 Phase
 
+#### Phase 29: 策略 Paper 执行骨架 ✅
+- **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
+  - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
+- **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
+  - 默认路径 `~/.quantix/strategy/runtime.db`
+  - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
+- **P0 约束**
+  - 当前仅支持 `ma_cross`
+  - 当前仅支持单代码、单次执行
+  - 执行前请先运行 `quantix trade init`
+  - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
+  - `live 模式仍在开发中`
+  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
