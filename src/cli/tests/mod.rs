@@ -2,6 +2,7 @@ use super::*;
 use clap::Parser;
 use clap::error::ErrorKind;
 
+mod analyze;
 mod market;
 mod monitor;
 mod risk;

@@ -22,6 +22,7 @@ pub struct ClickHouseSettings {
 
 impl ClickHouseSettings {
     pub fn from_env() -> Self {
+        load_dotenv_if_present();
         Self {
             url: std::env::var(CLICKHOUSE_URL_ENV)
                 .unwrap_or_else(|_| DEFAULT_CLICKHOUSE_URL.to_string()),
@@ -48,6 +49,7 @@ pub struct CliRuntime {
 
 impl CliRuntime {
     pub fn load() -> Self {
+        load_dotenv_if_present();
         Self {
             clickhouse: ClickHouseSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
@@ -58,6 +60,10 @@ impl CliRuntime {
             strategy_runtime_db_path: resolve_strategy_runtime_db_path(),
         }
     }
+}
+
+fn load_dotenv_if_present() {
+    let _ = dotenv::dotenv();
 }
 
 fn resolve_watchlist_path() -> PathBuf {
@@ -159,6 +165,7 @@ fn resolve_strategy_runtime_db_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
     use std::sync::{Mutex, OnceLock};
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
@@ -263,14 +270,19 @@ mod tests {
     fn test_clickhouse_settings_default_values() {
         let _lock = env_lock();
         let _guard = ClickHouseEnvGuard::capture();
+        let cwd = std::env::current_dir().unwrap();
+        let temp = tempdir().unwrap();
         unsafe {
             std::env::remove_var(CLICKHOUSE_URL_ENV);
             std::env::remove_var(CLICKHOUSE_DB_ENV);
             std::env::remove_var(CLICKHOUSE_USER_ENV);
             std::env::remove_var(CLICKHOUSE_PASSWORD_ENV);
         }
+        std::env::set_current_dir(temp.path()).unwrap();
 
         let settings = ClickHouseSettings::from_env();
+
+        std::env::set_current_dir(cwd).unwrap();
         assert_eq!(settings.url, DEFAULT_CLICKHOUSE_URL);
         assert_eq!(settings.database, DEFAULT_CLICKHOUSE_DB);
         assert_eq!(settings.user, DEFAULT_CLICKHOUSE_USER);
@@ -293,6 +305,44 @@ mod tests {
         assert_eq!(settings.database, "quantix_test");
         assert_eq!(settings.user, "runtime_user");
         assert_eq!(settings.password, "runtime_password");
+    }
+
+    #[test]
+    fn test_cli_runtime_loads_clickhouse_settings_from_dotenv_file() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        let cwd = std::env::current_dir().unwrap();
+        let temp = tempdir().unwrap();
+        let env_path = temp.path().join(".env");
+
+        std::fs::write(
+            &env_path,
+            [
+                "CLICKHOUSE_URL=http://192.168.123.104:8123",
+                "CLICKHOUSE_DB=quantix",
+                "CLICKHOUSE_USER=default",
+                "CLICKHOUSE_PASSWORD=c790414J",
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+
+        unsafe {
+            std::env::remove_var(CLICKHOUSE_URL_ENV);
+            std::env::remove_var(CLICKHOUSE_DB_ENV);
+            std::env::remove_var(CLICKHOUSE_USER_ENV);
+            std::env::remove_var(CLICKHOUSE_PASSWORD_ENV);
+        }
+        std::env::set_current_dir(temp.path()).unwrap();
+
+        let runtime = CliRuntime::load();
+
+        std::env::set_current_dir(cwd).unwrap();
+
+        assert_eq!(runtime.clickhouse.url, "http://192.168.123.104:8123");
+        assert_eq!(runtime.clickhouse.database, "quantix");
+        assert_eq!(runtime.clickhouse.user, "default");
+        assert_eq!(runtime.clickhouse.password, "c790414J");
     }
 
     #[test]
