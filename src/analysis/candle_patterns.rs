@@ -39,6 +39,58 @@ pub enum CanonicalCase {
     Case20,
 }
 
+impl CanonicalCase {
+    pub fn id(&self) -> &'static str {
+        match self {
+            Self::Case01 => "Case01",
+            Self::Case02 => "Case02",
+            Self::Case03 => "Case03",
+            Self::Case04 => "Case04",
+            Self::Case05 => "Case05",
+            Self::Case06 => "Case06",
+            Self::Case07 => "Case07",
+            Self::Case08 => "Case08",
+            Self::Case09 => "Case09",
+            Self::Case10 => "Case10",
+            Self::Case11 => "Case11",
+            Self::Case12 => "Case12",
+            Self::Case13 => "Case13",
+            Self::Case14 => "Case14",
+            Self::Case15 => "Case15",
+            Self::Case16 => "Case16",
+            Self::Case17 => "Case17",
+            Self::Case18 => "Case18",
+            Self::Case19 => "Case19",
+            Self::Case20 => "Case20",
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Case01 => "一字线",
+            Self::Case02 => "T字线",
+            Self::Case03 => "倒T字线",
+            Self::Case04 => "十字星",
+            Self::Case05 => "光头光脚阴线",
+            Self::Case06 => "光脚阴线",
+            Self::Case07 => "光头光脚阳线",
+            Self::Case08 => "光头阳线",
+            Self::Case09 => "光头光脚阳线",
+            Self::Case10 => "光脚阳线",
+            Self::Case11 => "光头光脚阴线",
+            Self::Case12 => "光脚阴线",
+            Self::Case13 => "光头阴线",
+            Self::Case14 => "光头光脚阳线",
+            Self::Case15 => "光头光脚阴线",
+            Self::Case16 => "光头阴线",
+            Self::Case17 => "光头光脚阴线",
+            Self::Case18 => "光头光脚阳线",
+            Self::Case19 => "光脚阳线",
+            Self::Case20 => "光头阳线",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferenceSpan {
     EntireBelow,

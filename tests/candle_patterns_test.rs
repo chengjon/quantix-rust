@@ -337,3 +337,34 @@ fn recognizes_all_documented_canonical_cases() {
         assert_eq!(pattern.canonical_case, Some(expected), "failed canonical case {expected:?}");
     }
 }
+
+#[test]
+fn exposes_stable_metadata_for_canonical_cases() {
+    let cases = [
+        (CanonicalCase::Case01, "Case01", "一字线"),
+        (CanonicalCase::Case02, "Case02", "T字线"),
+        (CanonicalCase::Case03, "Case03", "倒T字线"),
+        (CanonicalCase::Case04, "Case04", "十字星"),
+        (CanonicalCase::Case05, "Case05", "光头光脚阴线"),
+        (CanonicalCase::Case06, "Case06", "光脚阴线"),
+        (CanonicalCase::Case07, "Case07", "光头光脚阳线"),
+        (CanonicalCase::Case08, "Case08", "光头阳线"),
+        (CanonicalCase::Case09, "Case09", "光头光脚阳线"),
+        (CanonicalCase::Case10, "Case10", "光脚阳线"),
+        (CanonicalCase::Case11, "Case11", "光头光脚阴线"),
+        (CanonicalCase::Case12, "Case12", "光脚阴线"),
+        (CanonicalCase::Case13, "Case13", "光头阴线"),
+        (CanonicalCase::Case14, "Case14", "光头光脚阳线"),
+        (CanonicalCase::Case15, "Case15", "光头光脚阴线"),
+        (CanonicalCase::Case16, "Case16", "光头阴线"),
+        (CanonicalCase::Case17, "Case17", "光头光脚阴线"),
+        (CanonicalCase::Case18, "Case18", "光头光脚阳线"),
+        (CanonicalCase::Case19, "Case19", "光脚阳线"),
+        (CanonicalCase::Case20, "Case20", "光头阳线"),
+    ];
+
+    for (case_id, expected_id, expected_name) in cases {
+        assert_eq!(case_id.id(), expected_id);
+        assert_eq!(case_id.display_name(), expected_name);
+    }
+}
