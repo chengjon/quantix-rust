@@ -6,11 +6,15 @@ use super::{
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
+use crate::analysis::candle_patterns::{
+    CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
+};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// CLI 命令处理器
 ///
 /// 实现各个子命令的处理逻辑
 use crate::core::{CliRuntime, QuantixError, Result};
+use crate::data::models::Kline;
 use crate::db::clickhouse::ClickHouseClient;
 use crate::execution::kernel::{
     ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RiskDecision, RiskEvaluator,
@@ -38,6 +42,7 @@ use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
+use crate::sources::TdxDayFile;
 use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use crate::strategy::trait_def::Signal;
 use crate::stop::{
@@ -64,6 +69,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -867,6 +873,34 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
         }
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id).await?;
+        }
+        AnalyzeCommands::CandlePattern {
+            candle,
+            code,
+            tdx_root,
+            market,
+            day_file,
+            start,
+            end,
+            r#type,
+            limit,
+            reference,
+            previous_close,
+        } => {
+            analyze_candle_patterns(
+                candle,
+                code,
+                tdx_root,
+                market,
+                day_file,
+                start,
+                end,
+                r#type,
+                limit,
+                reference,
+                previous_close,
+            )
+            .await?;
         }
         AnalyzeCommands::Screener(cmd) => {
             run_screener_command(cmd).await?;
@@ -3230,6 +3264,339 @@ async fn show_backtest_report(id: String) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PatternCandleRow {
+    label: String,
+    candle: CandleInput,
+}
+
+async fn analyze_candle_patterns(
+    candle_specs: Vec<String>,
+    code: Option<String>,
+    tdx_root: Option<String>,
+    market: Option<String>,
+    day_file: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    period_type: String,
+    limit: usize,
+    reference: Option<String>,
+    previous_close: bool,
+) -> Result<()> {
+    let rows = load_pattern_candle_rows(
+        candle_specs,
+        code,
+        tdx_root,
+        market,
+        day_file,
+        start,
+        end,
+        period_type,
+        limit,
+    )
+    .await?;
+    let candles: Vec<CandleInput> = rows.iter().map(|row| row.candle).collect();
+    let policy = build_reference_policy(reference, previous_close)?;
+    let references = sequence_references(&candles, &policy)?;
+    let config = PatternConfig { epsilon: dec!(0.0001) };
+    let patterns = recognize_sequence(&candles, &policy, &config)
+        .map_err(|err| QuantixError::Other(format!("K线形态识别失败: {:?}", err)))?;
+
+    println!("📈 K线形态识别");
+    println!("  数量: {}", candles.len());
+    println!(
+        "  参考策略: {}",
+        if previous_close {
+            "前一根收盘价"
+        } else {
+            "显式参考价"
+        }
+    );
+
+    for (idx, pattern) in patterns.iter().enumerate() {
+        let row = match policy {
+            ReferencePricePolicy::Explicit(_) => &rows[idx],
+            ReferencePricePolicy::PreviousClose => &rows[idx + 1],
+        };
+        let candle = &row.candle;
+
+        println!(
+            "\n#{} {} O={} H={} L={} C={} P={}",
+            idx + 1,
+            row.label,
+            candle.open,
+            candle.high,
+            candle.low,
+            candle.close,
+            references[idx],
+        );
+
+        match pattern.canonical_case {
+            Some(case_id) => println!("  标准形态: {} {}", case_id.id(), case_id.display_name()),
+            None => println!("  标准形态: 扩展形态"),
+        }
+
+        println!(
+            "  偏向: {}",
+            match pattern.bias {
+                MarketBias::Bullish => "看多",
+                MarketBias::Bearish => "看空",
+                MarketBias::Neutral => "看平",
+            }
+        );
+        println!(
+            "  扩展结构: {:?} / {:?} / upper_shadow={} / lower_shadow={}",
+            pattern.extended.reference_span,
+            pattern.extended.body_type,
+            pattern.extended.has_upper_shadow,
+            pattern.extended.has_lower_shadow
+        );
+    }
+
+    Ok(())
+}
+
+async fn load_pattern_candle_rows(
+    candle_specs: Vec<String>,
+    code: Option<String>,
+    tdx_root: Option<String>,
+    market: Option<String>,
+    day_file: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    period_type: String,
+    limit: usize,
+) -> Result<Vec<PatternCandleRow>> {
+    if !candle_specs.is_empty() {
+        return parse_candle_specs(&candle_specs);
+    }
+
+    let start_date = start
+        .as_ref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
+    let end_date = end
+        .as_ref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
+
+    if let Some(day_file) = day_file {
+        if period_type != "1d" {
+            return Err(QuantixError::Other(
+                "day 文件当前只支持 1d 周期".to_string(),
+            ));
+        }
+        return pattern_rows_from_day_file(day_file, start_date, end_date, limit);
+    }
+
+    if let Some(tdx_root) = tdx_root {
+        if period_type != "1d" {
+            return Err(QuantixError::Other(
+                "TDX day 根目录当前只支持 1d 周期".to_string(),
+            ));
+        }
+        let code = code.ok_or_else(|| {
+            QuantixError::Other("使用 --tdx-root 时必须同时提供 --code".to_string())
+        })?;
+        let day_file = resolve_tdx_day_file_path(tdx_root, &code, market.as_deref())?;
+        return pattern_rows_from_day_file(day_file, start_date, end_date, limit);
+    }
+
+    let code = code.ok_or_else(|| {
+        QuantixError::Other("缺少 K线输入，请提供 --candle、--day-file 或 --code".to_string())
+    })?;
+
+    let client = create_clickhouse_client().await?;
+    let klines = client
+        .get_kline_data(&code, &period_type, start_date, end_date, Some(limit))
+        .await?;
+
+    if klines.is_empty() {
+        return Err(QuantixError::Other(format!(
+            "未找到 {} 的 K线数据",
+            code
+        )));
+    }
+
+    Ok(pattern_rows_from_klines(&klines))
+}
+
+fn build_reference_policy(
+    reference: Option<String>,
+    previous_close: bool,
+) -> Result<ReferencePricePolicy> {
+    if previous_close {
+        return Ok(ReferencePricePolicy::PreviousClose);
+    }
+
+    let reference = reference.ok_or_else(|| {
+        QuantixError::Other("缺少参考价，请提供 --reference 或 --previous-close".to_string())
+    })?;
+
+    let value = Decimal::from_str(&reference)
+        .map_err(|e| QuantixError::Other(format!("参考价格式非法: {}", e)))?;
+
+    Ok(ReferencePricePolicy::Explicit(value))
+}
+
+fn parse_candle_specs(specs: &[String]) -> Result<Vec<PatternCandleRow>> {
+    specs.iter()
+        .enumerate()
+        .map(|(idx, spec)| {
+            Ok(PatternCandleRow {
+                label: format!("manual-{}", idx + 1),
+                candle: parse_candle_spec(spec)?,
+            })
+        })
+        .collect()
+}
+
+fn parse_candle_spec(spec: &str) -> Result<CandleInput> {
+    let parts: Vec<&str> = spec.split(',').map(str::trim).collect();
+    if parts.len() != 4 {
+        return Err(QuantixError::Other(format!(
+            "K线格式非法: {}，期望 o,h,l,c",
+            spec
+        )));
+    }
+
+    let parse_decimal = |value: &str| {
+        Decimal::from_str(value).map_err(|e| QuantixError::Other(format!("价格格式非法: {}", e)))
+    };
+
+    Ok(CandleInput {
+        open: parse_decimal(parts[0])?,
+        high: parse_decimal(parts[1])?,
+        low: parse_decimal(parts[2])?,
+        close: parse_decimal(parts[3])?,
+    })
+}
+
+fn sequence_references(
+    candles: &[CandleInput],
+    policy: &ReferencePricePolicy,
+) -> Result<Vec<Decimal>> {
+    match policy {
+        ReferencePricePolicy::Explicit(value) => Ok(vec![*value; candles.len()]),
+        ReferencePricePolicy::PreviousClose => {
+            if candles.len() < 2 {
+                return Err(QuantixError::Other(
+                    "使用 --previous-close 时至少需要两根 K线".to_string(),
+                ));
+            }
+
+            Ok(candles.windows(2).map(|pair| pair[0].close).collect())
+        }
+    }
+}
+
+fn pattern_rows_from_klines(klines: &[Kline]) -> Vec<PatternCandleRow> {
+    klines
+        .iter()
+        .map(|kline| PatternCandleRow {
+            label: kline.date.to_string(),
+            candle: CandleInput {
+                open: kline.open,
+                high: kline.high,
+                low: kline.low,
+                close: kline.close,
+            },
+        })
+        .collect()
+}
+
+fn pattern_rows_from_day_file(
+    day_file: impl AsRef<Path>,
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+    limit: usize,
+) -> Result<Vec<PatternCandleRow>> {
+    let path = day_file.as_ref();
+    let code = infer_tdx_code_from_day_file_path(path)?;
+    let mut klines = TdxDayFile::to_klines(code, path, crate::data::models::AdjustType::None)?;
+
+    if let Some(start_date) = start {
+        klines.retain(|kline| kline.date >= start_date);
+    }
+    if let Some(end_date) = end {
+        klines.retain(|kline| kline.date <= end_date);
+    }
+    if limit > 0 && klines.len() > limit {
+        klines = klines[klines.len() - limit..].to_vec();
+    }
+
+    Ok(pattern_rows_from_klines(&klines))
+}
+
+fn infer_tdx_code_from_day_file_path(path: impl AsRef<Path>) -> Result<u32> {
+    let stem = path
+        .as_ref()
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| QuantixError::Other("无法从 day 文件路径解析股票代码".to_string()))?;
+
+    let digits: String = stem.chars().filter(|ch| ch.is_ascii_digit()).collect();
+    if digits.len() != 6 {
+        return Err(QuantixError::Other(format!(
+            "无法从 day 文件名解析 6 位股票代码: {}",
+            path.as_ref().display()
+        )));
+    }
+
+    digits
+        .parse::<u32>()
+        .map_err(|e| QuantixError::Other(format!("股票代码解析失败: {}", e)))
+}
+
+fn resolve_tdx_day_file_path(
+    tdx_root: impl AsRef<Path>,
+    code: &str,
+    market: Option<&str>,
+) -> Result<std::path::PathBuf> {
+    let root = tdx_root.as_ref();
+
+    if let Some(market) = market {
+        let market = market.to_ascii_lowercase();
+        let path = root
+            .join("vipdoc")
+            .join(&market)
+            .join("lday")
+            .join(format!("{}{}.day", market, code));
+        if path.exists() {
+            return Ok(path);
+        }
+        return Err(QuantixError::Other(format!(
+            "未找到指定市场的 day 文件: {}",
+            path.display()
+        )));
+    }
+
+    let matches: Vec<std::path::PathBuf> = ["sh", "sz", "bj", "ds"]
+        .iter()
+        .map(|market| {
+            root.join("vipdoc")
+                .join(market)
+                .join("lday")
+                .join(format!("{}{}.day", market, code))
+        })
+        .filter(|path| path.exists())
+        .collect();
+
+    match matches.as_slice() {
+        [single] => Ok(single.clone()),
+        [] => Err(QuantixError::Other(format!(
+            "未找到 {} 对应的 day 文件，请确认 --tdx-root 或补充 --market",
+            code
+        ))),
+        many => Err(QuantixError::Other(format!(
+            "代码 {} 在多个市场目录匹配到多个 day 文件: {}，请补充 --market",
+            code,
+            many.iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))),
+    }
+}
+
 /// 状态命令
 pub async fn run_status(health: bool) -> Result<()> {
     if health {
@@ -3370,6 +3737,155 @@ mod tests {
         assert_eq!(client.database(), "quantix_runtime_test");
         assert_eq!(client.http_auth_for_test().0, "handler_user");
         assert_eq!(client.http_auth_for_test().1, "handler_password");
+    }
+
+    #[test]
+    fn test_parse_candle_spec_parses_ohlc_values() {
+        let candle = parse_candle_spec("10,12,8,10").unwrap();
+
+        assert_eq!(candle.open, dec!(10));
+        assert_eq!(candle.high, dec!(12));
+        assert_eq!(candle.low, dec!(8));
+        assert_eq!(candle.close, dec!(10));
+    }
+
+    #[test]
+    fn test_pattern_rows_from_klines_preserve_dates_and_ohlc() {
+        let rows = pattern_rows_from_klines(&[Kline {
+            code: "000001".to_string(),
+            date: NaiveDate::from_ymd_opt(2026, 3, 17).unwrap(),
+            open: dec!(10),
+            high: dec!(12),
+            low: dec!(8),
+            close: dec!(10),
+            volume: 100,
+            amount: None,
+            adjust_type: AdjustType::None,
+        }]);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "2026-03-17");
+        assert_eq!(rows[0].candle.open, dec!(10));
+        assert_eq!(rows[0].candle.high, dec!(12));
+        assert_eq!(rows[0].candle.low, dec!(8));
+        assert_eq!(rows[0].candle.close, dec!(10));
+    }
+
+    #[test]
+    fn test_sequence_references_uses_previous_close_values() {
+        let candles = vec![
+            CandleInput {
+                open: dec!(10),
+                high: dec!(10),
+                low: dec!(10),
+                close: dec!(10),
+            },
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(10),
+                close: dec!(12),
+            },
+            CandleInput {
+                open: dec!(12),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(10),
+            },
+        ];
+
+        let refs = sequence_references(&candles, &ReferencePricePolicy::PreviousClose).unwrap();
+
+        assert_eq!(refs, vec![dec!(10), dec!(12)]);
+    }
+
+    #[test]
+    fn test_infer_tdx_code_from_day_file_path_extracts_six_digit_code() {
+        assert_eq!(
+            infer_tdx_code_from_day_file_path(
+                "/mnt/d/ProgramData/tdx_20251231/vipdoc/sh/lday/sh000001.day"
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            infer_tdx_code_from_day_file_path("/tmp/sz300750.day").unwrap(),
+            300750
+        );
+    }
+
+    #[test]
+    fn test_pattern_rows_from_day_file_reads_and_limits_rows() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("sh000001.day");
+        let mut bytes = Vec::new();
+
+        bytes.extend(build_day_record_bytes(20260315, 1000, 1100, 900, 1050, 1000.0, 200, 980));
+        bytes.extend(build_day_record_bytes(20260316, 1050, 1200, 1000, 1180, 1200.0, 220, 1050));
+        std::fs::write(&path, bytes).unwrap();
+
+        let rows = pattern_rows_from_day_file(&path, None, None, 1).unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "2026-03-16");
+        assert_eq!(rows[0].candle.open, dec!(10.5));
+        assert_eq!(rows[0].candle.high, dec!(12));
+        assert_eq!(rows[0].candle.low, dec!(10));
+        assert_eq!(rows[0].candle.close, dec!(11.8));
+    }
+
+    #[test]
+    fn test_resolve_tdx_day_file_path_prefers_explicit_market() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let sh_dir = root.join("vipdoc").join("sh").join("lday");
+        let sz_dir = root.join("vipdoc").join("sz").join("lday");
+        std::fs::create_dir_all(&sh_dir).unwrap();
+        std::fs::create_dir_all(&sz_dir).unwrap();
+        std::fs::write(sh_dir.join("sh000001.day"), []).unwrap();
+        std::fs::write(sz_dir.join("sz000001.day"), []).unwrap();
+
+        let resolved = resolve_tdx_day_file_path(root, "000001", Some("sz")).unwrap();
+
+        assert_eq!(resolved, sz_dir.join("sz000001.day"));
+    }
+
+    #[test]
+    fn test_resolve_tdx_day_file_path_rejects_ambiguous_market() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let sh_dir = root.join("vipdoc").join("sh").join("lday");
+        let sz_dir = root.join("vipdoc").join("sz").join("lday");
+        std::fs::create_dir_all(&sh_dir).unwrap();
+        std::fs::create_dir_all(&sz_dir).unwrap();
+        std::fs::write(sh_dir.join("sh000001.day"), []).unwrap();
+        std::fs::write(sz_dir.join("sz000001.day"), []).unwrap();
+
+        let error = resolve_tdx_day_file_path(root, "000001", None).unwrap_err();
+
+        assert!(error.to_string().contains("匹配到多个"));
+    }
+
+    fn build_day_record_bytes(
+        date: u32,
+        open: u32,
+        high: u32,
+        low: u32,
+        close: u32,
+        amount: f32,
+        volume: u32,
+        prev_close: u32,
+    ) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(32);
+        buf.extend(date.to_le_bytes());
+        buf.extend(open.to_le_bytes());
+        buf.extend(high.to_le_bytes());
+        buf.extend(low.to_le_bytes());
+        buf.extend(close.to_le_bytes());
+        buf.extend(amount.to_le_bytes());
+        buf.extend(volume.to_le_bytes());
+        buf.extend(prev_close.to_le_bytes());
+        buf
     }
 
     #[test]
