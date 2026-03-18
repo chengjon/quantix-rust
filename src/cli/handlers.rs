@@ -50,8 +50,8 @@ use crate::screener::{
 use crate::sources::TdxDayFile;
 use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use crate::strategy::{
-    JsonStrategyConfigStore, JsonStrategyServiceConfigStore, StrategyDaemonConfig,
-    StrategyServiceConfig, StrategyServiceStatusSummary, StrategySignalDaemon,
+    FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
+    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary, StrategySignalDaemon,
     StrategyUserServiceInstaller,
 };
 use crate::strategy::trait_def::Signal;
@@ -402,22 +402,24 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
         },
         StrategyCommands::ServiceConfig(subcommand) => match subcommand {
             StrategyServiceConfigCommands::Show => {
-                execute_strategy_service_config_command_with_store(
+                let output = execute_strategy_service_config_command_with_store(
                     StrategyServiceConfigCommands::Show,
                     &JsonStrategyServiceConfigStore::with_default_path()?,
                 )?;
+                print_strategy_service_config_output(output)?;
             }
             StrategyServiceConfigCommands::Set {
                 quantix_bin,
                 env_file,
             } => {
-                execute_strategy_service_config_command_with_store(
+                let output = execute_strategy_service_config_command_with_store(
                     StrategyServiceConfigCommands::Set {
                         quantix_bin,
                         env_file,
                     },
                     &JsonStrategyServiceConfigStore::with_default_path()?,
                 )?;
+                print_strategy_service_config_output(output)?;
             }
         }
     }
@@ -658,7 +660,9 @@ async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
     let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
-    let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
+    let loader = FallbackStrategyBarLoader::from_env(ClickHouseDailyKlineLoader::new(
+        create_clickhouse_client().await?,
+    ));
 
     if once {
         execute_strategy_daemon_run_once_with_components(loader, &config_store, &runtime_store)
@@ -822,19 +826,11 @@ fn parse_execution_request_status(value: &str) -> Result<ExecutionRequestStatus>
 fn execute_strategy_service_config_command_with_store(
     cmd: StrategyServiceConfigCommands,
     store: &JsonStrategyServiceConfigStore,
-) -> Result<()> {
+) -> Result<Option<StrategyServiceConfig>> {
     match cmd {
         StrategyServiceConfigCommands::Show => match store.load() {
-            Ok(config) => {
-                println!("{}", serde_json::to_string_pretty(&config)?);
-                Ok(())
-            }
-            Err(QuantixError::Config(_)) => {
-                println!(
-                    "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix"
-                );
-                Ok(())
-            }
+            Ok(config) => Ok(Some(config)),
+            Err(QuantixError::Config(_)) => Ok(None),
             Err(other) => Err(other),
         },
         StrategyServiceConfigCommands::Set {
@@ -847,10 +843,24 @@ fn execute_strategy_service_config_command_with_store(
             };
             JsonStrategyServiceConfigStore::validate(&config)?;
             store.save(&config)?;
-            println!("{}", serde_json::to_string_pretty(&config)?);
-            Ok(())
+            Ok(Some(config))
         }
     }
+}
+
+fn print_strategy_service_config_output(config: Option<StrategyServiceConfig>) -> Result<()> {
+    match config {
+        Some(config) => {
+            println!("{}", serde_json::to_string_pretty(&config)?);
+        }
+        None => {
+            println!(
+                "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix"
+            );
+        }
+    }
+
+    Ok(())
 }
 
 trait StrategyServiceInstallerOps {
@@ -4513,6 +4523,60 @@ mod tests {
         let shown = execute_strategy_config_show_from_store(&store).unwrap();
 
         assert_eq!(shown, expected);
+    }
+
+    #[test]
+    fn test_execute_strategy_service_config_show_reports_not_configured_when_missing() {
+        let dir = tempdir().unwrap();
+        let store = crate::strategy::JsonStrategyServiceConfigStore::new(
+            dir.path().join("strategy-service.json"),
+        );
+
+        let shown = execute_strategy_service_config_command_with_store(
+            StrategyServiceConfigCommands::Show,
+            &store,
+        )
+        .unwrap();
+
+        assert!(shown.is_none());
+    }
+
+    #[test]
+    fn test_execute_strategy_service_config_set_persists_values() {
+        let dir = tempdir().unwrap();
+        let binary_path = dir.path().join("quantix");
+        std::fs::write(&binary_path, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut perms = std::fs::metadata(&binary_path).unwrap().permissions();
+        use std::os::unix::fs::PermissionsExt;
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&binary_path, perms).unwrap();
+
+        let store = crate::strategy::JsonStrategyServiceConfigStore::new(
+            dir.path().join("strategy-service.json"),
+        );
+
+        let shown = execute_strategy_service_config_command_with_store(
+            StrategyServiceConfigCommands::Set {
+                quantix_bin: binary_path.display().to_string(),
+                env_file: Some("/tmp/strategy.env".to_string()),
+            },
+            &store,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(shown.quantix_bin_path, binary_path);
+        assert_eq!(
+            shown.environment_file_path,
+            Some(std::path::PathBuf::from("/tmp/strategy.env"))
+        );
+
+        let saved = store.load().unwrap();
+        assert_eq!(saved.quantix_bin_path, binary_path);
+        assert_eq!(
+            saved.environment_file_path,
+            Some(std::path::PathBuf::from("/tmp/strategy.env"))
+        );
     }
 
     #[tokio::test]

@@ -2,11 +2,13 @@ use chrono::NaiveDate;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::{
-    BootstrapPolicy, JsonStrategyConfigStore, StrategyRegistry, StrategySignalDaemon,
+    BootstrapPolicy, FallbackStrategyBarLoader, JsonStrategyConfigStore, StrategyRegistry,
+    StrategySignalDaemon,
 };
 use quantix_cli::strategy::runtime::StrategyBarLoader;
 use quantix_cli::strategy::trait_def::Signal;
 use rust_decimal_macros::dec;
+use std::fs;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
@@ -78,6 +80,43 @@ impl FakeBarLoader {
     }
 }
 
+#[derive(Clone)]
+struct ErrorBarLoader;
+
+#[async_trait::async_trait]
+impl StrategyBarLoader for ErrorBarLoader {
+    async fn load_daily_bars(
+        &self,
+        _code: &str,
+        _limit: usize,
+    ) -> quantix_cli::core::Result<Vec<Kline>> {
+        Err(quantix_cli::core::QuantixError::DataSource(
+            "primary loader failed".to_string(),
+        ))
+    }
+}
+
+fn write_day_file(root: &std::path::Path, market: &str, code: &str, closes: &[u32]) {
+    let dir = root.join("vipdoc").join(market).join("lday");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{}{}.day", market, code));
+    let mut bytes = Vec::new();
+
+    for (index, close) in closes.iter().enumerate() {
+        let date = 20260301u32 + index as u32;
+        bytes.extend_from_slice(&date.to_le_bytes());
+        bytes.extend_from_slice(&close.to_le_bytes());
+        bytes.extend_from_slice(&close.to_le_bytes());
+        bytes.extend_from_slice(&close.to_le_bytes());
+        bytes.extend_from_slice(&close.to_le_bytes());
+        bytes.extend_from_slice(&(1000.0f32).to_le_bytes());
+        bytes.extend_from_slice(&(100u32).to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+    }
+
+    fs::write(path, bytes).unwrap();
+}
+
 #[test]
 fn strategy_registry_resolves_multiple_ma_cross_instances_with_different_params() {
     let config = JsonStrategyConfigStore::new("/tmp/unused")
@@ -142,6 +181,54 @@ fn strategy_registry_rejects_unknown_strategy_names() {
     };
 
     assert!(error.to_string().contains("unknown_strategy"));
+}
+
+#[tokio::test]
+async fn fallback_loader_prefers_primary_rows_when_available() {
+    let root = tempdir().unwrap();
+    write_day_file(root.path(), "sh", "000001", &[800, 900, 1000]);
+
+    let primary = FakeBarLoader::default();
+    primary.set_bars("000001", vec![kline(1, 10), kline(2, 11)]);
+
+    let loader = FallbackStrategyBarLoader::new(primary, Some(root.path().to_path_buf()));
+    let rows = loader.load_daily_bars("000001", 10).await.unwrap();
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].close, dec!(10));
+    assert_eq!(rows[1].close, dec!(11));
+}
+
+#[tokio::test]
+async fn fallback_loader_uses_tdx_when_primary_returns_empty() {
+    let root = tempdir().unwrap();
+    write_day_file(root.path(), "sh", "000001", &[1200, 1300, 1400]);
+
+    let loader = FallbackStrategyBarLoader::new(
+        FakeBarLoader::default(),
+        Some(root.path().to_path_buf()),
+    );
+    let rows = loader.load_daily_bars("000001", 10).await.unwrap();
+
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0].close, dec!(12));
+    assert_eq!(rows[2].close, dec!(14));
+}
+
+#[tokio::test]
+async fn fallback_loader_uses_tdx_when_primary_errors() {
+    let root = tempdir().unwrap();
+    write_day_file(root.path(), "sh", "000001", &[1500, 1600]);
+
+    let loader = FallbackStrategyBarLoader::new(
+        ErrorBarLoader,
+        Some(root.path().to_path_buf()),
+    );
+    let rows = loader.load_daily_bars("000001", 10).await.unwrap();
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].close, dec!(15));
+    assert_eq!(rows[1].close, dec!(16));
 }
 
 #[tokio::test]

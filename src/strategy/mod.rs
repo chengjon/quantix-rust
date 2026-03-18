@@ -16,6 +16,7 @@ pub mod test_utils;
 
 pub mod config;
 pub mod daemon;
+pub mod fallback_loader;
 pub mod registry;
 pub mod runtime;
 pub mod service_config;
@@ -27,6 +28,9 @@ pub use config::{
     StrategyDaemonConfig,
 };
 pub use daemon::StrategySignalDaemon;
+pub use fallback_loader::{
+    FallbackStrategyBarLoader, LEGACY_TDX_ROOT_ENV, STRATEGY_TDX_ROOT_ENV,
+};
 pub use registry::{ConfiguredStrategyEvaluator, StrategyRegistry};
 pub use service_config::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
 pub use systemd::{StrategyServiceStatusSummary, StrategyUserServiceInstaller};
