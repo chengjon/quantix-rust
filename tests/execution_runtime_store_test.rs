@@ -1,7 +1,8 @@
 use chrono::{TimeZone, Utc};
 use quantix_cli::execution::models::{
-    OrderRecord, OrderSide, OrderStatus, OrderType, OrderEventRecord, RunnerCheckpointRecord,
-    StrategyRunRecord, StrategyRunStatus,
+    ApprovalStatus, ExecutionRequestStatus, OrderEventRecord, OrderRecord, OrderSide,
+    OrderStatus, OrderType, RunnerCheckpointRecord, SignalStatus,
+    StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use rust_decimal_macros::dec;
@@ -49,6 +50,38 @@ fn sample_order(run_id: &str, client_order_id: &str) -> OrderRecord {
     }
 }
 
+fn sample_signal(run_id: &str, signal_id: &str, bar_end: chrono::DateTime<Utc>) -> StrategySignalRecord {
+    StrategySignalRecord {
+        signal_id: signal_id.to_string(),
+        strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+        strategy_name: "ma_cross".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        bar_end,
+        signal_value: "buy".to_string(),
+        signal_status: SignalStatus::New,
+        approval_status: ApprovalStatus::Pending,
+        run_id: run_id.to_string(),
+        metadata_json: json!({"fast": 5, "slow": 20}),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+    }
+}
+
+fn sample_daemon_checkpoint(last_run_id: &str) -> StrategyDaemonCheckpointRecord {
+    StrategyDaemonCheckpointRecord {
+        checkpoint_id: Uuid::new_v4().to_string(),
+        strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+        strategy_name: "ma_cross".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        last_processed_bar: Some(fixed_ts()),
+        last_run_id: Some(last_run_id.to_string()),
+        state_json: json!({"bootstrap_policy": "latest_only"}),
+        updated_at: fixed_ts(),
+    }
+}
+
 #[tokio::test]
 async fn bootstrap_creates_phase29a_schema() {
     let dir = tempdir().unwrap();
@@ -61,6 +94,9 @@ async fn bootstrap_creates_phase29a_schema() {
     assert!(store.has_table("orders").await.unwrap());
     assert!(store.has_table("order_events").await.unwrap());
     assert!(store.has_table("runner_checkpoints").await.unwrap());
+    assert!(store.has_table("signals").await.unwrap());
+    assert!(store.has_table("execution_requests").await.unwrap());
+    assert!(store.has_table("strategy_daemon_checkpoints").await.unwrap());
 }
 
 #[tokio::test]
@@ -163,4 +199,147 @@ async fn order_events_round_trip_against_existing_order() {
     let events = store.list_order_events(&order.order_id).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_type, "submitted");
+}
+
+#[test]
+fn phase29b_signal_and_request_enums_use_stable_string_values() {
+    assert_eq!(SignalStatus::New.as_str(), "new");
+    assert_eq!(SignalStatus::from_str("superseded"), Some(SignalStatus::Superseded));
+    assert_eq!(ApprovalStatus::Approved.as_str(), "approved");
+    assert_eq!(ApprovalStatus::from_str("rejected"), Some(ApprovalStatus::Rejected));
+    assert_eq!(ExecutionRequestStatus::Pending.as_str(), "pending");
+    assert_eq!(
+        ExecutionRequestStatus::from_str("canceled"),
+        Some(ExecutionRequestStatus::Canceled)
+    );
+}
+
+#[tokio::test]
+async fn insert_signal_rejects_duplicate_stream_bar_key() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let first = sample_signal(&run.run_id, "signal-1", fixed_ts());
+    let second = sample_signal(&run.run_id, "signal-2", fixed_ts());
+
+    store.insert_signal(&first).await.unwrap();
+    let err = store.insert_signal(&second).await.unwrap_err();
+
+    assert!(err.to_string().contains("signals"));
+}
+
+#[tokio::test]
+async fn approve_signal_creates_exactly_one_pending_execution_request() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-approve", fixed_ts());
+    store.insert_signal(&signal).await.unwrap();
+
+    let request = store
+        .approve_signal_and_create_request("signal-approve", "paper", "default", Some("cli-user"))
+        .await
+        .unwrap();
+
+    assert_eq!(request.request_status, ExecutionRequestStatus::Pending);
+    assert_eq!(request.signal_id, "signal-approve");
+
+    let saved_signal = store.get_signal("signal-approve").await.unwrap().unwrap();
+    assert_eq!(saved_signal.approval_status, ApprovalStatus::Approved);
+
+    let requests = store.list_execution_requests(None).await.unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].signal_id, "signal-approve");
+}
+
+#[tokio::test]
+async fn reject_signal_updates_approval_state_without_creating_request() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-reject", fixed_ts());
+    store.insert_signal(&signal).await.unwrap();
+
+    store
+        .reject_signal("signal-reject", Some("manual reject"))
+        .await
+        .unwrap();
+
+    let saved_signal = store.get_signal("signal-reject").await.unwrap().unwrap();
+    assert_eq!(saved_signal.approval_status, ApprovalStatus::Rejected);
+    assert_eq!(saved_signal.metadata_json["rejection_reason"], "manual reject");
+    assert!(store.list_execution_requests(None).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn superseding_signal_cancels_pending_execution_request() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let old_signal = sample_signal(&run.run_id, "signal-old", fixed_ts());
+    store.insert_signal(&old_signal).await.unwrap();
+    store
+        .approve_signal_and_create_request("signal-old", "paper", "default", Some("cli-user"))
+        .await
+        .unwrap();
+
+    let new_signal = sample_signal(&run.run_id, "signal-new", fixed_ts() + chrono::Duration::days(1));
+    store.insert_signal(&new_signal).await.unwrap();
+
+    let superseded = store
+        .supersede_previous_signals_and_cancel_pending_requests(
+            "ma_fast_5_slow_20",
+            "000001",
+            "1d",
+            "signal-new",
+            fixed_ts() + chrono::Duration::days(1),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(superseded, 1);
+
+    let saved_old_signal = store.get_signal("signal-old").await.unwrap().unwrap();
+    assert_eq!(saved_old_signal.signal_status, SignalStatus::Superseded);
+
+    let request = store
+        .get_execution_request_by_signal_id("signal-old")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(request.request_status, ExecutionRequestStatus::Canceled);
+}
+
+#[tokio::test]
+async fn daemon_checkpoint_upsert_overwrites_existing_row_for_same_stream() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+
+    let first = sample_daemon_checkpoint("run-a");
+    let mut second = sample_daemon_checkpoint("run-b");
+    second.last_processed_bar = Some(fixed_ts() + chrono::Duration::days(1));
+    second.updated_at = fixed_ts() + chrono::Duration::minutes(10);
+
+    store.upsert_daemon_checkpoint(&first).await.unwrap();
+    store.upsert_daemon_checkpoint(&second).await.unwrap();
+
+    let saved = store
+        .find_daemon_checkpoint("ma_fast_5_slow_20", "000001", "1d")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(saved.last_run_id.as_deref(), Some("run-b"));
+    assert_eq!(saved.last_processed_bar, second.last_processed_bar);
 }
