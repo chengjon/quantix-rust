@@ -211,6 +211,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix monitor config show` - 查看当前监控配置
   - `quantix monitor daemon run` - 运行 monitor 守护进程
   - `quantix monitor service install` - 安装 `systemd --user` 监控服务
+  - `quantix monitor service-config show` - 查看 monitor service 二进制配置
+  - `quantix monitor service-config set --quantix-bin /abs/path/to/quantix` - 设置稳定的 service 二进制路径
   - `quantix monitor event list` - 查看最近监控业务事件
 - **SQLite 告警持久化** (`src/monitor/storage.rs`)
   - 默认路径 `~/.quantix/monitor/alerts.db`
@@ -218,11 +220,16 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **JSON 配置持久化** (`src/monitor/config.rs`)
   - 默认路径 `~/.quantix/monitor/config.json`
   - 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
+- **Service 配置与包装脚本** (`src/monitor/service_config.rs`, `src/monitor/systemd.rs`)
+  - service 配置路径 `~/.quantix/monitor/service.json`
+  - wrapper 脚本路径 `~/.local/bin/quantix-monitor-run`
 - **P0 约束**
   - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run` 与 `systemd --user` 用户服务
   - 复用现有自选池加载、TDX 行情查询与 stop 规则评估链路
   - 业务事件只持久化价格告警命中与 stop 触发，不持久化服务生命周期日志
   - `systemd --user` 当前面向 WSL2/Linux 用户环境
+  - `service install` 要求先配置稳定的 `quantix` 二进制绝对路径
+  - `service uninstall` 必须先停服务再卸载
   - 系统通知延后到后续 Phase
 
 #### Phase 25: 止盈止损 ✅
@@ -286,6 +293,48 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
   - `实盘导入 / 波动率和行业规则 / 自动减仓` 延后到后续 Phase
+
+#### Phase 29: 策略 Paper 执行骨架 ✅
+- **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
+  - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
+- **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
+  - 默认路径 `~/.quantix/strategy/runtime.db`
+  - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
+- **P0 约束**
+  - 当前仅支持 `ma_cross`
+  - 当前仅支持单代码、单次执行
+  - 执行前请先运行 `quantix trade init`
+  - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
+  - `live 模式仍在开发中`
+  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
+
+#### Phase 29B: 策略信号守护进程 ✅
+- **策略守护进程配置** (`src/strategy/config.rs`)
+  - `quantix strategy config init`
+  - `quantix strategy config show`
+  - 默认路径 `~/.quantix/strategy/config.json`
+- **策略信号守护进程** (`src/strategy/daemon.rs`, `src/strategy/registry.rs`)
+  - `quantix strategy daemon run`
+  - `quantix strategy daemon run --once`
+  - 当前支持：单代码、多个策略实例、日线新 bar 触发
+- **Signal / Execution Request** (`src/execution/runtime_store.rs`)
+  - `quantix strategy signal list`
+  - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
+  - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
+  - `quantix strategy request list`
+  - 批准 signal 只会创建 `execution_request`，不会自动交易
+- **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
+  - `quantix strategy service install`
+  - `quantix strategy service status`
+  - `quantix strategy service-config show`
+  - `quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env`
+  - 默认 service 配置路径 `~/.quantix/strategy/service.json`
+  - 可选环境文件 `~/.quantix/strategy/service.env`
+  - wrapper 路径 `~/.local/bin/quantix-strategy-run`
+- **当前边界**
+  - `strategy daemon` 不自动交易
+  - `strategy run --mode paper` 仍保留为直接执行路径
+  - 自动审批 / execution daemon / live adapter 延后到后续 Phase
 
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
