@@ -10,6 +10,7 @@ pub const TRADE_PATH_ENV: &str = "QUANTIX_TRADE_PATH";
 pub const RISK_PATH_ENV: &str = "QUANTIX_RISK_PATH";
 pub const MONITOR_DB_PATH_ENV: &str = "QUANTIX_MONITOR_DB_PATH";
 pub const MONITOR_CONFIG_PATH_ENV: &str = "QUANTIX_MONITOR_CONFIG_PATH";
+pub const STRATEGY_CONFIG_PATH_ENV: &str = "QUANTIX_STRATEGY_CONFIG_PATH";
 pub const STRATEGY_RUNTIME_DB_PATH_ENV: &str = "QUANTIX_STRATEGY_RUNTIME_DB_PATH";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +45,7 @@ pub struct CliRuntime {
     pub risk_path: PathBuf,
     pub monitor_db_path: PathBuf,
     pub monitor_config_path: PathBuf,
+    pub strategy_config_path: PathBuf,
     pub strategy_runtime_db_path: PathBuf,
 }
 
@@ -57,6 +59,7 @@ impl CliRuntime {
             risk_path: resolve_risk_path(),
             monitor_db_path: resolve_monitor_db_path(),
             monitor_config_path: resolve_monitor_config_path(),
+            strategy_config_path: resolve_strategy_config_path(),
             strategy_runtime_db_path: resolve_strategy_runtime_db_path(),
         }
     }
@@ -147,6 +150,21 @@ fn resolve_risk_path() -> PathBuf {
         .join("risk_state.json")
 }
 
+fn resolve_strategy_config_path() -> PathBuf {
+    if let Some(path) = std::env::var_os(STRATEGY_CONFIG_PATH_ENV) {
+        return PathBuf::from(path);
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".quantix")
+            .join("strategy")
+            .join("config.json");
+    }
+
+    PathBuf::from(".quantix").join("strategy").join("config.json")
+}
+
 fn resolve_strategy_runtime_db_path() -> PathBuf {
     if let Some(path) = std::env::var_os(STRATEGY_RUNTIME_DB_PATH_ENV) {
         return PathBuf::from(path);
@@ -185,6 +203,7 @@ mod tests {
         risk_path: Option<String>,
         monitor_db_path: Option<String>,
         monitor_config_path: Option<String>,
+        strategy_config_path: Option<String>,
         strategy_runtime_db_path: Option<String>,
         home: Option<String>,
     }
@@ -201,6 +220,7 @@ mod tests {
                 risk_path: std::env::var(RISK_PATH_ENV).ok(),
                 monitor_db_path: std::env::var(MONITOR_DB_PATH_ENV).ok(),
                 monitor_config_path: std::env::var(MONITOR_CONFIG_PATH_ENV).ok(),
+                strategy_config_path: std::env::var(STRATEGY_CONFIG_PATH_ENV).ok(),
                 strategy_runtime_db_path: std::env::var(STRATEGY_RUNTIME_DB_PATH_ENV).ok(),
                 home: std::env::var("HOME").ok(),
             }
@@ -252,6 +272,11 @@ mod tests {
             match &self.monitor_config_path {
                 Some(value) => unsafe { std::env::set_var(MONITOR_CONFIG_PATH_ENV, value) },
                 None => unsafe { std::env::remove_var(MONITOR_CONFIG_PATH_ENV) },
+            }
+
+            match &self.strategy_config_path {
+                Some(value) => unsafe { std::env::set_var(STRATEGY_CONFIG_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(STRATEGY_CONFIG_PATH_ENV) },
             }
 
             match &self.strategy_runtime_db_path {
@@ -532,6 +557,59 @@ mod tests {
         assert_eq!(
             runtime.strategy_runtime_db_path,
             PathBuf::from("/tmp/quantix/strategy/custom-runtime.db")
+        );
+    }
+
+    #[test]
+    fn test_cli_runtime_uses_strategy_config_path_override() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(
+                STRATEGY_CONFIG_PATH_ENV,
+                "/tmp/quantix/strategy/custom-config.json",
+            );
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.strategy_config_path,
+            PathBuf::from("/tmp/quantix/strategy/custom-config.json")
+        );
+    }
+
+    #[test]
+    fn test_strategy_config_path_falls_back_to_home_directory() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::remove_var(STRATEGY_CONFIG_PATH_ENV);
+            std::env::set_var("HOME", "/tmp/quantix-home");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.strategy_config_path,
+            PathBuf::from("/tmp/quantix-home")
+                .join(".quantix")
+                .join("strategy")
+                .join("config.json")
+        );
+    }
+
+    #[test]
+    fn test_strategy_config_path_falls_back_to_relative_path_without_home() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::remove_var(STRATEGY_CONFIG_PATH_ENV);
+            std::env::remove_var("HOME");
+        }
+
+        let runtime = CliRuntime::load();
+        assert_eq!(
+            runtime.strategy_config_path,
+            PathBuf::from(".quantix").join("strategy").join("config.json")
         );
     }
 
