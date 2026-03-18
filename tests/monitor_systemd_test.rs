@@ -19,6 +19,7 @@ fn sample_runtime() -> CliRuntime {
         risk_path: PathBuf::from("/tmp/quantix/risk/risk_state.json"),
         monitor_db_path: PathBuf::from("/tmp/quantix/monitor/alerts.db"),
         monitor_config_path: PathBuf::from("/tmp/quantix/monitor/config.json"),
+        strategy_config_path: PathBuf::from("/tmp/quantix/strategy/config.json"),
         strategy_runtime_db_path: PathBuf::from("/tmp/quantix/strategy/runtime.db"),
     }
 }

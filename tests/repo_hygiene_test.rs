@@ -284,6 +284,34 @@ fn readme_documents_phase29_strategy_paper_boundary() {
 }
 
 #[test]
+fn readme_documents_phase29b_strategy_signal_daemon_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 29B: 策略信号守护进程",
+        "quantix strategy config init",
+        "quantix strategy daemon run --once",
+        "quantix strategy signal list",
+        "quantix strategy signal approve --signal-id",
+        "quantix strategy request list",
+        "quantix strategy service install",
+        "quantix strategy service-config show",
+        "quantix strategy service-config set --quantix-bin",
+        "~/.quantix/strategy/config.json",
+        "~/.quantix/strategy/service.json",
+        "~/.quantix/strategy/service.env",
+        "~/.local/bin/quantix-strategy-run",
+        "批准 signal 只会创建 `execution_request`，不会自动交易",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase27_risk_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
@@ -327,6 +355,36 @@ fn user_manual_documents_phase29_strategy_paper_commands() {
         "~/.quantix/strategy/runtime.db",
         "首次使用前请先执行 `quantix trade init`",
         "`live` 模式仍在开发中",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_phase29b_strategy_daemon_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "Phase 29B: 策略信号守护进程",
+        "quantix strategy config init",
+        "quantix strategy daemon run --once",
+        "quantix strategy signal list --approval-status pending",
+        "quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default",
+        "quantix strategy signal reject --signal-id <ID> --reason \"manual reject\"",
+        "quantix strategy request list --status pending",
+        "quantix strategy service install",
+        "quantix strategy service-config show",
+        "quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env",
+        "~/.quantix/strategy/config.json",
+        "~/.quantix/strategy/runtime.db",
+        "~/.quantix/strategy/service.json",
+        "~/.quantix/strategy/service.env",
+        "~/.local/bin/quantix-strategy-run",
+        "不会自动交易，不会修改 paper 账户",
     ] {
         assert!(
             contents.contains(expected),

@@ -488,6 +488,45 @@ quantix strategy run -n ma_cross --mode live
 - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
 - `live` 模式仍在开发中
 
+##### Phase 29B: 策略信号守护进程
+
+```bash
+quantix strategy config init
+quantix strategy config show
+
+quantix strategy daemon run --once
+quantix strategy daemon run
+
+quantix strategy signal list --approval-status pending
+quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default
+quantix strategy signal reject --signal-id <ID> --reason "manual reject"
+quantix strategy request list --status pending
+
+quantix strategy service-config show
+quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env
+quantix strategy service install
+quantix strategy service start
+quantix strategy service status
+```
+
+默认路径：
+
+- `~/.quantix/strategy/config.json`
+- `~/.quantix/strategy/runtime.db`
+- `~/.quantix/strategy/service.json`
+- `~/.quantix/strategy/service.env`
+- `~/.local/bin/quantix-strategy-run`
+
+当前 Phase 29B 边界：
+
+- `strategy daemon` 当前只支持单代码
+- 同一代码下可配置多个策略实例
+- 首次启动只 bootstrap 到最新 bar，不回补历史 signal
+- signal 批准后只会写入 `execution_request`
+- 不会自动交易，不会修改 paper 账户
+- `strategy run --mode paper` 仍保留为直接执行路径
+- `execution daemon`、自动审批、live adapter 延后到后续 Phase
+
 ---
 
 #### strategy list - 列出策略

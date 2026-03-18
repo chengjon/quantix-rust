@@ -308,6 +308,34 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `live 模式仍在开发中`
   - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
 
+#### Phase 29B: 策略信号守护进程 ✅
+- **策略守护进程配置** (`src/strategy/config.rs`)
+  - `quantix strategy config init`
+  - `quantix strategy config show`
+  - 默认路径 `~/.quantix/strategy/config.json`
+- **策略信号守护进程** (`src/strategy/daemon.rs`, `src/strategy/registry.rs`)
+  - `quantix strategy daemon run`
+  - `quantix strategy daemon run --once`
+  - 当前支持：单代码、多个策略实例、日线新 bar 触发
+- **Signal / Execution Request** (`src/execution/runtime_store.rs`)
+  - `quantix strategy signal list`
+  - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
+  - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
+  - `quantix strategy request list`
+  - 批准 signal 只会创建 `execution_request`，不会自动交易
+- **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
+  - `quantix strategy service install`
+  - `quantix strategy service status`
+  - `quantix strategy service-config show`
+  - `quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env`
+  - 默认 service 配置路径 `~/.quantix/strategy/service.json`
+  - 可选环境文件 `~/.quantix/strategy/service.env`
+  - wrapper 路径 `~/.local/bin/quantix-strategy-run`
+- **当前边界**
+  - `strategy daemon` 不自动交易
+  - `strategy run --mode paper` 仍保留为直接执行路径
+  - 自动审批 / execution daemon / live adapter 延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
