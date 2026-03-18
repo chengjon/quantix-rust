@@ -78,6 +78,15 @@ cargo run -- data query --code 000001 --period 1d
 # 运行回测
 cargo run -- strategy run ma-cross --code 000001
 
+# 初始化策略信号守护进程配置
+cargo run -- strategy config init
+
+# 跑一轮 signal daemon（不会自动交易）
+cargo run -- strategy daemon run --once
+
+# 查看待审批 signal
+cargo run -- strategy signal list --approval-status pending
+
 # 启动任务调度器
 cargo run -- task start
 

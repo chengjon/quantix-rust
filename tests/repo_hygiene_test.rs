@@ -57,6 +57,7 @@ fn readme_documents_phase24_monitor_boundary() {
     for expected in [
         "Phase 24: 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add 000001 --above 16.0",
         "quantix monitor alert add 000001 --below 15.0",
         "quantix monitor config show",
@@ -155,6 +156,7 @@ fn user_manual_documents_phase24_monitor_commands() {
     for expected in [
         "### monitor - 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)",
         "quantix monitor alert list",
         "quantix monitor alert remove <ID>",
@@ -269,11 +271,9 @@ fn readme_documents_phase29_strategy_paper_boundary() {
     for expected in [
         "Phase 29: 策略 Paper 执行骨架",
         "quantix strategy run -n ma_cross --mode paper --code 000001",
-        "quantix strategy run -n ma_cross --mode mock_live --code 000001",
         "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
         "~/.quantix/strategy/runtime.db",
         "执行前请先运行 `quantix trade init`",
-        "`mock_live` 当前会返回非终态订单状态",
         "live 模式仍在开发中",
     ] {
         assert!(
@@ -302,10 +302,6 @@ fn readme_documents_phase29b_strategy_signal_daemon_boundary() {
         "~/.quantix/strategy/service.json",
         "~/.quantix/strategy/service.env",
         "~/.local/bin/quantix-strategy-run",
-        "QUANTIX_TDX_ROOT",
-        "QUANTIX_TDX_MARKET",
-        "strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`",
-        "strategy daemon run --once` 首次启动只 bootstrap 到最新 bar",
         "批准 signal 只会创建 `execution_request`，不会自动交易",
     ] {
         assert!(
@@ -354,13 +350,10 @@ fn user_manual_documents_phase29_strategy_paper_commands() {
     for expected in [
         "quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]",
         "| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |",
-        "| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |",
         "quantix strategy run -n ma_cross --mode paper -c 000001",
-        "quantix strategy run -n ma_cross --mode mock_live -c 000001",
         "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
         "~/.quantix/strategy/runtime.db",
         "首次使用前请先执行 `quantix trade init`",
-        "`mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态",
         "`live` 模式仍在开发中",
     ] {
         assert!(
@@ -391,11 +384,6 @@ fn user_manual_documents_phase29b_strategy_daemon_commands() {
         "~/.quantix/strategy/service.json",
         "~/.quantix/strategy/service.env",
         "~/.local/bin/quantix-strategy-run",
-        "QUANTIX_TDX_ROOT",
-        "QUANTIX_TDX_MARKET",
-        "strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`",
-        "strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`",
-        "strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`",
         "不会自动交易，不会修改 paper 账户",
     ] {
         assert!(

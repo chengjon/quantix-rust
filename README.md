@@ -10,17 +10,6 @@ A 股量化交易 CLI 工具 - Rust 实现
 - 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
 - Foundation P0 的任务能力只支持直接运行 CLI 前台进程，不假设 daemon、常驻调度服务或任务持久化已经可用。
 
-## 路线图与 Backlog
-
-项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
-
-当前建议的推进顺序：
-
-1. 先补齐策略执行主线闭环，优先推进 Phase 29C 与 execution request 生命周期。
-2. 再推进自动审批、execution daemon 与 live-ready automation 收口。
-3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
-4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
-
 ## 功能特性
 
 ### 已完成模块
@@ -214,6 +203,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Phase 24: 实时监控 ✅
 - **监控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/monitor/*`)
   - `quantix monitor watchlist --once` - 扫描当前自选池并输出终端监控快照
+  - `quantix monitor watchlist --repeat` - 在前台持续轮询自选池并输出监控快照
   - `quantix monitor alert add 000001 --above 16.0` - 添加向上突破价格告警
   - `quantix monitor alert add 000001 --below 15.0` - 添加向下跌破价格告警
   - `quantix monitor alert list` - 查看当前有效价格告警
@@ -307,7 +297,6 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Phase 29: 策略 Paper 执行骨架 ✅
 - **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
   - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
-  - `quantix strategy run -n ma_cross --mode mock_live --code 000001` - 运行 `ma_cross` 的单次 mock-live 执行
 - **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
   - 默认路径 `~/.quantix/strategy/runtime.db`
   - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
@@ -316,10 +305,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 当前仅支持单代码、单次执行
   - 执行前请先运行 `quantix trade init`
   - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
-  - `paper` 是立即成交路径，`mock_live` 当前会返回非终态订单状态
-  - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
   - `live 模式仍在开发中`
-  - `execution daemon`、自动审批、real live adapter 延后到后续 Phase
+  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
 
 #### Phase 29B: 策略信号守护进程 ✅
 - **策略守护进程配置** (`src/strategy/config.rs`)
@@ -330,18 +317,12 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix strategy daemon run`
   - `quantix strategy daemon run --once`
   - 当前支持：单代码、多个策略实例、日线新 bar 触发
-  - 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
-  - fallback 读取根目录通过 `QUANTIX_TDX_ROOT` 指定
-  - 当同一代码在多个 TDX 市场目录命中时，可通过 `QUANTIX_TDX_MARKET` 指定 `sh/sz/bj/ds`
 - **Signal / Execution Request** (`src/execution/runtime_store.rs`)
   - `quantix strategy signal list`
   - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
   - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
   - `quantix strategy request list`
   - 批准 signal 只会创建 `execution_request`，不会自动交易
-  - `strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`
-  - `strategy signal approve` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
-  - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
 - **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
   - `quantix strategy service install`
   - `quantix strategy service status`
@@ -353,8 +334,8 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **当前边界**
   - `strategy daemon` 不自动交易
   - `strategy run --mode paper` 仍保留为直接执行路径
-  - `strategy daemon run --once` 首次启动只 bootstrap 到最新 bar，可能输出 `strategy daemon 未生成新信号`
   - 自动审批 / execution daemon / live adapter 延后到后续 Phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
