@@ -317,12 +317,18 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix strategy daemon run`
   - `quantix strategy daemon run --once`
   - 当前支持：单代码、多个策略实例、日线新 bar 触发
+  - 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
+  - fallback 读取根目录通过 `QUANTIX_TDX_ROOT` 指定
+  - 当同一代码在多个 TDX 市场目录命中时，可通过 `QUANTIX_TDX_MARKET` 指定 `sh/sz/bj/ds`
 - **Signal / Execution Request** (`src/execution/runtime_store.rs`)
   - `quantix strategy signal list`
   - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
   - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
   - `quantix strategy request list`
   - 批准 signal 只会创建 `execution_request`，不会自动交易
+  - `strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`
+  - `strategy signal approve` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
+  - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
 - **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
   - `quantix strategy service install`
   - `quantix strategy service status`
@@ -334,6 +340,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **当前边界**
   - `strategy daemon` 不自动交易
   - `strategy run --mode paper` 仍保留为直接执行路径
+  - `strategy daemon run --once` 首次启动只 bootstrap 到最新 bar，可能输出 `strategy daemon 未生成新信号`
   - 自动审批 / execution daemon / live adapter 延后到后续 Phase
 
 #### Phase 15: 具体策略实现 ✅

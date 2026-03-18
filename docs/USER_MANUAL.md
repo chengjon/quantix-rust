@@ -86,6 +86,10 @@ export POSTGRES_URL="postgresql://localhost:5432/quantix"
 export CLICKHOUSE_URL="http://localhost:8123"
 export CLICKHOUSE_DB="quantix"
 
+# 策略 signal daemon 的本地 TDX fallback（可选）
+export QUANTIX_TDX_ROOT="$HOME/.local/share/tdx"
+export QUANTIX_TDX_MARKET="sz"
+
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
@@ -522,10 +526,22 @@ quantix strategy service status
 - `strategy daemon` 当前只支持单代码
 - 同一代码下可配置多个策略实例
 - 首次启动只 bootstrap 到最新 bar，不回补历史 signal
+- `strategy daemon run --once` 首次启动可能只输出 `strategy daemon 未生成新信号`
+- daemon 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
+- `QUANTIX_TDX_ROOT` 用于指定本地 TDX 根目录
+- `QUANTIX_TDX_MARKET` 用于在 `sh/sz/bj/ds` 之间消解同代码歧义
 - signal 批准后只会写入 `execution_request`
 - 不会自动交易，不会修改 paper 账户
 - `strategy run --mode paper` 仍保留为直接执行路径
 - `execution daemon`、自动审批、live adapter 延后到后续 Phase
+
+当前输出语义：
+
+- `strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`
+- `strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- `strategy signal reject` 会输出 `signal_id signal_status=<STATUS> approval_status=<STATUS> reason=<TEXT>`
+- `strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- `strategy service install/start/stop/enable/disable` 成功时会输出明确消息
 
 ---
 

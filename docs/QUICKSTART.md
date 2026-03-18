@@ -85,6 +85,10 @@ cargo run -- strategy run -n ma_cross --mode paper --code 000001
 # 初始化策略信号守护进程配置
 cargo run -- strategy config init
 
+# 当主读取器为空或失败时，允许 daemon 回退到本地 TDX day 文件
+export QUANTIX_TDX_ROOT=/mnt/d/ProgramData/tdx_20251231
+export QUANTIX_TDX_MARKET=sz
+
 # 跑一轮 signal daemon（不会自动交易）
 cargo run -- strategy daemon run --once
 

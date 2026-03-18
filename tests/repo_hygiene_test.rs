@@ -302,6 +302,10 @@ fn readme_documents_phase29b_strategy_signal_daemon_boundary() {
         "~/.quantix/strategy/service.json",
         "~/.quantix/strategy/service.env",
         "~/.local/bin/quantix-strategy-run",
+        "QUANTIX_TDX_ROOT",
+        "QUANTIX_TDX_MARKET",
+        "strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`",
+        "strategy daemon run --once` 首次启动只 bootstrap 到最新 bar",
         "批准 signal 只会创建 `execution_request`，不会自动交易",
     ] {
         assert!(
@@ -384,6 +388,11 @@ fn user_manual_documents_phase29b_strategy_daemon_commands() {
         "~/.quantix/strategy/service.json",
         "~/.quantix/strategy/service.env",
         "~/.local/bin/quantix-strategy-run",
+        "QUANTIX_TDX_ROOT",
+        "QUANTIX_TDX_MARKET",
+        "strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`",
+        "strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`",
+        "strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`",
         "不会自动交易，不会修改 paper 账户",
     ] {
         assert!(
