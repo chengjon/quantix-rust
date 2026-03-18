@@ -721,6 +721,33 @@ WHERE signal_id = ?
         row.map(Self::row_to_signal).transpose()
     }
 
+    pub async fn list_signals(&self) -> Result<Vec<StrategySignalRecord>> {
+        let rows = sqlx::query(
+            r#"
+SELECT
+    signal_id,
+    strategy_instance_id,
+    strategy_name,
+    symbol,
+    timeframe,
+    bar_end,
+    signal_value,
+    signal_status,
+    approval_status,
+    run_id,
+    metadata_json,
+    created_at,
+    updated_at
+FROM signals
+ORDER BY created_at DESC, signal_id DESC
+"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(Self::row_to_signal).collect()
+    }
+
     pub async fn approve_signal_and_create_request(
         &self,
         signal_id: &str,

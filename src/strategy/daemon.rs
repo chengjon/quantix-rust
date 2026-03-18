@@ -25,7 +25,7 @@ pub struct StrategySignalDaemon<L> {
 
 impl<L> StrategySignalDaemon<L>
 where
-    L: StrategyBarLoader + Clone,
+    L: StrategyBarLoader,
 {
     pub fn new(
         loader: L,
@@ -159,6 +159,10 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn check_interval_secs(&self) -> u64 {
+        self.config.check_interval_secs
     }
 
     fn reload_config_if_changed(&mut self) -> Result<()> {

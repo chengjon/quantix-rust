@@ -2,8 +2,10 @@ use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
-    ScreenerCommands, StopCommands, StrategyCommands, TaskCommands, TradeCommands,
-    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, StrategyRequestCommands,
+    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
+    StrategyConfigCommands, StrategyDaemonCommands, TaskCommands, TradeCommands, WatchlistCommands,
+    WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::candle_patterns::{
@@ -19,7 +21,10 @@ use crate::db::clickhouse::ClickHouseClient;
 use crate::execution::kernel::{
     ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RiskDecision, RiskEvaluator,
 };
-use crate::execution::models::{ExecutionPolicy, OrderIntent, OrderStatus};
+use crate::execution::models::{
+    ApprovalStatus, ExecutionPolicy, ExecutionRequestRecord, ExecutionRequestStatus, OrderIntent,
+    OrderStatus, SignalStatus, StrategySignalRecord,
+};
 use crate::execution::paper::PaperExecutionAdapter;
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::market::{
@@ -44,6 +49,10 @@ use crate::screener::{
 };
 use crate::sources::TdxDayFile;
 use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
+use crate::strategy::{
+    JsonStrategyConfigStore, JsonStrategyServiceConfigStore, StrategyDaemonConfig,
+    StrategyServiceConfig, StrategySignalDaemon,
+};
 use crate::strategy::trait_def::Signal;
 use crate::stop::{
     SqliteStopRuleStore, StopRule, StopRuleStore, StopService, StopTriggerKind, TriggeredStop,
@@ -330,35 +339,63 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
         StrategyCommands::Show { name } => {
             show_strategy(name).await?;
         }
-        StrategyCommands::Config(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy config 尚未实现".to_string(),
-            ));
-        }
-        StrategyCommands::Daemon(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy daemon 尚未实现".to_string(),
-            ));
-        }
-        StrategyCommands::Signal(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy signal 尚未实现".to_string(),
-            ));
-        }
-        StrategyCommands::Request(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy request 尚未实现".to_string(),
-            ));
-        }
-        StrategyCommands::Service(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy service 尚未实现".to_string(),
-            ));
-        }
-        StrategyCommands::ServiceConfig(_) => {
-            return Err(QuantixError::Unsupported(
-                "strategy service-config 尚未实现".to_string(),
-            ));
+        StrategyCommands::Config(subcommand) => match subcommand {
+            StrategyConfigCommands::Init => {
+                execute_strategy_config_init().await?;
+            }
+            StrategyConfigCommands::Show => {
+                execute_strategy_config_show().await?;
+            }
+        },
+        StrategyCommands::Daemon(subcommand) => match subcommand {
+            StrategyDaemonCommands::Run { once } => {
+                execute_strategy_daemon_run(once).await?;
+            }
+        },
+        StrategyCommands::Signal(subcommand) => match subcommand {
+            StrategySignalCommands::List {
+                approval_status,
+                signal_status,
+                ..
+            } => {
+                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref()).await?;
+            }
+            StrategySignalCommands::Approve {
+                signal_id,
+                target_mode,
+                target_account,
+            } => {
+                execute_strategy_signal_approve(&signal_id, &target_mode, &target_account).await?;
+            }
+            StrategySignalCommands::Reject { signal_id, reason } => {
+                execute_strategy_signal_reject(&signal_id, reason.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Request(subcommand) => match subcommand {
+            StrategyRequestCommands::List { status, .. } => {
+                execute_strategy_request_list(status.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Service(subcommand) => match subcommand {
+            StrategyServiceCommands::Install
+            | StrategyServiceCommands::Uninstall
+            | StrategyServiceCommands::Start
+            | StrategyServiceCommands::Stop
+            | StrategyServiceCommands::Status
+            | StrategyServiceCommands::Enable
+            | StrategyServiceCommands::Disable => {
+                return Err(QuantixError::Unsupported(
+                    "strategy service 尚未实现".to_string(),
+                ));
+            }
+        },
+        StrategyCommands::ServiceConfig(subcommand) => match subcommand {
+            StrategyServiceConfigCommands::Show
+            | StrategyServiceConfigCommands::Set { .. } => {
+                return Err(QuantixError::Unsupported(
+                    "strategy service-config 尚未实现".to_string(),
+                ));
+            }
         }
     }
     Ok(())
@@ -563,6 +600,200 @@ fn print_strategy_run_summary(summary: &StrategyRunSummary) {
         println!("  订单状态: {}", order_status_label(status));
     }
     println!("  结果: {}", summary.message);
+}
+
+fn create_strategy_config_store() -> JsonStrategyConfigStore {
+    let runtime = CliRuntime::load();
+    JsonStrategyConfigStore::new(runtime.strategy_config_path)
+}
+
+async fn execute_strategy_config_init() -> Result<()> {
+    let config = execute_strategy_config_init_to_store(&create_strategy_config_store())?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+fn execute_strategy_config_init_to_store(
+    store: &JsonStrategyConfigStore,
+) -> Result<StrategyDaemonConfig> {
+    store.load_or_create()
+}
+
+async fn execute_strategy_config_show() -> Result<()> {
+    let config = execute_strategy_config_show_from_store(&create_strategy_config_store())?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+fn execute_strategy_config_show_from_store(
+    store: &JsonStrategyConfigStore,
+) -> Result<StrategyDaemonConfig> {
+    store.load_or_create()
+}
+
+async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
+    let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
+
+    if once {
+        execute_strategy_daemon_run_once_with_components(loader, &config_store, &runtime_store)
+            .await?;
+        return Ok(());
+    }
+
+    let mut daemon = StrategySignalDaemon::new(loader, runtime_store, config_store)?;
+    loop {
+        daemon.run_once().await?;
+        tokio::time::sleep(Duration::from_secs(daemon.check_interval_secs())).await;
+    }
+}
+
+async fn execute_strategy_daemon_run_once_with_components<L>(
+    loader: L,
+    config_store: &JsonStrategyConfigStore,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<()>
+where
+    L: StrategyBarLoader,
+{
+    let mut daemon = StrategySignalDaemon::new(loader, runtime_store.clone(), config_store.clone())?;
+    daemon.run_once().await
+}
+
+async fn execute_strategy_signal_list(
+    approval_status: Option<&str>,
+    signal_status: Option<&str>,
+) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let rows =
+        execute_strategy_signal_list_with_store(&runtime_store, approval_status, signal_status)
+            .await?;
+
+    for row in rows {
+        println!(
+            "{} {} {} {} {} {}",
+            row.signal_id,
+            row.strategy_instance_id,
+            row.symbol,
+            row.signal_value,
+            row.signal_status.as_str(),
+            row.approval_status.as_str()
+        );
+    }
+
+    Ok(())
+}
+
+async fn execute_strategy_signal_list_with_store(
+    store: &StrategyRuntimeStore,
+    approval_status: Option<&str>,
+    signal_status: Option<&str>,
+) -> Result<Vec<StrategySignalRecord>> {
+    let approval_filter = approval_status
+        .map(parse_approval_status)
+        .transpose()?;
+    let signal_filter = signal_status.map(parse_signal_status).transpose()?;
+
+    let rows = store.list_signals().await?;
+    Ok(rows
+        .into_iter()
+        .filter(|row| approval_filter.is_none_or(|status| row.approval_status == status))
+        .filter(|row| signal_filter.is_none_or(|status| row.signal_status == status))
+        .collect())
+}
+
+async fn execute_strategy_signal_approve(
+    signal_id: &str,
+    target_mode: &str,
+    target_account: &str,
+) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request = execute_strategy_signal_approve_with_store(
+        &runtime_store,
+        signal_id,
+        target_mode,
+        target_account,
+    )
+    .await?;
+    println!(
+        "{} {} {}",
+        request.request_id, request.signal_id, request.request_status.as_str()
+    );
+    Ok(())
+}
+
+async fn execute_strategy_signal_approve_with_store(
+    store: &StrategyRuntimeStore,
+    signal_id: &str,
+    target_mode: &str,
+    target_account: &str,
+) -> Result<ExecutionRequestRecord> {
+    store.approve_signal_and_create_request(signal_id, target_mode, target_account, Some("cli"))
+        .await
+}
+
+async fn execute_strategy_signal_reject(signal_id: &str, reason: Option<&str>) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let signal = execute_strategy_signal_reject_with_store(&runtime_store, signal_id, reason).await?;
+    println!(
+        "{} {} {}",
+        signal.signal_id, signal.signal_status.as_str(), signal.approval_status.as_str()
+    );
+    Ok(())
+}
+
+async fn execute_strategy_signal_reject_with_store(
+    store: &StrategyRuntimeStore,
+    signal_id: &str,
+    reason: Option<&str>,
+) -> Result<StrategySignalRecord> {
+    store.reject_signal(signal_id, reason).await?;
+    store.get_signal(signal_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("signal 不存在: {signal_id}")))
+}
+
+async fn execute_strategy_request_list(status: Option<&str>) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let rows = execute_strategy_request_list_with_store(&runtime_store, status).await?;
+
+    for row in rows {
+        println!(
+            "{} {} {} {}",
+            row.request_id, row.signal_id, row.target_mode, row.request_status.as_str()
+        );
+    }
+
+    Ok(())
+}
+
+async fn execute_strategy_request_list_with_store(
+    store: &StrategyRuntimeStore,
+    status: Option<&str>,
+) -> Result<Vec<ExecutionRequestRecord>> {
+    let status_filter = status.map(parse_execution_request_status).transpose()?;
+    store.list_execution_requests(status_filter).await
+}
+
+fn parse_approval_status(value: &str) -> Result<ApprovalStatus> {
+    ApprovalStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 approval_status: {value}")))
+}
+
+fn parse_signal_status(value: &str) -> Result<SignalStatus> {
+    SignalStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 signal_status: {value}")))
+}
+
+fn parse_execution_request_status(value: &str) -> Result<ExecutionRequestStatus> {
+    ExecutionRequestStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 request_status: {value}")))
 }
 
 /// 运行策略
@@ -3701,6 +3932,7 @@ mod tests {
     use chrono::{NaiveDate, TimeZone, Utc};
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
+    use serde_json::json;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex, OnceLock};
     use tempfile::tempdir;
@@ -3993,6 +4225,26 @@ mod tests {
         }
     }
 
+    fn fixed_ts() -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
+    }
+
+    fn sample_run(symbol: &str, bar_end: DateTime<Utc>) -> crate::execution::models::StrategyRunRecord {
+        crate::execution::models::StrategyRunRecord {
+            run_id: uuid::Uuid::new_v4().to_string(),
+            strategy_name: "ma_cross".to_string(),
+            mode: "signal".to_string(),
+            trigger: "daemon".to_string(),
+            status: crate::execution::models::StrategyRunStatus::Running,
+            symbol: symbol.to_string(),
+            timeframe: "1d".to_string(),
+            bar_end,
+            started_at: fixed_ts(),
+            finished_at: None,
+            metadata_json: serde_json::json!({}),
+        }
+    }
+
     #[derive(Clone, Default)]
     struct FakeLoader {
         data: HashMap<String, Vec<Kline>>,
@@ -4096,6 +4348,139 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_execute_strategy_config_init_creates_default_file() {
+        let dir = tempdir().unwrap();
+        let store = crate::strategy::JsonStrategyConfigStore::new(
+            dir.path().join("strategy-config.json"),
+        );
+
+        let config = execute_strategy_config_init_to_store(&store).unwrap();
+
+        assert_eq!(config.check_interval_secs, 60);
+        assert!(dir.path().join("strategy-config.json").exists());
+    }
+
+    #[test]
+    fn test_execute_strategy_config_show_returns_saved_config() {
+        let dir = tempdir().unwrap();
+        let store = crate::strategy::JsonStrategyConfigStore::new(
+            dir.path().join("strategy-config.json"),
+        );
+        let expected = store.load_or_create().unwrap();
+
+        let shown = execute_strategy_config_show_from_store(&store).unwrap();
+
+        assert_eq!(shown, expected);
+    }
+
+    #[tokio::test]
+    async fn test_execute_strategy_daemon_once_bootstraps_and_then_emits_signal() {
+        let dir = tempdir().unwrap();
+        let config_store = crate::strategy::JsonStrategyConfigStore::new(
+            dir.path().join("strategy-config.json"),
+        );
+        config_store.load_or_create().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let mut loader = FakeLoader::default();
+        loader.data.insert(
+            "000001".to_string(),
+            vec![
+                make_kline("000001", 1, dec!(10), 1000),
+                make_kline("000001", 2, dec!(10), 1000),
+                make_kline("000001", 3, dec!(10), 1000),
+                make_kline("000001", 4, dec!(9), 1000),
+                make_kline("000001", 5, dec!(9), 1000),
+                make_kline("000001", 6, dec!(20), 1000),
+            ],
+        );
+
+        execute_strategy_daemon_run_once_with_components(
+            loader.clone(),
+            &config_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+        assert_eq!(runtime_store.count_signals().await.unwrap(), 0);
+
+        loader.data.get_mut("000001").unwrap().push(make_kline("000001", 7, dec!(21), 1000));
+
+        execute_strategy_daemon_run_once_with_components(
+            loader,
+            &config_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+        assert_eq!(runtime_store.count_signals().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_strategy_signal_list_approve_reject_and_request_list() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let run = sample_run("000001", fixed_ts());
+        runtime_store.insert_run(&run).await.unwrap();
+
+        let signal = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-1".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "buy".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Pending,
+            run_id: run.run_id.clone(),
+            metadata_json: json!({}),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+        runtime_store.insert_signal(&signal).await.unwrap();
+
+        let pending = execute_strategy_signal_list_with_store(&runtime_store, Some("pending"), None)
+            .await
+            .unwrap();
+        assert_eq!(pending.len(), 1);
+
+        let request = execute_strategy_signal_approve_with_store(
+            &runtime_store,
+            "signal-1",
+            "paper",
+            "default",
+        )
+        .await
+        .unwrap();
+        assert_eq!(request.signal_id, "signal-1");
+
+        let requests = execute_strategy_request_list_with_store(&runtime_store, Some("pending"))
+            .await
+            .unwrap();
+        assert_eq!(requests.len(), 1);
+
+        let second = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-2".to_string(),
+            bar_end: fixed_ts() + chrono::Duration::days(1),
+            ..signal
+        };
+        runtime_store.insert_signal(&second).await.unwrap();
+        execute_strategy_signal_reject_with_store(&runtime_store, "signal-2", Some("manual"))
+            .await
+            .unwrap();
+
+        let rejected = runtime_store.get_signal("signal-2").await.unwrap().unwrap();
+        assert_eq!(
+            rejected.approval_status,
+            crate::execution::models::ApprovalStatus::Rejected
+        );
     }
 
     #[tokio::test]
