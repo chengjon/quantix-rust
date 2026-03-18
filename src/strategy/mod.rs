@@ -15,6 +15,7 @@ pub mod grid;
 pub mod test_utils;
 
 pub mod config;
+pub mod registry;
 pub mod runtime;
 pub mod service_config;
 
@@ -23,6 +24,7 @@ pub use config::{
     BootstrapPolicy, ConfiguredStock, ConfiguredStrategyInstance, JsonStrategyConfigStore,
     StrategyDaemonConfig,
 };
+pub use registry::{ConfiguredStrategyEvaluator, StrategyRegistry};
 pub use service_config::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
 
 // 导出具体策略
