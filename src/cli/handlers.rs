@@ -751,13 +751,14 @@ fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
         .unwrap_or_else(|| "unknown".to_string());
 
     format!(
-        "{} {} {} {} {} {} source={} fallback={}",
+        "{} {} {} {} {} {} bar_end={} source={} fallback={}",
         row.signal_id,
         row.strategy_instance_id,
         row.symbol,
         row.signal_value,
         row.signal_status.as_str(),
         row.approval_status.as_str(),
+        row.bar_end.format("%Y-%m-%dT%H:%M:%SZ"),
         source_id,
         fallback
     )
@@ -870,12 +871,13 @@ fn format_strategy_rejection_result(signal: &StrategySignalRecord) -> String {
 
 fn format_strategy_request_row(row: &ExecutionRequestRecord) -> String {
     format!(
-        "{} signal={} target={}/{} status={}",
+        "{} signal={} target={}/{} status={} created_at={}",
         row.request_id,
         row.signal_id,
         row.target_mode,
         row.target_account,
-        row.request_status.as_str()
+        row.request_status.as_str(),
+        row.created_at.format("%Y-%m-%dT%H:%M:%SZ")
     )
 }
 
@@ -4974,6 +4976,7 @@ mod tests {
         assert!(line.contains("signal=signal-9"));
         assert!(line.contains("target=paper/swing"));
         assert!(line.contains("status=completed"));
+        assert!(line.contains("created_at=2026-03-17T09:30:00Z"));
     }
 
     #[test]
@@ -5000,6 +5003,7 @@ mod tests {
         let line = format_strategy_signal_row(&row);
 
         assert!(line.contains("signal-1"));
+        assert!(line.contains("bar_end=2026-03-17T09:30:00Z"));
         assert!(line.contains("source=clickhouse-storage"));
         assert!(line.contains("fallback=false"));
     }
