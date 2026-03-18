@@ -330,6 +330,36 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
         StrategyCommands::Show { name } => {
             show_strategy(name).await?;
         }
+        StrategyCommands::Config(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy config 尚未实现".to_string(),
+            ));
+        }
+        StrategyCommands::Daemon(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy daemon 尚未实现".to_string(),
+            ));
+        }
+        StrategyCommands::Signal(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy signal 尚未实现".to_string(),
+            ));
+        }
+        StrategyCommands::Request(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy request 尚未实现".to_string(),
+            ));
+        }
+        StrategyCommands::Service(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy service 尚未实现".to_string(),
+            ));
+        }
+        StrategyCommands::ServiceConfig(_) => {
+            return Err(QuantixError::Unsupported(
+                "strategy service-config 尚未实现".to_string(),
+            ));
+        }
     }
     Ok(())
 }
