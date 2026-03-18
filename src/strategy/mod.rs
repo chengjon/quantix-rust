@@ -19,6 +19,7 @@ pub mod daemon;
 pub mod registry;
 pub mod runtime;
 pub mod service_config;
+pub mod systemd;
 
 pub use trait_def::Strategy;
 pub use config::{
@@ -28,6 +29,7 @@ pub use config::{
 pub use daemon::StrategySignalDaemon;
 pub use registry::{ConfiguredStrategyEvaluator, StrategyRegistry};
 pub use service_config::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
+pub use systemd::{StrategyServiceStatusSummary, StrategyUserServiceInstaller};
 
 // 导出具体策略
 pub use ma_cross::MACrossStrategy;

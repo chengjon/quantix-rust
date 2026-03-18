@@ -51,7 +51,8 @@ use crate::sources::TdxDayFile;
 use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use crate::strategy::{
     JsonStrategyConfigStore, JsonStrategyServiceConfigStore, StrategyDaemonConfig,
-    StrategyServiceConfig, StrategySignalDaemon,
+    StrategyServiceConfig, StrategyServiceStatusSummary, StrategySignalDaemon,
+    StrategyUserServiceInstaller,
 };
 use crate::strategy::trait_def::Signal;
 use crate::stop::{
@@ -377,24 +378,46 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
             }
         },
         StrategyCommands::Service(subcommand) => match subcommand {
-            StrategyServiceCommands::Install
-            | StrategyServiceCommands::Uninstall
-            | StrategyServiceCommands::Start
-            | StrategyServiceCommands::Stop
-            | StrategyServiceCommands::Status
-            | StrategyServiceCommands::Enable
-            | StrategyServiceCommands::Disable => {
-                return Err(QuantixError::Unsupported(
-                    "strategy service 尚未实现".to_string(),
-                ));
+            StrategyServiceCommands::Install => {
+                execute_strategy_service_command(StrategyServiceCommands::Install)?;
+            }
+            StrategyServiceCommands::Uninstall => {
+                execute_strategy_service_command(StrategyServiceCommands::Uninstall)?;
+            }
+            StrategyServiceCommands::Start => {
+                execute_strategy_service_command(StrategyServiceCommands::Start)?;
+            }
+            StrategyServiceCommands::Stop => {
+                execute_strategy_service_command(StrategyServiceCommands::Stop)?;
+            }
+            StrategyServiceCommands::Status => {
+                execute_strategy_service_command(StrategyServiceCommands::Status)?;
+            }
+            StrategyServiceCommands::Enable => {
+                execute_strategy_service_command(StrategyServiceCommands::Enable)?;
+            }
+            StrategyServiceCommands::Disable => {
+                execute_strategy_service_command(StrategyServiceCommands::Disable)?;
             }
         },
         StrategyCommands::ServiceConfig(subcommand) => match subcommand {
-            StrategyServiceConfigCommands::Show
-            | StrategyServiceConfigCommands::Set { .. } => {
-                return Err(QuantixError::Unsupported(
-                    "strategy service-config 尚未实现".to_string(),
-                ));
+            StrategyServiceConfigCommands::Show => {
+                execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Show,
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
+            }
+            StrategyServiceConfigCommands::Set {
+                quantix_bin,
+                env_file,
+            } => {
+                execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Set {
+                        quantix_bin,
+                        env_file,
+                    },
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
             }
         }
     }
@@ -794,6 +817,122 @@ fn parse_signal_status(value: &str) -> Result<SignalStatus> {
 fn parse_execution_request_status(value: &str) -> Result<ExecutionRequestStatus> {
     ExecutionRequestStatus::from_str(value)
         .ok_or_else(|| QuantixError::Other(format!("未知 request_status: {value}")))
+}
+
+fn execute_strategy_service_config_command_with_store(
+    cmd: StrategyServiceConfigCommands,
+    store: &JsonStrategyServiceConfigStore,
+) -> Result<()> {
+    match cmd {
+        StrategyServiceConfigCommands::Show => match store.load() {
+            Ok(config) => {
+                println!("{}", serde_json::to_string_pretty(&config)?);
+                Ok(())
+            }
+            Err(QuantixError::Config(_)) => {
+                println!(
+                    "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix"
+                );
+                Ok(())
+            }
+            Err(other) => Err(other),
+        },
+        StrategyServiceConfigCommands::Set {
+            quantix_bin,
+            env_file,
+        } => {
+            let config = StrategyServiceConfig {
+                quantix_bin_path: quantix_bin.into(),
+                environment_file_path: env_file.map(Into::into),
+            };
+            JsonStrategyServiceConfigStore::validate(&config)?;
+            store.save(&config)?;
+            println!("{}", serde_json::to_string_pretty(&config)?);
+            Ok(())
+        }
+    }
+}
+
+trait StrategyServiceInstallerOps {
+    fn install(&self) -> Result<()>;
+    fn uninstall(&self) -> Result<()>;
+    fn start(&self) -> Result<()>;
+    fn stop(&self) -> Result<()>;
+    fn enable(&self) -> Result<()>;
+    fn disable(&self) -> Result<()>;
+    fn status(&self) -> Result<String>;
+    fn status_summary(&self) -> Result<StrategyServiceStatusSummary>;
+}
+
+impl StrategyServiceInstallerOps for StrategyUserServiceInstaller {
+    fn install(&self) -> Result<()> {
+        StrategyUserServiceInstaller::install(self)
+    }
+
+    fn uninstall(&self) -> Result<()> {
+        StrategyUserServiceInstaller::uninstall(self)
+    }
+
+    fn start(&self) -> Result<()> {
+        StrategyUserServiceInstaller::start(self)
+    }
+
+    fn stop(&self) -> Result<()> {
+        StrategyUserServiceInstaller::stop(self)
+    }
+
+    fn enable(&self) -> Result<()> {
+        StrategyUserServiceInstaller::enable(self)
+    }
+
+    fn disable(&self) -> Result<()> {
+        StrategyUserServiceInstaller::disable(self)
+    }
+
+    fn status(&self) -> Result<String> {
+        StrategyUserServiceInstaller::status(self)
+    }
+
+    fn status_summary(&self) -> Result<StrategyServiceStatusSummary> {
+        StrategyUserServiceInstaller::status_summary(self)
+    }
+}
+
+fn execute_strategy_service_command(cmd: StrategyServiceCommands) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let store = JsonStrategyServiceConfigStore::with_default_path()?;
+    let service_config = match store.load() {
+        Ok(config) => config,
+        Err(QuantixError::Config(_)) => {
+            return Err(QuantixError::Other(
+                "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix".to_string(),
+            ));
+        }
+        Err(other) => return Err(other),
+    };
+    let installer = StrategyUserServiceInstaller::new(runtime, service_config);
+    execute_strategy_service_command_with_installer(cmd, &installer)
+}
+
+fn execute_strategy_service_command_with_installer<I>(
+    cmd: StrategyServiceCommands,
+    installer: &I,
+) -> Result<()>
+where
+    I: StrategyServiceInstallerOps,
+{
+    match cmd {
+        StrategyServiceCommands::Install => installer.install(),
+        StrategyServiceCommands::Uninstall => installer.uninstall(),
+        StrategyServiceCommands::Start => installer.start(),
+        StrategyServiceCommands::Stop => installer.stop(),
+        StrategyServiceCommands::Enable => installer.enable(),
+        StrategyServiceCommands::Disable => installer.disable(),
+        StrategyServiceCommands::Status => {
+            println!("{}", installer.status()?);
+            Ok(())
+        }
+    }
 }
 
 /// 运行策略
