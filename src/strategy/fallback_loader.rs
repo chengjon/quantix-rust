@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use crate::core::{QuantixError, Result};
 use crate::data::models::{AdjustType, Kline};
@@ -8,23 +9,68 @@ use crate::strategy::runtime::StrategyBarLoader;
 
 pub const STRATEGY_TDX_ROOT_ENV: &str = "QUANTIX_TDX_ROOT";
 pub const LEGACY_TDX_ROOT_ENV: &str = "TDX_ROOT";
+pub const STRATEGY_TDX_MARKET_ENV: &str = "QUANTIX_TDX_MARKET";
+pub const LEGACY_TDX_MARKET_ENV: &str = "TDX_MARKET";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StrategyBarLoadSource {
+    pub source_id: String,
+    pub fallback_used: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct FallbackStrategyBarLoader<P> {
     primary: P,
+    primary_source_id: &'static str,
     tdx_root: Option<PathBuf>,
+    preferred_market: Option<String>,
+    last_source: Arc<Mutex<Option<StrategyBarLoadSource>>>,
 }
 
 impl<P> FallbackStrategyBarLoader<P> {
     pub fn new(primary: P, tdx_root: Option<PathBuf>) -> Self {
-        Self { primary, tdx_root }
+        Self::with_options(primary, "primary", tdx_root, None)
+    }
+
+    pub fn with_primary_source_id(
+        primary: P,
+        primary_source_id: &'static str,
+        tdx_root: Option<PathBuf>,
+    ) -> Self {
+        Self::with_options(primary, primary_source_id, tdx_root, None)
+    }
+
+    pub fn with_options(
+        primary: P,
+        primary_source_id: &'static str,
+        tdx_root: Option<PathBuf>,
+        preferred_market: Option<String>,
+    ) -> Self {
+        Self {
+            primary,
+            primary_source_id,
+            tdx_root,
+            preferred_market: preferred_market.map(|value| value.to_ascii_lowercase()),
+            last_source: Arc::new(Mutex::new(None)),
+        }
     }
 
     pub fn from_env(primary: P) -> Self {
+        Self::from_env_with_primary_source_id(primary, "primary")
+    }
+
+    pub fn from_env_with_primary_source_id(primary: P, primary_source_id: &'static str) -> Self {
         let tdx_root = std::env::var_os(STRATEGY_TDX_ROOT_ENV)
             .or_else(|| std::env::var_os(LEGACY_TDX_ROOT_ENV))
             .map(PathBuf::from);
-        Self::new(primary, tdx_root)
+        let preferred_market = std::env::var(STRATEGY_TDX_MARKET_ENV)
+            .ok()
+            .or_else(|| std::env::var(LEGACY_TDX_MARKET_ENV).ok());
+        Self::with_options(primary, primary_source_id, tdx_root, preferred_market)
+    }
+
+    pub fn last_source(&self) -> Option<StrategyBarLoadSource> {
+        self.last_source.lock().unwrap().clone()
     }
 
     fn load_from_tdx(&self, code: &str, limit: usize) -> Result<Option<Vec<Kline>>> {
@@ -33,7 +79,7 @@ impl<P> FallbackStrategyBarLoader<P> {
         };
 
         let code_num = parse_tdx_code(code)?;
-        let path = resolve_tdx_day_file_path(root, code)?;
+        let path = resolve_tdx_day_file_path(root, code, self.preferred_market.as_deref())?;
         let mut rows = TdxDayFile::to_klines(code_num, path, AdjustType::None)?;
         if rows.len() > limit {
             rows = rows[rows.len() - limit..].to_vec();
@@ -49,13 +95,31 @@ where
 {
     async fn load_daily_bars(&self, code: &str, limit: usize) -> Result<Vec<Kline>> {
         match self.primary.load_daily_bars(code, limit).await {
-            Ok(rows) if !rows.is_empty() => Ok(rows),
+            Ok(rows) if !rows.is_empty() => {
+                *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                    source_id: self.primary_source_id.to_string(),
+                    fallback_used: false,
+                });
+                Ok(rows)
+            }
             Ok(_) => match self.load_from_tdx(code, limit)? {
-                Some(rows) => Ok(rows),
+                Some(rows) => {
+                    *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                        source_id: "tdx-day-file".to_string(),
+                        fallback_used: true,
+                    });
+                    Ok(rows)
+                }
                 None => Ok(Vec::new()),
             },
             Err(primary_error) => match self.load_from_tdx(code, limit) {
-                Ok(Some(rows)) => Ok(rows),
+                Ok(Some(rows)) => {
+                    *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                        source_id: "tdx-day-file".to_string(),
+                        fallback_used: true,
+                    });
+                    Ok(rows)
+                }
                 Ok(None) => Err(primary_error),
                 Err(fallback_error) => Err(QuantixError::Other(format!(
                     "主读取器失败: {}; TDX fallback 失败: {}",
@@ -79,8 +143,29 @@ fn parse_tdx_code(code: &str) -> Result<u32> {
         .map_err(|e| QuantixError::Other(format!("股票代码解析失败: {}", e)))
 }
 
-fn resolve_tdx_day_file_path(root: impl AsRef<Path>, code: &str) -> Result<PathBuf> {
+fn resolve_tdx_day_file_path(
+    root: impl AsRef<Path>,
+    code: &str,
+    preferred_market: Option<&str>,
+) -> Result<PathBuf> {
     let root = root.as_ref();
+
+    if let Some(market) = preferred_market {
+        let market = market.to_ascii_lowercase();
+        let path = root
+            .join("vipdoc")
+            .join(&market)
+            .join("lday")
+            .join(format!("{}{}.day", market, code));
+        if path.exists() {
+            return Ok(path);
+        }
+        return Err(QuantixError::Other(format!(
+            "未找到指定市场的 day 文件: {}",
+            path.display()
+        )));
+    }
+
     let matches: Vec<PathBuf> = ["sh", "sz", "bj", "ds"]
         .iter()
         .map(|market| {
@@ -99,12 +184,13 @@ fn resolve_tdx_day_file_path(root: impl AsRef<Path>, code: &str) -> Result<PathB
             code, STRATEGY_TDX_ROOT_ENV, LEGACY_TDX_ROOT_ENV
         ))),
         many => Err(QuantixError::Other(format!(
-            "代码 {} 在多个市场目录匹配到多个 day 文件: {}",
+            "代码 {} 在多个市场目录匹配到多个 day 文件: {}，请设置 {}",
             code,
             many.iter()
                 .map(|p| p.display().to_string())
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", "),
+            STRATEGY_TDX_MARKET_ENV
         ))),
     }
 }

@@ -10,8 +10,15 @@ use crate::execution::models::{
 };
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::strategy::config::{BootstrapPolicy, JsonStrategyConfigStore, StrategyDaemonConfig};
+use crate::strategy::fallback_loader::{FallbackStrategyBarLoader, StrategyBarLoadSource};
 use crate::strategy::registry::StrategyRegistry;
 use crate::strategy::runtime::StrategyBarLoader;
+
+pub trait StrategyBarLoadTelemetry {
+    fn last_source(&self) -> Option<StrategyBarLoadSource> {
+        None
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct StrategySignalDaemon<L> {
@@ -25,7 +32,7 @@ pub struct StrategySignalDaemon<L> {
 
 impl<L> StrategySignalDaemon<L>
 where
-    L: StrategyBarLoader,
+    L: StrategyBarLoader + StrategyBarLoadTelemetry,
 {
     pub fn new(
         loader: L,
@@ -50,7 +57,12 @@ where
     pub async fn run_once(&mut self) -> Result<()> {
         self.reload_config_if_changed()?;
 
-        let active_stocks: Vec<_> = self.config.stocks.iter().filter(|stock| stock.enabled).collect();
+        let active_stocks: Vec<_> = self
+            .config
+            .stocks
+            .iter()
+            .filter(|stock| stock.enabled)
+            .collect();
         if active_stocks.len() != 1 {
             return Err(QuantixError::Other(
                 "strategy daemon 当前要求恰好一个 enabled 股票".to_string(),
@@ -64,6 +76,7 @@ where
                 .loader
                 .load_daily_bars(&stock.code, 10_000.max(evaluator.lookback_required() + 1))
                 .await?;
+            let source = self.loader.last_source();
             let Some(latest_bar) = bars.last() else {
                 continue;
             };
@@ -95,6 +108,8 @@ where
                     metadata_json: serde_json::json!({
                         "strategy_instance_id": strategy.id,
                         "params": strategy.params,
+                        "bar_source_id": source.as_ref().map(|item| item.source_id.clone()),
+                        "bar_source_fallback": source.as_ref().map(|item| item.fallback_used),
                     }),
                 };
                 let envelope = evaluator.evaluate(&bars)?;
@@ -112,6 +127,8 @@ where
                     metadata_json: serde_json::json!({
                         "strategy_instance_id": strategy.id,
                         "params": strategy.params,
+                        "bar_source_id": source.as_ref().map(|item| item.source_id.clone()),
+                        "bar_source_fallback": source.as_ref().map(|item| item.fallback_used),
                     }),
                     created_at: now,
                     updated_at: now,
@@ -176,6 +193,12 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<P> StrategyBarLoadTelemetry for FallbackStrategyBarLoader<P> {
+    fn last_source(&self) -> Option<StrategyBarLoadSource> {
+        self.last_source()
     }
 }
 

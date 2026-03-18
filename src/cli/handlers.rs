@@ -2,10 +2,10 @@ use super::{
     AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
-    ScreenerCommands, StopCommands, StrategyCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrategyConfigCommands, StrategyDaemonCommands, TaskCommands, TradeCommands, WatchlistCommands,
-    WatchlistGroupCommands, WatchlistTagCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
+    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::candle_patterns::{
@@ -48,22 +48,22 @@ use crate::screener::{
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
 use crate::sources::TdxDayFile;
-use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
-use crate::strategy::{
-    FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
-    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary, StrategySignalDaemon,
-    StrategyUserServiceInstaller,
-};
-use crate::strategy::trait_def::Signal;
 use crate::stop::{
     SqliteStopRuleStore, StopRule, StopRuleStore, StopService, StopTriggerKind, TriggeredStop,
+};
+use crate::strategy::daemon::StrategyBarLoadTelemetry;
+use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
+use crate::strategy::trait_def::Signal;
+use crate::strategy::{
+    FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
+    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary,
+    StrategySignalDaemon, StrategyUserServiceInstaller,
 };
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::trade::{
     CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview,
-    TradePosition, TradePositionCurrentRow, TradeQuoteStatus, TradeRecord,
-    TradeReportingService, TradeService,
+    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
+    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
 };
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
@@ -359,7 +359,8 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
                 signal_status,
                 ..
             } => {
-                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref()).await?;
+                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref())
+                    .await?;
             }
             StrategySignalCommands::Approve {
                 signal_id,
@@ -421,7 +422,7 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
                 )?;
                 print_strategy_service_config_output(output)?;
             }
-        }
+        },
     }
     Ok(())
 }
@@ -526,13 +527,15 @@ where
     })?;
 
     let account = load_initialized_trade_account(&trade_store).await?;
-    let held_volume = account.positions.get(&symbol).map(|position| position.volume);
+    let held_volume = account
+        .positions
+        .get(&symbol)
+        .map(|position| position.volume);
 
     let bars = loader.load_daily_bars(&symbol, 10_000).await?;
-    let latest_bar = bars
-        .last()
-        .cloned()
-        .ok_or_else(|| QuantixError::Other(format!("strategy paper 未找到 {} 的日线数据", symbol)))?;
+    let latest_bar = bars.last().cloned().ok_or_else(|| {
+        QuantixError::Other(format!("strategy paper 未找到 {} 的日线数据", symbol))
+    })?;
     let bar_end = DateTime::<Utc>::from_naive_utc_and_offset(
         latest_bar.date.and_hms_opt(15, 0, 0).unwrap(),
         Utc,
@@ -588,7 +591,11 @@ fn build_strategy_run_summary(
     signal: Signal,
 ) -> StrategyRunSummary {
     let message = match result.order_status {
-        Some(status) => format!("signal={} order_status={}", signal_label(signal), order_status_label(status)),
+        Some(status) => format!(
+            "signal={} order_status={}",
+            signal_label(signal),
+            order_status_label(status)
+        ),
         None => format!("signal={} no_order", signal_label(signal)),
     };
 
@@ -660,13 +667,22 @@ async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
     let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
-    let loader = FallbackStrategyBarLoader::from_env(ClickHouseDailyKlineLoader::new(
-        create_clickhouse_client().await?,
-    ));
+    let loader = FallbackStrategyBarLoader::from_env_with_primary_source_id(
+        ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+        "clickhouse-storage",
+    );
 
     if once {
-        execute_strategy_daemon_run_once_with_components(loader, &config_store, &runtime_store)
-            .await?;
+        match execute_strategy_daemon_run_once_with_components(
+            loader,
+            &config_store,
+            &runtime_store,
+        )
+        .await?
+        {
+            Some(signal) => println!("{}", format_strategy_signal_row(&signal)),
+            None => println!("strategy daemon 未生成新信号"),
+        }
         return Ok(());
     }
 
@@ -681,12 +697,27 @@ async fn execute_strategy_daemon_run_once_with_components<L>(
     loader: L,
     config_store: &JsonStrategyConfigStore,
     runtime_store: &StrategyRuntimeStore,
-) -> Result<()>
+) -> Result<Option<StrategySignalRecord>>
 where
-    L: StrategyBarLoader,
+    L: StrategyBarLoader + StrategyBarLoadTelemetry,
 {
-    let mut daemon = StrategySignalDaemon::new(loader, runtime_store.clone(), config_store.clone())?;
-    daemon.run_once().await
+    let before_ids: Vec<String> = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .map(|row| row.signal_id)
+        .collect();
+    let mut daemon =
+        StrategySignalDaemon::new(loader, runtime_store.clone(), config_store.clone())?;
+    daemon.run_once().await?;
+
+    let latest = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .find(|row| !before_ids.iter().any(|id| id == &row.signal_id));
+
+    Ok(latest)
 }
 
 async fn execute_strategy_signal_list(
@@ -700,18 +731,36 @@ async fn execute_strategy_signal_list(
             .await?;
 
     for row in rows {
-        println!(
-            "{} {} {} {} {} {}",
-            row.signal_id,
-            row.strategy_instance_id,
-            row.symbol,
-            row.signal_value,
-            row.signal_status.as_str(),
-            row.approval_status.as_str()
-        );
+        println!("{}", format_strategy_signal_row(&row));
     }
 
     Ok(())
+}
+
+fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
+    let source_id = row
+        .metadata_json
+        .get("bar_source_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let fallback = row
+        .metadata_json
+        .get("bar_source_fallback")
+        .and_then(|value| value.as_bool())
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    format!(
+        "{} {} {} {} {} {} source={} fallback={}",
+        row.signal_id,
+        row.strategy_instance_id,
+        row.symbol,
+        row.signal_value,
+        row.signal_status.as_str(),
+        row.approval_status.as_str(),
+        source_id,
+        fallback
+    )
 }
 
 async fn execute_strategy_signal_list_with_store(
@@ -719,9 +768,7 @@ async fn execute_strategy_signal_list_with_store(
     approval_status: Option<&str>,
     signal_status: Option<&str>,
 ) -> Result<Vec<StrategySignalRecord>> {
-    let approval_filter = approval_status
-        .map(parse_approval_status)
-        .transpose()?;
+    let approval_filter = approval_status.map(parse_approval_status).transpose()?;
     let signal_filter = signal_status.map(parse_signal_status).transpose()?;
 
     let rows = store.list_signals().await?;
@@ -746,10 +793,7 @@ async fn execute_strategy_signal_approve(
         target_account,
     )
     .await?;
-    println!(
-        "{} {} {}",
-        request.request_id, request.signal_id, request.request_status.as_str()
-    );
+    println!("{}", format_strategy_approval_result(&request));
     Ok(())
 }
 
@@ -759,18 +803,17 @@ async fn execute_strategy_signal_approve_with_store(
     target_mode: &str,
     target_account: &str,
 ) -> Result<ExecutionRequestRecord> {
-    store.approve_signal_and_create_request(signal_id, target_mode, target_account, Some("cli"))
+    store
+        .approve_signal_and_create_request(signal_id, target_mode, target_account, Some("cli"))
         .await
 }
 
 async fn execute_strategy_signal_reject(signal_id: &str, reason: Option<&str>) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
-    let signal = execute_strategy_signal_reject_with_store(&runtime_store, signal_id, reason).await?;
-    println!(
-        "{} {} {}",
-        signal.signal_id, signal.signal_status.as_str(), signal.approval_status.as_str()
-    );
+    let signal =
+        execute_strategy_signal_reject_with_store(&runtime_store, signal_id, reason).await?;
+    println!("{}", format_strategy_rejection_result(&signal));
     Ok(())
 }
 
@@ -780,7 +823,8 @@ async fn execute_strategy_signal_reject_with_store(
     reason: Option<&str>,
 ) -> Result<StrategySignalRecord> {
     store.reject_signal(signal_id, reason).await?;
-    store.get_signal(signal_id)
+    store
+        .get_signal(signal_id)
         .await?
         .ok_or_else(|| QuantixError::Other(format!("signal 不存在: {signal_id}")))
 }
@@ -791,13 +835,48 @@ async fn execute_strategy_request_list(status: Option<&str>) -> Result<()> {
     let rows = execute_strategy_request_list_with_store(&runtime_store, status).await?;
 
     for row in rows {
-        println!(
-            "{} {} {} {}",
-            row.request_id, row.signal_id, row.target_mode, row.request_status.as_str()
-        );
+        println!("{}", format_strategy_request_row(&row));
     }
 
     Ok(())
+}
+
+fn format_strategy_approval_result(request: &ExecutionRequestRecord) -> String {
+    format!(
+        "{} signal={} target={}/{} status={}",
+        request.request_id,
+        request.signal_id,
+        request.target_mode,
+        request.target_account,
+        request.request_status.as_str()
+    )
+}
+
+fn format_strategy_rejection_result(signal: &StrategySignalRecord) -> String {
+    let reason = signal
+        .metadata_json
+        .get("rejection_reason")
+        .and_then(|value| value.as_str())
+        .unwrap_or("-");
+
+    format!(
+        "{} signal_status={} approval_status={} reason={}",
+        signal.signal_id,
+        signal.signal_status.as_str(),
+        signal.approval_status.as_str(),
+        reason
+    )
+}
+
+fn format_strategy_request_row(row: &ExecutionRequestRecord) -> String {
+    format!(
+        "{} signal={} target={}/{} status={}",
+        row.request_id,
+        row.signal_id,
+        row.target_mode,
+        row.target_account,
+        row.request_status.as_str()
+    )
 }
 
 async fn execute_strategy_request_list_with_store(
@@ -921,27 +1000,44 @@ fn execute_strategy_service_command(cmd: StrategyServiceCommands) -> Result<()> 
         Err(other) => return Err(other),
     };
     let installer = StrategyUserServiceInstaller::new(runtime, service_config);
-    execute_strategy_service_command_with_installer(cmd, &installer)
+    let message = execute_strategy_service_command_with_installer(cmd, &installer)?;
+    println!("{}", message);
+    Ok(())
 }
 
 fn execute_strategy_service_command_with_installer<I>(
     cmd: StrategyServiceCommands,
     installer: &I,
-) -> Result<()>
+) -> Result<String>
 where
     I: StrategyServiceInstallerOps,
 {
     match cmd {
-        StrategyServiceCommands::Install => installer.install(),
-        StrategyServiceCommands::Uninstall => installer.uninstall(),
-        StrategyServiceCommands::Start => installer.start(),
-        StrategyServiceCommands::Stop => installer.stop(),
-        StrategyServiceCommands::Enable => installer.enable(),
-        StrategyServiceCommands::Disable => installer.disable(),
-        StrategyServiceCommands::Status => {
-            println!("{}", installer.status()?);
-            Ok(())
+        StrategyServiceCommands::Install => {
+            installer.install()?;
+            Ok("strategy service installed".to_string())
         }
+        StrategyServiceCommands::Uninstall => {
+            installer.uninstall()?;
+            Ok("strategy service uninstalled".to_string())
+        }
+        StrategyServiceCommands::Start => {
+            installer.start()?;
+            Ok("strategy service started".to_string())
+        }
+        StrategyServiceCommands::Stop => {
+            installer.stop()?;
+            Ok("strategy service stopped".to_string())
+        }
+        StrategyServiceCommands::Enable => {
+            installer.enable()?;
+            Ok("strategy service enabled".to_string())
+        }
+        StrategyServiceCommands::Disable => {
+            installer.disable()?;
+            Ok("strategy service disabled".to_string())
+        }
+        StrategyServiceCommands::Status => installer.status(),
     }
 }
 
@@ -958,7 +1054,8 @@ async fn run_strategy(name: String, mode: String, code: Option<String>) -> Resul
                 run_ma_cross_backtest(code).await?;
             } else if mode == "paper" || mode == "live" {
                 let runtime = CliRuntime::load();
-                let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+                let runtime_store =
+                    StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
                 let summary = execute_strategy_run_with_components(
                     &name,
                     &mode,
@@ -1326,7 +1423,8 @@ pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
             repeat: false,
         }
         | MonitorCommands::Alert(_) => {
-            let watchlist_reader = ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
+            let watchlist_reader =
+                ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
             let quote_reader = TdxMonitorQuoteReader;
             let alert_store = create_monitor_alert_store().await?;
             let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
@@ -1413,7 +1511,8 @@ pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {
     let trade_store = create_trade_store();
     let service = TradeService::new(trade_store.clone());
     let risk_service = RiskService::new(create_risk_store());
-    let output = execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
+    let output =
+        execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
     print_trade_command_output(&output);
     Ok(())
 }
@@ -1759,15 +1858,19 @@ where
         }
         TradeCommands::History { code, limit } => {
             let state = service.state_snapshot().await?;
-            Ok(TradeCommandOutput::HistoryRows(
-                reporting.history_rows(&state, code.as_deref(), limit),
-            ))
+            Ok(TradeCommandOutput::HistoryRows(reporting.history_rows(
+                &state,
+                code.as_deref(),
+                limit,
+            )))
         }
         TradeCommands::Fees { code, limit } => {
             let state = service.state_snapshot().await?;
-            Ok(TradeCommandOutput::FeeRows(
-                reporting.fee_rows(&state, code.as_deref(), limit),
-            ))
+            Ok(TradeCommandOutput::FeeRows(reporting.fee_rows(
+                &state,
+                code.as_deref(),
+                limit,
+            )))
         }
         TradeCommands::Overview { current: false } => {
             let state = service.state_snapshot().await?;
@@ -1864,7 +1967,9 @@ where
             )?;
             let account = trade_service.init_account(request, Utc::now()).await?;
             let snapshot = build_risk_account_snapshot(&account);
-            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            risk_service
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
             Ok(TradeCommandOutput::AccountInitialized(account))
         }
         TradeCommands::Reset {
@@ -1884,7 +1989,9 @@ where
             )?;
             let account = trade_service.reset_account(request, Utc::now()).await?;
             let snapshot = build_risk_account_snapshot(&account);
-            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            risk_service
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
             Ok(TradeCommandOutput::AccountReset(account))
         }
         TradeCommands::Buy {
@@ -1896,7 +2003,9 @@ where
             let account = load_initialized_trade_account(trade_store).await?;
             let snapshot = build_risk_account_snapshot(&account);
             let projected_buy = build_projected_buy_impact(&account, &request);
-            risk_service.check_buy(&snapshot, &projected_buy, Utc::now()).await?;
+            risk_service
+                .check_buy(&snapshot, &projected_buy, Utc::now())
+                .await?;
 
             let record = trade_service.buy(request, Utc::now()).await?;
             sync_risk_from_trade_store(trade_store, risk_service).await?;
@@ -1913,12 +2022,8 @@ where
             Ok(TradeCommandOutput::TradeExecuted(record))
         }
         TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
-            execute_trade_command_with_quote_lookup(
-                cmd,
-                trade_service,
-                &TdxWatchlistQuoteLookup,
-            )
-            .await
+            execute_trade_command_with_quote_lookup(cmd, trade_service, &TdxWatchlistQuoteLookup)
+                .await
         }
         other => execute_trade_command_with_service(other, trade_service).await,
     }
@@ -1953,11 +2058,9 @@ fn build_trade_order_request(
 }
 
 fn decimal_to_f64(value: Decimal, command_name: &str) -> Result<f64> {
-    value.to_f64().ok_or_else(|| {
-        QuantixError::Other(format!(
-            "{command_name} 无法将价格 {value} 转换为 f64"
-        ))
-    })
+    value
+        .to_f64()
+        .ok_or_else(|| QuantixError::Other(format!("{command_name} 无法将价格 {value} 转换为 f64")))
 }
 
 fn remap_trade_request_error(err: QuantixError, command_name: &str) -> QuantixError {
@@ -2093,9 +2196,9 @@ async fn create_stop_rule_store() -> Result<SqliteStopRuleStore> {
     SqliteStopRuleStore::new(runtime.monitor_db_path).await
 }
 
-async fn create_configured_monitor_runner()
--> Result<MonitorRunner<ConfiguredMonitorWatchlistReader, TdxMonitorQuoteReader, SqliteStopRuleStore>>
-{
+async fn create_configured_monitor_runner() -> Result<
+    MonitorRunner<ConfiguredMonitorWatchlistReader, TdxMonitorQuoteReader, SqliteStopRuleStore>,
+> {
     let alert_store = create_monitor_alert_store().await?;
     let stop_store = create_stop_rule_store().await?;
     Ok(MonitorRunner::new(
@@ -2315,7 +2418,9 @@ where
             repeat: true,
         } => Ok(MonitorCommandOutput::AutomationIteration {
             run_mode: MonitorRunMode::Foreground,
-            output: runner.run_once(config, MonitorRunMode::Foreground, now).await?,
+            output: runner
+                .run_once(config, MonitorRunMode::Foreground, now)
+                .await?,
         }),
         MonitorCommands::Daemon(MonitorDaemonCommands::Run) => {
             Ok(MonitorCommandOutput::AutomationIteration {
@@ -2526,7 +2631,10 @@ fn print_trade_positions(positions: &[TradePosition]) {
         return;
     }
 
-    println!("{:<10} {:<10} {:<14} {}", "代码", "数量", "持仓成本", "最新成交价");
+    println!(
+        "{:<10} {:<10} {:<14} {}",
+        "代码", "数量", "持仓成本", "最新成交价"
+    );
     println!("{}", "-".repeat(56));
 
     for position in positions {
@@ -2784,7 +2892,10 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             snapshot,
             triggered_stops,
         } => print_monitor_watchlist_snapshot(snapshot, triggered_stops),
-        MonitorCommandOutput::AutomationIteration { run_mode: _, output } => {
+        MonitorCommandOutput::AutomationIteration {
+            run_mode: _,
+            output,
+        } => {
             print_monitor_watchlist_snapshot(&output.snapshot, &output.triggered_stops);
             if !output.new_events.is_empty() {
                 println!();
@@ -2975,7 +3086,10 @@ fn print_monitor_events(rows: &[MonitorEventRow]) {
 }
 
 fn print_monitor_service_status_summary(summary: &MonitorServiceStatusSummary) {
-    println!("installed: {}", if summary.installed { "yes" } else { "no" });
+    println!(
+        "installed: {}",
+        if summary.installed { "yes" } else { "no" }
+    );
     println!("enabled: {}", if summary.enabled { "yes" } else { "no" });
     println!("active: {}", summary.active);
     println!("unit_path: {}", summary.unit_path.display());
@@ -3084,7 +3198,10 @@ impl StrategyBarLoader for ClickHouseDailyKlineLoader {
         code: &str,
         limit: usize,
     ) -> Result<Vec<crate::data::models::Kline>> {
-        let mut rows = self.client.get_kline_data(code, "1d", None, None, None).await?;
+        let mut rows = self
+            .client
+            .get_kline_data(code, "1d", None, None, None)
+            .await?;
         if rows.len() > limit {
             rows = rows[rows.len() - limit..].to_vec();
         }
@@ -3436,7 +3553,9 @@ where
         .load_state()
         .await?
         .and_then(|state| state.account)
-        .ok_or_else(|| QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string()))
+        .ok_or_else(|| {
+            QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
+        })
 }
 
 async fn load_trade_quote_prices<Q>(
@@ -3708,7 +3827,9 @@ async fn analyze_candle_patterns(
     let candles: Vec<CandleInput> = rows.iter().map(|row| row.candle).collect();
     let policy = build_reference_policy(reference, previous_close)?;
     let references = sequence_references(&candles, &policy)?;
-    let config = PatternConfig { epsilon: dec!(0.0001) };
+    let config = PatternConfig {
+        epsilon: dec!(0.0001),
+    };
     let patterns = recognize_sequence(&candles, &policy, &config)
         .map_err(|err| QuantixError::Other(format!("K线形态识别失败: {:?}", err)))?;
 
@@ -3820,10 +3941,7 @@ async fn load_pattern_candle_rows(
         .await?;
 
     if klines.is_empty() {
-        return Err(QuantixError::Other(format!(
-            "未找到 {} 的 K线数据",
-            code
-        )));
+        return Err(QuantixError::Other(format!("未找到 {} 的 K线数据", code)));
     }
 
     Ok(pattern_rows_from_klines(&klines))
@@ -3848,7 +3966,8 @@ fn build_reference_policy(
 }
 
 fn parse_candle_specs(specs: &[String]) -> Result<Vec<PatternCandleRow>> {
-    specs.iter()
+    specs
+        .iter()
         .enumerate()
         .map(|(idx, spec)| {
             Ok(PatternCandleRow {
@@ -4051,7 +4170,7 @@ mod tests {
     use crate::cli::{
         MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
         MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands,
-        TradeCommands,
+        StrategyServiceCommands, TradeCommands,
     };
     use crate::core::QuantixError;
     use crate::core::config::{
@@ -4063,20 +4182,19 @@ mod tests {
         MarketSentimentSnapshot, NorthFlowSnapshot,
     };
     use crate::monitor::{
-        JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore,
-        MonitorEventType, MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner,
-        MonitorService, MonitorServiceConfig, MonitorServiceStatusSummary,
-        MonitorWatchlistReader, PriceAlert, PriceAlertKind, SqliteMonitorAlertStore,
-        TriggeredAlert,
+        JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorEventType,
+        MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+        MonitorServiceConfig, MonitorServiceStatusSummary, MonitorWatchlistReader, PriceAlert,
+        PriceAlertKind, SqliteMonitorAlertStore, TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
-    use crate::strategy::runtime::StrategyBarLoader;
     use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
+    use crate::strategy::runtime::StrategyBarLoader;
     use crate::trade::{
         JsonPaperTradeStore, PaperTradeState, PaperTradeStore, TradeService, TradeSide,
     };
-    use crate::{execution::runtime_store::StrategyRuntimeStore, risk::JsonRiskStore};
     use crate::watchlist::{WatchlistListItem, WatchlistQuoteLookup, WatchlistQuoteSnapshot};
+    use crate::{execution::runtime_store::StrategyRuntimeStore, risk::JsonRiskStore};
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
     use rust_decimal::Decimal;
@@ -4231,8 +4349,12 @@ mod tests {
         let path = dir.path().join("sh000001.day");
         let mut bytes = Vec::new();
 
-        bytes.extend(build_day_record_bytes(20260315, 1000, 1100, 900, 1050, 1000.0, 200, 980));
-        bytes.extend(build_day_record_bytes(20260316, 1050, 1200, 1000, 1180, 1200.0, 220, 1050));
+        bytes.extend(build_day_record_bytes(
+            20260315, 1000, 1100, 900, 1050, 1000.0, 200, 980,
+        ));
+        bytes.extend(build_day_record_bytes(
+            20260316, 1050, 1200, 1000, 1180, 1200.0, 220, 1050,
+        ));
         std::fs::write(&path, bytes).unwrap();
 
         let rows = pattern_rows_from_day_file(&path, None, None, 1).unwrap();
@@ -4378,7 +4500,10 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
     }
 
-    fn sample_run(symbol: &str, bar_end: DateTime<Utc>) -> crate::execution::models::StrategyRunRecord {
+    fn sample_run(
+        symbol: &str,
+        bar_end: DateTime<Utc>,
+    ) -> crate::execution::models::StrategyRunRecord {
         crate::execution::models::StrategyRunRecord {
             run_id: uuid::Uuid::new_v4().to_string(),
             strategy_name: "ma_cross".to_string(),
@@ -4399,6 +4524,15 @@ mod tests {
         data: HashMap<String, Vec<Kline>>,
     }
 
+    impl StrategyBarLoadTelemetry for FakeLoader {
+        fn last_source(&self) -> Option<crate::strategy::StrategyBarLoadSource> {
+            Some(crate::strategy::StrategyBarLoadSource {
+                source_id: "test-primary".to_string(),
+                fallback_used: false,
+            })
+        }
+    }
+
     #[async_trait]
     impl DailyKlineLoader for FakeLoader {
         async fn load_daily_klines(
@@ -4416,7 +4550,11 @@ mod tests {
 
     #[async_trait]
     impl StrategyBarLoader for FakeLoader {
-        async fn load_daily_bars(&self, code: &str, limit: usize) -> crate::core::Result<Vec<Kline>> {
+        async fn load_daily_bars(
+            &self,
+            code: &str,
+            limit: usize,
+        ) -> crate::core::Result<Vec<Kline>> {
             let mut rows = self.data.get(code).cloned().unwrap_or_default();
             if rows.len() > limit {
                 rows = rows[rows.len() - limit..].to_vec();
@@ -4502,9 +4640,8 @@ mod tests {
     #[test]
     fn test_execute_strategy_config_init_creates_default_file() {
         let dir = tempdir().unwrap();
-        let store = crate::strategy::JsonStrategyConfigStore::new(
-            dir.path().join("strategy-config.json"),
-        );
+        let store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
 
         let config = execute_strategy_config_init_to_store(&store).unwrap();
 
@@ -4515,9 +4652,8 @@ mod tests {
     #[test]
     fn test_execute_strategy_config_show_returns_saved_config() {
         let dir = tempdir().unwrap();
-        let store = crate::strategy::JsonStrategyConfigStore::new(
-            dir.path().join("strategy-config.json"),
-        );
+        let store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
         let expected = store.load_or_create().unwrap();
 
         let shown = execute_strategy_config_show_from_store(&store).unwrap();
@@ -4579,12 +4715,89 @@ mod tests {
         );
     }
 
+    #[derive(Default)]
+    struct FakeStrategyServiceInstaller {
+        status_output: Option<String>,
+    }
+
+    impl StrategyServiceInstallerOps for FakeStrategyServiceInstaller {
+        fn install(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn uninstall(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn start(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn enable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn disable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn status(&self) -> Result<String> {
+            Ok(self
+                .status_output
+                .clone()
+                .unwrap_or_else(|| "installed: yes".to_string()))
+        }
+
+        fn status_summary(&self) -> Result<StrategyServiceStatusSummary> {
+            Ok(StrategyServiceStatusSummary {
+                installed: true,
+                enabled: false,
+                active: "inactive".to_string(),
+                unit_path: std::path::PathBuf::from(
+                    "~/.config/systemd/user/quantix-strategy.service",
+                ),
+                wrapper_path: std::path::PathBuf::from("~/.local/bin/quantix-strategy-run"),
+                quantix_bin_path: std::path::PathBuf::from("/bin/echo"),
+                environment_file_path: None,
+                raw_status: None,
+            })
+        }
+    }
+
+    #[test]
+    fn test_execute_strategy_service_install_returns_message() {
+        let message = execute_strategy_service_command_with_installer(
+            StrategyServiceCommands::Install,
+            &FakeStrategyServiceInstaller::default(),
+        )
+        .unwrap();
+
+        assert_eq!(message, "strategy service installed");
+    }
+
+    #[test]
+    fn test_execute_strategy_service_status_returns_status_text() {
+        let message = execute_strategy_service_command_with_installer(
+            StrategyServiceCommands::Status,
+            &FakeStrategyServiceInstaller {
+                status_output: Some("installed: yes\nenabled: no".to_string()),
+            },
+        )
+        .unwrap();
+
+        assert!(message.contains("installed: yes"));
+        assert!(message.contains("enabled: no"));
+    }
+
     #[tokio::test]
     async fn test_execute_strategy_daemon_once_bootstraps_and_then_emits_signal() {
         let dir = tempdir().unwrap();
-        let config_store = crate::strategy::JsonStrategyConfigStore::new(
-            dir.path().join("strategy-config.json"),
-        );
+        let config_store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
         config_store.load_or_create().unwrap();
         let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
             .await
@@ -4602,24 +4815,30 @@ mod tests {
             ],
         );
 
-        execute_strategy_daemon_run_once_with_components(
+        let first = execute_strategy_daemon_run_once_with_components(
             loader.clone(),
             &config_store,
             &runtime_store,
         )
         .await
         .unwrap();
+        assert!(first.is_none());
         assert_eq!(runtime_store.count_signals().await.unwrap(), 0);
 
-        loader.data.get_mut("000001").unwrap().push(make_kline("000001", 7, dec!(21), 1000));
+        loader
+            .data
+            .get_mut("000001")
+            .unwrap()
+            .push(make_kline("000001", 7, dec!(21), 1000));
 
-        execute_strategy_daemon_run_once_with_components(
-            loader,
-            &config_store,
-            &runtime_store,
-        )
-        .await
-        .unwrap();
+        let second =
+            execute_strategy_daemon_run_once_with_components(loader, &config_store, &runtime_store)
+                .await
+                .unwrap();
+        assert_eq!(
+            second.map(|signal| signal.metadata_json["bar_source_id"].clone()),
+            Some(json!("test-primary"))
+        );
         assert_eq!(runtime_store.count_signals().await.unwrap(), 1);
     }
 
@@ -4649,9 +4868,10 @@ mod tests {
         };
         runtime_store.insert_signal(&signal).await.unwrap();
 
-        let pending = execute_strategy_signal_list_with_store(&runtime_store, Some("pending"), None)
-            .await
-            .unwrap();
+        let pending =
+            execute_strategy_signal_list_with_store(&runtime_store, Some("pending"), None)
+                .await
+                .unwrap();
         assert_eq!(pending.len(), 1);
 
         let request = execute_strategy_signal_approve_with_store(
@@ -4684,6 +4904,104 @@ mod tests {
             rejected.approval_status,
             crate::execution::models::ApprovalStatus::Rejected
         );
+    }
+
+    #[test]
+    fn test_format_strategy_approval_result_includes_target_and_status() {
+        let row = crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-1".to_string(),
+            signal_id: "signal-1".to_string(),
+            target_mode: "paper".to_string(),
+            target_account: "default".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Pending,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({}),
+        };
+
+        let line = format_strategy_approval_result(&row);
+
+        assert!(line.contains("req-1"));
+        assert!(line.contains("signal=signal-1"));
+        assert!(line.contains("target=paper/default"));
+        assert!(line.contains("status=pending"));
+    }
+
+    #[test]
+    fn test_format_strategy_rejection_result_includes_reason() {
+        let row = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-2".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "sell".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Rejected,
+            run_id: "run-2".to_string(),
+            metadata_json: json!({"rejection_reason": "manual reject"}),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+
+        let line = format_strategy_rejection_result(&row);
+
+        assert!(line.contains("signal-2"));
+        assert!(line.contains("signal_status=new"));
+        assert!(line.contains("approval_status=rejected"));
+        assert!(line.contains("reason=manual reject"));
+    }
+
+    #[test]
+    fn test_format_strategy_request_row_includes_target_and_status() {
+        let row = crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-2".to_string(),
+            signal_id: "signal-9".to_string(),
+            target_mode: "paper".to_string(),
+            target_account: "swing".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Completed,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({}),
+        };
+
+        let line = format_strategy_request_row(&row);
+
+        assert!(line.contains("req-2"));
+        assert!(line.contains("signal=signal-9"));
+        assert!(line.contains("target=paper/swing"));
+        assert!(line.contains("status=completed"));
+    }
+
+    #[test]
+    fn test_format_strategy_signal_row_includes_source_metadata() {
+        let row = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-1".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "buy".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Pending,
+            run_id: "run-1".to_string(),
+            metadata_json: json!({
+                "bar_source_id": "clickhouse-storage",
+                "bar_source_fallback": false
+            }),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+
+        let line = format_strategy_signal_row(&row);
+
+        assert!(line.contains("signal-1"));
+        assert!(line.contains("source=clickhouse-storage"));
+        assert!(line.contains("fallback=false"));
     }
 
     #[tokio::test]
@@ -5238,8 +5556,8 @@ mod tests {
             TradeCommands::Position { current: false },
             &service,
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         match output {
             TradeCommandOutput::PositionList(positions) => {
@@ -6967,7 +7285,10 @@ mod tests {
 
         match output {
             MonitorCommandOutput::ServiceConfig(config) => {
-                assert_eq!(config.quantix_bin_path, std::path::PathBuf::from("/bin/echo"));
+                assert_eq!(
+                    config.quantix_bin_path,
+                    std::path::PathBuf::from("/bin/echo")
+                );
             }
             other => panic!("unexpected output: {:?}", other),
         }
@@ -7007,13 +7328,19 @@ mod tests {
 
         match output {
             MonitorCommandOutput::ServiceConfig(config) => {
-                assert_eq!(config.quantix_bin_path, std::path::PathBuf::from("/bin/echo"));
+                assert_eq!(
+                    config.quantix_bin_path,
+                    std::path::PathBuf::from("/bin/echo")
+                );
             }
             other => panic!("unexpected output: {:?}", other),
         }
 
         let saved = store.load().unwrap();
-        assert_eq!(saved.quantix_bin_path, std::path::PathBuf::from("/bin/echo"));
+        assert_eq!(
+            saved.quantix_bin_path,
+            std::path::PathBuf::from("/bin/echo")
+        );
     }
 
     #[test]
@@ -7076,7 +7403,9 @@ mod tests {
     #[test]
     fn test_execute_monitor_service_uninstall_surfaces_stop_first_error() {
         let installer = FakeMonitorServiceInstaller {
-            uninstall_error: Some("monitor service 仍在运行，请先执行 monitor service stop".to_string()),
+            uninstall_error: Some(
+                "monitor service 仍在运行，请先执行 monitor service stop".to_string(),
+            ),
             ..Default::default()
         };
 

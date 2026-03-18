@@ -41,7 +41,10 @@ impl StrategyUserServiceInstaller {
     }
 
     fn resolved_wrapper_path(&self) -> Result<PathBuf> {
-        Ok(home_dir()?.join(".local").join("bin").join("quantix-strategy-run"))
+        Ok(home_dir()?
+            .join(".local")
+            .join("bin")
+            .join("quantix-strategy-run"))
     }
 
     fn resolved_unit_path(&self) -> Result<PathBuf> {
@@ -153,6 +156,9 @@ impl StrategyUserServiceInstaller {
             return Err(err);
         }
 
+        let load_state = self.run_systemctl_show_load_state()?;
+        validate_unit_load_state(&load_state, &unit_path)?;
+
         Ok(())
     }
 
@@ -244,6 +250,37 @@ impl StrategyUserServiceInstaller {
             ))
         }
     }
+
+    fn run_systemctl_show_load_state(&self) -> Result<String> {
+        let output = Command::new("systemctl")
+            .args([
+                "--user",
+                "show",
+                SERVICE_NAME,
+                "--property=LoadState",
+                "--value",
+            ])
+            .output()?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(QuantixError::Other(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ))
+        }
+    }
+}
+
+fn validate_unit_load_state(load_state: &str, unit_path: &std::path::Path) -> Result<()> {
+    if load_state == "not-found" {
+        return Err(QuantixError::Other(format!(
+            "strategy service 文件已写入 {}，但当前 systemd --user 会话没有识别该 unit (LoadState=not-found)",
+            unit_path.display()
+        )));
+    }
+
+    Ok(())
 }
 
 fn home_dir() -> Result<PathBuf> {
@@ -253,9 +290,29 @@ fn home_dir() -> Result<PathBuf> {
 }
 
 fn yes_no(value: bool) -> &'static str {
-    if value {
-        "yes"
-    } else {
-        "no"
+    if value { "yes" } else { "no" }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_unit_load_state;
+
+    #[test]
+    fn validate_unit_load_state_accepts_loaded_unit() {
+        let result = validate_unit_load_state(
+            "loaded",
+            std::path::Path::new("/tmp/quantix-strategy.service"),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_unit_load_state_reports_not_found_unit_with_path() {
+        let path = std::path::Path::new("/tmp/quantix-strategy.service");
+        let err = validate_unit_load_state("not-found", path).unwrap_err();
+
+        assert!(err.to_string().contains("LoadState=not-found"));
+        assert!(err.to_string().contains(path.to_string_lossy().as_ref()));
     }
 }

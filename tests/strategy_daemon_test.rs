@@ -1,15 +1,16 @@
 use chrono::NaiveDate;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
-use quantix_cli::strategy::{
-    BootstrapPolicy, FallbackStrategyBarLoader, JsonStrategyConfigStore, StrategyRegistry,
-    StrategySignalDaemon,
-};
+use quantix_cli::strategy::daemon::StrategyBarLoadTelemetry;
 use quantix_cli::strategy::runtime::StrategyBarLoader;
 use quantix_cli::strategy::trait_def::Signal;
+use quantix_cli::strategy::{
+    BootstrapPolicy, FallbackStrategyBarLoader, JsonStrategyConfigStore, StrategyBarLoadSource,
+    StrategyRegistry, StrategySignalDaemon,
+};
 use rust_decimal_macros::dec;
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 
@@ -58,7 +59,11 @@ struct FakeBarLoader {
 
 #[async_trait::async_trait]
 impl StrategyBarLoader for FakeBarLoader {
-    async fn load_daily_bars(&self, code: &str, limit: usize) -> quantix_cli::core::Result<Vec<Kline>> {
+    async fn load_daily_bars(
+        &self,
+        code: &str,
+        limit: usize,
+    ) -> quantix_cli::core::Result<Vec<Kline>> {
         let bars = self
             .bars
             .lock()
@@ -77,6 +82,15 @@ impl StrategyBarLoader for FakeBarLoader {
 impl FakeBarLoader {
     fn set_bars(&self, code: &str, bars: Vec<Kline>) {
         self.bars.lock().unwrap().insert(code.to_string(), bars);
+    }
+}
+
+impl StrategyBarLoadTelemetry for FakeBarLoader {
+    fn last_source(&self) -> Option<StrategyBarLoadSource> {
+        Some(StrategyBarLoadSource {
+            source_id: "test-primary".to_string(),
+            fallback_used: false,
+        })
     }
 }
 
@@ -124,9 +138,7 @@ fn strategy_registry_resolves_multiple_ma_cross_instances_with_different_params(
         .unwrap();
     let registry = StrategyRegistry::new();
 
-    let fast = registry
-        .build(&config.stocks[0].strategies[0])
-        .unwrap();
+    let fast = registry.build(&config.stocks[0].strategies[0]).unwrap();
     let slow = registry
         .build(&quantix_cli::strategy::ConfiguredStrategyInstance {
             id: "ma_fast_2_slow_3".to_string(),
@@ -169,11 +181,11 @@ fn strategy_registry_evaluator_returns_latest_signal_envelope() {
 fn strategy_registry_rejects_unknown_strategy_names() {
     let registry = StrategyRegistry::new();
     let result = registry.build(&quantix_cli::strategy::ConfiguredStrategyInstance {
-            id: "unknown-1".to_string(),
-            name: "unknown_strategy".to_string(),
-            enabled: true,
-            params: serde_json::json!({}),
-        });
+        id: "unknown-1".to_string(),
+        name: "unknown_strategy".to_string(),
+        enabled: true,
+        params: serde_json::json!({}),
+    });
 
     let error = match result {
         Ok(_) => panic!("expected unknown strategy to fail"),
@@ -197,6 +209,13 @@ async fn fallback_loader_prefers_primary_rows_when_available() {
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].close, dec!(10));
     assert_eq!(rows[1].close, dec!(11));
+    assert_eq!(
+        loader.last_source(),
+        Some(StrategyBarLoadSource {
+            source_id: "primary".to_string(),
+            fallback_used: false,
+        })
+    );
 }
 
 #[tokio::test]
@@ -204,15 +223,39 @@ async fn fallback_loader_uses_tdx_when_primary_returns_empty() {
     let root = tempdir().unwrap();
     write_day_file(root.path(), "sh", "000001", &[1200, 1300, 1400]);
 
-    let loader = FallbackStrategyBarLoader::new(
-        FakeBarLoader::default(),
-        Some(root.path().to_path_buf()),
-    );
+    let loader =
+        FallbackStrategyBarLoader::new(FakeBarLoader::default(), Some(root.path().to_path_buf()));
     let rows = loader.load_daily_bars("000001", 10).await.unwrap();
 
     assert_eq!(rows.len(), 3);
     assert_eq!(rows[0].close, dec!(12));
     assert_eq!(rows[2].close, dec!(14));
+    assert_eq!(
+        loader.last_source(),
+        Some(StrategyBarLoadSource {
+            source_id: "tdx-day-file".to_string(),
+            fallback_used: true,
+        })
+    );
+}
+
+#[tokio::test]
+async fn fallback_loader_uses_preferred_market_to_resolve_ambiguous_code() {
+    let root = tempdir().unwrap();
+    write_day_file(root.path(), "sh", "000001", &[800, 900]);
+    write_day_file(root.path(), "sz", "000001", &[1200, 1300]);
+
+    let loader = FallbackStrategyBarLoader::with_options(
+        FakeBarLoader::default(),
+        "primary",
+        Some(root.path().to_path_buf()),
+        Some("sz".to_string()),
+    );
+    let rows = loader.load_daily_bars("000001", 10).await.unwrap();
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].close, dec!(12));
+    assert_eq!(rows[1].close, dec!(13));
 }
 
 #[tokio::test]
@@ -220,10 +263,7 @@ async fn fallback_loader_uses_tdx_when_primary_errors() {
     let root = tempdir().unwrap();
     write_day_file(root.path(), "sh", "000001", &[1500, 1600]);
 
-    let loader = FallbackStrategyBarLoader::new(
-        ErrorBarLoader,
-        Some(root.path().to_path_buf()),
-    );
+    let loader = FallbackStrategyBarLoader::new(ErrorBarLoader, Some(root.path().to_path_buf()));
     let rows = loader.load_daily_bars("000001", 10).await.unwrap();
 
     assert_eq!(rows.len(), 2);
@@ -243,10 +283,18 @@ async fn daemon_bootstraps_without_backfilling_historical_signals() {
     let loader = FakeBarLoader::default();
     loader.set_bars(
         "000001",
-        vec![kline(1, 10), kline(2, 10), kline(3, 10), kline(4, 9), kline(5, 9), kline(6, 20)],
+        vec![
+            kline(1, 10),
+            kline(2, 10),
+            kline(3, 10),
+            kline(4, 9),
+            kline(5, 9),
+            kline(6, 20),
+        ],
     );
 
-    let mut daemon = StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
+    let mut daemon =
+        StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
     daemon.run_once().await.unwrap();
 
     assert_eq!(store.count_runs().await.unwrap(), 0);
@@ -270,10 +318,18 @@ async fn daemon_skips_when_no_new_bar_exists() {
 
     let store = StrategyRuntimeStore::new(&runtime_db_path).await.unwrap();
     let loader = FakeBarLoader::default();
-    let bars = vec![kline(1, 10), kline(2, 10), kline(3, 10), kline(4, 9), kline(5, 9), kline(6, 20)];
+    let bars = vec![
+        kline(1, 10),
+        kline(2, 10),
+        kline(3, 10),
+        kline(4, 9),
+        kline(5, 9),
+        kline(6, 20),
+    ];
     loader.set_bars("000001", bars.clone());
 
-    let mut daemon = StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
+    let mut daemon =
+        StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
     daemon.run_once().await.unwrap();
     daemon.run_once().await.unwrap();
 
@@ -293,10 +349,18 @@ async fn daemon_writes_run_signal_and_checkpoint_when_new_bar_arrives() {
     let loader = FakeBarLoader::default();
     loader.set_bars(
         "000001",
-        vec![kline(1, 10), kline(2, 10), kline(3, 10), kline(4, 9), kline(5, 9), kline(6, 20)],
+        vec![
+            kline(1, 10),
+            kline(2, 10),
+            kline(3, 10),
+            kline(4, 9),
+            kline(5, 9),
+            kline(6, 20),
+        ],
     );
 
-    let mut daemon = StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
+    let mut daemon =
+        StrategySignalDaemon::new(loader.clone(), store.clone(), config_store).unwrap();
     daemon.run_once().await.unwrap();
 
     loader.set_bars(
@@ -316,6 +380,16 @@ async fn daemon_writes_run_signal_and_checkpoint_when_new_bar_arrives() {
 
     assert_eq!(store.count_runs().await.unwrap(), 1);
     assert_eq!(store.count_signals().await.unwrap(), 1);
+
+    let signal = store
+        .list_signals()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|row| row.strategy_instance_id == "ma_fast_5_slow_20")
+        .unwrap();
+    assert_eq!(signal.metadata_json["bar_source_id"], "test-primary");
+    assert_eq!(signal.metadata_json["bar_source_fallback"], false);
 
     let checkpoint = store
         .find_daemon_checkpoint("ma_fast_5_slow_20", "000001", "1d")
@@ -337,25 +411,37 @@ async fn daemon_hot_reloads_config_and_bootstraps_new_strategy_instance() {
     let loader = FakeBarLoader::default();
     loader.set_bars(
         "000001",
-        vec![kline(1, 10), kline(2, 10), kline(3, 10), kline(4, 9), kline(5, 9), kline(6, 20)],
+        vec![
+            kline(1, 10),
+            kline(2, 10),
+            kline(3, 10),
+            kline(4, 9),
+            kline(5, 9),
+            kline(6, 20),
+        ],
     );
 
-    let mut daemon = StrategySignalDaemon::new(loader.clone(), store.clone(), config_store.clone()).unwrap();
+    let mut daemon =
+        StrategySignalDaemon::new(loader.clone(), store.clone(), config_store.clone()).unwrap();
     daemon.run_once().await.unwrap();
 
-    config.stocks[0].strategies.push(quantix_cli::strategy::ConfiguredStrategyInstance {
-        id: "ma_fast_2_slow_3".to_string(),
-        name: "ma_cross".to_string(),
-        enabled: true,
-        params: serde_json::json!({"fast": 2, "slow": 3}),
-    });
+    config.stocks[0]
+        .strategies
+        .push(quantix_cli::strategy::ConfiguredStrategyInstance {
+            id: "ma_fast_2_slow_3".to_string(),
+            name: "ma_cross".to_string(),
+            enabled: true,
+            params: serde_json::json!({"fast": 2, "slow": 3}),
+        });
     config_store.save(&config).unwrap();
 
     daemon.run_once().await.unwrap();
 
-    assert!(store
-        .find_daemon_checkpoint("ma_fast_2_slow_3", "000001", "1d")
-        .await
-        .unwrap()
-        .is_some());
+    assert!(
+        store
+            .find_daemon_checkpoint("ma_fast_2_slow_3", "000001", "1d")
+            .await
+            .unwrap()
+            .is_some()
+    );
 }

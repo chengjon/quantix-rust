@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use quantix_cli::core::{CliRuntime, ClickHouseSettings};
 use quantix_cli::strategy::{
-    systemd::{StrategyServiceStatusSummary, StrategyUserServiceInstaller},
     JsonStrategyServiceConfigStore, StrategyServiceConfig,
+    systemd::{StrategyServiceStatusSummary, StrategyUserServiceInstaller},
 };
 use tempfile::tempdir;
 
@@ -87,8 +87,14 @@ fn strategy_systemd_render_unit_includes_runtime_paths_and_env_file() {
     let unit = installer.render_unit();
 
     assert!(unit.contains("ExecStart=~/.local/bin/quantix-strategy-run"));
-    assert!(unit.contains("Environment=QUANTIX_STRATEGY_CONFIG_PATH=/tmp/quantix/strategy/config.json"));
-    assert!(unit.contains("Environment=QUANTIX_STRATEGY_RUNTIME_DB_PATH=/tmp/quantix/strategy/runtime.db"));
+    assert!(
+        unit.contains("Environment=QUANTIX_STRATEGY_CONFIG_PATH=/tmp/quantix/strategy/config.json")
+    );
+    assert!(
+        unit.contains(
+            "Environment=QUANTIX_STRATEGY_RUNTIME_DB_PATH=/tmp/quantix/strategy/runtime.db"
+        )
+    );
     assert!(unit.contains("EnvironmentFile=-/tmp/quantix/strategy/service.env"));
     assert!(unit.contains("Restart=on-failure"));
 }
