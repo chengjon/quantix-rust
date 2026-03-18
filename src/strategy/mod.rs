@@ -14,9 +14,16 @@ pub mod grid;
 #[cfg(test)]
 pub mod test_utils;
 
+pub mod config;
 pub mod runtime;
+pub mod service_config;
 
 pub use trait_def::Strategy;
+pub use config::{
+    BootstrapPolicy, ConfiguredStock, ConfiguredStrategyInstance, JsonStrategyConfigStore,
+    StrategyDaemonConfig,
+};
+pub use service_config::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
 
 // 导出具体策略
 pub use ma_cross::MACrossStrategy;
