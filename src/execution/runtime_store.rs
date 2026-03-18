@@ -1068,6 +1068,178 @@ WHERE strategy_instance_id = ? AND symbol = ? AND timeframe = ?
         self.count_table_rows("signal_events").await
     }
 
+    pub async fn count_signals(&self) -> Result<i64> {
+        self.count_table_rows("signals").await
+    }
+
+    pub async fn record_daemon_signal_run(
+        &self,
+        run: &StrategyRunRecord,
+        signal: &StrategySignalRecord,
+        checkpoint: &StrategyDaemonCheckpointRecord,
+    ) -> Result<usize> {
+        let mut tx = self.pool.begin().await?;
+        let now = Utc::now().to_rfc3339();
+
+        sqlx::query(
+            r#"
+INSERT INTO strategy_runs (
+    run_id,
+    strategy_name,
+    mode,
+    trigger_type,
+    status,
+    symbol,
+    timeframe,
+    bar_end,
+    started_at,
+    finished_at,
+    metadata_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"#,
+        )
+        .bind(&run.run_id)
+        .bind(&run.strategy_name)
+        .bind(&run.mode)
+        .bind(&run.trigger)
+        .bind(run.status.as_str())
+        .bind(&run.symbol)
+        .bind(&run.timeframe)
+        .bind(run.bar_end.to_rfc3339())
+        .bind(run.started_at.to_rfc3339())
+        .bind(run.finished_at.map(|value| value.to_rfc3339()))
+        .bind(serde_json::to_string(&run.metadata_json)?)
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            r#"
+INSERT INTO signals (
+    signal_id,
+    strategy_instance_id,
+    strategy_name,
+    symbol,
+    timeframe,
+    bar_end,
+    signal_value,
+    signal_status,
+    approval_status,
+    run_id,
+    metadata_json,
+    created_at,
+    updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"#,
+        )
+        .bind(&signal.signal_id)
+        .bind(&signal.strategy_instance_id)
+        .bind(&signal.strategy_name)
+        .bind(&signal.symbol)
+        .bind(&signal.timeframe)
+        .bind(signal.bar_end.to_rfc3339())
+        .bind(&signal.signal_value)
+        .bind(signal.signal_status.as_str())
+        .bind(signal.approval_status.as_str())
+        .bind(&signal.run_id)
+        .bind(serde_json::to_string(&signal.metadata_json)?)
+        .bind(signal.created_at.to_rfc3339())
+        .bind(signal.updated_at.to_rfc3339())
+        .execute(&mut *tx)
+        .await?;
+
+        let candidate_rows = sqlx::query(
+            r#"
+SELECT signal_id
+FROM signals
+WHERE strategy_instance_id = ?
+  AND symbol = ?
+  AND timeframe = ?
+  AND signal_id <> ?
+  AND signal_status = ?
+  AND bar_end < ?
+"#,
+        )
+        .bind(&signal.strategy_instance_id)
+        .bind(&signal.symbol)
+        .bind(&signal.timeframe)
+        .bind(&signal.signal_id)
+        .bind(SignalStatus::New.as_str())
+        .bind(signal.bar_end.to_rfc3339())
+        .fetch_all(&mut *tx)
+        .await?;
+
+        let signal_ids: Vec<String> = candidate_rows
+            .into_iter()
+            .map(|row| row.try_get::<String, _>("signal_id"))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        for signal_id in &signal_ids {
+            sqlx::query(
+                r#"
+UPDATE signals
+SET signal_status = ?, updated_at = ?
+WHERE signal_id = ?
+"#,
+            )
+            .bind(SignalStatus::Superseded.as_str())
+            .bind(&now)
+            .bind(signal_id)
+            .execute(&mut *tx)
+            .await?;
+
+            sqlx::query(
+                r#"
+UPDATE execution_requests
+SET request_status = ?, updated_at = ?
+WHERE signal_id = ? AND request_status = ?
+"#,
+            )
+            .bind(ExecutionRequestStatus::Canceled.as_str())
+            .bind(&now)
+            .bind(signal_id)
+            .bind(ExecutionRequestStatus::Pending.as_str())
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        sqlx::query(
+            r#"
+INSERT INTO strategy_daemon_checkpoints (
+    checkpoint_id,
+    strategy_instance_id,
+    strategy_name,
+    symbol,
+    timeframe,
+    last_processed_bar,
+    last_run_id,
+    state_json,
+    updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
+    checkpoint_id = excluded.checkpoint_id,
+    strategy_name = excluded.strategy_name,
+    last_processed_bar = excluded.last_processed_bar,
+    last_run_id = excluded.last_run_id,
+    state_json = excluded.state_json,
+    updated_at = excluded.updated_at
+"#,
+        )
+        .bind(&checkpoint.checkpoint_id)
+        .bind(&checkpoint.strategy_instance_id)
+        .bind(&checkpoint.strategy_name)
+        .bind(&checkpoint.symbol)
+        .bind(&checkpoint.timeframe)
+        .bind(checkpoint.last_processed_bar.map(|value| value.to_rfc3339()))
+        .bind(&checkpoint.last_run_id)
+        .bind(serde_json::to_string(&checkpoint.state_json)?)
+        .bind(checkpoint.updated_at.to_rfc3339())
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(signal_ids.len())
+    }
+
     async fn count_table_rows(&self, table_name: &str) -> Result<i64> {
         let sql = format!("SELECT COUNT(1) FROM {table_name}");
         Ok(sqlx::query_scalar::<_, i64>(&sql)

@@ -102,4 +102,8 @@ impl JsonStrategyConfigStore {
         std::fs::rename(tmp_path, &self.path)?;
         Ok(())
     }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
 }
