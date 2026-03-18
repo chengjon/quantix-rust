@@ -57,11 +57,23 @@ fn readme_documents_phase24_monitor_boundary() {
     for expected in [
         "Phase 24: 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add 000001 --above 16.0",
         "quantix monitor alert add 000001 --below 15.0",
+        "quantix monitor config show",
+        "quantix monitor daemon run",
+        "quantix monitor service install",
+        "quantix monitor service-config show",
+        "quantix monitor service-config set --quantix-bin",
+        "quantix monitor event list",
         "QUANTIX_MONITOR_DB_PATH",
         "~/.quantix/monitor/alerts.db",
-        "--refresh / --repeat / 系统通知延后到后续 Phase",
+        "QUANTIX_MONITOR_CONFIG_PATH",
+        "~/.quantix/monitor/config.json",
+        "~/.quantix/monitor/service.json",
+        "~/.local/bin/quantix-monitor-run",
+        "systemd --user",
+        "系统通知延后到后续 Phase",
     ] {
         assert!(
             contents.contains(expected),
@@ -144,12 +156,24 @@ fn user_manual_documents_phase24_monitor_commands() {
     for expected in [
         "### monitor - 实时监控",
         "quantix monitor watchlist --once",
+        "quantix monitor watchlist --repeat",
         "quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)",
         "quantix monitor alert list",
         "quantix monitor alert remove <ID>",
+        "quantix monitor config show",
+        "quantix monitor daemon run",
+        "quantix monitor service install",
+        "quantix monitor service-config show",
+        "quantix monitor service-config set --quantix-bin",
+        "quantix monitor event list",
         "QUANTIX_MONITOR_DB_PATH",
         "~/.quantix/monitor/alerts.db",
-        "--refresh`、`--repeat`、系统通知延后到后续 Phase",
+        "QUANTIX_MONITOR_CONFIG_PATH",
+        "~/.quantix/monitor/config.json",
+        "~/.quantix/monitor/service.json",
+        "~/.local/bin/quantix-monitor-run",
+        "systemd --user",
+        "系统通知延后到后续 Phase",
     ] {
         assert!(
             contents.contains(expected),
@@ -240,6 +264,54 @@ fn readme_documents_phase27_risk_boundary() {
 }
 
 #[test]
+fn readme_documents_phase29_strategy_paper_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 29: 策略 Paper 执行骨架",
+        "quantix strategy run -n ma_cross --mode paper --code 000001",
+        "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
+        "~/.quantix/strategy/runtime.db",
+        "执行前请先运行 `quantix trade init`",
+        "live 模式仍在开发中",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn readme_documents_phase29b_strategy_signal_daemon_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "Phase 29B: 策略信号守护进程",
+        "quantix strategy config init",
+        "quantix strategy daemon run --once",
+        "quantix strategy signal list",
+        "quantix strategy signal approve --signal-id",
+        "quantix strategy request list",
+        "quantix strategy service install",
+        "quantix strategy service-config show",
+        "quantix strategy service-config set --quantix-bin",
+        "~/.quantix/strategy/config.json",
+        "~/.quantix/strategy/service.json",
+        "~/.quantix/strategy/service.env",
+        "~/.local/bin/quantix-strategy-run",
+        "批准 signal 只会创建 `execution_request`，不会自动交易",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase27_risk_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
@@ -268,4 +340,66 @@ fn user_manual_documents_phase27_risk_commands() {
             "expected USER_MANUAL to contain {expected}"
         );
     }
+}
+
+#[test]
+fn user_manual_documents_phase29_strategy_paper_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]",
+        "| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |",
+        "quantix strategy run -n ma_cross --mode paper -c 000001",
+        "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
+        "~/.quantix/strategy/runtime.db",
+        "首次使用前请先执行 `quantix trade init`",
+        "`live` 模式仍在开发中",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_phase29b_strategy_daemon_commands() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "Phase 29B: 策略信号守护进程",
+        "quantix strategy config init",
+        "quantix strategy daemon run --once",
+        "quantix strategy signal list --approval-status pending",
+        "quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default",
+        "quantix strategy signal reject --signal-id <ID> --reason \"manual reject\"",
+        "quantix strategy request list --status pending",
+        "quantix strategy service install",
+        "quantix strategy service-config show",
+        "quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env",
+        "~/.quantix/strategy/config.json",
+        "~/.quantix/strategy/runtime.db",
+        "~/.quantix/strategy/service.json",
+        "~/.quantix/strategy/service.env",
+        "~/.local/bin/quantix-strategy-run",
+        "不会自动交易，不会修改 paper 账户",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn quickstart_uses_current_strategy_cli_shape() {
+    let quickstart_path = repo_root().join("docs").join("QUICKSTART.md");
+    let contents = fs::read_to_string(quickstart_path).expect("expected QUICKSTART.md to exist");
+
+    assert!(
+        contents.contains("cargo run -- strategy run -n ma_cross --code 000001"),
+        "expected QUICKSTART to use current strategy CLI syntax"
+    );
 }
