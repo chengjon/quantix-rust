@@ -50,7 +50,11 @@ struct FakeStopRuleStore {
 impl StopRuleStore for FakeStopRuleStore {
     async fn upsert_rule(&self, rule: StopRule) -> Result<StopRule> {
         let mut state = self.state.lock().unwrap();
-        if let Some(existing) = state.rules.iter_mut().find(|existing| existing.code == rule.code) {
+        if let Some(existing) = state
+            .rules
+            .iter_mut()
+            .find(|existing| existing.code == rule.code)
+        {
             *existing = rule.clone();
         } else {
             state.rules.push(rule.clone());
@@ -162,11 +166,13 @@ async fn monitor_runner_partial_quotes_do_not_abort_iteration() {
         .unwrap();
 
     assert_eq!(output.snapshot.rows.len(), 2);
-    assert!(output
-        .snapshot
-        .warnings
-        .iter()
-        .any(|warning| warning.contains("000002")));
+    assert!(
+        output
+            .snapshot
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("000002"))
+    );
 }
 
 #[tokio::test]

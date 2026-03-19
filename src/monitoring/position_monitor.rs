@@ -210,7 +210,8 @@ impl PositionMonitor {
                         pnl: Decimal::ZERO,
                         pnl_percent: Decimal::ZERO,
                         open_date: old_info.open_date,
-                        holding_days: (Utc::now().naive_utc().date() - old_info.open_date).num_days(),
+                        holding_days: (Utc::now().naive_utc().date() - old_info.open_date)
+                            .num_days(),
                     },
                     quantity_change: -old_info.quantity,
                     value_change: -old_info.market_value,
@@ -516,7 +517,10 @@ mod tests {
         // Check change history
         println!("Total changes: {}", monitor.change_history.len());
         for (i, change) in monitor.change_history.iter().enumerate() {
-            println!("Change {}: code={}, change_type={:?}", i, change.code, change.change_type);
+            println!(
+                "Change {}: code={}, change_type={:?}",
+                i, change.code, change.change_type
+            );
         }
 
         let recent = monitor.get_recent_changes(1);

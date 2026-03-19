@@ -143,7 +143,9 @@ impl SqliteMonitorAlertStore {
 
         if is_triggered {
             let event = new_event.ok_or_else(|| {
-                QuantixError::Other("record_event_edge requires event payload when triggered".into())
+                QuantixError::Other(
+                    "record_event_edge requires event payload when triggered".into(),
+                )
             })?;
 
             if was_triggered {
@@ -213,8 +215,12 @@ impl SqliteMonitorAlertStore {
     }
 
     async fn trim_event_history(&self, max_event_history: usize) -> Result<()> {
-        let max_rows = i64::try_from(max_event_history)
-            .map_err(|_| QuantixError::Other(format!("max_event_history out of range: {}", max_event_history)))?;
+        let max_rows = i64::try_from(max_event_history).map_err(|_| {
+            QuantixError::Other(format!(
+                "max_event_history out of range: {}",
+                max_event_history
+            ))
+        })?;
         sqlx::query(
             "DELETE FROM monitor_events
              WHERE id IN (
@@ -459,7 +465,10 @@ mod tests {
                 .add_alert("000001", PriceAlertKind::Below, 15.0, sample_time())
                 .await
                 .unwrap();
-            let updated = store.mark_triggered(created.id, triggered_at).await.unwrap();
+            let updated = store
+                .mark_triggered(created.id, triggered_at)
+                .await
+                .unwrap();
 
             assert!(updated);
             created.id

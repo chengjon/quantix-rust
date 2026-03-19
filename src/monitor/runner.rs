@@ -75,7 +75,13 @@ where
             .persist_alert_events(&snapshot, config.max_event_history, run_mode, observed_at)
             .await?;
         let triggered_stops = self
-            .evaluate_stop_rules(&snapshot, config.max_event_history, run_mode, observed_at, &mut new_events)
+            .evaluate_stop_rules(
+                &snapshot,
+                config.max_event_history,
+                run_mode,
+                observed_at,
+                &mut new_events,
+            )
             .await?;
 
         Ok(MonitorIterationOutput {
@@ -176,7 +182,9 @@ where
 
         for (original_rule, result) in rules.iter().zip(results.into_iter()) {
             if result.updated_rule != *original_rule {
-                self.stop_store.upsert_rule(result.updated_rule.clone()).await?;
+                self.stop_store
+                    .upsert_rule(result.updated_rule.clone())
+                    .await?;
             }
 
             let source_key = format!("stop_rule:{}", original_rule.code);

@@ -21,9 +21,9 @@ impl JsonMonitorServiceConfigStore {
     }
 
     pub fn with_default_path() -> Result<Self> {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .ok_or_else(|| QuantixError::Config("HOME is required for monitor service config".into()))?;
+        let home = std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| {
+            QuantixError::Config("HOME is required for monitor service config".into())
+        })?;
         Ok(Self::new(
             home.join(".quantix").join("monitor").join("service.json"),
         ))

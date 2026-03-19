@@ -55,7 +55,11 @@ impl MonitorUserServiceInstaller {
 
     fn resolved_unit_path(&self) -> Result<PathBuf> {
         let home = home_dir()?;
-        Ok(home.join(".config").join("systemd").join("user").join(SERVICE_NAME))
+        Ok(home
+            .join(".config")
+            .join("systemd")
+            .join("user")
+            .join(SERVICE_NAME))
     }
 
     pub fn render_wrapper_script(&self) -> String {
@@ -73,7 +77,9 @@ impl MonitorUserServiceInstaller {
             "".to_string(),
             "[Service]".to_string(),
             "Type=simple".to_string(),
-            format!("ExecStart={} ", self.wrapper_path().display()).trim_end().to_string(),
+            format!("ExecStart={} ", self.wrapper_path().display())
+                .trim_end()
+                .to_string(),
             "Restart=on-failure".to_string(),
             "RestartSec=5".to_string(),
             format!(

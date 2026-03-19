@@ -160,11 +160,7 @@ pub struct Alert {
 
 impl Alert {
     /// 创建新告警
-    pub fn new(
-        level: AlertLevel,
-        alert_type: AlertType,
-        message: String,
-    ) -> Self {
+    pub fn new(level: AlertLevel, alert_type: AlertType, message: String) -> Self {
         Self {
             id: format!("alert_{}", Utc::now().timestamp_millis()),
             level,
@@ -210,7 +206,12 @@ impl Alert {
             AlertLevel::Critical => "[CRITICAL]",
         };
 
-        let mut msg = format!("{} {} - {}", level_str, self.timestamp.format("%Y-%m-%d %H:%M:%S"), self.message);
+        let mut msg = format!(
+            "{} {} - {}",
+            level_str,
+            self.timestamp.format("%Y-%m-%d %H:%M:%S"),
+            self.message
+        );
 
         if let (Some(current), Some(threshold)) = (self.current_value, self.threshold) {
             msg.push_str(&format!(" (当前: {:.2}, 阈值: {:.2})", current, threshold));
@@ -272,11 +273,7 @@ impl AlertManager {
     }
 
     /// 检查并发送告警
-    pub fn check_and_alert(
-        &mut self,
-        threshold_id: &str,
-        current_value: Decimal,
-    ) -> Option<Alert> {
+    pub fn check_and_alert(&mut self, threshold_id: &str, current_value: Decimal) -> Option<Alert> {
         if !self.config.enabled {
             return None;
         }
@@ -378,7 +375,10 @@ impl AlertManager {
 
     /// 获取未确认的活跃告警
     pub fn get_unacknowledged_alerts(&self) -> Vec<&Alert> {
-        self.active_alerts.iter().filter(|a| !a.acknowledged).collect()
+        self.active_alerts
+            .iter()
+            .filter(|a| !a.acknowledged)
+            .collect()
     }
 
     /// 获取告警历史
@@ -579,7 +579,10 @@ mod tests {
     #[test]
     fn test_alert_threshold_builder() {
         let drawdown_threshold = AlertThresholdBuilder::drawdown_warning(0.1);
-        assert_eq!(drawdown_threshold.threshold, Decimal::from_f64_retain(0.1).unwrap());
+        assert_eq!(
+            drawdown_threshold.threshold,
+            Decimal::from_f64_retain(0.1).unwrap()
+        );
         assert_eq!(drawdown_threshold.level, AlertLevel::Warning);
 
         let critical_threshold = AlertThresholdBuilder::drawdown_critical(0.2);
