@@ -71,7 +71,8 @@ impl BatchProgress {
         self.processed_records += success + errors;
         self.success_count += success;
         self.error_count += errors;
-        self.current_batch = self.processed_records / ((self.total_records + self.total_batches - 1) / self.total_batches);
+        self.current_batch = self.processed_records
+            / ((self.total_records + self.total_batches - 1) / self.total_batches);
     }
 
     /// 是否完成
@@ -266,11 +267,7 @@ impl BatchProcessor {
     }
 
     /// 分批处理数据（内存优化版本）
-    pub fn process_in_batches<T, F, R>(
-        &self,
-        data: Vec<T>,
-        process_fn: F,
-    ) -> Result<BatchProgress>
+    pub fn process_in_batches<T, F, R>(&self, data: Vec<T>, process_fn: F) -> Result<BatchProgress>
     where
         T: Send + Sync + 'static,
         F: Fn(&[T]) -> R + Send + Sync,

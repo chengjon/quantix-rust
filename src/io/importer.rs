@@ -157,9 +157,9 @@ impl DataImporter {
                     if self.config.skip_invalid {
                         skipped += 1;
                     } else {
-                        return Err(crate::core::QuantixError::Other(
-                            format!("无效的 JSON 行数据"),
-                        ));
+                        return Err(crate::core::QuantixError::Other(format!(
+                            "无效的 JSON 行数据"
+                        )));
                     }
                 }
             }
@@ -175,20 +175,25 @@ impl DataImporter {
         use arrow::record_batch::RecordBatchReader;
         use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
-        let file = File::open(path)
-            .map_err(|e| crate::core::QuantixError::Other(format!("打开 Parquet 文件失败: {}", e)))?;
+        let file = File::open(path).map_err(|e| {
+            crate::core::QuantixError::Other(format!("打开 Parquet 文件失败: {}", e))
+        })?;
 
         let mut reader = ParquetRecordBatchReaderBuilder::try_new(file)
-            .map_err(|e| crate::core::QuantixError::Other(format!("创建 ParquetReader 失败: {}", e)))?
+            .map_err(|e| {
+                crate::core::QuantixError::Other(format!("创建 ParquetReader 失败: {}", e))
+            })?
             .build()
-            .map_err(|e| crate::core::QuantixError::Other(format!("构建 ParquetReader 失败: {}", e)))?;
+            .map_err(|e| {
+                crate::core::QuantixError::Other(format!("构建 ParquetReader 失败: {}", e))
+            })?;
 
         let mut klines = Vec::new();
 
         loop {
-            let batch_result = reader
-                .next_batch()
-                .map_err(|e| crate::core::QuantixError::Other(format!("读取 Parquet batch 失败: {}", e)))?;
+            let batch_result = reader.next_batch().map_err(|e| {
+                crate::core::QuantixError::Other(format!("读取 Parquet batch 失败: {}", e))
+            })?;
 
             let batch = match batch_result {
                 Some(b) => b,
@@ -237,9 +242,7 @@ impl DataImporter {
                 let date = NaiveDate::from_ymd_opt(1970, 1, 1)
                     .unwrap()
                     .checked_add_signed(chrono::Duration::days(date_value as i64))
-                    .ok_or_else(|| {
-                        crate::core::QuantixError::Other("日期转换失败".to_string())
-                    })?;
+                    .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))?;
 
                 klines.push(Kline {
                     code: codes.value(i).to_string(),
@@ -260,22 +263,29 @@ impl DataImporter {
 
     /// CSV 行转 Kline
     fn csv_row_to_kline(&self, row: &CsvKlineRow) -> Result<Kline> {
-        let date = NaiveDate::parse_from_str(&row.date, &self.config.date_format)
-            .map_err(|_| crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date)))?;
+        let date =
+            NaiveDate::parse_from_str(&row.date, &self.config.date_format).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date))
+            })?;
 
         Ok(Kline {
             code: row.code.clone(),
             date,
-            open: Decimal::from_str(&row.open)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open)))?,
-            high: Decimal::from_str(&row.high)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 high 值: {}", row.high)))?,
-            low: Decimal::from_str(&row.low)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 low 值: {}", row.low)))?,
-            close: Decimal::from_str(&row.close)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close)))?,
-            volume: row.volume.parse::<i64>()
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 volume 值: {}", row.volume)))?,
+            open: Decimal::from_str(&row.open).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open))
+            })?,
+            high: Decimal::from_str(&row.high).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 high 值: {}", row.high))
+            })?,
+            low: Decimal::from_str(&row.low).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 low 值: {}", row.low))
+            })?,
+            close: Decimal::from_str(&row.close).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close))
+            })?,
+            volume: row.volume.parse::<i64>().map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 volume 值: {}", row.volume))
+            })?,
             amount: row
                 .amount
                 .as_ref()
@@ -291,18 +301,29 @@ impl DataImporter {
 
     /// JSON 行转 Kline
     fn json_row_to_kline(&self, row: &JsonKlineRow) -> Result<Kline> {
-        let date = NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
-            .map_err(|_| crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date)))?;
+        let date = NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").map_err(|_| {
+            crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date))
+        })?;
 
         Ok(Kline {
             code: row.code.clone(),
             date,
-            open: Decimal::from_str(&row.open)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open)))?,
-            high: row.high.as_ref().map(|s| Decimal::from_str(s).unwrap_or_default()).unwrap_or_default(),
-            low: row.low.as_ref().map(|s| Decimal::from_str(s).unwrap_or_default()).unwrap_or_default(),
-            close: Decimal::from_str(&row.close)
-                .map_err(|_| crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close)))?,
+            open: Decimal::from_str(&row.open).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open))
+            })?,
+            high: row
+                .high
+                .as_ref()
+                .map(|s| Decimal::from_str(s).unwrap_or_default())
+                .unwrap_or_default(),
+            low: row
+                .low
+                .as_ref()
+                .map(|s| Decimal::from_str(s).unwrap_or_default())
+                .unwrap_or_default(),
+            close: Decimal::from_str(&row.close).map_err(|_| {
+                crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close))
+            })?,
             volume: row.volume,
             amount: None,
             adjust_type: AdjustType::None,

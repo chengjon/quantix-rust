@@ -3,14 +3,14 @@ use chrono::{Duration, NaiveDate};
 use chrono::{TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::data::models::{AdjustType, Kline};
-use quantix_cli::execution::adapter::{AdapterOrderRequest, AdapterError, ExecutionAdapter};
+use quantix_cli::execution::adapter::{AdapterError, AdapterOrderRequest, ExecutionAdapter};
 use quantix_cli::execution::kernel::{
     ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RecoverySummary, RiskDecision,
     RiskEvaluator,
 };
 use quantix_cli::execution::models::{
-    translate_signal, ExecutionPolicy, OrderIntent, OrderSide, OrderStatus, OrderType,
-    SignalEnvelope,
+    ExecutionPolicy, OrderIntent, OrderSide, OrderStatus, OrderType, SignalEnvelope,
+    translate_signal,
 };
 use quantix_cli::execution::paper::PaperExecutionAdapter;
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
@@ -116,7 +116,8 @@ impl ExecutionAdapter for CountingAdapter {
     async fn submit_order(
         &self,
         request: AdapterOrderRequest,
-    ) -> std::result::Result<quantix_cli::execution::adapter::OrderInitialResponse, AdapterError> {
+    ) -> std::result::Result<quantix_cli::execution::adapter::OrderInitialResponse, AdapterError>
+    {
         *self.submissions.lock().unwrap() += 1;
         Ok(quantix_cli::execution::adapter::OrderInitialResponse {
             adapter_order_id: request.client_order_id,
@@ -130,7 +131,8 @@ impl ExecutionAdapter for CountingAdapter {
     async fn query_order(
         &self,
         order_id: &str,
-    ) -> std::result::Result<quantix_cli::execution::adapter::OrderQueryResponse, AdapterError> {
+    ) -> std::result::Result<quantix_cli::execution::adapter::OrderQueryResponse, AdapterError>
+    {
         Ok(quantix_cli::execution::adapter::OrderQueryResponse {
             adapter_order_id: order_id.to_string(),
             latest_status: OrderStatus::Unknown,
@@ -162,7 +164,11 @@ impl RiskEvaluator for FixedRiskEvaluator {
 
 #[async_trait]
 impl StrategyBarLoader for FakeBarLoader {
-    async fn load_daily_bars(&self, code: &str, limit: usize) -> quantix_cli::core::Result<Vec<Kline>> {
+    async fn load_daily_bars(
+        &self,
+        code: &str,
+        limit: usize,
+    ) -> quantix_cli::core::Result<Vec<Kline>> {
         let mut filtered: Vec<Kline> = self
             .bars
             .iter()
@@ -235,7 +241,10 @@ async fn strategy_runtime_returns_latest_signal_for_ma_cross() {
 
     let envelope = runtime.run_ma_cross_once("000001", 5, 10).await.unwrap();
 
-    assert!(matches!(envelope.signal, Signal::Buy | Signal::Sell | Signal::Hold));
+    assert!(matches!(
+        envelope.signal,
+        Signal::Buy | Signal::Sell | Signal::Hold
+    ));
 }
 
 #[tokio::test]
@@ -262,7 +271,10 @@ async fn paper_adapter_buy_submission_returns_filled_and_updates_account() {
         .await
         .unwrap();
 
-    assert_eq!(result.latest_status, quantix_cli::execution::models::OrderStatus::Filled);
+    assert_eq!(
+        result.latest_status,
+        quantix_cli::execution::models::OrderStatus::Filled
+    );
     assert_eq!(result.filled_quantity, 100);
     assert_eq!(result.avg_fill_price, Some(dec!(10.00)));
 
@@ -302,10 +314,21 @@ async fn paper_adapter_sell_submission_returns_filled() {
         .await
         .unwrap();
 
-    assert_eq!(result.latest_status, quantix_cli::execution::models::OrderStatus::Filled);
+    assert_eq!(
+        result.latest_status,
+        quantix_cli::execution::models::OrderStatus::Filled
+    );
     assert_eq!(result.filled_quantity, 100);
     assert_eq!(result.avg_fill_price, Some(dec!(11.00)));
-    assert!(store.snapshot().unwrap().account.unwrap().positions.is_empty());
+    assert!(
+        store
+            .snapshot()
+            .unwrap()
+            .account
+            .unwrap()
+            .positions
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -365,7 +388,10 @@ async fn kernel_success_path_persists_run_signal_order_and_events() {
     );
 
     let result = kernel
-        .execute_once(sample_run_request("run-000001-1"), SignalEnvelope::new(Signal::Buy))
+        .execute_once(
+            sample_run_request("run-000001-1"),
+            SignalEnvelope::new(Signal::Buy),
+        )
         .await
         .unwrap();
 
@@ -381,7 +407,10 @@ async fn kernel_success_path_persists_run_signal_order_and_events() {
     assert_eq!(adapter.submission_count(), 1);
     assert_eq!(store.count_runs().await.unwrap(), 1);
     assert_eq!(store.count_orders().await.unwrap(), 1);
-    assert_eq!(store.list_order_events("run-000001-1").await.unwrap().len(), 2);
+    assert_eq!(
+        store.list_order_events("run-000001-1").await.unwrap().len(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -402,7 +431,10 @@ async fn kernel_risk_rejection_creates_rejected_order_and_skips_adapter() {
     );
 
     let result = kernel
-        .execute_once(sample_run_request("run-000001-2"), SignalEnvelope::new(Signal::Buy))
+        .execute_once(
+            sample_run_request("run-000001-2"),
+            SignalEnvelope::new(Signal::Buy),
+        )
         .await
         .unwrap();
 
@@ -432,7 +464,10 @@ async fn kernel_duplicate_client_order_id_returns_stored_result_without_resubmit
     );
 
     let first = kernel
-        .execute_once(sample_run_request("dup-order"), SignalEnvelope::new(Signal::Buy))
+        .execute_once(
+            sample_run_request("dup-order"),
+            SignalEnvelope::new(Signal::Buy),
+        )
         .await
         .unwrap();
     let second = kernel

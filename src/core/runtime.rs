@@ -113,7 +113,9 @@ fn resolve_monitor_config_path() -> PathBuf {
             .join("config.json");
     }
 
-    PathBuf::from(".quantix").join("monitor").join("config.json")
+    PathBuf::from(".quantix")
+        .join("monitor")
+        .join("config.json")
 }
 
 fn resolve_trade_path() -> PathBuf {
@@ -162,7 +164,9 @@ fn resolve_strategy_config_path() -> PathBuf {
             .join("config.json");
     }
 
-    PathBuf::from(".quantix").join("strategy").join("config.json")
+    PathBuf::from(".quantix")
+        .join("strategy")
+        .join("config.json")
 }
 
 fn resolve_strategy_runtime_db_path() -> PathBuf {
@@ -177,14 +181,16 @@ fn resolve_strategy_runtime_db_path() -> PathBuf {
             .join("runtime.db");
     }
 
-    PathBuf::from(".quantix").join("strategy").join("runtime.db")
+    PathBuf::from(".quantix")
+        .join("strategy")
+        .join("runtime.db")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::sync::{Mutex, OnceLock};
+    use tempfile::tempdir;
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -609,7 +615,9 @@ mod tests {
         let runtime = CliRuntime::load();
         assert_eq!(
             runtime.strategy_config_path,
-            PathBuf::from(".quantix").join("strategy").join("config.json")
+            PathBuf::from(".quantix")
+                .join("strategy")
+                .join("config.json")
         );
     }
 
@@ -644,8 +652,9 @@ mod tests {
         let runtime = CliRuntime::load();
         assert_eq!(
             runtime.strategy_runtime_db_path,
-            PathBuf::from(".quantix").join("strategy").join("runtime.db")
+            PathBuf::from(".quantix")
+                .join("strategy")
+                .join("runtime.db")
         );
     }
-
 }

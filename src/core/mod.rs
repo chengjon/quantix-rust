@@ -10,7 +10,6 @@ pub mod trading_time;
 
 pub use error::{QuantixError, Result};
 pub use performance_utils::{
-    analyze_performance, BatchOptimizationConfig, MemoryTracker, OptimizationSuggestion,
-    PerfTimer,
+    BatchOptimizationConfig, MemoryTracker, OptimizationSuggestion, PerfTimer, analyze_performance,
 };
 pub use runtime::{CliRuntime, ClickHouseSettings};

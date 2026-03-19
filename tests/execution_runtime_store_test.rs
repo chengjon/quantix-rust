@@ -1,8 +1,8 @@
 use chrono::{TimeZone, Utc};
 use quantix_cli::execution::models::{
-    ApprovalStatus, ExecutionRequestStatus, OrderEventRecord, OrderRecord, OrderSide,
-    OrderStatus, OrderType, RunnerCheckpointRecord, SignalStatus,
-    StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
+    ApprovalStatus, ExecutionRequestStatus, OrderEventRecord, OrderRecord, OrderSide, OrderStatus,
+    OrderType, RunnerCheckpointRecord, SignalStatus, StrategyDaemonCheckpointRecord,
+    StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use rust_decimal_macros::dec;
@@ -50,7 +50,11 @@ fn sample_order(run_id: &str, client_order_id: &str) -> OrderRecord {
     }
 }
 
-fn sample_signal(run_id: &str, signal_id: &str, bar_end: chrono::DateTime<Utc>) -> StrategySignalRecord {
+fn sample_signal(
+    run_id: &str,
+    signal_id: &str,
+    bar_end: chrono::DateTime<Utc>,
+) -> StrategySignalRecord {
     StrategySignalRecord {
         signal_id: signal_id.to_string(),
         strategy_instance_id: "ma_fast_5_slow_20".to_string(),
@@ -96,7 +100,12 @@ async fn bootstrap_creates_phase29a_schema() {
     assert!(store.has_table("runner_checkpoints").await.unwrap());
     assert!(store.has_table("signals").await.unwrap());
     assert!(store.has_table("execution_requests").await.unwrap());
-    assert!(store.has_table("strategy_daemon_checkpoints").await.unwrap());
+    assert!(
+        store
+            .has_table("strategy_daemon_checkpoints")
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -204,9 +213,15 @@ async fn order_events_round_trip_against_existing_order() {
 #[test]
 fn phase29b_signal_and_request_enums_use_stable_string_values() {
     assert_eq!(SignalStatus::New.as_str(), "new");
-    assert_eq!(SignalStatus::from_str("superseded"), Some(SignalStatus::Superseded));
+    assert_eq!(
+        SignalStatus::from_str("superseded"),
+        Some(SignalStatus::Superseded)
+    );
     assert_eq!(ApprovalStatus::Approved.as_str(), "approved");
-    assert_eq!(ApprovalStatus::from_str("rejected"), Some(ApprovalStatus::Rejected));
+    assert_eq!(
+        ApprovalStatus::from_str("rejected"),
+        Some(ApprovalStatus::Rejected)
+    );
     assert_eq!(ExecutionRequestStatus::Pending.as_str(), "pending");
     assert_eq!(
         ExecutionRequestStatus::from_str("canceled"),
@@ -274,8 +289,17 @@ async fn reject_signal_updates_approval_state_without_creating_request() {
 
     let saved_signal = store.get_signal("signal-reject").await.unwrap().unwrap();
     assert_eq!(saved_signal.approval_status, ApprovalStatus::Rejected);
-    assert_eq!(saved_signal.metadata_json["rejection_reason"], "manual reject");
-    assert!(store.list_execution_requests(None).await.unwrap().is_empty());
+    assert_eq!(
+        saved_signal.metadata_json["rejection_reason"],
+        "manual reject"
+    );
+    assert!(
+        store
+            .list_execution_requests(None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -293,7 +317,11 @@ async fn superseding_signal_cancels_pending_execution_request() {
         .await
         .unwrap();
 
-    let new_signal = sample_signal(&run.run_id, "signal-new", fixed_ts() + chrono::Duration::days(1));
+    let new_signal = sample_signal(
+        &run.run_id,
+        "signal-new",
+        fixed_ts() + chrono::Duration::days(1),
+    );
     store.insert_signal(&new_signal).await.unwrap();
 
     let superseded = store

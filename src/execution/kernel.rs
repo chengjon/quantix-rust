@@ -91,7 +91,10 @@ where
             )
             .await?
         {
-            let existing_order = self.store.find_first_order_for_run(&existing_run.run_id).await?;
+            let existing_order = self
+                .store
+                .find_first_order_for_run(&existing_run.run_id)
+                .await?;
             return Ok(KernelExecutionResult {
                 run_id: existing_run.run_id,
                 signal: envelope.signal,
@@ -139,7 +142,11 @@ where
 
         let Some(intent) = maybe_intent else {
             self.store
-                .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                .update_run_status(
+                    &request.run_id,
+                    StrategyRunStatus::Success,
+                    Some(Utc::now()),
+                )
                 .await?;
             return Ok(KernelExecutionResult {
                 run_id: request.run_id,
@@ -155,7 +162,11 @@ where
             .await?
         {
             self.store
-                .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                .update_run_status(
+                    &request.run_id,
+                    StrategyRunStatus::Success,
+                    Some(Utc::now()),
+                )
                 .await?;
             return Ok(KernelExecutionResult {
                 run_id: request.run_id,
@@ -198,7 +209,11 @@ where
                     })
                     .await?;
                 self.store
-                    .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                    .update_run_status(
+                        &request.run_id,
+                        StrategyRunStatus::Success,
+                        Some(Utc::now()),
+                    )
                     .await?;
                 Ok(KernelExecutionResult {
                     run_id: request.run_id,
@@ -279,7 +294,11 @@ where
                 }
 
                 self.store
-                    .update_run_status(&request.run_id, StrategyRunStatus::Success, Some(Utc::now()))
+                    .update_run_status(
+                        &request.run_id,
+                        StrategyRunStatus::Success,
+                        Some(Utc::now()),
+                    )
                     .await?;
                 Ok(KernelExecutionResult {
                     run_id: request.run_id,

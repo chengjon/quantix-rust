@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
@@ -81,7 +81,9 @@ where
     }
 }
 
-fn to_trade_order_request(request: &AdapterOrderRequest) -> std::result::Result<TradeOrderRequest, AdapterError> {
+fn to_trade_order_request(
+    request: &AdapterOrderRequest,
+) -> std::result::Result<TradeOrderRequest, AdapterError> {
     let price = decimal_to_f64(request.price)?;
     TradeOrderRequest::new(request.symbol.clone(), price, request.quantity)
         .map_err(|err| AdapterError::Execution(err.to_string()))

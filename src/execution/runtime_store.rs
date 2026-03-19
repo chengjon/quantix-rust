@@ -628,7 +628,11 @@ ON CONFLICT(strategy_name, mode, symbol, timeframe) DO UPDATE SET
         .bind(&checkpoint.mode)
         .bind(&checkpoint.symbol)
         .bind(&checkpoint.timeframe)
-        .bind(checkpoint.last_processed_bar.map(|value| value.to_rfc3339()))
+        .bind(
+            checkpoint
+                .last_processed_bar
+                .map(|value| value.to_rfc3339()),
+        )
         .bind(&checkpoint.last_run_id)
         .bind(serde_json::to_string(&checkpoint.state_json)?)
         .bind(checkpoint.updated_at.to_rfc3339())
@@ -774,9 +778,7 @@ WHERE signal_id = ? AND signal_status = ? AND approval_status = ?
         .await?;
 
         if update.rows_affected() != 1 {
-            return Err(QuantixError::Other(format!(
-                "signal 不可审批: {signal_id}"
-            )));
+            return Err(QuantixError::Other(format!("signal 不可审批: {signal_id}")));
         }
 
         let record = ExecutionRequestRecord {
@@ -838,9 +840,7 @@ WHERE signal_id = ? AND signal_status = ? AND approval_status = ?
         .await?;
 
         let Some(row) = row else {
-            return Err(QuantixError::Other(format!(
-                "signal 不可拒绝: {signal_id}"
-            )));
+            return Err(QuantixError::Other(format!("signal 不可拒绝: {signal_id}")));
         };
 
         let metadata_json: String = row.try_get("metadata_json")?;
@@ -913,7 +913,9 @@ ORDER BY created_at ASC, request_id ASC
             .await?
         };
 
-        rows.into_iter().map(Self::row_to_execution_request).collect()
+        rows.into_iter()
+            .map(Self::row_to_execution_request)
+            .collect()
     }
 
     pub async fn get_execution_request_by_signal_id(
@@ -1042,7 +1044,11 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
         .bind(&checkpoint.strategy_name)
         .bind(&checkpoint.symbol)
         .bind(&checkpoint.timeframe)
-        .bind(checkpoint.last_processed_bar.map(|value| value.to_rfc3339()))
+        .bind(
+            checkpoint
+                .last_processed_bar
+                .map(|value| value.to_rfc3339()),
+        )
         .bind(&checkpoint.last_run_id)
         .bind(serde_json::to_string(&checkpoint.state_json)?)
         .bind(checkpoint.updated_at.to_rfc3339())
@@ -1256,7 +1262,11 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
         .bind(&checkpoint.strategy_name)
         .bind(&checkpoint.symbol)
         .bind(&checkpoint.timeframe)
-        .bind(checkpoint.last_processed_bar.map(|value| value.to_rfc3339()))
+        .bind(
+            checkpoint
+                .last_processed_bar
+                .map(|value| value.to_rfc3339()),
+        )
         .bind(&checkpoint.last_run_id)
         .bind(serde_json::to_string(&checkpoint.state_json)?)
         .bind(checkpoint.updated_at.to_rfc3339())
@@ -1343,7 +1353,10 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             mode: row.try_get("mode")?,
             symbol: row.try_get("symbol")?,
             timeframe: row.try_get("timeframe")?,
-            last_processed_bar: last_processed_bar.as_deref().map(parse_timestamp).transpose()?,
+            last_processed_bar: last_processed_bar
+                .as_deref()
+                .map(parse_timestamp)
+                .transpose()?,
             last_run_id: row.try_get("last_run_id")?,
             state_json: serde_json::from_str(&state_json)?,
             updated_at: parse_timestamp(&updated_at)?,
@@ -1425,7 +1438,10 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             strategy_name: row.try_get("strategy_name")?,
             symbol: row.try_get("symbol")?,
             timeframe: row.try_get("timeframe")?,
-            last_processed_bar: last_processed_bar.as_deref().map(parse_timestamp).transpose()?,
+            last_processed_bar: last_processed_bar
+                .as_deref()
+                .map(parse_timestamp)
+                .transpose()?,
             last_run_id: row.try_get("last_run_id")?,
             state_json: serde_json::from_str(&state_json)?,
             updated_at: parse_timestamp(&updated_at)?,

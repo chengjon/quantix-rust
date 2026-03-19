@@ -230,10 +230,7 @@ impl DataValidator {
             return Some(ValidationError::new(
                 "LOGIC_ERROR".to_string(),
                 "price_relation".to_string(),
-                format!(
-                    "最高价 {} 不能低于最低价 {}",
-                    kline.high, kline.low
-                ),
+                format!("最高价 {} 不能低于最低价 {}", kline.high, kline.low),
             ));
         }
 
@@ -368,8 +365,10 @@ impl DataQualityReport {
         }
 
         // 扣分项
-        let missing_amount_penalty = (self.missing_amount as f64 / self.total_records as f64) * 20.0;
-        let invalid_price_penalty = (self.invalid_price_relation as f64 / self.total_records as f64) * 40.0;
+        let missing_amount_penalty =
+            (self.missing_amount as f64 / self.total_records as f64) * 20.0;
+        let invalid_price_penalty =
+            (self.invalid_price_relation as f64 / self.total_records as f64) * 40.0;
         let zero_volume_penalty = (self.zero_volume as f64 / self.total_records as f64) * 10.0;
 
         let total_penalty = missing_amount_penalty + invalid_price_penalty + zero_volume_penalty;
@@ -383,8 +382,8 @@ impl DataQualityReport {
 mod tests {
     use super::*;
     use crate::data::models::AdjustType;
-    use rust_decimal_macros::dec;
     use chrono::NaiveDate;
+    use rust_decimal_macros::dec;
 
     fn create_test_kline() -> Kline {
         Kline {
