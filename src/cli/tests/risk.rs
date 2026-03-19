@@ -1,5 +1,5 @@
 use super::*;
-use crate::risk::{JsonRiskStore, RiskStore, RiskRuleType, RuleValue};
+use crate::risk::{JsonRiskStore, RiskRuleType, RiskStore, RuleValue};
 use rust_decimal_macros::dec;
 use std::sync::{Mutex, OnceLock};
 
@@ -215,8 +215,8 @@ fn parses_risk_rejects_missing_value_or_type() {
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--value"));
 
-    let err = Cli::try_parse_from(["quantix", "risk", "rule", "set", "--value", "20%"])
-        .unwrap_err();
+    let err =
+        Cli::try_parse_from(["quantix", "risk", "rule", "set", "--value", "20%"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--type"));
 }

@@ -6,8 +6,8 @@ use rust_decimal_macros::dec;
 use crate::core::{QuantixError, Result};
 use crate::risk::models::{
     BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact, RiskAccountSnapshot,
-    RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot,
-    RiskRuleType, RiskState, RiskStatus, RuleValue,
+    RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot, RiskRuleType,
+    RiskState, RiskStatus, RuleValue,
 };
 
 const DEFAULT_RISK_EVENT_LIMIT: usize = 100;

@@ -114,7 +114,9 @@ fn print_risk_command_output(output: &RiskCommandOutput) {
     }
 }
 
-fn require_trade_snapshot(trade_snapshot: Option<RiskAccountSnapshot>) -> Result<RiskAccountSnapshot> {
+fn require_trade_snapshot(
+    trade_snapshot: Option<RiskAccountSnapshot>,
+) -> Result<RiskAccountSnapshot> {
     trade_snapshot.ok_or_else(|| {
         QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
     })
@@ -167,7 +169,10 @@ pub(super) fn build_risk_log_lines(events: &[RiskLogEvent]) -> Vec<String> {
         }
         lines.push(format!("[{event_date}] · {} 条", group.len()));
         lines.push(build_risk_log_group_summary(group));
-        lines.push(format!("{:<10} {:<18} {:<12} {}", "时间", "事件", "交易日", "说明"));
+        lines.push(format!(
+            "{:<10} {:<18} {:<12} {}",
+            "时间", "事件", "交易日", "说明"
+        ));
         lines.push("-".repeat(76));
 
         lines.extend(group.iter().map(|event| {
@@ -297,7 +302,10 @@ fn print_risk_status(status: &RiskStatus) {
         println!("{:<10} {:<14} {}", "代码", "市值", "仓位占比");
         println!("{}", "-".repeat(42));
         for row in &status.position_ratios {
-            println!("{:<10} {:<14} {}%", row.code, row.market_value, row.ratio_pct);
+            println!(
+                "{:<10} {:<14} {}%",
+                row.code, row.market_value, row.ratio_pct
+            );
         }
     }
 
@@ -401,7 +409,10 @@ fn build_risk_lock_lines(status: &RiskStatus) -> Vec<String> {
 }
 
 fn format_position_row(row: &PositionRiskRow) -> String {
-    format!("{:<10} {:<14} {}%", row.code, row.market_value, row.ratio_pct)
+    format!(
+        "{:<10} {:<14} {}%",
+        row.code, row.market_value, row.ratio_pct
+    )
 }
 
 fn create_risk_store() -> JsonRiskStore {
