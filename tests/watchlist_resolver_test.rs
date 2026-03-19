@@ -75,7 +75,9 @@ async fn resolver_returns_row_without_price_when_source_is_unavailable() {
         }),
     );
 
-    let rows = resolver.resolve_rows(&[item("000001", "default", &[])], true).await;
+    let rows = resolver
+        .resolve_rows(&[item("000001", "default", &[])], true)
+        .await;
 
     assert_eq!(rows.len(), 1);
     assert_eq!(
@@ -121,7 +123,10 @@ async fn resolver_merges_group_tags_name_and_price_correctly() {
     assert_eq!(rows[0].code, "000001");
     assert_eq!(rows[0].name.as_deref(), Some("平安银行"));
     assert_eq!(rows[0].group, "core");
-    assert_eq!(rows[0].tags, vec!["bank".to_string(), "longterm".to_string()]);
+    assert_eq!(
+        rows[0].tags,
+        vec!["bank".to_string(), "longterm".to_string()]
+    );
     assert_eq!(rows[0].latest_price, Some(dec!(12.34)));
     assert_eq!(rows[0].price_change_pct, Some(dec!(1.23)));
 }
@@ -149,7 +154,10 @@ async fn resolver_keeps_rows_when_some_quotes_are_missing() {
 
     let rows = resolver
         .resolve_rows(
-            &[item("000001", "default", &[]), item("600519", "core", &["whitehorse"])],
+            &[
+                item("000001", "default", &[]),
+                item("600519", "core", &["whitehorse"]),
+            ],
             true,
         )
         .await;
