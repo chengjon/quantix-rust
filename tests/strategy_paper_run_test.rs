@@ -27,7 +27,9 @@ fn make_test_date(offset_days: usize) -> NaiveDate {
 }
 
 fn buy_fixture() -> Vec<Kline> {
-    let prices = [10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 12.0];
+    let prices = [
+        10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 12.0,
+    ];
     prices
         .iter()
         .enumerate()
@@ -84,7 +86,11 @@ impl RiskEvaluator for FixedRisk {
     }
 }
 
-fn sample_request(run_id: &str, client_order_id: &str, bar_end: DateTime<Utc>) -> ExecutionRunRequest {
+fn sample_request(
+    run_id: &str,
+    client_order_id: &str,
+    bar_end: DateTime<Utc>,
+) -> ExecutionRunRequest {
     ExecutionRunRequest {
         run_id: run_id.to_string(),
         strategy_name: "ma_cross".to_string(),
@@ -120,7 +126,9 @@ async fn successful_paper_run_writes_runtime_rows_and_updates_account() {
         .await
         .unwrap();
 
-    let loader = FakeBarLoader { bars: buy_fixture() };
+    let loader = FakeBarLoader {
+        bars: buy_fixture(),
+    };
     let envelope = StrategyRuntime::new(loader.clone())
         .run_ma_cross_once("000001", 5, 10)
         .await
@@ -169,7 +177,9 @@ async fn second_run_on_same_bar_is_deduplicated_by_run_key() {
         .await
         .unwrap();
 
-    let loader = FakeBarLoader { bars: buy_fixture() };
+    let loader = FakeBarLoader {
+        bars: buy_fixture(),
+    };
     let envelope = StrategyRuntime::new(loader)
         .run_ma_cross_once("000001", 5, 10)
         .await
@@ -221,7 +231,9 @@ async fn risk_rejection_keeps_account_unchanged_and_records_rejected_order() {
         .await
         .unwrap();
 
-    let loader = FakeBarLoader { bars: buy_fixture() };
+    let loader = FakeBarLoader {
+        bars: buy_fixture(),
+    };
     let envelope = StrategyRuntime::new(loader)
         .run_ma_cross_once("000001", 5, 10)
         .await

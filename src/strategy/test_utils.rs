@@ -106,14 +106,7 @@ impl KlineBuilder {
     }
 
     /// 生成完整的 OHLCV K线
-    pub fn from_ohlcv(
-        &self,
-        open: f64,
-        high: f64,
-        low: f64,
-        close: f64,
-        volume: i64,
-    ) -> Kline {
+    pub fn from_ohlcv(&self, open: f64, high: f64, low: f64, close: f64, volume: i64) -> Kline {
         let close_dec = Decimal::from_str(close.to_string().as_str()).unwrap();
 
         Kline {
@@ -155,9 +148,7 @@ impl KlineBuilder {
                         price -= 0.3
                     }
                 }
-                PriceTrend::Volatile => {
-                    price += (i % 5) as f64 - 2.0
-                }
+                PriceTrend::Volatile => price += (i % 5) as f64 - 2.0,
             }
 
             // 确保价格为正
@@ -192,11 +183,7 @@ pub fn create_test_kline(date: u32, close: f64) -> Kline {
 }
 
 /// 便捷函数：使用配置创建测试 K线
-pub fn create_test_kline_with_config(
-    date: u32,
-    close: f64,
-    config: &TestDataConfig,
-) -> Kline {
+pub fn create_test_kline_with_config(date: u32, close: f64, config: &TestDataConfig) -> Kline {
     KlineBuilder::new("000001", date)
         .with_config(config.clone())
         .from_close(close)
@@ -215,11 +202,7 @@ pub fn create_test_ohlcv(
 }
 
 /// 便捷函数：生成价格序列
-pub fn generate_price_series(
-    start_price: f64,
-    count: usize,
-    trend: PriceTrend,
-) -> Vec<Kline> {
+pub fn generate_price_series(start_price: f64, count: usize, trend: PriceTrend) -> Vec<Kline> {
     KlineBuilder::new("000001", 0).generate_price_series(start_price, count, trend)
 }
 
@@ -234,7 +217,7 @@ mod tests {
         assert_eq!(kline.code, "000001");
         assert_eq!(kline.close, dec!(100));
         assert_eq!(kline.high, dec!(101)); // 100 + 1.0
-        assert_eq!(kline.low, dec!(99));  // 100 - 1.0
+        assert_eq!(kline.low, dec!(99)); // 100 - 1.0
         assert_eq!(kline.volume, 1_000_000);
     }
 
@@ -244,7 +227,7 @@ mod tests {
         let kline = create_test_kline_with_config(1, 100.0, &config);
 
         assert_eq!(kline.high, dec!(100.1)); // 100 + 0.1
-        assert_eq!(kline.low, dec!(99.9));   // 100 - 0.1
+        assert_eq!(kline.low, dec!(99.9)); // 100 - 0.1
     }
 
     #[test]

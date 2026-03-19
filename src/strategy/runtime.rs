@@ -53,10 +53,9 @@ where
         let mut strategy = MACrossStrategy::new(short, long);
         let mut latest_signal = Signal::Hold;
         for bar in &bars {
-            latest_signal = strategy
-                .on_bar(bar)
-                .await
-                .map_err(|err| QuantixError::Other(format!("strategy paper 策略执行失败: {err}")))?;
+            latest_signal = strategy.on_bar(bar).await.map_err(|err| {
+                QuantixError::Other(format!("strategy paper 策略执行失败: {err}"))
+            })?;
         }
         strategy
             .finish()

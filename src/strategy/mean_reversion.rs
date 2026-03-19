@@ -35,7 +35,7 @@ impl Default for MeanReversionConfig {
             rsi_oversold: rust_decimal::Decimal::from(30),   // RSI < 30 超卖
             bb_period: 20,
             bb_std_dev: 2,
-            buy_deviation_pct: rust_decimal::Decimal::from(2),  // 低于下轨 2% 买入
+            buy_deviation_pct: rust_decimal::Decimal::from(2), // 低于下轨 2% 买入
             sell_deviation_pct: rust_decimal::Decimal::from(2), // 高于上轨 2% 卖出
         }
     }
@@ -80,7 +80,10 @@ impl MeanReversionStrategy {
         bb_upper: rust_decimal::Decimal,
     ) -> bool {
         let rsi_overbought = rsi >= self.config.rsi_overbought;
-        let price_high = price >= bb_upper * (rust_decimal::Decimal::ONE + self.config.sell_deviation_pct / rust_decimal::Decimal::from(100));
+        let price_high = price
+            >= bb_upper
+                * (rust_decimal::Decimal::ONE
+                    + self.config.sell_deviation_pct / rust_decimal::Decimal::from(100));
 
         rsi_overbought && price_high
     }
@@ -93,7 +96,10 @@ impl MeanReversionStrategy {
         bb_lower: rust_decimal::Decimal,
     ) -> bool {
         let rsi_oversold = rsi <= self.config.rsi_oversold;
-        let price_low = price <= bb_lower * (rust_decimal::Decimal::ONE - self.config.buy_deviation_pct / rust_decimal::Decimal::from(100));
+        let price_low = price
+            <= bb_lower
+                * (rust_decimal::Decimal::ONE
+                    - self.config.buy_deviation_pct / rust_decimal::Decimal::from(100));
 
         rsi_oversold && price_low
     }
@@ -112,10 +118,7 @@ impl Strategy for MeanReversionStrategy {
         self.low_history.push(bar.low);
 
         // 需要足够的数据
-        let required_len = self
-            .config
-            .bb_period
-            .max(self.config.rsi_period + 1);
+        let required_len = self.config.bb_period.max(self.config.rsi_period + 1);
         if self.close_history.len() < required_len {
             return Ok(Signal::Hold);
         }
@@ -168,7 +171,7 @@ impl Strategy for MeanReversionStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{create_test_ohlcv, create_test_kline};
+    use crate::strategy::test_utils::{create_test_kline, create_test_ohlcv};
     use rust_decimal::prelude::*;
     use rust_decimal_macros::dec;
 
@@ -212,7 +215,7 @@ mod tests {
 
         // RSI 高 + 价格高于上轨
         assert!(strategy.is_overbought(
-            dec!(75), // RSI > 70
+            dec!(75),  // RSI > 70
             dec!(105), // 价格高于上轨
             dec!(100)  // 上轨
         ));
@@ -231,7 +234,7 @@ mod tests {
 
         // RSI 低 + 价格低于下轨
         assert!(strategy.is_oversold(
-            dec!(25), // RSI < 30
+            dec!(25),  // RSI < 30
             dec!(95),  // 价格低于下轨
             dec!(100)  // 下轨
         ));

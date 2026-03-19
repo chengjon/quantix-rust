@@ -38,16 +38,10 @@ struct MaCrossEvaluator {
 impl MaCrossEvaluator {
     fn from_config(config: &ConfiguredStrategyInstance) -> Result<Self> {
         let fast = config.params["fast"].as_u64().ok_or_else(|| {
-            QuantixError::Other(format!(
-                "strategy {} 缺少或无效的 fast 参数",
-                config.id
-            ))
+            QuantixError::Other(format!("strategy {} 缺少或无效的 fast 参数", config.id))
         })? as usize;
         let slow = config.params["slow"].as_u64().ok_or_else(|| {
-            QuantixError::Other(format!(
-                "strategy {} 缺少或无效的 slow 参数",
-                config.id
-            ))
+            QuantixError::Other(format!("strategy {} 缺少或无效的 slow 参数", config.id))
         })? as usize;
 
         if fast == 0 || slow == 0 || fast >= slow {

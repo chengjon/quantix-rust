@@ -22,9 +22,9 @@ impl JsonStrategyServiceConfigStore {
     }
 
     pub fn with_default_path() -> Result<Self> {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .ok_or_else(|| QuantixError::Config("HOME is required for strategy service config".into()))?;
+        let home = std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| {
+            QuantixError::Config("HOME is required for strategy service config".into())
+        })?;
         Ok(Self::new(
             home.join(".quantix").join("strategy").join("service.json"),
         ))

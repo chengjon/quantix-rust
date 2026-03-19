@@ -3,15 +3,7 @@ use super::*;
 #[test]
 fn parses_strategy_run_modes() {
     let cli = Cli::try_parse_from([
-        "quantix",
-        "strategy",
-        "run",
-        "-n",
-        "ma_cross",
-        "--mode",
-        "paper",
-        "-c",
-        "000001",
+        "quantix", "strategy", "run", "-n", "ma_cross", "--mode", "paper", "-c", "000001",
     ])
     .unwrap();
     match cli.command {
@@ -24,15 +16,7 @@ fn parses_strategy_run_modes() {
     }
 
     let cli = Cli::try_parse_from([
-        "quantix",
-        "strategy",
-        "run",
-        "-n",
-        "ma_cross",
-        "--mode",
-        "live",
-        "-c",
-        "000001",
+        "quantix", "strategy", "run", "-n", "ma_cross", "--mode", "live", "-c", "000001",
     ])
     .unwrap();
     match cli.command {
@@ -162,16 +146,14 @@ fn parses_strategy_signal_commands() {
 #[test]
 fn parses_strategy_request_and_service_commands() {
     let cli = Cli::try_parse_from([
-        "quantix",
-        "strategy",
-        "request",
-        "list",
-        "--status",
-        "pending",
+        "quantix", "strategy", "request", "list", "--status", "pending",
     ])
     .unwrap();
     match cli.command {
-        Commands::Strategy(StrategyCommands::Request(StrategyRequestCommands::List { status, .. })) => {
+        Commands::Strategy(StrategyCommands::Request(StrategyRequestCommands::List {
+            status,
+            ..
+        })) => {
             assert_eq!(status.as_deref(), Some("pending"));
         }
         other => panic!("unexpected command: {:?}", other),

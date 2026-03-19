@@ -31,9 +31,9 @@ impl Default for BreakoutConfig {
             lookback_period: 20,
             atr_period: 14,
             volume_multiplier: rust_decimal::Decimal::from(15), // 成交量放大 1.5 倍
-            min_breakout_atr: rust_decimal::Decimal::from(5), // 最小突破幅度为 0.5 倍 ATR
-            stop_loss_atr: rust_decimal::Decimal::from(20),  // 止损 2 倍 ATR
-            take_profit_atr: rust_decimal::Decimal::from(60), // 止盈 6 倍 ATR
+            min_breakout_atr: rust_decimal::Decimal::from(5),   // 最小突破幅度为 0.5 倍 ATR
+            stop_loss_atr: rust_decimal::Decimal::from(20),     // 止损 2 倍 ATR
+            take_profit_atr: rust_decimal::Decimal::from(60),   // 止盈 6 倍 ATR
         }
     }
 }
@@ -65,9 +65,7 @@ impl BreakoutStrategy {
         Self {
             name: format!(
                 "Breakout_LB{}_ATR{}_Vol{}",
-                config.lookback_period,
-                config.atr_period,
-                config.volume_multiplier
+                config.lookback_period, config.atr_period, config.volume_multiplier
             ),
             config,
             kline_history: Vec::new(),
@@ -83,7 +81,10 @@ impl BreakoutStrategy {
     }
 
     /// 计算历史高低位
-    fn calculate_high_low(&self, offset: usize) -> (Option<rust_decimal::Decimal>, Option<rust_decimal::Decimal>) {
+    fn calculate_high_low(
+        &self,
+        offset: usize,
+    ) -> (Option<rust_decimal::Decimal>, Option<rust_decimal::Decimal>) {
         if self.kline_history.len() < self.config.lookback_period + offset {
             return (None, None);
         }
@@ -96,8 +97,14 @@ impl BreakoutStrategy {
         }
 
         let window = &self.kline_history[start..end];
-        let high = window.iter().map(|k| k.high).max_by(|a, b| a.partial_cmp(b).unwrap());
-        let low = window.iter().map(|k| k.low).min_by(|a, b| a.partial_cmp(b).unwrap());
+        let high = window
+            .iter()
+            .map(|k| k.high)
+            .max_by(|a, b| a.partial_cmp(b).unwrap());
+        let low = window
+            .iter()
+            .map(|k| k.low)
+            .min_by(|a, b| a.partial_cmp(b).unwrap());
 
         (high, low)
     }
@@ -115,7 +122,10 @@ impl BreakoutStrategy {
             return rust_decimal::Decimal::ZERO;
         }
 
-        let sum: i64 = self.kline_history[start..end].iter().map(|k| k.volume).sum();
+        let sum: i64 = self.kline_history[start..end]
+            .iter()
+            .map(|k| k.volume)
+            .sum();
         let count = (end - start) as u64;
 
         rust_decimal::Decimal::from(sum) / rust_decimal::Decimal::from(count)
@@ -135,7 +145,8 @@ impl BreakoutStrategy {
         let volume_breakout = rust_decimal::Decimal::from(bar.volume)
             >= avg_volume * self.config.volume_multiplier / rust_decimal::Decimal::from(10);
         // 突破幅度足够
-        let breakout_size = (bar.close - historical_high) >= current_atr * self.config.min_breakout_atr / rust_decimal::Decimal::from(10);
+        let breakout_size = (bar.close - historical_high)
+            >= current_atr * self.config.min_breakout_atr / rust_decimal::Decimal::from(10);
 
         price_breakout && volume_breakout && breakout_size
     }
@@ -154,7 +165,8 @@ impl BreakoutStrategy {
         let volume_breakout = rust_decimal::Decimal::from(bar.volume)
             >= avg_volume * self.config.volume_multiplier / rust_decimal::Decimal::from(10);
         // 突破幅度足够
-        let breakout_size = (historical_low - bar.close) >= current_atr * self.config.min_breakout_atr / rust_decimal::Decimal::from(10);
+        let breakout_size = (historical_low - bar.close)
+            >= current_atr * self.config.min_breakout_atr / rust_decimal::Decimal::from(10);
 
         price_breakout && volume_breakout && breakout_size
     }
@@ -179,7 +191,8 @@ impl Strategy for BreakoutStrategy {
         // 计算 ATR
         let highs: Vec<rust_decimal::Decimal> = self.kline_history.iter().map(|k| k.high).collect();
         let lows: Vec<rust_decimal::Decimal> = self.kline_history.iter().map(|k| k.low).collect();
-        let closes: Vec<rust_decimal::Decimal> = self.kline_history.iter().map(|k| k.close).collect();
+        let closes: Vec<rust_decimal::Decimal> =
+            self.kline_history.iter().map(|k| k.close).collect();
 
         let atr_values = atr(&highs, &lows, &closes, self.config.atr_period);
         let current_atr = match atr_values.last().unwrap() {
@@ -190,7 +203,9 @@ impl Strategy for BreakoutStrategy {
         // 如果持仓中，检查止损止盈
         if self.position {
             if let Some(entry) = self.entry_price {
-                if let (Some(stop_loss), Some(take_profit)) = (self.stop_loss_price, self.take_profit_price) {
+                if let (Some(stop_loss), Some(take_profit)) =
+                    (self.stop_loss_price, self.take_profit_price)
+                {
                     if bar.close <= stop_loss {
                         // 触发止损
                         self.position = false;
@@ -226,8 +241,14 @@ impl Strategy for BreakoutStrategy {
         if self.detect_upward_breakout(bar, high, avg_volume, *current_atr) {
             self.position = true;
             self.entry_price = Some(bar.close);
-            self.stop_loss_price = Some(bar.close - *current_atr * self.config.stop_loss_atr / rust_decimal::Decimal::from(10));
-            self.take_profit_price = Some(bar.close + *current_atr * self.config.take_profit_atr / rust_decimal::Decimal::from(10));
+            self.stop_loss_price = Some(
+                bar.close
+                    - *current_atr * self.config.stop_loss_atr / rust_decimal::Decimal::from(10),
+            );
+            self.take_profit_price = Some(
+                bar.close
+                    + *current_atr * self.config.take_profit_atr / rust_decimal::Decimal::from(10),
+            );
             return Ok(Signal::Buy);
         }
 
@@ -236,8 +257,14 @@ impl Strategy for BreakoutStrategy {
             self.position = true;
             self.entry_price = Some(bar.close);
             // 对于做空，止损在上方，止盈在下方
-            self.stop_loss_price = Some(bar.close + current_atr * self.config.stop_loss_atr / rust_decimal::Decimal::from(10));
-            self.take_profit_price = Some(bar.close - current_atr * self.config.take_profit_atr / rust_decimal::Decimal::from(10));
+            self.stop_loss_price = Some(
+                bar.close
+                    + current_atr * self.config.stop_loss_atr / rust_decimal::Decimal::from(10),
+            );
+            self.take_profit_price = Some(
+                bar.close
+                    - current_atr * self.config.take_profit_atr / rust_decimal::Decimal::from(10),
+            );
             return Ok(Signal::Sell);
         }
 
