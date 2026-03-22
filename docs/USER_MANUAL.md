@@ -458,6 +458,7 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
 | `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
+| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |
 
 ##### 示例
 
@@ -471,6 +472,9 @@ quantix strategy run -n ma_cross -c 000001
 # 使用 paper 模式单次执行
 quantix trade init --capital 1000000
 quantix strategy run -n ma_cross --mode paper -c 000001
+
+# 使用 mock_live 模式单次执行
+quantix strategy run -n ma_cross --mode mock_live -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -487,9 +491,11 @@ quantix strategy run -n ma_cross --mode live
 
 - `paper` 模式当前只支持 `ma_cross`
 - `paper` 模式当前只支持单代码、单次执行
+- `mock_live` 模式当前支持非终态订单生命周期模拟
 - 首次使用前请先执行 `quantix trade init`
 - 运行审计默认写入 `~/.quantix/strategy/runtime.db`
 - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
+- `mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态
 - `live` 模式仍在开发中
 
 ##### Phase 29B: 策略信号守护进程

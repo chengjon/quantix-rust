@@ -271,9 +271,11 @@ fn readme_documents_phase29_strategy_paper_boundary() {
     for expected in [
         "Phase 29: 策略 Paper 执行骨架",
         "quantix strategy run -n ma_cross --mode paper --code 000001",
+        "quantix strategy run -n ma_cross --mode mock_live --code 000001",
         "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
         "~/.quantix/strategy/runtime.db",
         "执行前请先运行 `quantix trade init`",
+        "`mock_live` 当前会返回非终态订单状态",
         "live 模式仍在开发中",
     ] {
         assert!(
@@ -354,10 +356,13 @@ fn user_manual_documents_phase29_strategy_paper_commands() {
     for expected in [
         "quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]",
         "| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |",
+        "| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |",
         "quantix strategy run -n ma_cross --mode paper -c 000001",
+        "quantix strategy run -n ma_cross --mode mock_live -c 000001",
         "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
         "~/.quantix/strategy/runtime.db",
         "首次使用前请先执行 `quantix trade init`",
+        "`mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态",
         "`live` 模式仍在开发中",
     ] {
         assert!(

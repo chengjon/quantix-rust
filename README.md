@@ -10,6 +10,17 @@ A 股量化交易 CLI 工具 - Rust 实现
 - 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
 - Foundation P0 的任务能力只支持直接运行 CLI 前台进程，不假设 daemon、常驻调度服务或任务持久化已经可用。
 
+## 路线图与 Backlog
+
+项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
+
+当前建议的推进顺序：
+
+1. 先补齐策略执行主线闭环，优先推进 Phase 29C 与 execution request 生命周期。
+2. 再推进自动审批、execution daemon 与 live-ready automation 收口。
+3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
+4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
+
 ## 功能特性
 
 ### 已完成模块
@@ -297,6 +308,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Phase 29: 策略 Paper 执行骨架 ✅
 - **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
   - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
+  - `quantix strategy run -n ma_cross --mode mock_live --code 000001` - 运行 `ma_cross` 的单次 mock-live 执行
 - **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
   - 默认路径 `~/.quantix/strategy/runtime.db`
   - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
@@ -305,8 +317,10 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 当前仅支持单代码、单次执行
   - 执行前请先运行 `quantix trade init`
   - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
+  - `paper` 是立即成交路径，`mock_live` 当前会返回非终态订单状态
+  - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
   - `live 模式仍在开发中`
-  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
+  - `execution daemon`、自动审批、real live adapter 延后到后续 Phase
 
 #### Phase 29B: 策略信号守护进程 ✅
 - **策略守护进程配置** (`src/strategy/config.rs`)
