@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **quantix-rust** (2490 symbols, 6022 relationships, 209 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **quantix-rust** (3320 symbols, 8138 relationships, 280 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -85,6 +85,66 @@ npx gitnexus analyze --embeddings
 
 To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
 
+If embedding generation is enabled, these environment variables control the provider and runtime behavior:
+
+```bash
+# Raise the CLI safety limit and reduce batch size for large repos
+GITNEXUS_EMBEDDING_NODE_LIMIT=90000
+GITNEXUS_EMBEDDING_BATCH_SIZE=8
+
+# Use a Hugging Face mirror / custom endpoint
+HF_ENDPOINT=https://hf-mirror.com
+# or
+GITNEXUS_HF_REMOTE_HOST=https://hf-mirror.com
+
+# Persist downloaded model files
+GITNEXUS_HF_CACHE_DIR=/path/to/hf-cache
+
+# Use a predownloaded local Hugging Face model only
+GITNEXUS_HF_LOCAL_MODEL_PATH=/path/to/local-models
+GITNEXUS_HF_LOCAL_ONLY=1
+
+# Use Ollama instead of Hugging Face for both indexing and query embeddings
+GITNEXUS_EMBEDDING_PROVIDER=ollama
+GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434
+GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b
+```
+
+Recommended Ollama example:
+
+```bash
+GITNEXUS_EMBEDDING_PROVIDER=ollama \
+GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434 \
+GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b \
+GITNEXUS_EMBEDDING_NODE_LIMIT=90000 \
+GITNEXUS_EMBEDDING_BATCH_SIZE=8 \
+gitnexus analyze --force --embeddings
+```
+
+The same settings can also be stored in `~/.gitnexus/config.json`:
+
+```json
+{
+  "embeddings": {
+    "provider": "ollama",
+    "ollamaBaseUrl": "http://localhost:11434",
+    "ollamaModel": "qwen3-embedding:0.6b",
+    "nodeLimit": 90000,
+    "batchSize": 8
+  }
+}
+```
+
+Priority is: environment variables > `~/.gitnexus/config.json` > built-in defaults.
+
+You can inspect or update this without editing JSON manually:
+
+```bash
+gitnexus config embeddings show
+gitnexus config embeddings set --provider ollama --ollama-base-url http://localhost:11434 --ollama-model qwen3-embedding:0.6b --node-limit 90000 --batch-size 8
+gitnexus config embeddings clear
+```
+
 > Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
 
 ## CLI
@@ -99,3 +159,53 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+# Graphiti MCP — Semantic Memory
+
+This project uses Graphiti MCP as a mandatory semantic-memory workflow layer for AI CLI development. It is not a task-status system, not a code truth source, and not a runtime dependency.
+
+Full workflow guide:
+
+- `docs/guides/GRAPHITI_MCP_WORKFLOW.md`
+
+## Always Do
+
+- **MUST attempt Graphiti reads before starting** these workflows:
+  - design work: search `quantix_rust_main`, and `quantix_rust_docs` when norms or terminology may matter
+  - review handling: search `quantix_rust_review`, and `quantix_rust_main` when design intent may matter
+  - debugging: search `quantix_rust_debug`, and `quantix_rust_main` when the bug may relate to prior design decisions
+  - handoff/resume: search `quantix_rust_handoff` first
+- **MUST write a Graphiti memory after conclusions converge** for:
+  - design decisions -> `quantix_rust_main`
+  - review conclusions -> `quantix_rust_review`
+  - debug root cause and verification -> `quantix_rust_debug`
+  - pause/handoff checkpoints -> `quantix_rust_handoff`
+  - documentation / terminology / naming decisions -> `quantix_rust_docs`
+- **MUST verify ingest after every write**:
+  1. `add_memory`
+  2. capture `episode_uuid`
+  3. `get_ingest_status` until `completed`
+- **MUST use stable `group_id` values**:
+  - `quantix_rust_main`
+  - `quantix_rust_review`
+  - `quantix_rust_debug`
+  - `quantix_rust_handoff`
+  - `quantix_rust_docs`
+
+## Fallback Rule
+
+- If Graphiti MCP is unavailable, unconfigured, or ingest fails, work may continue, but only if you leave an equivalent local summary and explicitly write:
+
+```text
+Graphiti backfill required
+```
+
+- After Graphiti becomes available again, that memory MUST be backfilled into the correct `group_id`.
+
+## Never Do
+
+- NEVER use Graphiti as the authority for current task status, approval, merge state, or ownership.
+- NEVER use Graphiti instead of GitNexus for code structure, impact analysis, or call-chain understanding.
+- NEVER add `graphiti-api` or `graphiti-mcp` as a runtime dependency of this repository's application code.
+- NEVER treat `add_memory` success as proof that the memory is already searchable.
+- NEVER dump raw long logs, full transcripts, or full diffs into Graphiti as-is; write compact conclusion-oriented summaries instead.
