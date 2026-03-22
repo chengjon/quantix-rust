@@ -97,17 +97,62 @@ impl PaperTradeStore for FakePaperTradeStore {
 #[derive(Clone)]
 struct CountingAdapter {
     submissions: Arc<Mutex<usize>>,
+    response: Arc<Mutex<CountingAdapterResponse>>,
 }
 
 impl CountingAdapter {
     fn new() -> Self {
         Self {
             submissions: Arc::new(Mutex::new(0)),
+            response: Arc::new(Mutex::new(CountingAdapterResponse::filled())),
+        }
+    }
+
+    fn accepted() -> Self {
+        Self {
+            submissions: Arc::new(Mutex::new(0)),
+            response: Arc::new(Mutex::new(CountingAdapterResponse::accepted())),
+        }
+    }
+
+    fn partial_fill() -> Self {
+        Self {
+            submissions: Arc::new(Mutex::new(0)),
+            response: Arc::new(Mutex::new(CountingAdapterResponse::partial_fill())),
         }
     }
 
     fn submission_count(&self) -> usize {
         *self.submissions.lock().unwrap()
+    }
+}
+
+#[derive(Clone)]
+struct CountingAdapterResponse {
+    latest_status: OrderStatus,
+    filled_quantity: i64,
+}
+
+impl CountingAdapterResponse {
+    fn filled() -> Self {
+        Self {
+            latest_status: OrderStatus::Filled,
+            filled_quantity: 200,
+        }
+    }
+
+    fn accepted() -> Self {
+        Self {
+            latest_status: OrderStatus::Accepted,
+            filled_quantity: 0,
+        }
+    }
+
+    fn partial_fill() -> Self {
+        Self {
+            latest_status: OrderStatus::PartiallyFilled,
+            filled_quantity: 50,
+        }
     }
 }
 
@@ -123,10 +168,11 @@ impl ExecutionAdapter for CountingAdapter {
     ) -> std::result::Result<quantix_cli::execution::adapter::OrderInitialResponse, AdapterError>
     {
         *self.submissions.lock().unwrap() += 1;
+        let response = self.response.lock().unwrap().clone();
         Ok(quantix_cli::execution::adapter::OrderInitialResponse {
             adapter_order_id: request.client_order_id,
-            latest_status: OrderStatus::Filled,
-            filled_quantity: request.quantity,
+            latest_status: response.latest_status,
+            filled_quantity: response.filled_quantity.min(request.quantity),
             avg_fill_price: Some(request.price),
             rejection_reason: None,
         })
@@ -153,6 +199,7 @@ impl ExecutionAdapter for CountingAdapter {
 #[derive(Clone)]
 struct FixedRiskEvaluator {
     decision: RiskDecision,
+    sync_calls: Arc<Mutex<usize>>,
 }
 
 #[async_trait]
@@ -162,6 +209,7 @@ impl RiskEvaluator for FixedRiskEvaluator {
     }
 
     async fn sync_after_fill(&self) -> Result<()> {
+        *self.sync_calls.lock().unwrap() += 1;
         Ok(())
     }
 }
@@ -388,6 +436,7 @@ async fn kernel_success_path_persists_run_signal_order_and_events() {
         adapter.clone(),
         FixedRiskEvaluator {
             decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
         },
     );
 
@@ -418,6 +467,68 @@ async fn kernel_success_path_persists_run_signal_order_and_events() {
 }
 
 #[tokio::test]
+async fn kernel_non_final_submit_persists_adapter_identity_and_remaining_quantity() {
+    let dir = tempdir().unwrap();
+    let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let kernel = ExecutionKernel::new(
+        store.clone(),
+        CountingAdapter::accepted(),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_run_request("run-accepted-1"),
+            SignalEnvelope::new(Signal::Buy),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+
+    let order = store
+        .find_order_by_client_order_id("run-accepted-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(order.adapter, "counting");
+    assert_eq!(order.remaining_quantity, order.requested_quantity);
+}
+
+#[tokio::test]
+async fn kernel_sync_after_fill_runs_for_partial_fill_delta() {
+    let dir = tempdir().unwrap();
+    let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let sync_calls = Arc::new(Mutex::new(0));
+    let kernel = ExecutionKernel::new(
+        store,
+        CountingAdapter::partial_fill(),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: sync_calls.clone(),
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_run_request("run-partial-1"),
+            SignalEnvelope::new(Signal::Buy),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::PartiallyFilled));
+    assert_eq!(*sync_calls.lock().unwrap(), 1);
+}
+
+#[tokio::test]
 async fn kernel_risk_rejection_creates_rejected_order_and_skips_adapter() {
     let dir = tempdir().unwrap();
     let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
@@ -431,6 +542,7 @@ async fn kernel_risk_rejection_creates_rejected_order_and_skips_adapter() {
             decision: RiskDecision::Reject {
                 reason: "position-limit".to_string(),
             },
+            sync_calls: Arc::new(Mutex::new(0)),
         },
     );
 
@@ -464,6 +576,7 @@ async fn kernel_duplicate_client_order_id_returns_stored_result_without_resubmit
         adapter.clone(),
         FixedRiskEvaluator {
             decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
         },
     );
 
@@ -503,6 +616,7 @@ async fn kernel_recover_pending_orders_returns_empty_summary() {
         adapter,
         FixedRiskEvaluator {
             decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
         },
     );
 

@@ -244,7 +244,7 @@ where
                         remaining_quantity: intent.requested_quantity,
                         avg_fill_price: None,
                         status: OrderStatus::PendingSubmit,
-                        adapter: "paper".to_string(),
+                        adapter: self.adapter.adapter_name().to_string(),
                         created_at: now,
                         updated_at: now,
                         last_transition_at: now,
@@ -298,7 +298,7 @@ where
                     )
                     .await?;
 
-                if response.latest_status == OrderStatus::Filled {
+                if response.filled_quantity > 0 {
                     self.risk.sync_after_fill().await?;
                 }
 
