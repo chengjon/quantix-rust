@@ -16,7 +16,7 @@ This slice must:
 
 1. add a `mock_live` strategy execution path for `strategy run`
 2. preserve the existing `paper` behavior as an immediate-fill adapter
-3. model non-final order states such as `submitted`, `accepted`, `partially_filled`, and `unknown`
+3. model non-final order states such as `submitted`, `accepted`, `partially_filled`, `pending_cancel`, and `unknown`
 4. persist adapter-private lifecycle state in `runtime.db`
 5. make `query`, `cancel`, and recovery-first execution behavior possible
 6. keep the design compatible with later execution-request consumption and daemon automation
@@ -186,28 +186,30 @@ This slice intentionally does not turn the paper-trade store into a live order b
 
 ### Public order statuses
 
-Reuse the existing shared order status model:
+Extend the existing shared order status model with one additional lifecycle state:
 
 - `pending_submit`
 - `submitted`
 - `accepted`
 - `partially_filled`
+- `pending_cancel`
 - `filled`
 - `canceled`
 - `rejected`
 - `unknown`
 
-No new public status enum is required in this slice.
+`pending_cancel` exists to represent an explicit cancellation-in-flight boundary. Even in mock-live mode, this keeps the lifecycle compatible with later broker-backed adapters where cancel and query may race.
 
 ### Allowed transitions
 
 The mock-live adapter must enforce:
 
 - `pending_submit -> submitted | accepted | rejected | unknown`
-- `submitted -> accepted | partially_filled | filled | canceled | unknown`
-- `accepted -> partially_filled | filled | canceled | unknown`
-- `partially_filled -> partially_filled | filled | canceled | unknown`
-- `unknown -> submitted | accepted | partially_filled | filled | canceled`
+- `submitted -> accepted | partially_filled | filled | pending_cancel | unknown`
+- `accepted -> partially_filled | filled | pending_cancel | unknown`
+- `partially_filled -> partially_filled | filled | pending_cancel | unknown`
+- `pending_cancel -> canceled | unknown`
+- `unknown -> submitted | accepted | partially_filled | filled | canceled | rejected`
 
 Terminal states:
 
@@ -216,6 +218,21 @@ Terminal states:
 - `rejected`
 
 `unknown` is explicitly **not** terminal. It means the system cannot currently prove the true state and must allow later recovery.
+
+Recovery policy for `unknown`:
+
+- retain the last known filled quantity
+- increment a private `unknown_retries` counter each time query/recovery still returns `unknown`
+- once retries exceed a configured threshold (default `3`), mark the private mock-live state as `recovery_exhausted`
+- append an `order_events` row with `event_type = recovery_exhausted`
+- keep the public order status as `unknown`
+
+This intentionally separates:
+
+- **public order truth**: still unknown
+- **local executor state**: retry budget exhausted
+
+The higher-level execution-request layer may later choose to mark the request as failed, but the order itself must not be forced into a false terminal state.
 
 ### Fill semantics
 
@@ -246,6 +263,22 @@ The adapter may know more than the paper account in failure scenarios, but the p
 
 ## Runtime Store Changes
 
+### Shared order schema extensions
+
+The shared `orders` table should remain self-describing for audit reads, without requiring joins into adapter-private tables.
+
+This slice should extend the shared order schema to include:
+
+- `remaining_quantity`
+- `last_transition_at`
+- `version`
+
+Expected meaning:
+
+- `remaining_quantity = requested_quantity - filled_quantity`
+- `last_transition_at` records the latest lifecycle transition timestamp
+- `version` is an integer optimistic-lock counter incremented on each successful order mutation
+
 ### New private table
 
 Add `mock_live_orders` to `runtime.db`.
@@ -259,30 +292,43 @@ Recommended shape:
 
 ```sql
 CREATE TABLE IF NOT EXISTS mock_live_orders (
-    adapter_order_id TEXT PRIMARY KEY,
-    client_order_id TEXT NOT NULL UNIQUE,
-    symbol TEXT NOT NULL,
-    side TEXT NOT NULL,
-    requested_quantity INTEGER NOT NULL,
-    filled_quantity INTEGER NOT NULL,
-    remaining_quantity INTEGER NOT NULL,
-    limit_price TEXT NOT NULL,
-    status TEXT NOT NULL,
-    avg_fill_price TEXT,
-    submitted_at TEXT NOT NULL,
-    last_transition_at TEXT NOT NULL,
+    order_id TEXT PRIMARY KEY,
+    adapter_order_id TEXT,
     state_json TEXT NOT NULL
 );
 ```
 
+`order_id` should reference the shared public `orders.order_id`. Public audit fields such as quantity, remaining quantity, status, and fill price stay in `orders`; `mock_live_orders` exists only for adapter-private simulation state.
+
 `state_json` carries mock-live-specific details such as:
 
 - fill plan
-- fault plan
+- fault injection
 - next step index
+- planned fill time
 - unknown-until marker
 - cancel-requested marker
 - last-applied-fill id
+- unknown retries
+- recovery exhausted flag
+- exhausted reason
+
+Example:
+
+```json
+{
+  "fill_plan": [],
+  "next_step_index": 0,
+  "planned_fill_time": "2026-03-22T10:00:00Z",
+  "fault_injection": null,
+  "unknown_until": null,
+  "cancel_requested": false,
+  "last_applied_fill_id": 0,
+  "unknown_retries": 0,
+  "recovery_exhausted": false,
+  "exhausted_reason": null
+}
+```
 
 ### Typed private state model
 
@@ -320,12 +366,14 @@ Add dedicated store helpers rather than scattering SQL in the adapter:
 - `find_mock_live_order(...)`
 - `advance_mock_live_order(...)`
 - `list_recoverable_mock_live_orders(...)`
+- `try_update_order_with_version(...)`
 
 `advance_mock_live_order(...)` should atomically:
 
 1. update shared `orders`
 2. append the corresponding `order_events`
 3. update `mock_live_orders`
+4. increment shared `orders.version`
 
 This keeps the public audit trail and the adapter-private state in sync.
 
@@ -337,7 +385,8 @@ This keeps the public audit trail and the adapter-private state in sync.
 
 Expected first-slice behavior:
 
-- normally returns `submitted` or `accepted`
+- normally returns `accepted`
+- may return `submitted` when explicitly required by a simulation plan
 - may return `rejected` for deterministic local validation failure
 - may return `unknown` for simulated non-deterministic execution faults
 - must not mutate the paper-trade account unless the initial simulation step explicitly includes a fill
@@ -380,6 +429,7 @@ It may:
 - keep the current state
 - advance to `partially_filled`
 - advance to `filled`
+- advance `pending_cancel -> canceled`
 - move into or out of `unknown`
 
 ### `cancel_order`
@@ -388,10 +438,16 @@ It may:
 
 Allowed source states:
 
+- `pending_submit`
 - `submitted`
 - `accepted`
 - `partially_filled`
 - `unknown`
+
+Required cancel semantics:
+
+- a cancel request first transitions the order to `pending_cancel`
+- a later direct adapter result or recovery query resolves that state to `canceled` or `unknown`
 
 Disallowed source states:
 
@@ -573,10 +629,12 @@ Add `tests/mock_live_adapter_test.rs`.
 Cover:
 
 - submit returns non-final state
+- submit may return `accepted` as the default initial state
 - query advances to partial fill
 - query advances to final fill
 - cancel transitions to canceled
 - unknown can recover to a known state
+- cancel enters `pending_cancel` before final resolution
 - repeated query/recovery does not duplicate fills
 
 ### Layer 2: kernel tests
