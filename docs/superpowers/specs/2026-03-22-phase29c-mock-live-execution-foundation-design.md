@@ -151,6 +151,22 @@ Add:
   - `execute_once()` must accept non-final submit results
   - `recover_pending_orders()` must stop being a placeholder
 
+### Adapter identity
+
+The shared `orders.adapter` field must describe the concrete execution adapter, not just the user-facing mode string.
+
+Preferred direction:
+
+- expose adapter identity from the adapter boundary itself
+- avoid hardcoding `"paper"` in the kernel
+- avoid assuming `mode == adapter name` forever
+
+This keeps room for future cases such as:
+
+- one mode mapping to different concrete adapters
+- feature-flagged adapter variants
+- test doubles and mock-live implementations that should remain distinguishable in audit rows
+
 ### Data ownership
 
 - `paper_trade.json`
@@ -297,6 +313,34 @@ Example:
 }
 ```
 
+### Typed private state model
+
+`state_json` should not be handled as ad hoc untyped JSON throughout the implementation.
+
+Introduce a strongly typed Rust model, serialized with `serde`, for example:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MockLiveOrderState {
+    pub fill_plan: Vec<FillStep>,
+    pub next_step_index: usize,
+    pub planned_fill_time: Option<DateTime<Utc>>,
+    pub fault_injection: Option<FaultInjectionConfig>,
+    pub unknown_until: Option<DateTime<Utc>>,
+    pub cancel_requested: bool,
+    pub last_applied_fill_id: u64,
+    pub unknown_retries: u32,
+    pub recovery_exhausted: bool,
+    pub exhausted_reason: Option<String>,
+}
+```
+
+Requirements:
+
+- use `serde` defaults or equivalent backward-compatible decoding
+- make adding future fields non-breaking for existing runtime rows
+- keep JSON parsing localized to store or adapter-private helpers
+
 ### Store API additions
 
 Add dedicated store helpers rather than scattering SQL in the adapter:
@@ -379,6 +423,7 @@ Required behavior:
 - update the order row to the adapter-returned current status even if it is non-final
 - call `risk.sync_after_fill()` only when newly filled quantity is observed
 - apply account mutations through a kernel-owned fill-delta path, not from the adapter
+- record adapter identity from the concrete adapter boundary rather than hardcoding `"paper"`
 
 Recommended internal helper:
 
@@ -414,6 +459,12 @@ Recovery summary should include at least:
 - `unchanged`
 - `failed`
 - `skipped`
+
+Field semantics:
+
+- `failed` means **recovery attempts that failed to complete**, such as adapter query failures or unrecoverable version-conflict retries
+- `failed` does **not** mean the underlying order reached a terminal failed status
+- order truth remains encoded in public order status plus private mock-live exhaustion state
 
 This slice does not require a background loop; a direct recovery call is sufficient.
 
