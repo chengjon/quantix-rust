@@ -21,6 +21,7 @@ use crate::db::clickhouse::ClickHouseClient;
 use crate::execution::kernel::{
     ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RiskDecision, RiskEvaluator,
 };
+use crate::execution::mock_live::{MockLiveExecutionAdapter, SystemMockLiveClock};
 use crate::execution::models::{
     ApprovalStatus, ExecutionPolicy, ExecutionRequestRecord, ExecutionRequestStatus, OrderIntent,
     OrderStatus, SignalStatus, StrategySignalRecord,
@@ -510,7 +511,7 @@ where
                 "strategy live 模式尚未实现".to_string(),
             ));
         }
-        "paper" => {}
+        "paper" | "mock_live" => {}
         other => {
             return Err(QuantixError::Unsupported(format!(
                 "strategy {other} 模式尚未实现"
@@ -544,35 +545,40 @@ where
     let runtime = StrategyRuntime::new(&loader);
     let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;
 
-    let trade_service = TradeService::new(trade_store.clone());
-    let adapter = PaperExecutionAdapter::new(trade_service);
     let risk_service = RiskService::new(risk_store.clone());
-    let risk = StrategyRiskBridge::new(trade_store, risk_service);
-    let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
-
+    let risk = StrategyRiskBridge::new(trade_store.clone(), risk_service);
     let run_id = uuid::Uuid::new_v4().to_string();
     let client_order_id = format!("{run_id}_{symbol}_1");
-    let result = kernel
-        .execute_once(
-            ExecutionRunRequest {
-                run_id: run_id.clone(),
-                strategy_name: name.to_string(),
-                mode: mode.to_string(),
-                trigger: "once".to_string(),
-                symbol: symbol.clone(),
-                timeframe: "1d".to_string(),
-                bar_end,
-                market_price: latest_bar.close,
-                held_volume,
-                policy: ExecutionPolicy {
-                    fixed_cash_per_buy: dec!(10000),
-                    slippage_bps: 0,
-                },
-                client_order_id,
-            },
-            envelope.clone(),
-        )
-        .await?;
+    let run_request = ExecutionRunRequest {
+        run_id: run_id.clone(),
+        strategy_name: name.to_string(),
+        mode: mode.to_string(),
+        trigger: "once".to_string(),
+        symbol: symbol.clone(),
+        timeframe: "1d".to_string(),
+        bar_end,
+        market_price: latest_bar.close,
+        held_volume,
+        policy: ExecutionPolicy {
+            fixed_cash_per_buy: dec!(10000),
+            slippage_bps: 0,
+        },
+        client_order_id,
+    };
+    let result = match mode {
+        "paper" => {
+            let trade_service = TradeService::new(trade_store.clone());
+            let adapter = PaperExecutionAdapter::new(trade_service);
+            let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
+            kernel.execute_once(run_request, envelope.clone()).await?
+        }
+        "mock_live" => {
+            let adapter = MockLiveExecutionAdapter::new(runtime_store.clone(), SystemMockLiveClock);
+            let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
+            kernel.execute_once(run_request, envelope.clone()).await?
+        }
+        _ => unreachable!("validated strategy mode"),
+    };
 
     Ok(build_strategy_run_summary(
         name,
@@ -4637,6 +4643,66 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_mock_live_returns_non_final_status() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                    .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_components(
+            "ma_cross",
+            "mock_live",
+            Some("000001".to_string()),
+            loader,
+            trade_store,
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.mode, "mock_live");
+        assert_eq!(summary.order_status, Some(OrderStatus::Accepted));
+        assert!(summary.message.contains("order_status=accepted"));
     }
 
     #[test]

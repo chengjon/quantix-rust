@@ -11,6 +11,15 @@ pub trait MockLiveClock: Clone + Send + Sync {
     fn now(&self) -> DateTime<Utc>;
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SystemMockLiveClock;
+
+impl MockLiveClock for SystemMockLiveClock {
+    fn now(&self) -> DateTime<Utc> {
+        Utc::now()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MockLiveExecutionAdapter<C> {
     store: StrategyRuntimeStore,
