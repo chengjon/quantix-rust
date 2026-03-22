@@ -9,9 +9,11 @@ use quantix_cli::execution::kernel::{
     RiskEvaluator,
 };
 use quantix_cli::execution::models::{
-    ExecutionPolicy, OrderIntent, OrderSide, OrderStatus, OrderType, SignalEnvelope,
-    translate_signal,
+    ExecutionPolicy, MockLiveFaultInjection, MockLiveFillStep, MockLiveOrderState, OrderIntent,
+    OrderRecord, OrderSide, OrderStatus, OrderType, SignalEnvelope, StrategyRunRecord,
+    StrategyRunStatus, translate_signal,
 };
+use quantix_cli::execution::mock_live::{MockLiveClock, MockLiveExecutionAdapter};
 use quantix_cli::execution::paper::PaperExecutionAdapter;
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
@@ -64,6 +66,54 @@ fn create_ma_cross_fixture() -> Vec<Kline> {
 
 fn fixed_ts() -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
+}
+
+fn sample_run(symbol: &str, bar_end: chrono::DateTime<Utc>) -> StrategyRunRecord {
+    StrategyRunRecord {
+        run_id: "runtime-run".to_string(),
+        strategy_name: "ma_cross".to_string(),
+        mode: "mock_live".to_string(),
+        trigger: "once".to_string(),
+        status: StrategyRunStatus::Running,
+        symbol: symbol.to_string(),
+        timeframe: "1d".to_string(),
+        bar_end,
+        started_at: fixed_ts(),
+        finished_at: None,
+        metadata_json: serde_json::json!({}),
+    }
+}
+
+fn sample_order(run_id: &str, client_order_id: &str) -> OrderRecord {
+    OrderRecord {
+        order_id: client_order_id.to_string(),
+        client_order_id: client_order_id.to_string(),
+        run_id: run_id.to_string(),
+        symbol: "000001".to_string(),
+        side: OrderSide::Buy,
+        order_type: OrderType::Market,
+        requested_quantity: 100,
+        requested_price: dec!(12.34),
+        filled_quantity: 0,
+        remaining_quantity: 100,
+        avg_fill_price: None,
+        status: OrderStatus::PendingSubmit,
+        adapter: "mock_live".to_string(),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        last_transition_at: fixed_ts(),
+        version: 0,
+        payload_json: serde_json::json!({}),
+    }
+}
+
+#[derive(Clone, Copy)]
+struct FixedMockLiveClock;
+
+impl MockLiveClock for FixedMockLiveClock {
+    fn now(&self) -> chrono::DateTime<Utc> {
+        fixed_ts()
+    }
 }
 
 #[derive(Clone)]
@@ -632,4 +682,178 @@ async fn kernel_recover_pending_orders_returns_empty_summary() {
             skipped: 0,
         }
     );
+}
+
+#[tokio::test]
+async fn kernel_recover_pending_orders_advances_mock_live_order() {
+    let dir = tempdir().unwrap();
+    let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let sync_calls = Arc::new(Mutex::new(0));
+    let adapter = MockLiveExecutionAdapter::with_state_template(
+        store.clone(),
+        FixedMockLiveClock,
+        MockLiveOrderState {
+            fill_plan: vec![
+                MockLiveFillStep {
+                    quantity: 50,
+                    delay_secs: 0,
+                },
+                MockLiveFillStep {
+                    quantity: 50,
+                    delay_secs: 0,
+                },
+            ],
+            ..Default::default()
+        },
+    );
+    let kernel = ExecutionKernel::new(
+        store.clone(),
+        adapter,
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: sync_calls.clone(),
+        },
+    );
+
+    let run_request = ExecutionRunRequest {
+        mode: "mock_live".to_string(),
+        ..sample_run_request("recover-order-1")
+    };
+    let result = kernel
+        .execute_once(run_request, SignalEnvelope::new(Signal::Buy))
+        .await
+        .unwrap();
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+
+    let summary = kernel.recover_pending_orders().await.unwrap();
+
+    assert_eq!(summary.scanned, 1);
+    assert_eq!(summary.recovered, 1);
+    assert_eq!(*sync_calls.lock().unwrap(), 1);
+
+    let order = store
+        .find_order_by_client_order_id("recover-order-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(order.status, OrderStatus::PartiallyFilled);
+    assert_eq!(order.filled_quantity, 50);
+    assert_eq!(
+        order.remaining_quantity,
+        order.requested_quantity - order.filled_quantity
+    );
+}
+
+#[tokio::test]
+async fn kernel_recover_pending_orders_resolves_pending_cancel_order() {
+    let dir = tempdir().unwrap();
+    let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+    let order = OrderRecord {
+        status: OrderStatus::PendingCancel,
+        adapter: "mock_live".to_string(),
+        ..sample_order(&run.run_id, "recover-cancel-1")
+    };
+    store.insert_order(&order).await.unwrap();
+    store
+        .insert_mock_live_order_state(
+            &order.order_id,
+            Some("recover-cancel-1"),
+            &MockLiveOrderState {
+                cancel_requested: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    let kernel = ExecutionKernel::new(
+        store.clone(),
+        MockLiveExecutionAdapter::new(store.clone(), FixedMockLiveClock),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
+        },
+    );
+
+    let summary = kernel.recover_pending_orders().await.unwrap();
+
+    assert_eq!(summary.scanned, 1);
+    assert_eq!(summary.recovered, 1);
+
+    let saved = store
+        .find_order_by_client_order_id("recover-cancel-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.status, OrderStatus::Canceled);
+}
+
+#[tokio::test]
+async fn kernel_recover_pending_orders_marks_unknown_exhaustion_without_changing_public_status() {
+    let dir = tempdir().unwrap();
+    let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+    let order = OrderRecord {
+        status: OrderStatus::Unknown,
+        adapter: "mock_live".to_string(),
+        ..sample_order(&run.run_id, "recover-unknown-1")
+    };
+    store.insert_order(&order).await.unwrap();
+    store
+        .insert_mock_live_order_state(
+            &order.order_id,
+            Some("recover-unknown-1"),
+            &MockLiveOrderState {
+                unknown_retries: 3,
+                fault_injection: Some(MockLiveFaultInjection {
+                    mode: Some("unknown_always".to_string()),
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    let kernel = ExecutionKernel::new(
+        store.clone(),
+        MockLiveExecutionAdapter::new(store.clone(), FixedMockLiveClock),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
+        },
+    );
+
+    let summary = kernel.recover_pending_orders().await.unwrap();
+
+    assert_eq!(summary.scanned, 1);
+    assert_eq!(summary.recovered, 1);
+
+    let saved = store
+        .find_order_by_client_order_id("recover-unknown-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.status, OrderStatus::Unknown);
+
+    let state = store
+        .get_mock_live_order_state(&order.order_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(state.recovery_exhausted);
+    assert_eq!(state.exhausted_reason.as_deref(), Some("unknown_retry_budget_exceeded"));
+
+    let events = store.list_order_events(&order.order_id).await.unwrap();
+    assert!(events
+        .iter()
+        .any(|event| event.event_type == "recovery_exhausted"));
 }

@@ -131,6 +131,26 @@ where
             });
         }
 
+        if state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.as_deref())
+            == Some("unknown_always")
+        {
+            state.unknown_retries += 1;
+            if state.unknown_retries > 3 {
+                state.recovery_exhausted = true;
+                state.exhausted_reason = Some("unknown_retry_budget_exceeded".to_string());
+            }
+            self.save_state(order_id, &state).await?;
+            return Ok(OrderQueryResponse {
+                adapter_order_id: order_id.to_string(),
+                latest_status: OrderStatus::Unknown,
+                filled_quantity: Self::cumulative_filled_quantity(&state),
+                avg_fill_price: None,
+            });
+        }
+
         if state.next_step_index < state.fill_plan.len() {
             state.next_step_index += 1;
             state.last_applied_fill_id += 1;
