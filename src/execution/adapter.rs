@@ -41,6 +41,8 @@ pub enum AdapterError {
 
 #[async_trait]
 pub trait ExecutionAdapter: Send + Sync {
+    fn adapter_name(&self) -> &'static str;
+
     async fn submit_order(
         &self,
         request: AdapterOrderRequest,

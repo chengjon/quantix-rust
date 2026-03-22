@@ -113,6 +113,10 @@ impl CountingAdapter {
 
 #[async_trait]
 impl ExecutionAdapter for CountingAdapter {
+    fn adapter_name(&self) -> &'static str {
+        "counting"
+    }
+
     async fn submit_order(
         &self,
         request: AdapterOrderRequest,
@@ -509,6 +513,9 @@ async fn kernel_recover_pending_orders_returns_empty_summary() {
         RecoverySummary {
             scanned: 0,
             recovered: 0,
+            unchanged: 0,
+            failed: 0,
+            skipped: 0,
         }
     );
 }

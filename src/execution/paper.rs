@@ -27,6 +27,10 @@ impl<Store> ExecutionAdapter for PaperExecutionAdapter<Store>
 where
     Store: PaperTradeStore,
 {
+    fn adapter_name(&self) -> &'static str {
+        "paper"
+    }
+
     async fn submit_order(
         &self,
         request: AdapterOrderRequest,
