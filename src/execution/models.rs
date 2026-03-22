@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::core::{QuantixError, Result};
@@ -38,6 +39,7 @@ pub enum OrderStatus {
     Submitted,
     Accepted,
     PartiallyFilled,
+    PendingCancel,
     Filled,
     Canceled,
     Rejected,
@@ -51,6 +53,7 @@ impl OrderStatus {
             Self::Submitted => "submitted",
             Self::Accepted => "accepted",
             Self::PartiallyFilled => "partially_filled",
+            Self::PendingCancel => "pending_cancel",
             Self::Filled => "filled",
             Self::Canceled => "canceled",
             Self::Rejected => "rejected",
@@ -64,6 +67,7 @@ impl OrderStatus {
             "submitted" => Some(Self::Submitted),
             "accepted" => Some(Self::Accepted),
             "partially_filled" => Some(Self::PartiallyFilled),
+            "pending_cancel" => Some(Self::PendingCancel),
             "filled" => Some(Self::Filled),
             "canceled" => Some(Self::Canceled),
             "rejected" => Some(Self::Rejected),
@@ -269,12 +273,53 @@ pub struct OrderRecord {
     pub requested_quantity: i64,
     pub requested_price: Decimal,
     pub filled_quantity: i64,
+    pub remaining_quantity: i64,
     pub avg_fill_price: Option<Decimal>,
     pub status: OrderStatus,
     pub adapter: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub last_transition_at: DateTime<Utc>,
+    pub version: i64,
     pub payload_json: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct MockLiveFillStep {
+    #[serde(default)]
+    pub quantity: i64,
+    #[serde(default)]
+    pub delay_secs: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct MockLiveFaultInjection {
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct MockLiveOrderState {
+    #[serde(default)]
+    pub fill_plan: Vec<MockLiveFillStep>,
+    #[serde(default)]
+    pub next_step_index: usize,
+    #[serde(default)]
+    pub planned_fill_time: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub fault_injection: Option<MockLiveFaultInjection>,
+    #[serde(default)]
+    pub unknown_until: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub cancel_requested: bool,
+    #[serde(default)]
+    pub last_applied_fill_id: u64,
+    #[serde(default)]
+    pub unknown_retries: u32,
+    #[serde(default)]
+    pub recovery_exhausted: bool,
+    #[serde(default)]
+    pub exhausted_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

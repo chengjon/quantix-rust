@@ -51,6 +51,9 @@ pub struct KernelExecutionResult {
 pub struct RecoverySummary {
     pub scanned: usize,
     pub recovered: usize,
+    pub unchanged: usize,
+    pub failed: usize,
+    pub skipped: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -190,11 +193,14 @@ where
                         requested_quantity: intent.requested_quantity,
                         requested_price: intent.requested_price,
                         filled_quantity: 0,
+                        remaining_quantity: intent.requested_quantity,
                         avg_fill_price: None,
                         status: OrderStatus::Rejected,
                         adapter: "risk".to_string(),
                         created_at: now,
                         updated_at: now,
+                        last_transition_at: now,
+                        version: 0,
                         payload_json: intent.policy_snapshot_json.clone(),
                     })
                     .await?;
@@ -235,11 +241,14 @@ where
                         requested_quantity: intent.requested_quantity,
                         requested_price: intent.requested_price,
                         filled_quantity: 0,
+                        remaining_quantity: intent.requested_quantity,
                         avg_fill_price: None,
                         status: OrderStatus::PendingSubmit,
                         adapter: "paper".to_string(),
                         created_at: now,
                         updated_at: now,
+                        last_transition_at: now,
+                        version: 0,
                         payload_json: intent.policy_snapshot_json.clone(),
                     })
                     .await?;
@@ -314,6 +323,9 @@ where
         Ok(RecoverySummary {
             scanned: 0,
             recovered: 0,
+            unchanged: 0,
+            failed: 0,
+            skipped: 0,
         })
     }
 }

@@ -1,8 +1,9 @@
 use chrono::{TimeZone, Utc};
+use quantix_cli::execution::kernel::RecoverySummary;
 use quantix_cli::execution::models::{
-    ApprovalStatus, ExecutionRequestStatus, OrderEventRecord, OrderRecord, OrderSide, OrderStatus,
-    OrderType, RunnerCheckpointRecord, SignalStatus, StrategyDaemonCheckpointRecord,
-    StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
+    ApprovalStatus, ExecutionRequestStatus, MockLiveOrderState, OrderEventRecord, OrderRecord,
+    OrderSide, OrderStatus, OrderType, RunnerCheckpointRecord, SignalStatus,
+    StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use rust_decimal_macros::dec;
@@ -41,11 +42,14 @@ fn sample_order(run_id: &str, client_order_id: &str) -> OrderRecord {
         requested_quantity: 100,
         requested_price: dec!(12.34),
         filled_quantity: 0,
+        remaining_quantity: 100,
         avg_fill_price: None,
         status: OrderStatus::PendingSubmit,
         adapter: "paper".to_string(),
         created_at: fixed_ts(),
         updated_at: fixed_ts(),
+        last_transition_at: fixed_ts(),
+        version: 0,
         payload_json: json!({"reason": "ma_cross_buy"}),
     }
 }
@@ -212,6 +216,11 @@ async fn order_events_round_trip_against_existing_order() {
 
 #[test]
 fn phase29b_signal_and_request_enums_use_stable_string_values() {
+    assert_eq!(OrderStatus::PendingCancel.as_str(), "pending_cancel");
+    assert_eq!(
+        OrderStatus::from_str("pending_cancel"),
+        Some(OrderStatus::PendingCancel)
+    );
     assert_eq!(SignalStatus::New.as_str(), "new");
     assert_eq!(
         SignalStatus::from_str("superseded"),
@@ -227,6 +236,34 @@ fn phase29b_signal_and_request_enums_use_stable_string_values() {
         ExecutionRequestStatus::from_str("canceled"),
         Some(ExecutionRequestStatus::Canceled)
     );
+}
+
+#[test]
+fn phase29c_mock_live_state_round_trips_through_serde_defaults() {
+    let state = MockLiveOrderState::default();
+    let json = serde_json::to_string(&state).unwrap();
+    let parsed: MockLiveOrderState = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(parsed.unknown_retries, 0);
+    assert!(!parsed.recovery_exhausted);
+    assert!(!parsed.cancel_requested);
+}
+
+#[test]
+fn phase29c_recovery_summary_exposes_extended_counters() {
+    let summary = RecoverySummary {
+        scanned: 4,
+        recovered: 1,
+        unchanged: 2,
+        failed: 0,
+        skipped: 1,
+    };
+
+    assert_eq!(summary.scanned, 4);
+    assert_eq!(summary.recovered, 1);
+    assert_eq!(summary.unchanged, 2);
+    assert_eq!(summary.failed, 0);
+    assert_eq!(summary.skipped, 1);
 }
 
 #[tokio::test]

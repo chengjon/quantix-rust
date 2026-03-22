@@ -1307,6 +1307,7 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             requested_quantity: row.try_get("requested_quantity")?,
             requested_price: parse_decimal(&requested_price)?,
             filled_quantity: row.try_get("filled_quantity")?,
+            remaining_quantity: 0,
             avg_fill_price: avg_fill_price.as_deref().map(parse_decimal).transpose()?,
             status: OrderStatus::from_str(&status).ok_or_else(|| {
                 QuantixError::DataParse(format!("invalid order status: {status}"))
@@ -1314,6 +1315,8 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             adapter: row.try_get("adapter")?,
             created_at: parse_timestamp(&created_at)?,
             updated_at: parse_timestamp(&updated_at)?,
+            last_transition_at: parse_timestamp(&updated_at)?,
+            version: 0,
             payload_json: serde_json::from_str(&payload_json)?,
         })
     }
