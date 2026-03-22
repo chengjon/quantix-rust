@@ -8,9 +8,10 @@ use uuid::Uuid;
 
 use crate::core::{QuantixError, Result};
 use crate::execution::models::{
-    ApprovalStatus, ExecutionRequestRecord, ExecutionRequestStatus, OrderEventRecord, OrderRecord,
-    OrderSide, OrderStatus, OrderType, RunnerCheckpointRecord, SignalEventRecord, SignalStatus,
-    StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
+    ApprovalStatus, ExecutionRequestRecord, ExecutionRequestStatus, MockLiveOrderState,
+    OrderEventRecord, OrderRecord, OrderSide, OrderStatus, OrderType, RunnerCheckpointRecord,
+    SignalEventRecord, SignalStatus, StrategyDaemonCheckpointRecord, StrategyRunRecord,
+    StrategyRunStatus, StrategySignalRecord,
 };
 
 const CREATE_STRATEGY_RUNS_TABLE_SQL: &str = r#"
@@ -67,11 +68,14 @@ CREATE TABLE IF NOT EXISTS orders (
     requested_quantity INTEGER NOT NULL,
     requested_price TEXT NOT NULL,
     filled_quantity INTEGER NOT NULL,
+    remaining_quantity INTEGER NOT NULL DEFAULT 0,
     avg_fill_price TEXT,
     status TEXT NOT NULL,
     adapter TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    last_transition_at TEXT NOT NULL DEFAULT '',
+    version INTEGER NOT NULL DEFAULT 0,
     payload_json TEXT NOT NULL
 );
 "#;
@@ -105,6 +109,14 @@ ON order_events(order_id);
 const CREATE_ORDER_EVENTS_CLIENT_TIME_INDEX_SQL: &str = r#"
 CREATE INDEX IF NOT EXISTS idx_order_events_client_time
 ON order_events(client_order_id, event_time);
+"#;
+
+const CREATE_MOCK_LIVE_ORDERS_TABLE_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS mock_live_orders (
+    order_id TEXT PRIMARY KEY,
+    adapter_order_id TEXT,
+    state_json TEXT NOT NULL
+);
 "#;
 
 const CREATE_RUNNER_CHECKPOINTS_TABLE_SQL: &str = r#"
@@ -251,6 +263,7 @@ impl StrategyRuntimeStore {
             CREATE_ORDER_EVENTS_TABLE_SQL,
             CREATE_ORDER_EVENTS_ORDER_INDEX_SQL,
             CREATE_ORDER_EVENTS_CLIENT_TIME_INDEX_SQL,
+            CREATE_MOCK_LIVE_ORDERS_TABLE_SQL,
             CREATE_RUNNER_CHECKPOINTS_TABLE_SQL,
             CREATE_RUNNER_CHECKPOINTS_UNIQUE_INDEX_SQL,
             CREATE_SIGNALS_TABLE_SQL,
@@ -268,6 +281,64 @@ impl StrategyRuntimeStore {
             sqlx::query(statement).execute(&self.pool).await?;
         }
 
+        self.ensure_orders_schema_extensions().await?;
+
+        Ok(())
+    }
+
+    async fn ensure_orders_schema_extensions(&self) -> Result<()> {
+        self.ensure_column_exists(
+            "orders",
+            "remaining_quantity",
+            "ALTER TABLE orders ADD COLUMN remaining_quantity INTEGER NOT NULL DEFAULT 0",
+        )
+        .await?;
+        self.ensure_column_exists(
+            "orders",
+            "last_transition_at",
+            "ALTER TABLE orders ADD COLUMN last_transition_at TEXT NOT NULL DEFAULT ''",
+        )
+        .await?;
+        self.ensure_column_exists(
+            "orders",
+            "version",
+            "ALTER TABLE orders ADD COLUMN version INTEGER NOT NULL DEFAULT 0",
+        )
+        .await?;
+        sqlx::query(
+            r#"
+UPDATE orders
+SET remaining_quantity = MAX(requested_quantity - filled_quantity, 0)
+"#,
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            r#"
+UPDATE orders
+SET last_transition_at = updated_at
+WHERE last_transition_at = ''
+"#,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn ensure_column_exists(
+        &self,
+        table_name: &str,
+        column_name: &str,
+        alter_sql: &str,
+    ) -> Result<()> {
+        let pragma_sql = format!("PRAGMA table_info({table_name})");
+        let rows = sqlx::query(&pragma_sql).fetch_all(&self.pool).await?;
+        let has_column = rows
+            .iter()
+            .any(|row| row.try_get::<String, _>("name").map(|name| name == column_name).unwrap_or(false));
+        if !has_column {
+            sqlx::query(alter_sql).execute(&self.pool).await?;
+        }
         Ok(())
     }
 
@@ -433,13 +504,16 @@ INSERT INTO orders (
     requested_quantity,
     requested_price,
     filled_quantity,
+    remaining_quantity,
     avg_fill_price,
     status,
     adapter,
     created_at,
     updated_at,
+    last_transition_at,
+    version,
     payload_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 "#,
         )
         .bind(&order.order_id)
@@ -451,11 +525,14 @@ INSERT INTO orders (
         .bind(order.requested_quantity)
         .bind(order.requested_price.to_string())
         .bind(order.filled_quantity)
+        .bind(order.remaining_quantity)
         .bind(order.avg_fill_price.map(|value| value.to_string()))
         .bind(order.status.as_str())
         .bind(&order.adapter)
         .bind(order.created_at.to_rfc3339())
         .bind(order.updated_at.to_rfc3339())
+        .bind(order.last_transition_at.to_rfc3339())
+        .bind(order.version)
         .bind(serde_json::to_string(&order.payload_json)?)
         .execute(&self.pool)
         .await?;
@@ -504,11 +581,14 @@ SELECT
     requested_quantity,
     requested_price,
     filled_quantity,
+    remaining_quantity,
     avg_fill_price,
     status,
     adapter,
     created_at,
     updated_at,
+    last_transition_at,
+    version,
     payload_json
 FROM orders
 WHERE client_order_id = ?
@@ -534,11 +614,14 @@ SELECT
     requested_quantity,
     requested_price,
     filled_quantity,
+    remaining_quantity,
     avg_fill_price,
     status,
     adapter,
     created_at,
     updated_at,
+    last_transition_at,
+    version,
     payload_json
 FROM orders
 WHERE run_id = ?
@@ -586,19 +669,168 @@ WHERE run_id = ?
         sqlx::query(
             r#"
 UPDATE orders
-SET status = ?, filled_quantity = ?, avg_fill_price = ?, updated_at = ?
+SET status = ?,
+    filled_quantity = ?,
+    remaining_quantity = MAX(requested_quantity - ?, 0),
+    avg_fill_price = ?,
+    updated_at = ?,
+    last_transition_at = ?,
+    version = version + 1
 WHERE order_id = ?
 "#,
         )
         .bind(status.as_str())
         .bind(filled_quantity)
+        .bind(filled_quantity)
         .bind(avg_fill_price.map(|value| value.to_string()))
+        .bind(updated_at.to_rfc3339())
         .bind(updated_at.to_rfc3339())
         .bind(order_id)
         .execute(&self.pool)
         .await?;
 
         Ok(())
+    }
+
+    pub async fn insert_mock_live_order_state(
+        &self,
+        order_id: &str,
+        adapter_order_id: Option<&str>,
+        state: &MockLiveOrderState,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+INSERT INTO mock_live_orders (
+    order_id,
+    adapter_order_id,
+    state_json
+) VALUES (?, ?, ?)
+"#,
+        )
+        .bind(order_id)
+        .bind(adapter_order_id)
+        .bind(serde_json::to_string(state)?)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_mock_live_order_state(&self, order_id: &str) -> Result<Option<MockLiveOrderState>> {
+        let row = sqlx::query(
+            r#"
+SELECT state_json
+FROM mock_live_orders
+WHERE order_id = ?
+"#,
+        )
+        .bind(order_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| -> Result<MockLiveOrderState> {
+            let state_json: String = row.try_get("state_json")?;
+            Ok(serde_json::from_str(&state_json)?)
+        })
+        .transpose()
+    }
+
+    pub async fn list_recoverable_mock_live_orders(&self) -> Result<Vec<OrderRecord>> {
+        let rows = sqlx::query(
+            r#"
+SELECT
+    o.order_id,
+    o.client_order_id,
+    o.run_id,
+    o.symbol,
+    o.side,
+    o.order_type,
+    o.requested_quantity,
+    o.requested_price,
+    o.filled_quantity,
+    o.remaining_quantity,
+    o.avg_fill_price,
+    o.status,
+    o.adapter,
+    o.created_at,
+    o.updated_at,
+    o.last_transition_at,
+    o.version,
+    o.payload_json
+FROM orders o
+INNER JOIN mock_live_orders m ON m.order_id = o.order_id
+WHERE o.status IN (?, ?, ?, ?, ?)
+ORDER BY o.updated_at ASC, o.order_id ASC
+"#,
+        )
+        .bind(OrderStatus::Submitted.as_str())
+        .bind(OrderStatus::Accepted.as_str())
+        .bind(OrderStatus::PartiallyFilled.as_str())
+        .bind(OrderStatus::Unknown.as_str())
+        .bind(OrderStatus::PendingCancel.as_str())
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(Self::row_to_order).collect()
+    }
+
+    pub async fn update_mock_live_order_state(
+        &self,
+        order_id: &str,
+        adapter_order_id: Option<&str>,
+        state: &MockLiveOrderState,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+UPDATE mock_live_orders
+SET adapter_order_id = ?, state_json = ?
+WHERE order_id = ?
+"#,
+        )
+        .bind(adapter_order_id)
+        .bind(serde_json::to_string(state)?)
+        .bind(order_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn try_update_order_with_version(
+        &self,
+        order_id: &str,
+        expected_version: i64,
+        status: OrderStatus,
+        filled_quantity: i64,
+        remaining_quantity: i64,
+        avg_fill_price: Option<Decimal>,
+        updated_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+UPDATE orders
+SET status = ?,
+    filled_quantity = ?,
+    remaining_quantity = ?,
+    avg_fill_price = ?,
+    updated_at = ?,
+    last_transition_at = ?,
+    version = version + 1
+WHERE order_id = ? AND version = ?
+"#,
+        )
+        .bind(status.as_str())
+        .bind(filled_quantity)
+        .bind(remaining_quantity)
+        .bind(avg_fill_price.map(|value| value.to_string()))
+        .bind(updated_at.to_rfc3339())
+        .bind(updated_at.to_rfc3339())
+        .bind(order_id)
+        .bind(expected_version)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() == 1)
     }
 
     pub async fn upsert_checkpoint(&self, checkpoint: &RunnerCheckpointRecord) -> Result<()> {
@@ -1292,6 +1524,7 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
         let status: String = row.try_get("status")?;
         let created_at: String = row.try_get("created_at")?;
         let updated_at: String = row.try_get("updated_at")?;
+        let last_transition_at: String = row.try_get("last_transition_at")?;
         let payload_json: String = row.try_get("payload_json")?;
 
         Ok(OrderRecord {
@@ -1307,7 +1540,7 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             requested_quantity: row.try_get("requested_quantity")?,
             requested_price: parse_decimal(&requested_price)?,
             filled_quantity: row.try_get("filled_quantity")?,
-            remaining_quantity: 0,
+            remaining_quantity: row.try_get("remaining_quantity")?,
             avg_fill_price: avg_fill_price.as_deref().map(parse_decimal).transpose()?,
             status: OrderStatus::from_str(&status).ok_or_else(|| {
                 QuantixError::DataParse(format!("invalid order status: {status}"))
@@ -1315,8 +1548,8 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             adapter: row.try_get("adapter")?,
             created_at: parse_timestamp(&created_at)?,
             updated_at: parse_timestamp(&updated_at)?,
-            last_transition_at: parse_timestamp(&updated_at)?,
-            version: 0,
+            last_transition_at: parse_timestamp(&last_transition_at)?,
+            version: row.try_get("version")?,
             payload_json: serde_json::from_str(&payload_json)?,
         })
     }
