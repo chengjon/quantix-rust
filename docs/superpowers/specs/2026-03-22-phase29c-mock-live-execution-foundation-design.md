@@ -226,6 +226,23 @@ Implications:
 - `submit_order()` does not imply a trade-book mutation
 - `partially_filled` can produce multiple trade-store mutations over time
 - cancellation after partial fill only cancels the remaining quantity
+- partial fills are recorded as real incremental paper-trade executions, not deferred until final fill
+
+### Accounting Consistency Rule
+
+This slice prioritizes **paper account consistency over adapter truth**.
+
+Rule:
+
+- if a newly observed fill cannot be applied to the paper account successfully
+- the shared public order row must not advance its `filled_quantity` beyond the amount already reflected in `paper_trade.json`
+
+This avoids a broken state where:
+
+- the public order ledger says a fill happened
+- but the paper account, trade history, reporting, and risk state do not match
+
+The adapter may know more than the paper account in failure scenarios, but the public order ledger must remain aligned with the account of record.
 
 ## Runtime Store Changes
 
@@ -325,6 +342,35 @@ Expected first-slice behavior:
 - may return `unknown` for simulated non-deterministic execution faults
 - must not mutate the paper-trade account unless the initial simulation step explicitly includes a fill
 
+### Incremental fill details
+
+For real partial-fill accounting, adapter responses must expose both:
+
+- order-level summary state
+- increment-level fill details
+
+Recommended shape:
+
+```rust
+pub struct FillDetails {
+    pub fill_id: u64,
+    pub fill_quantity: i64,
+    pub fill_price: Decimal,
+}
+```
+
+Extend both `OrderInitialResponse` and `OrderQueryResponse` with:
+
+```rust
+pub fill_details: Option<FillDetails>
+```
+
+Reason:
+
+- `avg_fill_price` alone is not enough for correct incremental accounting
+- the kernel must know the actual delta fill quantity and price for this specific step
+- `fill_id` is required for idempotency across retry and recovery
+
 ### `query_order`
 
 `query_order()` is the primary lifecycle-advance mechanism.
@@ -363,21 +409,24 @@ Required behavior:
 
 - create the shared order row before adapter submission
 - write `pending_submit`
-- write the adapter-returned current status
-- update the order row to the adapter-returned current status even if it is non-final
-- call `risk.sync_after_fill()` only when newly filled quantity is observed
+- treat adapter output as proposed execution truth, not immediate accounting truth
 - apply account mutations through a kernel-owned fill-delta path, not from the adapter
+- advance the shared order row only after the accounting side accepts the new fill delta
 - record adapter identity from the concrete adapter boundary rather than hardcoding `"paper"`
 
 Recommended internal helper:
 
-- `apply_fill_delta(order_id, old_filled_qty, new_filled_qty, fill_price, fill_details)`
+- `apply_fill_delta(FillDeltaContext) -> Result<FillDeltaResult>`
 
-This helper should:
+`execute_once()` sequencing should be:
 
-1. detect incremental newly filled quantity
-2. update the paper-trade account for only that delta
-3. append the corresponding fill event details
+1. create the shared order row with `pending_submit`
+2. call `submit_order()`
+3. compare `old_filled_quantity = 0` with the adapter-returned `new_filled_quantity`
+4. call `apply_fill_delta(...)`
+5. if no delta was applied, update only lifecycle status
+6. if delta was applied successfully, then update the shared order row and write fill events
+7. if fill application fails, write a failure event and leave public filled quantity unchanged
 
 The adapter returns raw execution state; the kernel remains the owner of account mutation and shared audit semantics.
 
@@ -387,16 +436,102 @@ Replace the current placeholder with a real recovery pass.
 
 First-slice recovery scope:
 
-- scan non-terminal mock-live orders
-- query the adapter for their current status
-- persist any resulting transitions
-- count scanned and transitioned orders
+- scan non-terminal mock-live orders in states:
+  `submitted`, `accepted`, `partially_filled`, `unknown`, `pending_cancel`
+- read the current shared order `version`
+- query the adapter for the latest status
+- if status changes without new fill quantity, update the shared order via optimistic locking
+- if new fill quantity is observed, call the same `apply_fill_delta(...)` helper used by `execute_once()`
+- only after accounting succeeds may the shared order advance to the higher filled quantity
+- if a version conflict occurs, reload once and retry; on repeated conflict, record and skip
+- if `unknown` exceeds retry budget, append `recovery_exhausted` and set private exhaustion flags
+
+Recovery summary should include at least:
+
+- `scanned`
+- `recovered`
+- `unchanged`
+- `failed`
+- `skipped`
 
 Field semantics:
 
 - `failed` means **recovery attempts that failed to complete**, such as adapter query failures or unrecoverable version-conflict retries
 - `failed` does **not** mean the underlying order reached a terminal failed status
 - order truth remains encoded in public order status plus private mock-live exhaustion state
+
+### `apply_fill_delta(...)`
+
+This helper is the single accounting gateway for mock-live fills.
+
+Recommended input:
+
+```rust
+pub struct FillDeltaContext {
+    pub order_id: String,
+    pub client_order_id: String,
+    pub symbol: String,
+    pub side: OrderSide,
+    pub requested_price: Decimal,
+    pub old_filled_quantity: i64,
+    pub new_filled_quantity: i64,
+    pub fill_details: Option<FillDetails>,
+    pub event_time: DateTime<Utc>,
+}
+```
+
+Recommended output:
+
+```rust
+pub struct FillDeltaResult {
+    pub applied: bool,
+    pub delta_quantity: i64,
+    pub trade_record_id: Option<String>,
+}
+```
+
+Required semantics:
+
+- if `new_filled_quantity <= old_filled_quantity`, return `applied = false`
+- if `fill_details` is missing while a new fill must be applied, return an error
+- if `fill_details.fill_id <= last_applied_fill_id`, return `applied = false`
+- otherwise treat the delta as one real partial execution and call `TradeService::buy/sell`
+
+Persistence requirements:
+
+- update `MockLiveOrderState.last_applied_fill_id` only after successful accounting
+- append `fill_applied` after successful accounting
+- append `fill_apply_failed` when accounting fails
+
+### Trade accounting compatibility
+
+This slice keeps `TradeService` as the executor of paper-account mutations.
+
+Meaning:
+
+- each delta fill becomes one real `TradeRecord`
+- `history_rows`, `fee_rows`, and `overview` naturally aggregate partial fills as multiple executions
+- no order-level fee smoothing is performed in this slice
+
+Price rules:
+
+- use `fill_details.fill_price` for the incremental trade
+- use `avg_fill_price` only as an order-level summary field
+
+This is necessary because cumulative average price alone is not sufficient for correct per-delta accounting.
+
+### Failure ordering
+
+If `apply_fill_delta(...)` fails:
+
+- do not advance the public order `filled_quantity`
+- do not write `fill_applied`
+- write `fill_apply_failed`
+- return an error to the caller
+
+This slice intentionally prefers account/ledger consistency over adapter truth visibility.
+
+The shared order ledger, paper account, reporting, and risk view must stay aligned.
 
 This slice does not require a background loop; a direct recovery call is sufficient.
 
@@ -454,6 +589,12 @@ Cover:
 - order events become multi-step
 - `sync_after_fill()` only runs when new fill quantity is observed
 - `recover_pending_orders()` scans and advances recoverable orders
+- version conflicts do not corrupt order state
+- `unknown` retry exhaustion writes `recovery_exhausted` without changing public status away from `unknown`
+- direct-path partial fill creates one real incremental paper-trade record
+- recovery-path fill delta creates only the newly observed trade delta
+- repeated recovery on the same `fill_id` does not double-apply accounting
+- `fill_apply_failed` prevents public filled quantity from advancing
 
 ### Layer 3: CLI tests
 
@@ -472,8 +613,22 @@ Cover:
 
 - direct `strategy run --mode mock_live`
 - runtime rows exist
-- paper account changes only after fill
+- paper account changes only after real delta fill application
 - dedupe behavior still works
+- `submit -> unknown -> recover -> filled` works end to end
+- partial fill followed by cancel preserves already filled quantity and cancels only the remainder
+- mock-live partial fills appear as multiple trade records rather than a single deferred final write
+
+### Layer 5: reporting tests
+
+Extend `tests/trade_reporting_test.rs`.
+
+Cover:
+
+- multiple delta fills from one mock-live order appear as multiple trade records
+- `history_rows` shows each delta execution
+- `fee_rows` reflects per-delta fee accumulation
+- `overview` aggregates totals from those multiple executions
 
 ## Acceptance Criteria
 
@@ -481,10 +636,12 @@ This slice is complete when:
 
 1. `strategy run --mode mock_live --code <CODE>` works
 2. initial submit may return a non-final order status
-3. `runtime.db` stores shared audit rows plus `mock_live_orders`
-4. paper account mutations happen only on fill
-5. `recover_pending_orders()` no longer returns a fixed empty summary
-6. `paper` remains immediate-fill and backward compatible
+3. shared `orders` rows remain self-describing and versioned
+4. `runtime.db` stores shared audit rows plus `mock_live_orders`
+5. paper account mutations happen only on successful delta fill application
+6. `recover_pending_orders()` no longer returns a fixed empty summary
+7. `paper` remains immediate-fill and backward compatible
+8. repeated recovery does not double-apply the same fill delta
 
 ## Implementation Plan
 
