@@ -210,7 +210,7 @@ cargo test --test repo_hygiene_test -- --nocapture
 当前处理方式符合项目规则：
 
 - 已保留本地等价摘要
-- 已在计划文档中标记 `Graphiti backfill required`
+- 当时已在计划文档中留下 Graphiti 补写占位标记；相关记忆后续已补写成功，但本地标记未同步清理
 
 这不影响代码交付，但会影响长期记忆完整性。
 
