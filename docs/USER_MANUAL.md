@@ -232,6 +232,7 @@ quantix trade cash
 # 基于纸面账户设置风控规则
 quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 50000
+quantix risk rule set --type industry-blocklist --value 银行,地产
 
 # 查看规则和当前状态
 quantix risk rule list
@@ -1280,7 +1281,7 @@ quantix trade cash
 
 ### risk - 风险管理
 
-提供 Phase 27B 的风控闭环：在保留本地 paper-trade 风控的同时，支持导入标准化实盘流水、重建只读镜像账户，并通过 `--source paper|live_import` 显式切换风险视图。
+提供 Phase 27D 的风控闭环：在保留本地 paper-trade 风控的同时，支持导入标准化实盘流水、重建只读镜像账户，并通过 `--source paper|live_import` 显式切换风险视图。`industry-blocklist` 现已成为受支持的风险规则。
 
 #### 存储路径
 
@@ -1291,7 +1292,7 @@ quantix trade cash
 
 - 默认数据源仍是本地 paper-trade 账户
 - 支持导入标准化 `CSV/JSON` 实盘流水并重建只读镜像账户
-- 仅支持 `position-limit`、`daily-loss-limit`、`volatility-limit` 三类规则
+- 仅支持 `position-limit`、`daily-loss-limit`、`volatility-limit`、`industry-blocklist` 四类规则
 - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交
 - `trade init` / `trade reset` 会清除当日买入锁并保留已配置规则
 - 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
@@ -1299,13 +1300,22 @@ quantix trade cash
 - `--source live_import` 要求显式指定 `--account`
 - `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
 - `volatility-limit` 缺少或不足日线时会拒绝买单
+- Phase 27D v1 使用 `SW 一级行业` 作为运行时生效标准
+- `security_class_2024` / CSRC 2024 仍保留在系统中作为并行分类标准，不是该 v1 规则的运行时生效标准
+- 运行时风险评估只读取本地 SQLite reference/snapshot 表
+- MySQL 仅作为上游同步来源，不参与运行时查询
+- 最终运行时边界保持为 ClickHouse + SQLite；MySQL 仅负责上游同步
+- 运行时解析顺序：1. 当前 SW 映射 2. 查询月份快照 3. 历史 SW 映射 4. 最新本地快照
+- 月度快照会在该月第一次成功命中 `SW 一级行业` 时冻结
+- `industry-blocklist` 采用精确字符串匹配，不做模糊归一化
+- `industry-blocklist` 不影响卖出路径
 - 实盘导入当前只支持项目标准化 CSV/JSON
 - failed rebuild 不会覆盖上一次成功镜像状态
 - `risk status` 会显示锁状态来源、作用交易日、触发原因、触发时间
 - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件
 - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
 - `risk log` 当前支持按事件写入日 `--date` 和事件类型 `--type` 过滤
-- 行业规则、自动减仓 延后到后续 Phase
+- 行业白名单、自动减仓 继续延后到后续 Phase
 
 #### 命令摘要
 
@@ -1316,6 +1326,7 @@ quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 50000
 quantix risk rule set --type daily-loss-limit --value 5%
 quantix risk rule set --type volatility-limit --value 4%
+quantix risk rule set --type industry-blocklist --value 银行,地产
 quantix risk rule list
 quantix risk rule enable --type position-limit
 quantix risk rule disable --type daily-loss-limit
@@ -1332,6 +1343,8 @@ quantix risk lock release
 - `daily-loss-limit` 同时支持金额值和百分比值，例如 `50000` 或 `5%`
 - `volatility-limit` 仅接受百分比值，例如 `4%`
 - `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
+- `industry-blocklist` 现已成为受支持的风险规则
+- `industry-blocklist` 的值按逗号分隔行业名称，例如 `银行,地产`
 - `risk status`、`risk pnl`、`risk position` 依赖已初始化的 paper-trade 账户；首次使用前请先执行 `quantix trade init`
 - `risk import live-trades` 当前只接受项目标准化 `CSV/JSON`
 - `risk rebuild live-account` 始终做全量 replay，不做增量重建
@@ -1356,6 +1369,7 @@ quantix risk rebuild live-account --account live-001
 quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 5%
 quantix risk rule set --type volatility-limit --value 4%
+quantix risk rule set --type industry-blocklist --value 银行,地产
 quantix risk status
 quantix risk status --source live_import --account live-001
 quantix risk pnl
