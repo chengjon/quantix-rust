@@ -1,12 +1,15 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, TimeZone, Utc};
-use quantix_cli::core::Result;
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use quantix_cli::core::{QuantixError, Result};
+use quantix_cli::risk::service::RiskIndustryResolver;
 use quantix_cli::risk::{
-    ProjectedBuyImpact, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRuleType,
-    RiskRule, RiskService, RiskState, RiskStore, RuleValue,
+    ClassificationStandard, IndustryClassificationLevel, IndustrySourceTier, ProjectedBuyImpact,
+    ResolvedIndustry, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRule,
+    RiskRuleType, RiskService, RiskState, RiskStore, RuleValue,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
@@ -36,6 +39,48 @@ impl RiskStore for FakeRiskStore {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+struct FakeIndustryResolver {
+    industries: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl FakeIndustryResolver {
+    fn with_rows(rows: &[(&str, &str)]) -> Self {
+        Self {
+            industries: Arc::new(Mutex::new(
+                rows.iter()
+                    .map(|(code, industry)| ((*code).to_string(), (*industry).to_string()))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+#[async_trait]
+impl RiskIndustryResolver for FakeIndustryResolver {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: chrono::NaiveDate,
+        _captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry> {
+        let industries = self.industries.lock().unwrap();
+        let industry_name = industries
+            .get(code)
+            .cloned()
+            .ok_or_else(|| quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}")))?;
+
+        Ok(ResolvedIndustry {
+            code: code.to_string(),
+            industry_name,
+            standard: ClassificationStandard::Shenwan,
+            level: IndustryClassificationLevel::FirstLevel,
+            source_tier: IndustrySourceTier::CurrentActive,
+            query_month: format!("{:04}-{:02}", query_date.year(), query_date.month()),
+        })
+    }
+}
+
 fn fixed_ts() -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 3, 11, 9, 35, 0).unwrap()
 }
@@ -43,6 +88,16 @@ fn fixed_ts() -> DateTime<Utc> {
 fn service() -> (RiskService<FakeRiskStore>, FakeRiskStore) {
     let store = FakeRiskStore::default();
     (RiskService::new(store.clone()), store)
+}
+
+fn service_with_industry_resolver(
+    resolver: FakeIndustryResolver,
+) -> (RiskService<FakeRiskStore>, FakeRiskStore) {
+    let store = FakeRiskStore::default();
+    (
+        RiskService::with_industry_resolver(store.clone(), resolver),
+        store,
+    )
 }
 
 fn snapshot(total_assets: Decimal, positions: &[(&str, Decimal)]) -> RiskAccountSnapshot {
@@ -192,6 +247,89 @@ async fn set_rule_industry_blocklist_rejects_empty_names() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("industry-blocklist"));
+}
+
+#[tokio::test]
+async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_without_lock_or_log() {
+    let (service, store) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "银行")]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("industry-blocklist"));
+    assert!(err.to_string().contains("银行"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
+}
+
+#[tokio::test]
+async fn industry_blocklist_allows_buy_when_resolved_industry_is_not_blocked() {
+    let (service, _) = service_with_industry_resolver(FakeIndustryResolver::with_rows(&[(
+        "000001",
+        "有色金属",
+    )]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+
+    service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn industry_blocklist_returns_hard_check_failure_when_resolver_misses() {
+    let (service, store) = service_with_industry_resolver(FakeIndustryResolver::default());
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, QuantixError::DataSource(_)));
+    assert!(err.to_string().contains("industry-blocklist"));
+    assert!(err.to_string().contains("检查失败"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
 }
 
 #[test]

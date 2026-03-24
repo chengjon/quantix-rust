@@ -51,6 +51,7 @@ use crate::risk::{
     BuyLockState, JsonRiskStore, PositionRiskRow, RiskAccountSnapshot, RiskLockStateSource,
     RiskLogEvent, RiskLogEventType, RiskRule, RiskService, RiskStatus,
 };
+use crate::risk::service::RuntimeJsonRiskServices;
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
@@ -468,6 +469,21 @@ impl<TradeStore, RiskStore> StrategyRiskBridge<TradeStore, RiskStore> {
     }
 }
 
+#[derive(Debug, Clone)]
+struct StrategyRuntimeRiskBridge<TradeStore> {
+    trade_store: TradeStore,
+    risk_services: RuntimeJsonRiskServices,
+}
+
+impl<TradeStore> StrategyRuntimeRiskBridge<TradeStore> {
+    fn new(trade_store: TradeStore, risk_services: RuntimeJsonRiskServices) -> Self {
+        Self {
+            trade_store,
+            risk_services,
+        }
+    }
+}
+
 pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
     match cmd {
         ExecutionCommands::Config(subcommand) => match subcommand {
@@ -585,46 +601,80 @@ where
     }
 }
 
-async fn execute_strategy_run_with_components<L, TS, RS>(
+#[async_trait]
+impl<TradeStore> RiskEvaluator for StrategyRuntimeRiskBridge<TradeStore>
+where
+    TradeStore: PaperTradeStore,
+{
+    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
+        if intent.side == crate::execution::models::OrderSide::Sell {
+            return Ok(RiskDecision::Allow);
+        }
+
+        let account = load_initialized_trade_account(&self.trade_store).await?;
+        let snapshot = build_risk_account_snapshot(&account);
+        let request = TradeOrderRequest::new(
+            intent.symbol.clone(),
+            decimal_to_f64(intent.requested_price, "strategy run --mode paper")?,
+            intent.requested_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode paper"))?;
+        let projected_buy = build_projected_buy_impact(&account, &request);
+        let risk_service = self.risk_services.buy_checks().await?;
+
+        match risk_service
+            .check_buy(&snapshot, &projected_buy, Utc::now())
+            .await
+        {
+            Ok(()) => Ok(RiskDecision::Allow),
+            Err(QuantixError::Other(reason)) => Ok(RiskDecision::Reject { reason }),
+            Err(other) => Err(other),
+        }
+    }
+
+    async fn sync_after_fill(&self) -> Result<()> {
+        sync_risk_from_trade_store(&self.trade_store, self.risk_services.base()).await
+    }
+}
+
+async fn execute_strategy_run_with_components<L, TS>(
     name: &str,
     mode: &str,
     code: Option<String>,
     loader: L,
     trade_store: TS,
-    risk_store: RS,
+    risk_store: JsonRiskStore,
     runtime_store: &StrategyRuntimeStore,
 ) -> Result<StrategyRunSummary>
 where
     L: StrategyBarLoader,
     TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore + Clone,
 {
-    let risk_service = RiskService::new(risk_store.clone());
-    execute_strategy_run_with_risk_service(
+    execute_strategy_run_with_runtime_risk_services(
         name,
         mode,
         code,
         loader,
         trade_store,
-        risk_service,
+        RuntimeJsonRiskServices::new(risk_store),
         runtime_store,
     )
     .await
 }
 
-async fn execute_strategy_run_with_risk_service<L, TS, RS>(
+async fn execute_strategy_run_with_risk_bridge<L, TS, R>(
     name: &str,
     mode: &str,
     code: Option<String>,
     loader: L,
     trade_store: TS,
-    risk_service: RiskService<RS>,
+    risk: R,
     runtime_store: &StrategyRuntimeStore,
 ) -> Result<StrategyRunSummary>
 where
     L: StrategyBarLoader,
     TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore,
+    R: RiskEvaluator,
 {
     match mode {
         "live" => {
@@ -666,7 +716,6 @@ where
     let runtime = StrategyRuntime::new(&loader);
     let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;
 
-    let risk = StrategyRiskBridge::new(trade_store.clone(), risk_service);
     let run_id = uuid::Uuid::new_v4().to_string();
     let client_order_id = format!("{run_id}_{symbol}_1");
     let run_request = ExecutionRunRequest {
@@ -736,6 +785,57 @@ fn build_strategy_run_summary(
         order_status: result.order_status,
         message,
     }
+}
+
+async fn execute_strategy_run_with_runtime_risk_services<L, TS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_services: RuntimeJsonRiskServices,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+{
+    execute_strategy_run_with_risk_bridge(
+        name,
+        mode,
+        code,
+        loader,
+        trade_store.clone(),
+        StrategyRuntimeRiskBridge::new(trade_store, risk_services),
+        runtime_store,
+    )
+    .await
+}
+
+async fn execute_strategy_run_with_risk_service<L, TS, RS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_service: RiskService<RS>,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore,
+{
+    execute_strategy_run_with_risk_bridge(
+        name,
+        mode,
+        code,
+        loader,
+        trade_store.clone(),
+        StrategyRiskBridge::new(trade_store, risk_service),
+        runtime_store,
+    )
+    .await
 }
 
 fn signal_label(signal: Signal) -> &'static str {
@@ -1042,15 +1142,14 @@ async fn execute_strategy_request_execute(request_id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn execute_strategy_request_execute_with_components<TS, RS>(
+async fn execute_strategy_request_execute_with_components<TS>(
     store: &StrategyRuntimeStore,
     request_id: &str,
     trade_store: TS,
-    risk_store: RS,
+    risk_store: JsonRiskStore,
 ) -> Result<ExecutionRequestRecord>
 where
     TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore + Clone,
 {
     crate::execution::daemon::execute_request_by_id_with_components(
         store,
@@ -1828,9 +1927,9 @@ pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
 pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {
     let trade_store = create_trade_store();
     let service = TradeService::new(trade_store.clone());
-    let risk_service = RiskService::new(create_risk_store());
     let output =
-        execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
+        execute_trade_command_with_runtime_risk(cmd, &service, &trade_store, create_risk_store())
+            .await?;
     print_trade_command_output(&output);
     Ok(())
 }
@@ -2474,6 +2573,101 @@ where
             let request = build_trade_order_request("trade sell", code, price, volume)?;
             let record = trade_service.sell(request, Utc::now()).await?;
             sync_risk_from_trade_store(trade_store, risk_service).await?;
+            Ok(TradeCommandOutput::TradeExecuted(record))
+        }
+        TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
+            execute_trade_command_with_quote_lookup(cmd, trade_service, &TdxWatchlistQuoteLookup)
+                .await
+        }
+        other => execute_trade_command_with_service(other, trade_service).await,
+    }
+}
+
+async fn execute_trade_command_with_runtime_risk<TradeStore>(
+    cmd: TradeCommands,
+    trade_service: &TradeService<TradeStore>,
+    trade_store: &TradeStore,
+    risk_store: JsonRiskStore,
+) -> Result<TradeCommandOutput>
+where
+    TradeStore: PaperTradeStore,
+{
+    let risk_services = RuntimeJsonRiskServices::new(risk_store);
+
+    match cmd {
+        TradeCommands::Init {
+            capital,
+            commission_rate,
+            commission_min,
+            stamp_duty_rate,
+            transfer_fee_rate,
+        } => {
+            let request = build_trade_init_request(
+                "trade init",
+                capital,
+                commission_rate,
+                commission_min,
+                stamp_duty_rate,
+                transfer_fee_rate,
+            )?;
+            let account = trade_service.init_account(request, Utc::now()).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            risk_services
+                .base()
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
+            Ok(TradeCommandOutput::AccountInitialized(account))
+        }
+        TradeCommands::Reset {
+            capital,
+            commission_rate,
+            commission_min,
+            stamp_duty_rate,
+            transfer_fee_rate,
+        } => {
+            let request = build_trade_init_request(
+                "trade reset",
+                capital,
+                commission_rate,
+                commission_min,
+                stamp_duty_rate,
+                transfer_fee_rate,
+            )?;
+            let account = trade_service.reset_account(request, Utc::now()).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            risk_services
+                .base()
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
+            Ok(TradeCommandOutput::AccountReset(account))
+        }
+        TradeCommands::Buy {
+            code,
+            price,
+            volume,
+        } => {
+            let request = build_trade_order_request("trade buy", code, price, volume)?;
+            let account = load_initialized_trade_account(trade_store).await?;
+            let snapshot = build_risk_account_snapshot(&account);
+            let projected_buy = build_projected_buy_impact(&account, &request);
+            risk_services
+                .buy_checks()
+                .await?
+                .check_buy(&snapshot, &projected_buy, Utc::now())
+                .await?;
+
+            let record = trade_service.buy(request, Utc::now()).await?;
+            sync_risk_from_trade_store(trade_store, risk_services.base()).await?;
+            Ok(TradeCommandOutput::TradeExecuted(record))
+        }
+        TradeCommands::Sell {
+            code,
+            price,
+            volume,
+        } => {
+            let request = build_trade_order_request("trade sell", code, price, volume)?;
+            let record = trade_service.sell(request, Utc::now()).await?;
+            sync_risk_from_trade_store(trade_store, risk_services.base()).await?;
             Ok(TradeCommandOutput::TradeExecuted(record))
         }
         TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
@@ -5128,6 +5322,34 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
     }
 
+    async fn seed_current_industry(
+        risk_state_path: &std::path::Path,
+        code: &str,
+        industry_name: &str,
+    ) {
+        let store = crate::risk::SqliteIndustryStore::from_risk_state_path(risk_state_path)
+            .await
+            .unwrap();
+        store
+            .upsert_shenwan_current_rows(
+                &[crate::risk::ShenwanCurrentSeedRow {
+                    security_code: code.to_string(),
+                    industry_name: industry_name.to_string(),
+                    source: "test_seed".to_string(),
+                }],
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+    }
+
+    fn invalid_runtime_risk_state_path(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let risk_dir = dir.path().join("invalid-runtime-risk");
+        std::fs::create_dir_all(&risk_dir).unwrap();
+        std::fs::create_dir_all(risk_dir.join("industry_reference.db")).unwrap();
+        risk_dir.join("risk_state.json")
+    }
+
     fn sample_run(
         symbol: &str,
         bar_end: DateTime<Utc>,
@@ -5281,6 +5503,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_strategy_live_unsupported_before_runtime_risk_sqlite_setup() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "live",
+            Some("000001".to_string()),
+            FakeLoader::default(),
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(invalid_runtime_risk_state_path(&dir)),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
     async fn test_strategy_mock_live_returns_non_final_status() {
         let dir = tempdir().unwrap();
         let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
@@ -5338,6 +5582,241 @@ mod tests {
         assert_eq!(summary.mode, "mock_live");
         assert_eq!(summary.order_status, Some(OrderStatus::Accepted));
         assert!(summary.message.contains("order_status=accepted"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_risk_bridge_surfaces_industry_blocklist_reason() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+        let risk_store = JsonRiskStore::new(risk_state_path.clone());
+        let risk_service = RiskService::from_json_store(risk_store.clone())
+            .await
+            .unwrap();
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            Some("000001".to_string()),
+            loader,
+            trade_store,
+            risk_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.order_status, Some(OrderStatus::Rejected));
+
+        let order = runtime_store
+            .find_first_order_for_run(&summary.run_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "risk_rejected");
+        assert!(
+            events[0].details_json["reason"]
+                .as_str()
+                .unwrap()
+                .contains("industry-blocklist")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_strategy_mock_live_risk_bridge_surfaces_industry_blocklist_reason() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+        let risk_store = JsonRiskStore::new(risk_state_path.clone());
+        let risk_service = RiskService::from_json_store(risk_store.clone())
+            .await
+            .unwrap();
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_components(
+            "ma_cross",
+            "mock_live",
+            Some("000001".to_string()),
+            loader,
+            trade_store.clone(),
+            risk_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.order_status, Some(OrderStatus::Rejected));
+
+        let order = runtime_store
+            .find_first_order_for_run(&summary.run_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "risk_rejected");
+        assert!(
+            events[0].details_json["reason"]
+                .as_str()
+                .unwrap()
+                .contains("industry-blocklist")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_resolver_miss_surfaces_hard_error() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+        let risk_store = JsonRiskStore::new(risk_state_path.clone());
+        let risk_service = RiskService::from_json_store(risk_store.clone())
+            .await
+            .unwrap();
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            Some("000001".to_string()),
+            loader,
+            trade_store,
+            risk_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::DataSource(_)));
+        assert!(err.to_string().contains("industry-blocklist"));
+        assert!(err.to_string().contains("检查失败"));
     }
 
     #[tokio::test]
@@ -6545,6 +7024,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_trade_buy_rejects_when_industry_is_blocked() {
+        let (service, store) = trade_service();
+        let dir = tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let risk_service = RiskService::from_json_store(JsonRiskStore::new(risk_state_path))
+            .await
+            .unwrap();
+
+        execute_trade_command_with_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let err = execute_trade_command_with_risk(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("industry-blocklist"));
+
+        let state = store.snapshot().unwrap();
+        let account = state.account.unwrap();
+        assert!(account.positions.is_empty());
+        assert!(state.trade_records.is_empty());
+    }
+
+    #[tokio::test]
     async fn test_execute_trade_sell_succeeds_and_returns_trade_summary() {
         let (service, _) = trade_service();
 
@@ -6650,6 +7180,125 @@ mod tests {
             &service,
             &store,
             &risk_service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::TradeExecuted(record) => {
+                assert_eq!(record.side, TradeSide::Sell);
+                assert_eq!(record.code, "000001");
+                assert_eq!(record.price, dec!(16));
+                assert_eq!(record.volume, 400);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_sell_succeeds_when_industry_is_blocked() {
+        let (service, store) = trade_service();
+        let dir = tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let risk_service = RiskService::from_json_store(JsonRiskStore::new(risk_state_path))
+            .await
+            .unwrap();
+
+        execute_trade_command_with_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        execute_trade_command_with_risk(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let output = execute_trade_command_with_risk(
+            TradeCommands::Sell {
+                code: "000001".to_string(),
+                price: 16.0,
+                volume: 400,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::TradeExecuted(record) => {
+                assert_eq!(record.side, TradeSide::Sell);
+                assert_eq!(record.code, "000001");
+                assert_eq!(record.price, dec!(16));
+                assert_eq!(record.volume, 400);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_sell_with_runtime_risk_does_not_require_sqlite_setup() {
+        let (service, store) = trade_service();
+        let dir = tempdir().unwrap();
+
+        execute_trade_command_with_service(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        let output = execute_trade_command_with_runtime_risk(
+            TradeCommands::Sell {
+                code: "000001".to_string(),
+                price: 16.0,
+                volume: 400,
+            },
+            &service,
+            &store,
+            JsonRiskStore::new(invalid_runtime_risk_state_path(&dir)),
         )
         .await
         .unwrap();

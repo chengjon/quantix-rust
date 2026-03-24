@@ -6,7 +6,7 @@ use quantix_cli::execution::models::{
     StrategySignalRecord,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
-use quantix_cli::risk::JsonRiskStore;
+use quantix_cli::risk::{JsonRiskStore, RiskService, ShenwanCurrentSeedRow, SqliteIndustryStore};
 use quantix_cli::trade::{InitAccountRequest, JsonPaperTradeStore, PaperTradeStore, TradeService};
 use serde_json::json;
 use tempfile::tempdir;
@@ -80,6 +80,34 @@ fn sample_signal(
     }
 }
 
+async fn seed_current_industry(
+    risk_state_path: &std::path::Path,
+    code: &str,
+    industry_name: &str,
+) {
+    let store = SqliteIndustryStore::from_risk_state_path(risk_state_path)
+        .await
+        .unwrap();
+    store
+        .upsert_shenwan_current_rows(
+            &[ShenwanCurrentSeedRow {
+                security_code: code.to_string(),
+                industry_name: industry_name.to_string(),
+                source: "test_seed".to_string(),
+            }],
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+}
+
+fn invalid_runtime_risk_state_path(dir: &tempfile::TempDir) -> std::path::PathBuf {
+    let risk_dir = dir.path().join("invalid-runtime-risk");
+    std::fs::create_dir_all(&risk_dir).unwrap();
+    std::fs::create_dir_all(risk_dir.join("industry_reference.db")).unwrap();
+    risk_dir.join("risk_state.json")
+}
+
 #[tokio::test]
 async fn daemon_run_once_returns_empty_summary_when_no_pending_request_exists() {
     let dir = tempdir().unwrap();
@@ -151,4 +179,203 @@ async fn daemon_run_once_consumes_one_pending_paper_request() {
 
     let state = trade_store.load_state().await.unwrap().unwrap();
     assert_eq!(state.trade_records.len(), 1);
+}
+
+#[tokio::test]
+async fn daemon_run_once_rejects_pending_request_when_industry_is_blocked() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let risk_state_path = dir.path().join("risk_state.json");
+    seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+    let risk_store = JsonRiskStore::new(risk_state_path.clone());
+    let risk_service = RiskService::from_json_store(risk_store.clone())
+        .await
+        .unwrap();
+
+    risk_service
+        .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+        .await
+        .unwrap();
+
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let run = sample_run(fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-daemon-industry-1", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+    let request = runtime_store
+        .approve_signal_and_create_request(
+            "signal-daemon-industry-1",
+            "paper",
+            "default",
+            Some("cli"),
+        )
+        .await
+        .unwrap();
+
+    let summary = consume_next_pending_request_with_components(
+        &runtime_store,
+        trade_store.clone(),
+        risk_store,
+    )
+    .await
+    .unwrap();
+
+    let saved = runtime_store
+        .get_execution_request(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(summary.claimed, 1);
+    assert_eq!(summary.completed, 1);
+    assert_eq!(summary.failed, 0);
+    assert_eq!(saved.request_status, ExecutionRequestStatus::Completed);
+    assert_eq!(
+        saved.payload_json["execution_result"]["order_status"],
+        "rejected"
+    );
+
+    let client_order_id = saved.payload_json["execution_result"]["client_order_id"]
+        .as_str()
+        .unwrap();
+    let order = runtime_store
+        .find_order_by_client_order_id(client_order_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+    assert_eq!(events[0].event_type, "risk_rejected");
+    assert!(
+        events[0].details_json["reason"]
+            .as_str()
+            .unwrap()
+            .contains("industry-blocklist")
+    );
+
+    let state = trade_store.load_state().await.unwrap().unwrap();
+    assert!(state.trade_records.is_empty());
+}
+
+#[tokio::test]
+async fn daemon_run_once_marks_request_failed_when_industry_resolver_misses() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let risk_state_path = dir.path().join("risk_state.json");
+    let risk_store = JsonRiskStore::new(risk_state_path.clone());
+    let risk_service = RiskService::from_json_store(risk_store.clone())
+        .await
+        .unwrap();
+
+    risk_service
+        .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+        .await
+        .unwrap();
+
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let run = sample_run(fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-daemon-miss-1", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+    let request = runtime_store
+        .approve_signal_and_create_request("signal-daemon-miss-1", "paper", "default", Some("cli"))
+        .await
+        .unwrap();
+
+    let summary = consume_next_pending_request_with_components(
+        &runtime_store,
+        trade_store.clone(),
+        risk_store,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(summary.claimed, 1);
+    assert_eq!(summary.completed, 0);
+    assert_eq!(summary.failed, 1);
+
+    let saved = runtime_store
+        .get_execution_request(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    assert!(
+        saved.payload_json["execution_error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("industry-blocklist")
+    );
+    assert!(
+        saved.payload_json["execution_error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("检查失败")
+    );
+
+    let order = runtime_store.find_first_order_for_run(&run.run_id).await.unwrap();
+    assert!(order.is_none());
+
+    let state = trade_store.load_state().await.unwrap().unwrap();
+    assert!(state.trade_records.is_empty());
+}
+
+#[tokio::test]
+async fn daemon_run_once_returns_unsupported_for_live_request_before_sqlite_setup() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let risk_store = JsonRiskStore::new(invalid_runtime_risk_state_path(&dir));
+
+    let run = sample_run(fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-daemon-live-1", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+    let request = runtime_store
+        .approve_signal_and_create_request("signal-daemon-live-1", "live", "default", Some("cli"))
+        .await
+        .unwrap();
+
+    let summary =
+        consume_next_pending_request_with_components(&runtime_store, trade_store, risk_store)
+        .await
+        .unwrap();
+    assert_eq!(summary.claimed, 1);
+    assert_eq!(summary.completed, 0);
+    assert_eq!(summary.failed, 1);
+
+    let saved = runtime_store
+        .get_execution_request(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    assert!(
+        saved.payload_json["execution_error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("live 模式尚未实现")
+    );
 }

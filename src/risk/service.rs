@@ -3,13 +3,17 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::core::{QuantixError, Result};
+use crate::risk::industry::{IndustryResolver, ResolvedIndustry};
+use crate::risk::industry_store::SqliteIndustryStore;
 use crate::risk::models::{
     BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact, RiskAccountSnapshot,
     RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot, RiskRuleType,
     RiskState, RiskStatus, RuleValue,
 };
+use crate::risk::storage::JsonRiskStore;
 use crate::risk::volatility::{DefaultRiskBarLoader, RiskBarLoader, evaluate_volatility_limit};
 
 const DEFAULT_RISK_EVENT_LIMIT: usize = 100;
@@ -21,11 +25,66 @@ pub trait RiskStore: Send + Sync {
     async fn save_state(&self, state: &RiskState) -> Result<()>;
 }
 
+#[async_trait]
+pub trait RiskIndustryResolver: Send + Sync + std::fmt::Debug {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: NaiveDate,
+        captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry>;
+}
+
+#[async_trait]
+impl RiskIndustryResolver for IndustryResolver {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: NaiveDate,
+        captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry> {
+        IndustryResolver::resolve(self, code, query_date, captured_at).await
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RiskService<Store> {
     store: Store,
     event_limit: usize,
     bar_loader: Arc<dyn RiskBarLoader>,
+    industry_resolver: Option<Arc<dyn RiskIndustryResolver>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RuntimeJsonRiskServices {
+    store: JsonRiskStore,
+    base: RiskService<JsonRiskStore>,
+    buy_checks: Arc<Mutex<Option<RiskService<JsonRiskStore>>>>,
+}
+
+impl RuntimeJsonRiskServices {
+    pub fn new(store: JsonRiskStore) -> Self {
+        Self {
+            base: RiskService::new(store.clone()),
+            store,
+            buy_checks: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn base(&self) -> &RiskService<JsonRiskStore> {
+        &self.base
+    }
+
+    pub async fn buy_checks(&self) -> Result<RiskService<JsonRiskStore>> {
+        let mut guard = self.buy_checks.lock().await;
+        if let Some(service) = guard.as_ref() {
+            return Ok(service.clone());
+        }
+
+        let service = RiskService::from_json_store(self.store.clone()).await?;
+        *guard = Some(service.clone());
+        Ok(service)
+    }
 }
 
 impl<Store> RiskService<Store>
@@ -33,17 +92,49 @@ where
     Store: RiskStore,
 {
     pub fn new(store: Store) -> Self {
-        Self::with_bar_loader(store, DefaultRiskBarLoader::from_env())
+        Self::with_dependencies(store, DefaultRiskBarLoader::from_env(), None::<IndustryResolver>)
     }
 
     pub fn with_bar_loader<Loader>(store: Store, bar_loader: Loader) -> Self
     where
         Loader: RiskBarLoader + 'static,
     {
+        Self::with_dependencies(store, bar_loader, None::<IndustryResolver>)
+    }
+
+    pub fn with_industry_resolver<Resolver>(store: Store, industry_resolver: Resolver) -> Self
+    where
+        Resolver: RiskIndustryResolver + 'static,
+    {
+        Self::with_dependencies(store, DefaultRiskBarLoader::from_env(), Some(industry_resolver))
+    }
+
+    pub fn with_bar_loader_and_industry_resolver<Loader, Resolver>(
+        store: Store,
+        bar_loader: Loader,
+        industry_resolver: Resolver,
+    ) -> Self
+    where
+        Loader: RiskBarLoader + 'static,
+        Resolver: RiskIndustryResolver + 'static,
+    {
+        Self::with_dependencies(store, bar_loader, Some(industry_resolver))
+    }
+
+    fn with_dependencies<Loader, Resolver>(
+        store: Store,
+        bar_loader: Loader,
+        industry_resolver: Option<Resolver>,
+    ) -> Self
+    where
+        Loader: RiskBarLoader + 'static,
+        Resolver: RiskIndustryResolver + 'static,
+    {
         Self {
             store,
             event_limit: DEFAULT_RISK_EVENT_LIMIT,
             bar_loader: Arc::new(bar_loader),
+            industry_resolver: industry_resolver.map(|resolver| Arc::new(resolver) as _),
         }
     }
 
@@ -148,6 +239,16 @@ where
 
         if let Some(rule) = find_enabled_rule(&state, RiskRuleType::VolatilityLimit).cloned() {
             evaluate_volatility_limit(&rule, projected_buy, self.bar_loader.as_ref()).await?;
+        }
+
+        if let Some(rule) = find_enabled_rule(&state, RiskRuleType::IndustryBlocklist).cloned() {
+            evaluate_industry_blocklist(
+                &rule,
+                projected_buy,
+                self.industry_resolver.as_deref(),
+                now,
+            )
+            .await?;
         }
 
         Ok(())
@@ -310,6 +411,16 @@ where
     }
 }
 
+impl RiskService<JsonRiskStore> {
+    pub async fn from_json_store(store: JsonRiskStore) -> Result<Self> {
+        let industry_store = SqliteIndustryStore::from_risk_state_path(store.path()).await?;
+        Ok(Self::with_industry_resolver(
+            store,
+            IndustryResolver::new(industry_store),
+        ))
+    }
+}
+
 fn upsert_rule(
     state: &mut RiskState,
     rule_type: RiskRuleType,
@@ -418,6 +529,50 @@ fn check_position_limit(rule: &RiskRule, projected_buy: &ProjectedBuyImpact) -> 
         return Err(QuantixError::Other(format!(
             "risk rule position-limit 已超限: {} 预计仓位 {}%",
             limit_pct, projected_ratio_pct
+        )));
+    }
+
+    Ok(())
+}
+
+async fn evaluate_industry_blocklist(
+    rule: &RiskRule,
+    projected_buy: &ProjectedBuyImpact,
+    resolver: Option<&dyn RiskIndustryResolver>,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    let RuleValue::TextList(blocked_industries) = &rule.value else {
+        return Err(QuantixError::Other(
+            "risk rule industry-blocklist 配置无效".to_string(),
+        ));
+    };
+
+    let resolver = resolver.ok_or_else(|| {
+        QuantixError::Config(format!(
+            "risk rule industry-blocklist 检查失败: code={} 原因=未配置行业解析器",
+            projected_buy.code
+        ))
+    })?;
+
+    let resolved = resolver
+        .resolve(&projected_buy.code, now.date_naive(), now)
+        .await
+        .map_err(|err| {
+            QuantixError::DataSource(format!(
+                "risk rule industry-blocklist 检查失败: code={} 原因={}",
+                projected_buy.code, err
+            ))
+        })?;
+
+    if blocked_industries
+        .iter()
+        .any(|industry_name| industry_name == &resolved.industry_name)
+    {
+        return Err(QuantixError::Other(format!(
+            "risk rule industry-blocklist 已拒绝: code={} industry={} blocked={}",
+            resolved.code,
+            resolved.industry_name,
+            blocked_industries.join(",")
         )));
     }
 
