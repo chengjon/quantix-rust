@@ -450,7 +450,8 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 |------|------|
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
-| `paper` | 模拟盘模式 (开发中) |
+| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
+| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |
 
 ##### 示例
 
@@ -460,6 +461,13 @@ quantix strategy run -n ma_cross
 
 # 运行策略回测指定股票
 quantix strategy run -n ma_cross -c 000001
+
+# 使用 paper 模式单次执行
+quantix trade init --capital 1000000
+quantix strategy run -n ma_cross --mode paper -c 000001
+
+# 使用 mock_live 模式单次执行
+quantix strategy run -n ma_cross --mode mock_live -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -472,6 +480,67 @@ quantix strategy run -n ma_cross --mode live
 股票代码: 000001
 ```
 
+##### 当前 Phase 29A 边界
+
+- `paper` 模式当前只支持 `ma_cross`
+- `paper` 模式当前只支持单代码、单次执行
+- `mock_live` 模式当前支持非终态订单生命周期模拟
+- 首次使用前请先执行 `quantix trade init`
+- 运行审计默认写入 `~/.quantix/strategy/runtime.db`
+- 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
+- `mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态
+- `live` 模式仍在开发中
+
+##### Phase 29B: 策略信号守护进程
+
+```bash
+quantix strategy config init
+quantix strategy config show
+
+quantix strategy daemon run --once
+quantix strategy daemon run
+
+quantix strategy signal list --approval-status pending
+quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default
+quantix strategy signal reject --signal-id <ID> --reason "manual reject"
+quantix strategy request list --status pending
+
+quantix strategy service-config show
+quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env
+quantix strategy service install
+quantix strategy service start
+quantix strategy service status
+```
+
+默认路径：
+
+- `~/.quantix/strategy/config.json`
+- `~/.quantix/strategy/runtime.db`
+- `~/.quantix/strategy/service.json`
+- `~/.quantix/strategy/service.env`
+- `~/.local/bin/quantix-strategy-run`
+
+当前 Phase 29B 边界：
+
+- `strategy daemon` 当前只支持单代码
+- 同一代码下可配置多个策略实例
+- 首次启动只 bootstrap 到最新 bar，不回补历史 signal
+- `strategy daemon run --once` 首次启动可能只输出 `strategy daemon 未生成新信号`
+- daemon 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
+- `QUANTIX_TDX_ROOT` 用于指定本地 TDX 根目录
+- `QUANTIX_TDX_MARKET` 用于在 `sh/sz/bj/ds` 之间消解同代码歧义
+- signal 批准后只会写入 `execution_request`
+- 不会自动交易，不会修改 paper 账户
+- `strategy run --mode paper` 仍保留为直接执行路径
+- `execution daemon`、自动审批、live adapter 延后到后续 Phase
+
+当前输出语义：
+
+- `strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`
+- `strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- `strategy signal reject` 会输出 `signal_id signal_status=<STATUS> approval_status=<STATUS> reason=<TEXT>`
+- `strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- `strategy service install/start/stop/enable/disable` 成功时会输出明确消息
 ---
 
 #### strategy list - 列出策略
