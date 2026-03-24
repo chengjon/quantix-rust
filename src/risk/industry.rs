@@ -1,212 +1,242 @@
-use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
-use serde::Deserialize;
-use std::sync::Arc;
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use crate::core::{QuantixError, Result};
-use crate::db::ClickHouseClient;
-use crate::risk::industry_store::{IndustrySnapshotRecord, SqliteIndustrySnapshotStore};
+use crate::risk::industry_store::SqliteIndustryStore;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LatestIndustryRecord {
-    pub code: String,
-    pub industry_name: String,
-    pub source: String,
-    pub captured_at: DateTime<Utc>,
+pub const ACTIVE_CLASSIFICATION_STANDARD: ClassificationStandard = ClassificationStandard::Shenwan;
+pub const ACTIVE_INDUSTRY_LEVEL: IndustryClassificationLevel =
+    IndustryClassificationLevel::FirstLevel;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassificationStandard {
+    Shenwan,
+    Csrc,
+}
+
+impl ClassificationStandard {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Shenwan => "shenwan",
+            Self::Csrc => "csrc",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "shenwan" => Ok(Self::Shenwan),
+            "csrc" => Ok(Self::Csrc),
+            other => Err(QuantixError::Other(format!(
+                "unknown classification standard: {other}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IndustryClassificationLevel {
+    FirstLevel,
+}
+
+impl IndustryClassificationLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::FirstLevel => "first_level",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "first_level" => Ok(Self::FirstLevel),
+            other => Err(QuantixError::Other(format!(
+                "unknown industry classification level: {other}"
+            ))),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndustrySourceTier {
-    Latest,
+    CurrentActive,
     SnapshotMonth,
-    SnapshotFallback,
+    Historical,
+    LatestSnapshot,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedIndustry {
     pub code: String,
     pub industry_name: String,
-    pub source: String,
-    pub captured_at: DateTime<Utc>,
-    pub snapshot_month: String,
+    pub standard: ClassificationStandard,
+    pub level: IndustryClassificationLevel,
     pub source_tier: IndustrySourceTier,
+    pub query_month: String,
 }
 
-#[async_trait]
-pub trait LatestIndustryReader: Send + Sync {
-    async fn load_latest_industry(&self, code: &str) -> Result<Option<LatestIndustryRecord>>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndustryReferenceRecord {
+    pub code: String,
+    pub industry_name: String,
+    pub standard: ClassificationStandard,
+    pub level: IndustryClassificationLevel,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndustrySnapshotRecord {
+    pub code: String,
+    pub industry_name: String,
+    pub standard: ClassificationStandard,
+    pub level: IndustryClassificationLevel,
+    pub snapshot_month: String,
+    pub source: String,
+    pub captured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShenwanCurrentSeedRow {
+    pub security_code: String,
+    pub industry_name: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShenwanHistoricalSeedRow {
+    pub security_code: String,
+    pub industry_name: String,
+    pub effective_from: NaiveDate,
+    pub effective_to: Option<NaiveDate>,
+    pub source: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct IndustryResolver<R> {
-    snapshot_store: SqliteIndustrySnapshotStore,
-    latest_reader: R,
+pub struct IndustryResolver {
+    store: SqliteIndustryStore,
 }
 
-impl<R> IndustryResolver<R>
-where
-    R: LatestIndustryReader,
-{
-    pub fn new(snapshot_store: SqliteIndustrySnapshotStore, latest_reader: R) -> Self {
-        Self {
-            snapshot_store,
-            latest_reader,
-        }
+impl IndustryResolver {
+    pub fn new(store: SqliteIndustryStore) -> Self {
+        Self { store }
     }
 
-    pub async fn resolve(&self, code: &str, query_date: NaiveDate) -> Result<ResolvedIndustry> {
-        let snapshot_month = snapshot_month_for(query_date);
+    pub fn active_standard(&self) -> ClassificationStandard {
+        ACTIVE_CLASSIFICATION_STANDARD
+    }
 
-        match self.latest_reader.load_latest_industry(code).await {
-            Ok(Some(latest)) => {
-                let snapshot = IndustrySnapshotRecord::from_latest(&snapshot_month, latest.clone());
-                self.snapshot_store.insert_if_missing(&snapshot).await?;
-                return Ok(ResolvedIndustry {
-                    code: latest.code,
-                    industry_name: latest.industry_name,
-                    source: latest.source,
-                    captured_at: latest.captured_at,
-                    snapshot_month,
-                    source_tier: IndustrySourceTier::Latest,
-                });
-            }
-            Ok(None) | Err(_) => {}
+    pub fn active_level(&self) -> IndustryClassificationLevel {
+        ACTIVE_INDUSTRY_LEVEL
+    }
+
+    pub async fn sync_shenwan_current_rows(
+        &self,
+        rows: &[ShenwanCurrentSeedRow],
+        imported_at: DateTime<Utc>,
+    ) -> Result<()> {
+        self.store.refresh_shenwan_current_rows(rows, imported_at).await
+    }
+
+    pub async fn sync_shenwan_history_rows(
+        &self,
+        rows: &[ShenwanHistoricalSeedRow],
+        imported_at: DateTime<Utc>,
+    ) -> Result<()> {
+        self.store.refresh_shenwan_history_rows(rows, imported_at).await
+    }
+
+    pub async fn resolve(
+        &self,
+        code: &str,
+        query_date: NaiveDate,
+        captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry> {
+        let normalized_code = normalize_security_code(code);
+        let standard = self.active_standard();
+        let level = self.active_level();
+        let query_month = snapshot_month(query_date);
+
+        if let Some(current) = self.store.lookup_current(standard, level, &normalized_code).await? {
+            self.store
+                .insert_snapshot_if_missing(
+                    standard,
+                    level,
+                    &query_month,
+                    &normalized_code,
+                    &current.industry_name,
+                    &current.source,
+                    captured_at,
+                )
+                .await?;
+
+            return Ok(ResolvedIndustry {
+                code: normalized_code,
+                industry_name: current.industry_name,
+                standard,
+                level,
+                source_tier: IndustrySourceTier::CurrentActive,
+                query_month,
+            });
         }
 
         if let Some(snapshot) = self
-            .snapshot_store
-            .find_month_snapshot(&snapshot_month, code)
+            .store
+            .lookup_snapshot_month(standard, level, &normalized_code, &query_month)
             .await?
         {
-            return Ok(ResolvedIndustry::from_snapshot(
-                snapshot,
-                IndustrySourceTier::SnapshotMonth,
-            ));
+            return Ok(ResolvedIndustry {
+                code: normalized_code,
+                industry_name: snapshot.industry_name,
+                standard,
+                level,
+                source_tier: IndustrySourceTier::SnapshotMonth,
+                query_month,
+            });
         }
 
-        if let Some(snapshot) = self.snapshot_store.find_latest_snapshot(code).await? {
-            return Ok(ResolvedIndustry::from_snapshot(
-                snapshot,
-                IndustrySourceTier::SnapshotFallback,
-            ));
+        if let Some(history) = self
+            .store
+            .lookup_historical(standard, level, &normalized_code, query_date)
+            .await?
+        {
+            return Ok(ResolvedIndustry {
+                code: normalized_code,
+                industry_name: history.industry_name,
+                standard,
+                level,
+                source_tier: IndustrySourceTier::Historical,
+                query_month,
+            });
+        }
+
+        if let Some(snapshot) = self
+            .store
+            .lookup_latest_snapshot(standard, level, &normalized_code)
+            .await?
+        {
+            return Ok(ResolvedIndustry {
+                code: normalized_code,
+                industry_name: snapshot.industry_name,
+                standard,
+                level,
+                source_tier: IndustrySourceTier::LatestSnapshot,
+                query_month,
+            });
         }
 
         Err(QuantixError::Other(format!(
-            "risk industry resolution failed: code={} tiers=latest/monthly/fallback",
-            code
+            "industry resolution failed for code {} on {} across current/monthly/history/fallback",
+            normalized_code, query_date
         )))
     }
 }
 
-#[derive(Clone)]
-pub struct ClickHouseLatestIndustryReader {
-    client: Arc<ClickHouseClient>,
+pub fn normalize_security_code(code: &str) -> String {
+    code.trim()
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_uppercase()
 }
 
-impl ClickHouseLatestIndustryReader {
-    pub fn new(client: Arc<ClickHouseClient>) -> Self {
-        Self { client }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct LatestIndustryRow {
-    code: String,
-    industry_name: String,
-    source: String,
-    captured_at: String,
-}
-
-#[async_trait]
-impl LatestIndustryReader for ClickHouseLatestIndustryReader {
-    async fn load_latest_industry(&self, code: &str) -> Result<Option<LatestIndustryRecord>> {
-        let escaped_code = escape_sql_literal(code);
-        let sql = format!(
-            r#"
-            SELECT
-                '{code}' AS code,
-                sector_name AS industry_name,
-                'sector_daily' AS source,
-                toString(updated_at) AS captured_at
-            FROM sector_daily
-            WHERE sector_type = 'industry'
-              AND (leader_code = '{code}' OR sector_code = '{code}')
-            ORDER BY trade_date DESC, updated_at DESC, rank ASC, sector_code ASC
-            LIMIT 1
-            "#,
-            code = escaped_code,
-        );
-
-        let row = self
-            .client
-            .query_json::<LatestIndustryRow>(&sql)
-            .await
-            .map_err(|err| {
-                QuantixError::DatabaseQuery(format!(
-                    "risk industry latest lookup failed for code={}: {}",
-                    code, err
-                ))
-            })?
-            .into_iter()
-            .next();
-
-        row.map(TryInto::try_into).transpose()
-    }
-}
-
-impl TryFrom<LatestIndustryRow> for LatestIndustryRecord {
-    type Error = QuantixError;
-
-    fn try_from(value: LatestIndustryRow) -> Result<Self> {
-        Ok(Self {
-            code: value.code,
-            industry_name: value.industry_name,
-            source: value.source,
-            captured_at: parse_clickhouse_timestamp(&value.captured_at)?,
-        })
-    }
-}
-
-impl ResolvedIndustry {
-    fn from_snapshot(snapshot: IndustrySnapshotRecord, source_tier: IndustrySourceTier) -> Self {
-        Self {
-            code: snapshot.code,
-            industry_name: snapshot.industry_name,
-            source: snapshot.source,
-            captured_at: snapshot.captured_at,
-            snapshot_month: snapshot.snapshot_month,
-            source_tier,
-        }
-    }
-}
-
-impl IndustrySnapshotRecord {
-    pub fn from_latest(snapshot_month: &str, latest: LatestIndustryRecord) -> Self {
-        Self {
-            snapshot_month: snapshot_month.to_string(),
-            code: latest.code,
-            industry_name: latest.industry_name,
-            source: latest.source,
-            captured_at: latest.captured_at,
-        }
-    }
-}
-
-pub fn snapshot_month_for(query_date: NaiveDate) -> String {
-    query_date.format("%Y-%m").to_string()
-}
-
-fn parse_clickhouse_timestamp(value: &str) -> Result<DateTime<Utc>> {
-    if let Ok(ts) = DateTime::parse_from_rfc3339(value) {
-        return Ok(ts.with_timezone(&Utc));
-    }
-
-    let ts = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S").map_err(|err| {
-        QuantixError::DataParse(format!("invalid ClickHouse timestamp {value}: {err}"))
-    })?;
-    Ok(ts.and_utc())
-}
-
-fn escape_sql_literal(value: &str) -> String {
-    value.replace('\'', "''")
+pub fn snapshot_month(query_date: NaiveDate) -> String {
+    format!("{:04}-{:02}", query_date.year(), query_date.month())
 }

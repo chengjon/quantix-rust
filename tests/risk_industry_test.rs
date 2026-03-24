@@ -1,215 +1,379 @@
-use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use quantix_cli::core::{QuantixError, Result};
-use quantix_cli::risk::{
-    IndustryResolver, IndustrySnapshotRecord, IndustrySourceTier, LatestIndustryReader,
-    LatestIndustryRecord, SqliteIndustrySnapshotStore,
+use chrono::{NaiveDate, TimeZone, Utc};
+use quantix_cli::risk::industry::{
+    ClassificationStandard, IndustryClassificationLevel, IndustryResolver, IndustrySourceTier,
+    ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow,
 };
-use tempfile::tempdir;
+use quantix_cli::risk::industry_store::SqliteIndustryStore;
+use tempfile::{TempDir, tempdir};
 
-#[derive(Clone)]
-struct FakeLatestIndustryReader {
-    responses: std::sync::Arc<std::sync::Mutex<Vec<Result<Option<LatestIndustryRecord>>>>>,
+fn fixed_ts() -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 3, 11, 9, 35, 0).unwrap()
 }
 
-impl FakeLatestIndustryReader {
-    fn new(responses: Vec<Result<Option<LatestIndustryRecord>>>) -> Self {
-        Self {
-            responses: std::sync::Arc::new(std::sync::Mutex::new(responses)),
-        }
+fn query_date() -> NaiveDate {
+    NaiveDate::from_ymd_opt(2026, 3, 11).unwrap()
+}
+
+fn current_row(code: &str, industry_name: &str) -> ShenwanCurrentSeedRow {
+    ShenwanCurrentSeedRow {
+        security_code: code.to_string(),
+        industry_name: industry_name.to_string(),
+        source: "upstream_shenwan_sync".to_string(),
     }
 }
 
-#[async_trait]
-impl LatestIndustryReader for FakeLatestIndustryReader {
-    async fn load_latest_industry(&self, _code: &str) -> Result<Option<LatestIndustryRecord>> {
-        let mut responses = self.responses.lock().unwrap();
-        if responses.is_empty() {
-            return Ok(None);
-        }
-        responses.remove(0)
-    }
-}
-
-fn fixed_ts() -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 3, 24, 9, 35, 0).unwrap()
-}
-
-fn latest_record(
+fn historical_row(
     code: &str,
     industry_name: &str,
-    captured_at: DateTime<Utc>,
-) -> LatestIndustryRecord {
-    LatestIndustryRecord {
-        code: code.to_string(),
+    effective_from: NaiveDate,
+    effective_to: Option<NaiveDate>,
+) -> ShenwanHistoricalSeedRow {
+    ShenwanHistoricalSeedRow {
+        security_code: code.to_string(),
         industry_name: industry_name.to_string(),
-        source: "sector_daily".to_string(),
-        captured_at,
+        effective_from,
+        effective_to,
+        source: "upstream_shenwan_history".to_string(),
     }
 }
 
-fn snapshot_record(
-    month: &str,
-    code: &str,
-    industry_name: &str,
-    captured_at: DateTime<Utc>,
-) -> IndustrySnapshotRecord {
-    IndustrySnapshotRecord {
-        snapshot_month: month.to_string(),
-        code: code.to_string(),
-        industry_name: industry_name.to_string(),
-        source: "sector_daily".to_string(),
-        captured_at,
+struct TestHarness {
+    _dir: TempDir,
+    store: SqliteIndustryStore,
+    resolver: IndustryResolver,
+}
+
+async fn test_harness() -> TestHarness {
+    let dir = tempdir().unwrap();
+    let risk_state_path = dir.path().join("risk").join("risk_state.json");
+    let store = SqliteIndustryStore::from_risk_state_path(&risk_state_path)
+        .await
+        .unwrap();
+    let resolver = IndustryResolver::new(store.clone());
+    TestHarness {
+        _dir: dir,
+        store,
+        resolver,
     }
 }
 
 #[tokio::test]
-async fn latest_source_lookup_returns_industry_and_freezes_query_month_snapshot() {
-    let dir = tempdir().unwrap();
-    let risk_path = dir.path().join("risk").join("risk_state.json");
-    let store = SqliteIndustrySnapshotStore::from_risk_path(&risk_path)
-        .await
-        .unwrap();
-    let resolver = IndustryResolver::new(
-        store.clone(),
-        FakeLatestIndustryReader::new(vec![Ok(Some(latest_record("000001", "银行", fixed_ts())))]),
-    );
+async fn current_lookup_returns_industry_and_freezes_query_month_snapshot() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let resolver = harness.resolver;
+    let now = fixed_ts();
 
-    let resolved = resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 11).unwrap())
+    store
+        .upsert_shenwan_current_rows(&[current_row("000001.SZ", "银行")], now)
         .await
         .unwrap();
+
+    let resolved = resolver.resolve("000001", query_date(), now).await.unwrap();
+    assert_eq!(resolved.industry_name, "银行");
+    assert_eq!(resolved.source_tier, IndustrySourceTier::CurrentActive);
+    assert_eq!(resolved.standard, ClassificationStandard::Shenwan);
+    assert_eq!(resolved.level, IndustryClassificationLevel::FirstLevel);
+
     let snapshot = store
-        .find_month_snapshot("2026-03", "000001")
+        .lookup_snapshot_month(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "000001",
+            "2026-03",
+        )
         .await
         .unwrap()
         .unwrap();
-
-    assert_eq!(resolved.industry_name, "银行");
-    assert_eq!(resolved.source_tier, IndustrySourceTier::Latest);
     assert_eq!(snapshot.industry_name, "银行");
-    assert_eq!(snapshot.snapshot_month, "2026-03");
+    assert_eq!(snapshot.source, "upstream_shenwan_sync");
+    assert_eq!(snapshot.captured_at, now);
 }
 
 #[tokio::test]
-async fn second_latest_source_success_in_same_month_does_not_overwrite_existing_snapshot_row() {
-    let dir = tempdir().unwrap();
-    let store = SqliteIndustrySnapshotStore::new(dir.path().join("industry_snapshots.db"))
+async fn refresh_shenwan_current_rows_removes_stale_rows_not_present_in_new_dataset() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let now = fixed_ts();
+
+    store
+        .upsert_shenwan_current_rows(
+            &[
+                current_row("000001.SZ", "银行"),
+                current_row("600000.SH", "非银金融"),
+            ],
+            now,
+        )
         .await
         .unwrap();
-    let resolver = IndustryResolver::new(
-        store.clone(),
-        FakeLatestIndustryReader::new(vec![
-            Ok(Some(latest_record("000001", "银行", fixed_ts()))),
-            Ok(Some(latest_record(
-                "000001",
-                "证券",
-                fixed_ts() + chrono::Duration::days(2),
-            ))),
-        ]),
-    );
 
-    resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 11).unwrap())
+    store
+        .refresh_shenwan_current_rows(&[current_row("600000.SH", "非银金融")], now)
+        .await
+        .unwrap();
+
+    let removed = store
+        .lookup_current(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "000001",
+        )
+        .await
+        .unwrap();
+    assert_eq!(removed, None);
+
+    let retained = store
+        .lookup_current(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "600000",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retained.industry_name, "非银金融");
+}
+
+#[tokio::test]
+async fn second_successful_lookup_in_same_month_does_not_overwrite_snapshot_row() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let resolver = harness.resolver;
+    let first_now = fixed_ts();
+    let second_now = Utc.with_ymd_and_hms(2026, 3, 18, 10, 0, 0).unwrap();
+
+    store
+        .upsert_shenwan_current_rows(&[current_row("000001.SZ", "银行")], first_now)
+        .await
+        .unwrap();
+    let first = resolver
+        .resolve("000001", query_date(), first_now)
+        .await
+        .unwrap();
+    assert_eq!(first.industry_name, "银行");
+
+    store
+        .upsert_shenwan_current_rows(&[current_row("000001.SZ", "非银金融")], second_now)
         .await
         .unwrap();
     let second = resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 21).unwrap())
+        .resolve("000001", query_date(), second_now)
         .await
         .unwrap();
-    let frozen = store
-        .find_month_snapshot("2026-03", "000001")
+    assert_eq!(second.industry_name, "非银金融");
+    assert_eq!(second.source_tier, IndustrySourceTier::CurrentActive);
+
+    let snapshot = store
+        .lookup_snapshot_month(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "000001",
+            "2026-03",
+        )
         .await
         .unwrap()
         .unwrap();
-
-    assert_eq!(second.industry_name, "证券");
-    assert_eq!(second.source_tier, IndustrySourceTier::Latest);
-    assert_eq!(frozen.industry_name, "银行");
-    assert_eq!(frozen.captured_at, fixed_ts());
+    assert_eq!(snapshot.industry_name, "银行");
+    assert_eq!(snapshot.captured_at, first_now);
 }
 
 #[tokio::test]
-async fn primary_lookup_failure_falls_back_to_query_month_snapshot() {
-    let dir = tempdir().unwrap();
-    let store = SqliteIndustrySnapshotStore::new(dir.path().join("industry_snapshots.db"))
-        .await
-        .unwrap();
+async fn current_lookup_failure_falls_back_to_query_month_snapshot() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let resolver = harness.resolver;
+    let now = fixed_ts();
+
     store
-        .insert_if_missing(&snapshot_record("2026-03", "000001", "银行", fixed_ts()))
-        .await
-        .unwrap();
-    let resolver = IndustryResolver::new(
-        store,
-        FakeLatestIndustryReader::new(vec![Err(QuantixError::DataSource(
-            "upstream unavailable".to_string(),
-        ))]),
-    );
-
-    let resolved = resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 25).unwrap())
+        .insert_snapshot_if_missing(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "2026-03",
+            "000001",
+            "银行",
+            "current",
+            now,
+        )
         .await
         .unwrap();
 
+    let resolved = resolver.resolve("000001", query_date(), now).await.unwrap();
     assert_eq!(resolved.industry_name, "银行");
     assert_eq!(resolved.source_tier, IndustrySourceTier::SnapshotMonth);
+    assert_eq!(resolved.standard, ClassificationStandard::Shenwan);
 }
 
 #[tokio::test]
-async fn query_month_miss_falls_back_to_most_recent_available_snapshot() {
-    let dir = tempdir().unwrap();
-    let store = SqliteIndustrySnapshotStore::new(dir.path().join("industry_snapshots.db"))
+async fn query_month_miss_falls_back_to_local_historical_shenwan_mapping_when_available() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let resolver = harness.resolver;
+    let now = fixed_ts();
+
+    store
+        .upsert_shenwan_history_rows(
+            &[historical_row(
+                "000001.SZ",
+                "银行",
+                NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                Some(NaiveDate::from_ymd_opt(2026, 12, 31).unwrap()),
+            )],
+            now,
+        )
+        .await
+        .unwrap();
+
+    let resolved = resolver.resolve("000001", query_date(), now).await.unwrap();
+    assert_eq!(resolved.industry_name, "银行");
+    assert_eq!(resolved.source_tier, IndustrySourceTier::Historical);
+    assert_eq!(resolved.standard, ClassificationStandard::Shenwan);
+}
+
+#[tokio::test]
+async fn refresh_shenwan_history_rows_replaces_stale_rows_for_active_boundary() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let now = fixed_ts();
+
+    store
+        .upsert_shenwan_history_rows(
+            &[historical_row(
+                "000001.SZ",
+                "银行",
+                NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                Some(NaiveDate::from_ymd_opt(2026, 12, 31).unwrap()),
+            )],
+            now,
+        )
+        .await
+        .unwrap();
+
+    store
+        .refresh_shenwan_history_rows(
+            &[historical_row(
+                "600000.SH",
+                "非银金融",
+                NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                Some(NaiveDate::from_ymd_opt(2026, 12, 31).unwrap()),
+            )],
+            now,
+        )
+        .await
+        .unwrap();
+
+    let removed = store
+        .lookup_historical(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "000001",
+            query_date(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(removed, None);
+
+    let retained = store
+        .lookup_historical(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "600000",
+            query_date(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retained.industry_name, "非银金融");
+}
+
+#[tokio::test]
+async fn query_month_miss_uses_historical_row_on_inclusive_effective_to_boundary() {
+    let harness = test_harness().await;
+    let resolver = harness.resolver;
+    let store = harness.store;
+    let now = fixed_ts();
+
+    store
+        .upsert_shenwan_history_rows(
+            &[historical_row(
+                "000001.SZ",
+                "银行",
+                NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                Some(query_date()),
+            )],
+            now,
+        )
+        .await
+        .unwrap();
+
+    let resolved = resolver.resolve("000001", query_date(), now).await.unwrap();
+    assert_eq!(resolved.industry_name, "银行");
+    assert_eq!(resolved.source_tier, IndustrySourceTier::Historical);
+}
+
+#[tokio::test]
+async fn resolver_normalizes_suffix_and_case_for_non_sz_codes() {
+    let harness = test_harness().await;
+    let resolver = harness.resolver;
+    let store = harness.store;
+    let now = fixed_ts();
+
+    store
+        .upsert_shenwan_current_rows(&[current_row("600000.sh", "银行")], now)
+        .await
+        .unwrap();
+
+    let resolved = resolver.resolve("600000.SH", query_date(), now).await.unwrap();
+    assert_eq!(resolved.industry_name, "银行");
+    assert_eq!(resolved.code, "600000");
+}
+
+#[tokio::test]
+async fn historical_miss_falls_back_to_most_recent_available_local_snapshot() {
+    let harness = test_harness().await;
+    let store = harness.store;
+    let resolver = harness.resolver;
+    let now = fixed_ts();
+
+    store
+        .insert_snapshot_if_missing(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "2026-01",
+            "000001",
+            "旧行业",
+            "current",
+            Utc.with_ymd_and_hms(2026, 1, 10, 9, 0, 0).unwrap(),
+        )
         .await
         .unwrap();
     store
-        .insert_if_missing(&snapshot_record("2026-02", "000001", "银行", fixed_ts()))
+        .insert_snapshot_if_missing(
+            ClassificationStandard::Shenwan,
+            IndustryClassificationLevel::FirstLevel,
+            "2026-02",
+            "000001",
+            "银行",
+            "current",
+            Utc.with_ymd_and_hms(2026, 2, 10, 9, 0, 0).unwrap(),
+        )
         .await
         .unwrap();
-    let resolver = IndustryResolver::new(store, FakeLatestIndustryReader::new(vec![Ok(None)]));
 
-    let resolved = resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 25).unwrap())
-        .await
-        .unwrap();
-
+    let resolved = resolver.resolve("000001", query_date(), now).await.unwrap();
     assert_eq!(resolved.industry_name, "银行");
-    assert_eq!(resolved.source_tier, IndustrySourceTier::SnapshotFallback);
+    assert_eq!(resolved.source_tier, IndustrySourceTier::LatestSnapshot);
+    assert_eq!(resolved.standard, ClassificationStandard::Shenwan);
 }
 
 #[tokio::test]
-async fn all_three_tiers_missing_return_a_hard_resolution_error() {
-    let dir = tempdir().unwrap();
-    let store = SqliteIndustrySnapshotStore::new(dir.path().join("industry_snapshots.db"))
-        .await
-        .unwrap();
-    let resolver = IndustryResolver::new(store, FakeLatestIndustryReader::new(vec![Ok(None)]));
+async fn all_tiers_missing_return_a_hard_resolution_error() {
+    let harness = test_harness().await;
+    let resolver = harness.resolver;
 
     let err = resolver
-        .resolve("000001", NaiveDate::from_ymd_opt(2026, 3, 25).unwrap())
+        .resolve("000001", query_date(), fixed_ts())
         .await
         .unwrap_err();
 
-    assert!(err.to_string().contains("latest/monthly/fallback"));
-}
-
-#[tokio::test]
-async fn store_derives_sqlite_path_from_risk_path_and_creates_missing_parent_directories() {
-    let dir = tempdir().unwrap();
-    let risk_path = dir
-        .path()
-        .join("nested")
-        .join("risk")
-        .join("risk_state.json");
-    let store = SqliteIndustrySnapshotStore::from_risk_path(&risk_path)
-        .await
-        .unwrap();
-
-    assert_eq!(
-        store.path(),
-        dir.path()
-            .join("nested")
-            .join("risk")
-            .join("industry_snapshots.db")
-    );
-    assert!(store.path().exists());
+    assert!(err.to_string().contains("current/monthly/history/fallback"));
 }
