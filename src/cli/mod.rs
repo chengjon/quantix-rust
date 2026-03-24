@@ -71,6 +71,10 @@ pub enum Commands {
     #[command(subcommand)]
     Risk(RiskCommands),
 
+    /// 执行自动化命令
+    #[command(subcommand)]
+    Execution(ExecutionCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -266,6 +270,24 @@ pub enum StrategyRequestCommands {
         /// 限制返回条数
         #[arg(short, long, default_value = "20")]
         limit: usize,
+    },
+
+    /// 执行一个待处理请求
+    Execute {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+    },
+
+    /// 取消一个待处理请求
+    Cancel {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+
+        /// 取消原因
+        #[arg(long)]
+        reason: Option<String>,
     },
 }
 
@@ -611,7 +633,7 @@ pub enum StopCommands {
     /// 设置止盈止损规则
     #[command(group(
         ArgGroup::new("stop_rule_threshold")
-            .args(["loss", "profit", "trailing"])
+            .args(["loss", "profit", "loss_pct", "profit_pct", "trailing"])
             .required(true)
             .multiple(true)
     ))]
@@ -627,13 +649,110 @@ pub enum StopCommands {
         #[arg(long)]
         profit: Option<f64>,
 
+        /// 止损百分比
+        #[arg(long = "loss-pct", conflicts_with_all = ["loss", "trailing"])]
+        loss_pct: Option<f64>,
+
+        /// 止盈百分比
+        #[arg(long = "profit-pct", conflicts_with = "profit")]
+        profit_pct: Option<f64>,
+
         /// 跟踪止损百分比
-        #[arg(long, conflicts_with = "loss")]
+        #[arg(long, conflicts_with_all = ["loss", "loss_pct"])]
         trailing: Option<f64>,
+    },
+
+    /// 更新止盈止损规则
+    #[command(group(
+        ArgGroup::new("stop_rule_update_change")
+            .args([
+                "loss",
+                "profit",
+                "loss_pct",
+                "profit_pct",
+                "trailing",
+                "clear_loss",
+                "clear_profit",
+                "clear_loss_pct",
+                "clear_profit_pct",
+                "clear_trailing",
+            ])
+            .required(true)
+            .multiple(true)
+    ))]
+    Update {
+        /// 股票代码
+        code: String,
+
+        /// 固定止损价
+        #[arg(long, conflicts_with_all = ["loss_pct", "trailing"])]
+        loss: Option<f64>,
+
+        /// 固定止盈价
+        #[arg(long, conflicts_with = "profit_pct")]
+        profit: Option<f64>,
+
+        /// 止损百分比
+        #[arg(long = "loss-pct", conflicts_with_all = ["loss", "trailing"])]
+        loss_pct: Option<f64>,
+
+        /// 止盈百分比
+        #[arg(long = "profit-pct", conflicts_with = "profit")]
+        profit_pct: Option<f64>,
+
+        /// 跟踪止损百分比
+        #[arg(long, conflicts_with_all = ["loss", "loss_pct"])]
+        trailing: Option<f64>,
+
+        /// 清除固定止损价
+        #[arg(long = "clear-loss")]
+        clear_loss: bool,
+
+        /// 清除固定止盈价
+        #[arg(long = "clear-profit")]
+        clear_profit: bool,
+
+        /// 清除止损百分比
+        #[arg(long = "clear-loss-pct")]
+        clear_loss_pct: bool,
+
+        /// 清除止盈百分比
+        #[arg(long = "clear-profit-pct")]
+        clear_profit_pct: bool,
+
+        /// 清除跟踪止损
+        #[arg(long = "clear-trailing")]
+        clear_trailing: bool,
     },
 
     /// 列出止盈止损规则
     List,
+
+    /// 查看止盈止损状态
+    Status {
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+    },
+
+    /// 查看止盈止损历史
+    History {
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 限制返回条数
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// 按事件日期过滤 (YYYY-MM-DD)
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 按事件类型过滤
+        #[arg(long = "type")]
+        event_type: Option<String>,
+    },
 
     /// 删除止盈止损规则
     Remove {
@@ -644,6 +763,14 @@ pub enum StopCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum RiskCommands {
+    /// 导入标准化实盘流水
+    #[command(subcommand)]
+    Import(RiskImportCommands),
+
+    /// 重建实盘镜像账户
+    #[command(subcommand)]
+    Rebuild(RiskRebuildCommands),
+
     /// 风控规则管理
     #[command(subcommand)]
     Rule(RiskRuleCommands),
@@ -666,13 +793,61 @@ pub enum RiskCommands {
     Lock(RiskLockCommands),
 
     /// 查看当前风控状态
-    Status,
+    Status {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
 
     /// 查看当前当日盈亏快照
-    Pnl,
+    Pnl {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
 
     /// 查看当前持仓风险分布
-    Position,
+    Position {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskImportCommands {
+    /// 导入标准化实盘流水
+    LiveTrades {
+        /// 账户 ID
+        #[arg(long)]
+        account: String,
+
+        /// 输入文件
+        #[arg(long)]
+        input: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskRebuildCommands {
+    /// 重建实盘镜像账户
+    LiveAccount {
+        /// 账户 ID
+        #[arg(long)]
+        account: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -990,6 +1165,36 @@ pub enum TradeCommands {
     Cash,
 }
 
+#[derive(Subcommand, Debug)]
+pub enum ExecutionCommands {
+    /// 执行守护进程配置
+    #[command(subcommand)]
+    Config(ExecutionConfigCommands),
+
+    /// 执行守护进程
+    #[command(subcommand)]
+    Daemon(ExecutionDaemonCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionConfigCommands {
+    /// 初始化执行配置
+    Init,
+
+    /// 显示执行配置
+    Show,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionDaemonCommands {
+    /// 运行执行守护进程
+    Run {
+        /// 仅执行一轮
+        #[arg(long)]
+        once: bool,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -1032,6 +1237,9 @@ impl Cli {
             }
             Commands::Risk(cmd) => {
                 handlers::run_risk_command(cmd).await?;
+            }
+            Commands::Execution(cmd) => {
+                handlers::run_execution_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

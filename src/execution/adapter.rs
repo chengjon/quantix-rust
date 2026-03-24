@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use thiserror::Error;
 
-use crate::execution::models::{OrderSide, OrderStatus};
+use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdapterOrderRequest {
@@ -19,6 +19,7 @@ pub struct OrderInitialResponse {
     pub latest_status: OrderStatus,
     pub filled_quantity: i64,
     pub avg_fill_price: Option<Decimal>,
+    pub fill_details: Option<FillDetails>,
     pub rejection_reason: Option<String>,
 }
 
@@ -28,6 +29,7 @@ pub struct OrderQueryResponse {
     pub latest_status: OrderStatus,
     pub filled_quantity: i64,
     pub avg_fill_price: Option<Decimal>,
+    pub fill_details: Option<FillDetails>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]

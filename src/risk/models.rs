@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::core::{QuantixError, Result};
 
@@ -44,6 +45,7 @@ pub struct RiskRule {
 pub enum RiskRuleType {
     PositionLimit,
     DailyLossLimit,
+    VolatilityLimit,
 }
 
 impl RiskRuleType {
@@ -51,6 +53,7 @@ impl RiskRuleType {
         match value.trim() {
             "position-limit" => Ok(Self::PositionLimit),
             "daily-loss-limit" => Ok(Self::DailyLossLimit),
+            "volatility-limit" => Ok(Self::VolatilityLimit),
             other => Err(QuantixError::Other(format!(
                 "risk rule 不支持的类型: {other}"
             ))),
@@ -61,6 +64,7 @@ impl RiskRuleType {
         match self {
             Self::PositionLimit => "position-limit",
             Self::DailyLossLimit => "daily-loss-limit",
+            Self::VolatilityLimit => "volatility-limit",
         }
     }
 }
@@ -104,6 +108,10 @@ impl RuleValue {
             )),
             (RiskRuleType::DailyLossLimit, true) => Ok(Self::Percentage(decimal)),
             (RiskRuleType::DailyLossLimit, false) => Ok(Self::Amount(decimal)),
+            (RiskRuleType::VolatilityLimit, true) => Ok(Self::Percentage(decimal)),
+            (RiskRuleType::VolatilityLimit, false) => Err(QuantixError::Other(
+                "risk rule volatility-limit 仅支持百分比值，例如 4%".to_string(),
+            )),
         }
     }
 
@@ -276,4 +284,160 @@ impl ProjectedBuyImpact {
             projected_total_assets,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskAccountSource {
+    Paper,
+    LiveImport,
+}
+
+impl RiskAccountSource {
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "paper" => Some(Self::Paper),
+            "live_import" => Some(Self::LiveImport),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Paper => "paper",
+            Self::LiveImport => "live_import",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveImportRecordType {
+    Trade,
+    Cash,
+}
+
+impl LiveImportRecordType {
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "trade" => Some(Self::Trade),
+            "cash" => Some(Self::Cash),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Trade => "trade",
+            Self::Cash => "cash",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveImportTradeSide {
+    Buy,
+    Sell,
+}
+
+impl LiveImportTradeSide {
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "buy" => Some(Self::Buy),
+            "sell" => Some(Self::Sell),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Buy => "buy",
+            Self::Sell => "sell",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveImportCashBusinessType {
+    Deposit,
+    Withdraw,
+}
+
+impl LiveImportCashBusinessType {
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "deposit" => Some(Self::Deposit),
+            "withdraw" => Some(Self::Withdraw),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Deposit => "deposit",
+            Self::Withdraw => "withdraw",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LiveImportRecord {
+    pub record_type: LiveImportRecordType,
+    pub account_id: String,
+    pub external_id: String,
+    pub code: Option<String>,
+    pub side: Option<LiveImportTradeSide>,
+    pub price: Option<Decimal>,
+    pub volume: Option<i64>,
+    pub fee_total: Option<Decimal>,
+    pub business_type: Option<LiveImportCashBusinessType>,
+    pub amount: Option<Decimal>,
+    pub executed_at: Option<DateTime<Utc>>,
+    pub occurred_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LiveImportBatchSummary {
+    pub batch_id: String,
+    pub account_id: String,
+    pub total_rows: usize,
+    pub inserted: usize,
+    pub skipped_duplicates: usize,
+    pub conflicts: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LiveImportConflict {
+    pub id: String,
+    pub batch_id: String,
+    pub account_id: String,
+    pub external_id: String,
+    pub existing_record_json: Value,
+    pub incoming_record_json: Value,
+    pub detail: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LiveImportMirrorPosition {
+    pub code: String,
+    pub volume: i64,
+    pub avg_cost: Decimal,
+    pub last_trade_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LiveImportMirrorAccount {
+    pub account_id: String,
+    pub trading_date: NaiveDate,
+    pub as_of: DateTime<Utc>,
+    pub starting_total_assets: Decimal,
+    pub current_total_assets: Decimal,
+    pub cash_balance: Decimal,
+    pub realized_pnl: Decimal,
+    pub total_fees: Decimal,
+    pub last_rebuild_at: DateTime<Utc>,
+    pub positions: Vec<LiveImportMirrorPosition>,
 }

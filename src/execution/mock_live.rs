@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
-use crate::execution::models::{MockLiveOrderState, OrderStatus};
+use crate::execution::models::{FillDetails, MockLiveOrderState, OrderStatus};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 
 pub trait MockLiveClock: Clone + Send + Sync {
@@ -47,12 +48,17 @@ where
         }
     }
 
-    async fn load_state(&self, order_id: &str) -> std::result::Result<MockLiveOrderState, AdapterError> {
+    async fn load_state(
+        &self,
+        order_id: &str,
+    ) -> std::result::Result<MockLiveOrderState, AdapterError> {
         self.store
             .get_mock_live_order_state(order_id)
             .await
             .map_err(|err| AdapterError::Execution(err.to_string()))?
-            .ok_or_else(|| AdapterError::Execution(format!("mock_live order not found: {order_id}")))
+            .ok_or_else(|| {
+                AdapterError::Execution(format!("mock_live order not found: {order_id}"))
+            })
     }
 
     async fn save_state(
@@ -66,6 +72,22 @@ where
             .map_err(|err| AdapterError::Execution(err.to_string()))
     }
 
+    async fn load_requested_price(
+        &self,
+        order_id: &str,
+    ) -> std::result::Result<Decimal, AdapterError> {
+        self.store
+            .find_order_by_client_order_id(order_id)
+            .await
+            .map_err(|err| AdapterError::Execution(err.to_string()))?
+            .map(|order| order.requested_price)
+            .ok_or_else(|| {
+                AdapterError::Execution(format!(
+                    "mock_live order requested price not found: {order_id}"
+                ))
+            })
+    }
+
     fn cumulative_filled_quantity(state: &MockLiveOrderState) -> i64 {
         state
             .fill_plan
@@ -73,6 +95,20 @@ where
             .take(state.next_step_index)
             .map(|step| step.quantity)
             .sum()
+    }
+
+    fn has_unapplied_fill(state: &MockLiveOrderState) -> bool {
+        state.last_applied_fill_id < state.next_step_index as u64
+    }
+
+    fn latest_status_for_state(state: &MockLiveOrderState) -> OrderStatus {
+        if state.next_step_index == 0 {
+            OrderStatus::Accepted
+        } else if state.next_step_index < state.fill_plan.len() {
+            OrderStatus::PartiallyFilled
+        } else {
+            OrderStatus::Filled
+        }
     }
 }
 
@@ -90,12 +126,19 @@ where
         request: AdapterOrderRequest,
     ) -> std::result::Result<OrderInitialResponse, AdapterError> {
         let mut state = self.state_template.clone();
+        if state.simulated_fill_price.is_none() {
+            state.simulated_fill_price = Some(request.price);
+        }
         if state.planned_fill_time.is_none() {
             state.planned_fill_time = Some(self.clock.now());
         }
 
         self.store
-            .insert_mock_live_order_state(&request.client_order_id, Some(&request.client_order_id), &state)
+            .insert_mock_live_order_state(
+                &request.client_order_id,
+                Some(&request.client_order_id),
+                &state,
+            )
             .await
             .map_err(|err| AdapterError::Execution(err.to_string()))?;
 
@@ -104,6 +147,7 @@ where
             latest_status: OrderStatus::Accepted,
             filled_quantity: 0,
             avg_fill_price: None,
+            fill_details: None,
             rejection_reason: None,
         })
     }
@@ -120,6 +164,7 @@ where
                 latest_status: OrderStatus::Canceled,
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
+                fill_details: None,
             });
         }
 
@@ -137,6 +182,7 @@ where
                 latest_status: OrderStatus::Unknown,
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
+                fill_details: None,
             });
         }
 
@@ -157,32 +203,37 @@ where
                 latest_status: OrderStatus::Unknown,
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
+                fill_details: None,
             });
         }
 
-        if state.next_step_index < state.fill_plan.len() {
+        if !Self::has_unapplied_fill(&state) && state.next_step_index < state.fill_plan.len() {
             state.next_step_index += 1;
-            state.last_applied_fill_id += 1;
-            let filled_quantity = Self::cumulative_filled_quantity(&state);
-            let latest_status = if state.next_step_index < state.fill_plan.len() {
-                OrderStatus::PartiallyFilled
-            } else {
-                OrderStatus::Filled
-            };
             self.save_state(order_id, &state).await?;
-            return Ok(OrderQueryResponse {
-                adapter_order_id: order_id.to_string(),
-                latest_status,
-                filled_quantity,
-                avg_fill_price: None,
-            });
         }
+
+        let fill_price = match state.simulated_fill_price {
+            Some(price) => price,
+            None => self.load_requested_price(order_id).await?,
+        };
+        let fill_details = if Self::has_unapplied_fill(&state) {
+            let fill_index = state.last_applied_fill_id as usize;
+            let fill_step = state.fill_plan[fill_index].clone();
+            Some(FillDetails {
+                fill_id: fill_index as u64 + 1,
+                fill_quantity: fill_step.quantity,
+                fill_price,
+            })
+        } else {
+            None
+        };
 
         Ok(OrderQueryResponse {
             adapter_order_id: order_id.to_string(),
-            latest_status: OrderStatus::Accepted,
+            latest_status: Self::latest_status_for_state(&state),
             filled_quantity: Self::cumulative_filled_quantity(&state),
-            avg_fill_price: None,
+            avg_fill_price: (state.next_step_index > 0).then_some(fill_price),
+            fill_details,
         })
     }
 

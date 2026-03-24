@@ -108,6 +108,23 @@ async fn set_rule_upserts_daily_loss_percentage_values() {
 }
 
 #[tokio::test]
+async fn set_rule_upserts_volatility_limit_percentage_values() {
+    let (service, store) = service();
+
+    let rule = service
+        .set_rule("volatility-limit", "4%", fixed_ts())
+        .await
+        .unwrap();
+    assert_eq!(rule.rule_type, RiskRuleType::VolatilityLimit);
+    assert_eq!(rule.value, RuleValue::Percentage(dec!(4)));
+
+    let state = store.snapshot().unwrap();
+    assert_eq!(state.rules.len(), 1);
+    assert_eq!(state.rules[0].rule_type, RiskRuleType::VolatilityLimit);
+    assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
+}
+
+#[tokio::test]
 async fn position_limit_rejects_amount_syntax() {
     let (service, _) = service();
 
@@ -116,6 +133,17 @@ async fn position_limit_rejects_amount_syntax() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("position-limit"));
+}
+
+#[tokio::test]
+async fn volatility_limit_rejects_amount_syntax() {
+    let (service, _) = service();
+
+    let err = service
+        .set_rule("volatility-limit", "50000", fixed_ts())
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("volatility-limit"));
 }
 
 #[tokio::test]

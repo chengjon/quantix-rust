@@ -5,7 +5,7 @@ use rust_decimal::prelude::ToPrimitive;
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
-use crate::execution::models::{OrderSide, OrderStatus};
+use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeService};
 
 #[derive(Debug, Clone)]
@@ -49,6 +49,11 @@ where
                     latest_status: OrderStatus::Filled,
                     filled_quantity: record.volume,
                     avg_fill_price: Some(record.price),
+                    fill_details: Some(FillDetails {
+                        fill_id: 1,
+                        fill_quantity: record.volume,
+                        fill_price: record.price,
+                    }),
                     rejection_reason: None,
                 })
             }
@@ -63,6 +68,11 @@ where
                     latest_status: OrderStatus::Filled,
                     filled_quantity: record.volume,
                     avg_fill_price: Some(record.price),
+                    fill_details: Some(FillDetails {
+                        fill_id: 1,
+                        fill_quantity: record.volume,
+                        fill_price: record.price,
+                    }),
                     rejection_reason: None,
                 })
             }

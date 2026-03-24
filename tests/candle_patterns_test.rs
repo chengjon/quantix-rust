@@ -5,7 +5,9 @@ use quantix_cli::analysis::candle_patterns::{
 use rust_decimal_macros::dec;
 
 fn default_config() -> PatternConfig {
-    PatternConfig { epsilon: dec!(0.0001) }
+    PatternConfig {
+        epsilon: dec!(0.0001),
+    }
 }
 
 #[test]
@@ -75,9 +77,12 @@ fn recognizes_sequence_using_previous_close_reference() {
         },
     ];
 
-    let patterns =
-        recognize_sequence(&candles, &ReferencePricePolicy::PreviousClose, &default_config())
-            .unwrap();
+    let patterns = recognize_sequence(
+        &candles,
+        &ReferencePricePolicy::PreviousClose,
+        &default_config(),
+    )
+    .unwrap();
 
     assert_eq!(patterns.len(), 1);
     assert_eq!(patterns[0].bias, MarketBias::Bullish);
@@ -92,9 +97,12 @@ fn rejects_previous_close_sequence_without_prior_candle() {
         close: dec!(10),
     }];
 
-    let error =
-        recognize_sequence(&candles, &ReferencePricePolicy::PreviousClose, &default_config())
-            .unwrap_err();
+    let error = recognize_sequence(
+        &candles,
+        &ReferencePricePolicy::PreviousClose,
+        &default_config(),
+    )
+    .unwrap_err();
 
     assert_eq!(error, PatternError::MissingPreviousCloseReference);
 }
@@ -334,7 +342,11 @@ fn recognizes_all_documented_canonical_cases() {
 
     for (candle, expected) in cases {
         let pattern = recognize_single(&candle, dec!(10), &default_config()).unwrap();
-        assert_eq!(pattern.canonical_case, Some(expected), "failed canonical case {expected:?}");
+        assert_eq!(
+            pattern.canonical_case,
+            Some(expected),
+            "failed canonical case {expected:?}"
+        );
     }
 }
 

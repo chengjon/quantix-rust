@@ -132,6 +132,7 @@ impl ApprovalStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionRequestStatus {
     Pending,
+    InProgress,
     Completed,
     Failed,
     Canceled,
@@ -141,6 +142,7 @@ impl ExecutionRequestStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
+            Self::InProgress => "in_progress",
             Self::Completed => "completed",
             Self::Failed => "failed",
             Self::Canceled => "canceled",
@@ -150,6 +152,7 @@ impl ExecutionRequestStatus {
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending" => Some(Self::Pending),
+            "in_progress" => Some(Self::InProgress),
             "completed" => Some(Self::Completed),
             "failed" => Some(Self::Failed),
             "canceled" => Some(Self::Canceled),
@@ -284,6 +287,33 @@ pub struct OrderRecord {
     pub payload_json: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FillDetails {
+    pub fill_id: u64,
+    pub fill_quantity: i64,
+    pub fill_price: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FillDeltaContext {
+    pub order_id: String,
+    pub client_order_id: String,
+    pub symbol: String,
+    pub side: OrderSide,
+    pub requested_price: Decimal,
+    pub old_filled_quantity: i64,
+    pub new_filled_quantity: i64,
+    pub fill_details: Option<FillDetails>,
+    pub event_time: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FillDeltaResult {
+    pub applied: bool,
+    pub delta_quantity: i64,
+    pub trade_record_id: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct MockLiveFillStep {
     #[serde(default)]
@@ -304,6 +334,8 @@ pub struct MockLiveOrderState {
     pub fill_plan: Vec<MockLiveFillStep>,
     #[serde(default)]
     pub next_step_index: usize,
+    #[serde(default)]
+    pub simulated_fill_price: Option<Decimal>,
     #[serde(default)]
     pub planned_fill_time: Option<DateTime<Utc>>,
     #[serde(default)]

@@ -110,7 +110,9 @@ async fn resolves_watchlist_group_universe() {
     watchlist_service
         .add(&mut store, "000001", Some("core"), Utc::now())
         .unwrap();
-    watchlist_service.add(&mut store, "000002", None, Utc::now()).unwrap();
+    watchlist_service
+        .add(&mut store, "000002", None, Utc::now())
+        .unwrap();
     storage.save(&store).unwrap();
 
     let service = ScreenerService::new(FakeLoader::default(), storage.clone());
@@ -201,8 +203,20 @@ async fn keeps_rows_when_kline_data_is_missing() {
     assert_eq!(rows.len(), 2);
     assert!(!rows[0].matched);
     assert!(!rows[1].matched);
-    assert!(rows[0].details[0].reason.as_deref().unwrap().contains("数据不足"));
-    assert!(rows[1].details[0].reason.as_deref().unwrap().contains("数据不足"));
+    assert!(
+        rows[0].details[0]
+            .reason
+            .as_deref()
+            .unwrap()
+            .contains("数据不足")
+    );
+    assert!(
+        rows[1].details[0]
+            .reason
+            .as_deref()
+            .unwrap()
+            .contains("数据不足")
+    );
 }
 
 #[tokio::test]

@@ -94,13 +94,7 @@ fn parses_trade() {
     }
 
     let cli = Cli::try_parse_from([
-        "quantix",
-        "trade",
-        "history",
-        "--code",
-        "000001",
-        "--limit",
-        "5",
+        "quantix", "trade", "history", "--code", "000001", "--limit", "5",
     ])
     .unwrap();
     match cli.command {
@@ -121,13 +115,7 @@ fn parses_trade() {
     }
 
     let cli = Cli::try_parse_from([
-        "quantix",
-        "trade",
-        "fees",
-        "--code",
-        "600000",
-        "--limit",
-        "10",
+        "quantix", "trade", "fees", "--code", "600000", "--limit", "10",
     ])
     .unwrap();
     match cli.command {
@@ -179,13 +167,13 @@ fn parses_trade() {
 
 #[test]
 fn parses_trade_rejects_missing_price_or_volume() {
-    let err = Cli::try_parse_from(["quantix", "trade", "buy", "000001", "--volume", "1000"])
-        .unwrap_err();
+    let err =
+        Cli::try_parse_from(["quantix", "trade", "buy", "000001", "--volume", "1000"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--price"));
 
-    let err = Cli::try_parse_from(["quantix", "trade", "sell", "000001", "--price", "16.0"])
-        .unwrap_err();
+    let err =
+        Cli::try_parse_from(["quantix", "trade", "sell", "000001", "--price", "16.0"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--volume"));
 }

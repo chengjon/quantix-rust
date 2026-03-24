@@ -4,6 +4,7 @@ use chrono::{DateTime, FixedOffset, NaiveTime, TimeZone, Utc};
 use uuid::Uuid;
 
 use crate::core::{QuantixError, Result};
+use crate::execution::config::{AutoApprovalMode, ExecutionDaemonConfig, JsonExecutionConfigStore};
 use crate::execution::models::{
     ApprovalStatus, SignalStatus, StrategyDaemonCheckpointRecord, StrategyRunRecord,
     StrategyRunStatus, StrategySignalRecord,
@@ -25,6 +26,7 @@ pub struct StrategySignalDaemon<L> {
     loader: L,
     store: StrategyRuntimeStore,
     config_store: JsonStrategyConfigStore,
+    execution_config_store: Option<JsonExecutionConfigStore>,
     registry: StrategyRegistry,
     config: StrategyDaemonConfig,
     last_config_mtime: Option<SystemTime>,
@@ -48,10 +50,22 @@ where
             loader,
             store,
             config_store,
+            execution_config_store: None,
             registry: StrategyRegistry::new(),
             config,
             last_config_mtime,
         })
+    }
+
+    pub fn with_execution_config_store(
+        loader: L,
+        store: StrategyRuntimeStore,
+        config_store: JsonStrategyConfigStore,
+        execution_config_store: JsonExecutionConfigStore,
+    ) -> Result<Self> {
+        let mut daemon = Self::new(loader, store, config_store)?;
+        daemon.execution_config_store = Some(execution_config_store);
+        Ok(daemon)
     }
 
     pub async fn run_once(&mut self) -> Result<()> {
@@ -80,6 +94,8 @@ where
             let Some(latest_bar) = bars.last() else {
                 continue;
             };
+            let envelope = evaluator.evaluate(&bars)?;
+            let signal_value = signal_label(envelope.signal);
 
             let latest_bar_end = normalize_daily_bar_end(latest_bar.date)?;
             let checkpoint = self
@@ -110,9 +126,11 @@ where
                         "params": strategy.params,
                         "bar_source_id": source.as_ref().map(|item| item.source_id.clone()),
                         "bar_source_fallback": source.as_ref().map(|item| item.fallback_used),
+                        "market_price": latest_bar.close.to_string(),
+                        "signal_value": signal_value,
+                        "execution_policy": default_execution_policy_json(),
                     }),
                 };
-                let envelope = evaluator.evaluate(&bars)?;
                 let signal = StrategySignalRecord {
                     signal_id: Uuid::new_v4().to_string(),
                     strategy_instance_id: strategy.id.clone(),
@@ -120,7 +138,7 @@ where
                     symbol: stock.code.clone(),
                     timeframe: "1d".to_string(),
                     bar_end: latest_bar_end,
-                    signal_value: signal_label(envelope.signal).to_string(),
+                    signal_value: signal_value.to_string(),
                     signal_status: SignalStatus::New,
                     approval_status: ApprovalStatus::Pending,
                     run_id: run_id.clone(),
@@ -129,6 +147,9 @@ where
                         "params": strategy.params,
                         "bar_source_id": source.as_ref().map(|item| item.source_id.clone()),
                         "bar_source_fallback": source.as_ref().map(|item| item.fallback_used),
+                        "market_price": latest_bar.close.to_string(),
+                        "signal_value": signal_value,
+                        "execution_policy": default_execution_policy_json(),
                     }),
                     created_at: now,
                     updated_at: now,
@@ -150,6 +171,7 @@ where
                 self.store
                     .record_daemon_signal_run(&run, &signal, &daemon_checkpoint)
                     .await?;
+                self.maybe_auto_approve_signal(&signal.signal_id).await?;
             } else {
                 if self.config.bootstrap_policy != BootstrapPolicy::LatestOnly {
                     return Err(QuantixError::Unsupported(
@@ -194,6 +216,25 @@ where
 
         Ok(())
     }
+
+    fn load_execution_config(&self) -> Result<ExecutionDaemonConfig> {
+        match &self.execution_config_store {
+            Some(store) => store.load_or_create(),
+            None => Ok(ExecutionDaemonConfig::default()),
+        }
+    }
+
+    async fn maybe_auto_approve_signal(&self, signal_id: &str) -> Result<()> {
+        let execution_config = self.load_execution_config()?;
+        if execution_config.auto_approval.mode != AutoApprovalMode::Always {
+            return Ok(());
+        }
+
+        self.store
+            .approve_signal_and_create_request(signal_id, "paper", "default", Some("auto"))
+            .await?;
+        Ok(())
+    }
 }
 
 impl<P> StrategyBarLoadTelemetry for FallbackStrategyBarLoader<P> {
@@ -218,4 +259,11 @@ fn signal_label(signal: crate::strategy::trait_def::Signal) -> &'static str {
         crate::strategy::trait_def::Signal::Sell => "sell",
         crate::strategy::trait_def::Signal::Hold => "hold",
     }
+}
+
+fn default_execution_policy_json() -> serde_json::Value {
+    serde_json::json!({
+        "fixed_cash_per_buy": "10000",
+        "slippage_bps": 0
+    })
 }

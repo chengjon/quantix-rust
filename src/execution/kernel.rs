@@ -5,8 +5,9 @@ use uuid::Uuid;
 use crate::core::{QuantixError, Result};
 use crate::execution::adapter::{AdapterOrderRequest, ExecutionAdapter};
 use crate::execution::models::{
-    ExecutionPolicy, OrderEventRecord, OrderIntent, OrderRecord, OrderStatus, SignalEnvelope,
-    SignalEventRecord, StrategyRunRecord, StrategyRunStatus, translate_signal,
+    ExecutionPolicy, FillDeltaContext, FillDeltaResult, OrderEventRecord, OrderIntent, OrderRecord,
+    OrderStatus, SignalEnvelope, SignalEventRecord, StrategyRunRecord, StrategyRunStatus,
+    translate_signal,
 };
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::strategy::trait_def::Signal;
@@ -24,6 +25,26 @@ pub trait RiskEvaluator: Send + Sync {
     async fn sync_after_fill(&self) -> Result<()>;
 }
 
+#[async_trait]
+pub trait FillDeltaApplier: Send + Sync {
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult>;
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoopFillDeltaApplier;
+
+#[async_trait]
+impl FillDeltaApplier for NoopFillDeltaApplier {
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        let delta_quantity = (ctx.new_filled_quantity - ctx.old_filled_quantity).max(0);
+        Ok(FillDeltaResult {
+            applied: delta_quantity > 0,
+            delta_quantity,
+            trade_record_id: None,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionRunRequest {
     pub run_id: String,
@@ -36,6 +57,21 @@ pub struct ExecutionRunRequest {
     pub market_price: rust_decimal::Decimal,
     pub held_volume: Option<i64>,
     pub policy: ExecutionPolicy,
+    pub client_order_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedExecutionRequest {
+    pub run_id: String,
+    pub strategy_name: String,
+    pub mode: String,
+    pub trigger: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub bar_end: DateTime<Utc>,
+    pub signal: Signal,
+    pub signal_payload_json: serde_json::Value,
+    pub intent: OrderIntent,
     pub client_order_id: String,
 }
 
@@ -57,27 +93,82 @@ pub struct RecoverySummary {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExecutionKernel<A, R> {
+pub struct ExecutionKernel<A, F, R> {
     store: StrategyRuntimeStore,
     adapter: A,
+    fill_delta: F,
     risk: R,
 }
 
-impl<A, R> ExecutionKernel<A, R> {
+impl<A, R> ExecutionKernel<A, NoopFillDeltaApplier, R> {
     pub fn new(store: StrategyRuntimeStore, adapter: A, risk: R) -> Self {
         Self {
             store,
             adapter,
+            fill_delta: NoopFillDeltaApplier,
             risk,
         }
     }
 }
 
-impl<A, R> ExecutionKernel<A, R>
+impl<A, F, R> ExecutionKernel<A, F, R> {
+    pub fn with_fill_delta(
+        store: StrategyRuntimeStore,
+        adapter: A,
+        fill_delta: F,
+        risk: R,
+    ) -> Self {
+        Self {
+            store,
+            adapter,
+            fill_delta,
+            risk,
+        }
+    }
+}
+
+impl<A, F, R> ExecutionKernel<A, F, R>
 where
     A: ExecutionAdapter,
+    F: FillDeltaApplier,
     R: RiskEvaluator,
 {
+    pub async fn execute_request(
+        &self,
+        request: PreparedExecutionRequest,
+    ) -> Result<KernelExecutionResult> {
+        let now = Utc::now();
+        self.store
+            .insert_run(&StrategyRunRecord {
+                run_id: request.run_id.clone(),
+                strategy_name: request.strategy_name.clone(),
+                mode: request.mode.clone(),
+                trigger: request.trigger.clone(),
+                status: StrategyRunStatus::Running,
+                symbol: request.symbol.clone(),
+                timeframe: request.timeframe.clone(),
+                bar_end: request.bar_end,
+                started_at: now,
+                finished_at: None,
+                metadata_json: serde_json::json!({}),
+            })
+            .await?;
+
+        self.store
+            .insert_signal_event(&SignalEventRecord {
+                event_id: Uuid::new_v4().to_string(),
+                run_id: request.run_id.clone(),
+                strategy_name: request.strategy_name.clone(),
+                symbol: request.symbol.clone(),
+                signal: signal_to_str(request.signal).to_string(),
+                ts: now,
+                payload_json: request.signal_payload_json.clone(),
+            })
+            .await?;
+
+        self.execute_prepared_order_flow(request).await
+    }
+
     pub async fn execute_once(
         &self,
         request: ExecutionRunRequest,
@@ -159,6 +250,26 @@ where
             });
         };
 
+        self.execute_prepared_order_flow(PreparedExecutionRequest {
+            run_id: request.run_id,
+            strategy_name: request.strategy_name,
+            mode: request.mode,
+            trigger: request.trigger,
+            symbol: request.symbol,
+            timeframe: request.timeframe,
+            bar_end: request.bar_end,
+            signal: envelope.signal,
+            signal_payload_json: envelope.metadata_json,
+            intent,
+            client_order_id: request.client_order_id,
+        })
+        .await
+    }
+
+    async fn execute_prepared_order_flow(
+        &self,
+        request: PreparedExecutionRequest,
+    ) -> Result<KernelExecutionResult> {
         if let Some(existing) = self
             .store
             .find_order_by_client_order_id(&request.client_order_id)
@@ -173,14 +284,16 @@ where
                 .await?;
             return Ok(KernelExecutionResult {
                 run_id: request.run_id,
-                signal: envelope.signal,
+                signal: request.signal,
                 order_status: Some(existing.status),
                 client_order_id: Some(existing.client_order_id),
             });
         }
 
+        let intent = request.intent.clone();
         match self.risk.evaluate(intent.clone()).await? {
             RiskDecision::Reject { reason } => {
+                let now = Utc::now();
                 let order_id = request.client_order_id.clone();
                 self.store
                     .insert_order(&OrderRecord {
@@ -223,12 +336,13 @@ where
                     .await?;
                 Ok(KernelExecutionResult {
                     run_id: request.run_id,
-                    signal: envelope.signal,
+                    signal: request.signal,
                     order_status: Some(OrderStatus::Rejected),
                     client_order_id: Some(request.client_order_id),
                 })
             }
             RiskDecision::Allow => {
+                let now = Utc::now();
                 let order_id = request.client_order_id.clone();
                 self.store
                     .insert_order(&OrderRecord {
@@ -275,31 +389,120 @@ where
                     .await
                     .map_err(|err| QuantixError::Other(err.to_string()))?;
 
-                self.store
-                    .insert_order_event(&OrderEventRecord {
-                        event_id: Uuid::new_v4().to_string(),
-                        order_id: order_id.clone(),
-                        client_order_id: request.client_order_id.clone(),
-                        event_type: response.latest_status.as_str().to_string(),
-                        event_time: Utc::now(),
-                        details_json: serde_json::json!({
-                            "filled_quantity": response.filled_quantity,
-                            "avg_fill_price": response.avg_fill_price,
-                        }),
-                    })
-                    .await?;
-                self.store
-                    .update_order(
-                        &order_id,
-                        response.latest_status,
-                        response.filled_quantity,
-                        response.avg_fill_price,
-                        Utc::now(),
-                    )
-                    .await?;
-
+                let event_time = Utc::now();
                 if response.filled_quantity > 0 {
-                    self.risk.sync_after_fill().await?;
+                    let fill_result = match self
+                        .fill_delta
+                        .apply_fill_delta(FillDeltaContext {
+                            order_id: order_id.clone(),
+                            client_order_id: request.client_order_id.clone(),
+                            symbol: request.symbol.clone(),
+                            side: intent.side,
+                            requested_price: intent.requested_price,
+                            old_filled_quantity: 0,
+                            new_filled_quantity: response.filled_quantity,
+                            fill_details: response.fill_details.clone(),
+                            event_time,
+                        })
+                        .await
+                    {
+                        Ok(result) => result,
+                        Err(err) => {
+                            self.store
+                                .insert_order_event(&OrderEventRecord {
+                                    event_id: Uuid::new_v4().to_string(),
+                                    order_id: order_id.clone(),
+                                    client_order_id: request.client_order_id.clone(),
+                                    event_type: "fill_apply_failed".to_string(),
+                                    event_time,
+                                    details_json: serde_json::json!({
+                                        "error": err.to_string(),
+                                        "proposed_status": response.latest_status.as_str(),
+                                        "proposed_filled_quantity": response.filled_quantity,
+                                        "avg_fill_price": response.avg_fill_price,
+                                        "fill_details": fill_details_json(response.fill_details.as_ref()),
+                                    }),
+                                })
+                                .await?;
+                            self.store
+                                .update_run_status(
+                                    &request.run_id,
+                                    StrategyRunStatus::Failed,
+                                    Some(event_time),
+                                )
+                                .await?;
+                            return Err(err);
+                        }
+                    };
+
+                    if fill_result.applied {
+                        self.store
+                            .insert_order_event(&OrderEventRecord {
+                                event_id: Uuid::new_v4().to_string(),
+                                order_id: order_id.clone(),
+                                client_order_id: request.client_order_id.clone(),
+                                event_type: response.latest_status.as_str().to_string(),
+                                event_time,
+                                details_json: serde_json::json!({
+                                    "filled_quantity": response.filled_quantity,
+                                    "avg_fill_price": response.avg_fill_price,
+                                }),
+                            })
+                            .await?;
+                        self.store
+                            .insert_order_event(&OrderEventRecord {
+                                event_id: Uuid::new_v4().to_string(),
+                                order_id: order_id.clone(),
+                                client_order_id: request.client_order_id.clone(),
+                                event_type: "fill_applied".to_string(),
+                                event_time,
+                                details_json: serde_json::json!({
+                                    "delta_quantity": fill_result.delta_quantity,
+                                    "trade_record_id": fill_result.trade_record_id,
+                                    "fill_details": fill_details_json(response.fill_details.as_ref()),
+                                }),
+                            })
+                            .await?;
+                        self.store
+                            .update_order(
+                                &order_id,
+                                response.latest_status,
+                                response.filled_quantity,
+                                response.avg_fill_price,
+                                event_time,
+                            )
+                            .await?;
+                        self.mark_mock_live_fill_applied(
+                            &order_id,
+                            &request.client_order_id,
+                            response.fill_details.as_ref(),
+                        )
+                        .await?;
+                        self.risk.sync_after_fill().await?;
+                    }
+                } else {
+                    self.store
+                        .insert_order_event(&OrderEventRecord {
+                            event_id: Uuid::new_v4().to_string(),
+                            order_id: order_id.clone(),
+                            client_order_id: request.client_order_id.clone(),
+                            event_type: response.latest_status.as_str().to_string(),
+                            event_time,
+                            details_json: serde_json::json!({
+                                "filled_quantity": response.filled_quantity,
+                                "avg_fill_price": response.avg_fill_price,
+                            }),
+                        })
+                        .await?;
+                    self.store
+                        .update_order(
+                            &order_id,
+                            response.latest_status,
+                            response.filled_quantity,
+                            response.avg_fill_price,
+                            event_time,
+                        )
+                        .await?;
                 }
 
                 self.store
@@ -311,12 +514,35 @@ where
                     .await?;
                 Ok(KernelExecutionResult {
                     run_id: request.run_id,
-                    signal: envelope.signal,
+                    signal: request.signal,
                     order_status: Some(response.latest_status),
                     client_order_id: Some(request.client_order_id),
                 })
             }
         }
+    }
+
+    async fn mark_mock_live_fill_applied(
+        &self,
+        order_id: &str,
+        adapter_order_id: &str,
+        fill_details: Option<&crate::execution::models::FillDetails>,
+    ) -> Result<()> {
+        let Some(fill_details) = fill_details else {
+            return Ok(());
+        };
+        let Some(mut state) = self.store.get_mock_live_order_state(order_id).await? else {
+            return Ok(());
+        };
+
+        if fill_details.fill_id <= state.last_applied_fill_id {
+            return Ok(());
+        }
+
+        state.last_applied_fill_id = fill_details.fill_id;
+        self.store
+            .update_mock_live_order_state(order_id, Some(adapter_order_id), &state)
+            .await
     }
 
     pub async fn recover_pending_orders(&self) -> Result<RecoverySummary> {
@@ -332,7 +558,10 @@ where
         summary.scanned = orders.len();
 
         for order in orders {
-            let before_state = self.store.get_mock_live_order_state(&order.order_id).await?;
+            let before_state = self
+                .store
+                .get_mock_live_order_state(&order.order_id)
+                .await?;
             let response = match self.adapter.query_order(&order.client_order_id).await {
                 Ok(response) => response,
                 Err(_) => {
@@ -340,9 +569,184 @@ where
                     continue;
                 }
             };
-            let after_state = self.store.get_mock_live_order_state(&order.order_id).await?;
+            let after_state = self
+                .store
+                .get_mock_live_order_state(&order.order_id)
+                .await?;
 
-            if response.latest_status != order.status || response.filled_quantity != order.filled_quantity {
+            if response.filled_quantity > order.filled_quantity {
+                let updated_at = Utc::now();
+                let fill_result = match self
+                    .fill_delta
+                    .apply_fill_delta(FillDeltaContext {
+                        order_id: order.order_id.clone(),
+                        client_order_id: order.client_order_id.clone(),
+                        symbol: order.symbol.clone(),
+                        side: order.side,
+                        requested_price: order.requested_price,
+                        old_filled_quantity: order.filled_quantity,
+                        new_filled_quantity: response.filled_quantity,
+                        fill_details: response.fill_details.clone(),
+                        event_time: updated_at,
+                    })
+                    .await
+                {
+                    Ok(result) => result,
+                    Err(err) => {
+                        self.store
+                            .insert_order_event(&OrderEventRecord {
+                                event_id: Uuid::new_v4().to_string(),
+                                order_id: order.order_id.clone(),
+                                client_order_id: order.client_order_id.clone(),
+                                event_type: "fill_apply_failed".to_string(),
+                                event_time: updated_at,
+                                details_json: serde_json::json!({
+                                    "error": err.to_string(),
+                                    "proposed_status": response.latest_status.as_str(),
+                                    "proposed_filled_quantity": response.filled_quantity,
+                                    "avg_fill_price": response.avg_fill_price,
+                                    "fill_details": fill_details_json(response.fill_details.as_ref()),
+                                }),
+                            })
+                            .await?;
+                        summary.failed += 1;
+                        continue;
+                    }
+                };
+
+                if !fill_result.applied {
+                    summary.skipped += 1;
+                    continue;
+                }
+
+                let remaining_quantity =
+                    (order.requested_quantity - response.filled_quantity).max(0);
+                let updated = self
+                    .store
+                    .try_update_order_with_version(
+                        &order.order_id,
+                        order.version,
+                        response.latest_status,
+                        response.filled_quantity,
+                        remaining_quantity,
+                        response.avg_fill_price,
+                        updated_at,
+                    )
+                    .await?;
+
+                if updated {
+                    self.store
+                        .insert_order_event(&OrderEventRecord {
+                            event_id: Uuid::new_v4().to_string(),
+                            order_id: order.order_id.clone(),
+                            client_order_id: order.client_order_id.clone(),
+                            event_type: response.latest_status.as_str().to_string(),
+                            event_time: updated_at,
+                            details_json: serde_json::json!({
+                                "filled_quantity": response.filled_quantity,
+                                "avg_fill_price": response.avg_fill_price,
+                            }),
+                        })
+                        .await?;
+                    self.store
+                        .insert_order_event(&OrderEventRecord {
+                            event_id: Uuid::new_v4().to_string(),
+                            order_id: order.order_id.clone(),
+                            client_order_id: order.client_order_id.clone(),
+                            event_type: "fill_applied".to_string(),
+                            event_time: updated_at,
+                            details_json: serde_json::json!({
+                                "delta_quantity": fill_result.delta_quantity,
+                                "trade_record_id": fill_result.trade_record_id,
+                                "fill_details": fill_details_json(response.fill_details.as_ref()),
+                            }),
+                        })
+                        .await?;
+                    self.mark_mock_live_fill_applied(
+                        &order.order_id,
+                        &order.client_order_id,
+                        response.fill_details.as_ref(),
+                    )
+                    .await?;
+                    self.risk.sync_after_fill().await?;
+
+                    summary.recovered += 1;
+                    continue;
+                }
+
+                let latest = self
+                    .store
+                    .find_order_by_client_order_id(&order.client_order_id)
+                    .await?;
+                if let Some(latest) = latest {
+                    if latest.filled_quantity >= response.filled_quantity
+                        && latest.status == response.latest_status
+                    {
+                        summary.skipped += 1;
+                        continue;
+                    }
+
+                    let retry_updated = self
+                        .store
+                        .try_update_order_with_version(
+                            &latest.order_id,
+                            latest.version,
+                            response.latest_status,
+                            response.filled_quantity,
+                            (latest.requested_quantity - response.filled_quantity).max(0),
+                            response.avg_fill_price,
+                            updated_at,
+                        )
+                        .await?;
+                    if retry_updated {
+                        self.store
+                            .insert_order_event(&OrderEventRecord {
+                                event_id: Uuid::new_v4().to_string(),
+                                order_id: latest.order_id.clone(),
+                                client_order_id: latest.client_order_id.clone(),
+                                event_type: response.latest_status.as_str().to_string(),
+                                event_time: updated_at,
+                                details_json: serde_json::json!({
+                                    "filled_quantity": response.filled_quantity,
+                                    "avg_fill_price": response.avg_fill_price,
+                                }),
+                            })
+                            .await?;
+                        self.store
+                            .insert_order_event(&OrderEventRecord {
+                                event_id: Uuid::new_v4().to_string(),
+                                order_id: latest.order_id.clone(),
+                                client_order_id: latest.client_order_id.clone(),
+                                event_type: "fill_applied".to_string(),
+                                event_time: updated_at,
+                                details_json: serde_json::json!({
+                                    "delta_quantity": fill_result.delta_quantity,
+                                    "trade_record_id": fill_result.trade_record_id,
+                                    "fill_details": fill_details_json(response.fill_details.as_ref()),
+                                }),
+                            })
+                            .await?;
+                        self.mark_mock_live_fill_applied(
+                            &latest.order_id,
+                            &latest.client_order_id,
+                            response.fill_details.as_ref(),
+                        )
+                        .await?;
+                        self.risk.sync_after_fill().await?;
+
+                        summary.recovered += 1;
+                    } else {
+                        summary.skipped += 1;
+                    }
+                } else {
+                    summary.skipped += 1;
+                }
+                continue;
+            }
+
+            if response.latest_status != order.status
+                || response.filled_quantity != order.filled_quantity
+            {
                 let remaining_quantity =
                     (order.requested_quantity - response.filled_quantity).max(0);
                 let updated_at = Utc::now();
@@ -373,11 +777,6 @@ where
                             }),
                         })
                         .await?;
-
-                    if response.filled_quantity > order.filled_quantity {
-                        self.risk.sync_after_fill().await?;
-                    }
-
                     summary.recovered += 1;
                     continue;
                 }
@@ -413,11 +812,6 @@ where
                                 }),
                             })
                             .await?;
-
-                        if response.filled_quantity > latest.filled_quantity {
-                            self.risk.sync_after_fill().await?;
-                        }
-
                         summary.recovered += 1;
                     } else {
                         summary.skipped += 1;
@@ -468,5 +862,18 @@ fn signal_to_str(signal: Signal) -> &'static str {
         Signal::Buy => "buy",
         Signal::Sell => "sell",
         Signal::Hold => "hold",
+    }
+}
+
+fn fill_details_json(
+    fill_details: Option<&crate::execution::models::FillDetails>,
+) -> serde_json::Value {
+    match fill_details {
+        Some(fill) => serde_json::json!({
+            "fill_id": fill.fill_id,
+            "fill_quantity": fill.fill_quantity,
+            "fill_price": fill.fill_price,
+        }),
+        None => serde_json::Value::Null,
     }
 }

@@ -8,8 +8,14 @@ use quantix_cli::monitor::{
     MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorWatchlistReader,
     SqliteMonitorAlertStore,
 };
-use quantix_cli::stop::{StopRule, StopRuleStore, StopTriggerKind};
+use quantix_cli::stop::{
+    StopHistoryEvent, StopHistoryFilter, StopHistoryTriggerKind, StopRule, StopRuleStore,
+    StopTriggerKind,
+};
+use quantix_cli::trade::{FeeConfig, PaperTradeAccount, PaperTradeState, PaperTradeStore, TradePosition};
+use rust_decimal_macros::dec;
 use quantix_cli::watchlist::WatchlistListItem;
+use std::collections::BTreeMap;
 use tempfile::tempdir;
 
 #[derive(Clone, Default)]
@@ -39,6 +45,7 @@ impl MonitorQuoteReader for FakeQuoteReader {
 #[derive(Debug, Clone, Default)]
 struct FakeStopRuleState {
     rules: Vec<StopRule>,
+    history: Vec<StopHistoryEvent>,
 }
 
 #[derive(Clone, Default)]
@@ -64,6 +71,26 @@ impl StopRuleStore for FakeStopRuleStore {
 
     async fn list_rules(&self) -> Result<Vec<StopRule>> {
         Ok(self.state.lock().unwrap().rules.clone())
+    }
+
+    async fn get_rule(&self, code: &str) -> Result<Option<StopRule>> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap()
+            .rules
+            .iter()
+            .find(|rule| rule.code == code)
+            .cloned())
+    }
+
+    async fn append_history(&self, _event: StopHistoryEvent) -> Result<()> {
+        self.state.lock().unwrap().history.push(_event);
+        Ok(())
+    }
+
+    async fn list_history(&self, _filter: StopHistoryFilter) -> Result<Vec<StopHistoryEvent>> {
+        Ok(self.state.lock().unwrap().history.clone())
     }
 
     async fn remove_rule(&self, code: &str) -> Result<bool> {
@@ -103,8 +130,11 @@ fn stop_rule(code: &str) -> StopRule {
         code: code.to_string(),
         stop_loss_price: Some(14.5),
         take_profit_price: None,
+        stop_loss_pct: None,
+        take_profit_pct: None,
         trailing_pct: None,
         highest_price: None,
+        reference_price: None,
         last_triggered_at: None,
         created_at: sample_time(),
         updated_at: sample_time(),
@@ -120,6 +150,23 @@ fn config() -> MonitorConfig {
     }
 }
 
+#[derive(Clone, Default)]
+struct FakePaperTradeStore {
+    state: Arc<Mutex<Option<PaperTradeState>>>,
+}
+
+#[async_trait]
+impl PaperTradeStore for FakePaperTradeStore {
+    async fn load_state(&self) -> Result<Option<PaperTradeState>> {
+        Ok(self.state.lock().unwrap().clone())
+    }
+
+    async fn save_state(&self, state: &PaperTradeState) -> Result<()> {
+        *self.state.lock().unwrap() = Some(state.clone());
+        Ok(())
+    }
+}
+
 #[tokio::test]
 async fn monitor_runner_empty_watchlist_returns_no_data() {
     let dir = tempdir().unwrap();
@@ -131,6 +178,7 @@ async fn monitor_runner_empty_watchlist_returns_no_data() {
         FakeQuoteReader::default(),
         store,
         FakeStopRuleStore::default(),
+        FakePaperTradeStore::default(),
     );
 
     let output = runner
@@ -158,6 +206,7 @@ async fn monitor_runner_partial_quotes_do_not_abort_iteration() {
         },
         store,
         FakeStopRuleStore::default(),
+        FakePaperTradeStore::default(),
     );
 
     let output = runner
@@ -200,6 +249,7 @@ async fn monitor_runner_persists_alert_event_only_on_first_activation() {
         },
         store.clone(),
         FakeStopRuleStore::default(),
+        FakePaperTradeStore::default(),
     );
 
     let first = runner
@@ -251,6 +301,7 @@ async fn monitor_runner_retriggers_after_condition_clears() {
         },
         store.clone(),
         FakeStopRuleStore::default(),
+        FakePaperTradeStore::default(),
     );
     let runner_off = MonitorRunner::new(
         watchlist,
@@ -259,6 +310,7 @@ async fn monitor_runner_retriggers_after_condition_clears() {
         },
         store.clone(),
         FakeStopRuleStore::default(),
+        FakePaperTradeStore::default(),
     );
 
     runner_on
@@ -296,6 +348,7 @@ async fn monitor_runner_persists_stop_trigger_events() {
     let stop_store = FakeStopRuleStore {
         state: Arc::new(Mutex::new(FakeStopRuleState {
             rules: vec![stop_rule("000001")],
+            history: Vec::new(),
         })),
     };
     let runner = MonitorRunner::new(
@@ -307,6 +360,7 @@ async fn monitor_runner_persists_stop_trigger_events() {
         },
         store.clone(),
         stop_store,
+        FakePaperTradeStore::default(),
     );
 
     let output = runner
@@ -318,4 +372,83 @@ async fn monitor_runner_persists_stop_trigger_events() {
     assert_eq!(output.triggered_stops[0].kind, StopTriggerKind::Loss);
     assert_eq!(output.new_events.len(), 1);
     assert_eq!(output.new_events[0].event_type, MonitorEventType::StopLoss);
+}
+
+#[tokio::test]
+async fn monitor_runner_percent_stop_prefers_current_avg_cost_and_records_stop_history() {
+    let dir = tempdir().unwrap();
+    let store = SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+        .await
+        .unwrap();
+    let stop_store = FakeStopRuleStore {
+        state: Arc::new(Mutex::new(FakeStopRuleState {
+            rules: vec![StopRule {
+                code: "000001".to_string(),
+                stop_loss_price: None,
+                take_profit_price: None,
+                stop_loss_pct: Some(5.0),
+                take_profit_pct: None,
+                trailing_pct: None,
+                highest_price: None,
+                reference_price: Some(15.2),
+                last_triggered_at: None,
+                created_at: sample_time(),
+                updated_at: sample_time(),
+            }],
+            history: Vec::new(),
+        })),
+    };
+    let trade_store = FakePaperTradeStore {
+        state: Arc::new(Mutex::new(Some(PaperTradeState {
+            version: 1,
+            account: Some(PaperTradeAccount {
+                account_id: "default".to_string(),
+                initial_capital: dec!(100000),
+                available_cash: dec!(80000),
+                fee_config: FeeConfig::default(),
+                positions: BTreeMap::from([(
+                    "000001".to_string(),
+                    TradePosition {
+                        code: "000001".to_string(),
+                        volume: 1000,
+                        avg_cost: dec!(20),
+                        last_trade_price: dec!(20),
+                        opened_at: sample_time(),
+                        updated_at: sample_time(),
+                    },
+                )]),
+                created_at: sample_time(),
+                updated_at: sample_time(),
+            }),
+            trade_records: Vec::new(),
+        }))),
+    };
+    let runner = MonitorRunner::new(
+        FakeWatchlistReader {
+            items: vec![item("000001", "core")],
+        },
+        FakeQuoteReader {
+            rows: vec![quote_row("000001", "core", Some(19.0))],
+        },
+        store,
+        stop_store.clone(),
+        trade_store,
+    );
+
+    let output = runner
+        .run_once(&config(), MonitorRunMode::Daemon, sample_time())
+        .await
+        .unwrap();
+
+    assert_eq!(output.triggered_stops.len(), 1);
+    assert_eq!(output.triggered_stops[0].kind, StopTriggerKind::Loss);
+
+    let history = stop_store.state.lock().unwrap().history.clone();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].event_type, quantix_cli::stop::StopHistoryEventType::Trigger);
+    assert_eq!(
+        history[0].trigger_kind,
+        Some(StopHistoryTriggerKind::Loss)
+    );
+    assert_eq!(history[0].anchor_source.as_deref(), Some("position_cost"));
 }

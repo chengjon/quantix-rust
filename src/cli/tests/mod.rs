@@ -3,6 +3,7 @@ use clap::Parser;
 use clap::error::ErrorKind;
 
 mod analyze;
+mod execution;
 mod market;
 mod monitor;
 mod risk;

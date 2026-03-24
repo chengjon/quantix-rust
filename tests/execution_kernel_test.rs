@@ -1,26 +1,28 @@
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
 use chrono::{TimeZone, Utc};
-use quantix_cli::core::Result;
+use quantix_cli::core::{QuantixError, Result};
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::adapter::{AdapterError, AdapterOrderRequest, ExecutionAdapter};
 use quantix_cli::execution::kernel::{
-    ExecutionKernel, ExecutionRunRequest, KernelExecutionResult, RecoverySummary, RiskDecision,
-    RiskEvaluator,
-};
-use quantix_cli::execution::models::{
-    ExecutionPolicy, MockLiveFaultInjection, MockLiveFillStep, MockLiveOrderState, OrderIntent,
-    OrderRecord, OrderSide, OrderStatus, OrderType, SignalEnvelope, StrategyRunRecord,
-    StrategyRunStatus, translate_signal,
+    ExecutionKernel, ExecutionRunRequest, FillDeltaApplier, KernelExecutionResult,
+    PreparedExecutionRequest, RecoverySummary, RiskDecision, RiskEvaluator,
 };
 use quantix_cli::execution::mock_live::{MockLiveClock, MockLiveExecutionAdapter};
+use quantix_cli::execution::models::{
+    ExecutionPolicy, FillDeltaContext, FillDeltaResult, FillDetails, MockLiveFaultInjection,
+    MockLiveFillStep, MockLiveOrderState, OrderIntent, OrderRecord, OrderSide, OrderStatus,
+    OrderType, SignalEnvelope, StrategyRunRecord, StrategyRunStatus, translate_signal,
+};
 use quantix_cli::execution::paper::PaperExecutionAdapter;
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use quantix_cli::strategy::trait_def::Signal;
 use quantix_cli::trade::{InitAccountRequest, PaperTradeState, PaperTradeStore, TradeService};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 
@@ -145,6 +147,87 @@ impl PaperTradeStore for FakePaperTradeStore {
 }
 
 #[derive(Clone)]
+struct RecordingTradeFillDeltaApplier<Store> {
+    trade_service: TradeService<Store>,
+    seen_fill_ids: Arc<Mutex<HashSet<(String, u64)>>>,
+    results: Arc<Mutex<Vec<FillDeltaResult>>>,
+}
+
+impl<Store> RecordingTradeFillDeltaApplier<Store>
+where
+    Store: PaperTradeStore,
+{
+    fn new(store: Store) -> Self {
+        Self {
+            trade_service: TradeService::new(store),
+            seen_fill_ids: Arc::new(Mutex::new(HashSet::new())),
+            results: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn results(&self) -> Vec<FillDeltaResult> {
+        self.results.lock().unwrap().clone()
+    }
+}
+
+#[async_trait]
+impl<Store> FillDeltaApplier for RecordingTradeFillDeltaApplier<Store>
+where
+    Store: PaperTradeStore + Clone,
+{
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        let Some(fill_details) = ctx.fill_details.clone() else {
+            return Ok(FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            });
+        };
+
+        let is_new_fill = {
+            let mut seen = self.seen_fill_ids.lock().unwrap();
+            seen.insert((ctx.client_order_id.clone(), fill_details.fill_id))
+        };
+        if !is_new_fill {
+            let result = FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            };
+            self.results.lock().unwrap().push(result.clone());
+            return Ok(result);
+        }
+
+        let request = quantix_cli::trade::TradeOrderRequest::new(
+            ctx.symbol.clone(),
+            fill_details.fill_price.to_f64().unwrap(),
+            fill_details.fill_quantity,
+        )?;
+        let record = match ctx.side {
+            OrderSide::Buy => self.trade_service.buy(request, ctx.event_time).await?,
+            OrderSide::Sell => self.trade_service.sell(request, ctx.event_time).await?,
+        };
+        let result = FillDeltaResult {
+            applied: true,
+            delta_quantity: fill_details.fill_quantity,
+            trade_record_id: Some(record.id),
+        };
+        self.results.lock().unwrap().push(result.clone());
+        Ok(result)
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+struct FailingFillDeltaApplier;
+
+#[async_trait]
+impl FillDeltaApplier for FailingFillDeltaApplier {
+    async fn apply_fill_delta(&self, _ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        Err(QuantixError::Other("fill delta apply failed".to_string()))
+    }
+}
+
+#[derive(Clone)]
 struct CountingAdapter {
     submissions: Arc<Mutex<usize>>,
     response: Arc<Mutex<CountingAdapterResponse>>,
@@ -219,11 +302,17 @@ impl ExecutionAdapter for CountingAdapter {
     {
         *self.submissions.lock().unwrap() += 1;
         let response = self.response.lock().unwrap().clone();
+        let filled_quantity = response.filled_quantity.min(request.quantity);
         Ok(quantix_cli::execution::adapter::OrderInitialResponse {
             adapter_order_id: request.client_order_id,
             latest_status: response.latest_status,
-            filled_quantity: response.filled_quantity.min(request.quantity),
+            filled_quantity,
             avg_fill_price: Some(request.price),
+            fill_details: (filled_quantity > 0).then_some(FillDetails {
+                fill_id: 1,
+                fill_quantity: filled_quantity,
+                fill_price: request.price,
+            }),
             rejection_reason: None,
         })
     }
@@ -238,6 +327,7 @@ impl ExecutionAdapter for CountingAdapter {
             latest_status: OrderStatus::Unknown,
             filled_quantity: 0,
             avg_fill_price: None,
+            fill_details: None,
         })
     }
 
@@ -474,6 +564,53 @@ fn sample_run_request(client_order_id: &str) -> ExecutionRunRequest {
     }
 }
 
+fn sample_prepared_request(mode: &str, client_order_id: &str) -> PreparedExecutionRequest {
+    PreparedExecutionRequest {
+        run_id: format!("prepared-{client_order_id}"),
+        strategy_name: "ma_cross".to_string(),
+        mode: mode.to_string(),
+        trigger: "request".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        bar_end: fixed_ts(),
+        signal: Signal::Buy,
+        signal_payload_json: serde_json::json!({
+            "source": "execution_request",
+        }),
+        intent: OrderIntent {
+            symbol: "000001".to_string(),
+            side: OrderSide::Buy,
+            requested_quantity: 800,
+            requested_price: dec!(12.34),
+            order_type: OrderType::Market,
+            reason: "signal_buy".to_string(),
+            policy_snapshot_json: serde_json::json!({
+                "fixed_cash_per_buy": "10000",
+                "slippage_bps": 0
+            }),
+        },
+        client_order_id: client_order_id.to_string(),
+    }
+}
+
+fn sample_fill_delta_context(client_order_id: &str, fill_id: u64) -> FillDeltaContext {
+    FillDeltaContext {
+        order_id: client_order_id.to_string(),
+        client_order_id: client_order_id.to_string(),
+        symbol: "000001".to_string(),
+        side: OrderSide::Buy,
+        requested_price: dec!(12.34),
+        old_filled_quantity: 0,
+        new_filled_quantity: 50,
+        fill_details: Some(FillDetails {
+            fill_id,
+            fill_quantity: 50,
+            fill_price: dec!(12.34),
+        }),
+        event_time: fixed_ts(),
+    }
+}
+
 #[tokio::test]
 async fn kernel_success_path_persists_run_signal_order_and_events() {
     let dir = tempdir().unwrap();
@@ -512,8 +649,284 @@ async fn kernel_success_path_persists_run_signal_order_and_events() {
     assert_eq!(store.count_orders().await.unwrap(), 1);
     assert_eq!(
         store.list_order_events("run-000001-1").await.unwrap().len(),
-        2
+        3
     );
+}
+
+#[tokio::test]
+async fn request_prepared_execution_supports_paper_mode() {
+    let dir = tempdir().unwrap();
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let kernel = ExecutionKernel::new(
+        runtime_store,
+        PaperExecutionAdapter::new(trade_service),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
+        },
+    );
+
+    let result = kernel
+        .execute_request(sample_prepared_request("paper", "request-paper-1"))
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::Filled));
+    assert_eq!(result.client_order_id.as_deref(), Some("request-paper-1"));
+}
+
+#[tokio::test]
+async fn request_prepared_execution_supports_mock_live_mode() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let kernel = ExecutionKernel::new(
+        runtime_store.clone(),
+        MockLiveExecutionAdapter::new(runtime_store, FixedMockLiveClock),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: Arc::new(Mutex::new(0)),
+        },
+    );
+
+    let result = kernel
+        .execute_request(sample_prepared_request("mock_live", "request-mock-live-1"))
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+    assert_eq!(
+        result.client_order_id.as_deref(),
+        Some("request-mock-live-1")
+    );
+}
+
+#[tokio::test]
+async fn kernel_partial_fill_uses_fill_delta_applier_to_create_trade_record() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+    let fill_applier = RecordingTradeFillDeltaApplier::new(trade_store.clone());
+    let sync_calls = Arc::new(Mutex::new(0));
+    let kernel = ExecutionKernel::with_fill_delta(
+        runtime_store.clone(),
+        CountingAdapter::partial_fill(),
+        fill_applier.clone(),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: sync_calls.clone(),
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_run_request("fill-delta-direct-1"),
+            SignalEnvelope::new(Signal::Buy),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::PartiallyFilled));
+    let snapshot = trade_store.snapshot().unwrap();
+    let account = snapshot.account.unwrap();
+    assert_eq!(account.positions.get("000001").unwrap().volume, 50);
+    assert_eq!(snapshot.trade_records.len(), 1);
+    let order = runtime_store
+        .find_order_by_client_order_id("fill-delta-direct-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(order.status, OrderStatus::PartiallyFilled);
+    assert_eq!(order.filled_quantity, 50);
+    let apply_results = fill_applier.results();
+    assert_eq!(apply_results.len(), 1);
+    assert!(apply_results[0].applied);
+    assert_eq!(apply_results[0].delta_quantity, 50);
+    assert!(apply_results[0].trade_record_id.is_some());
+    let events = runtime_store
+        .list_order_events("fill-delta-direct-1")
+        .await
+        .unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|event| event.event_type == "partially_filled")
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| event.event_type == "fill_applied")
+    );
+    assert_eq!(*sync_calls.lock().unwrap(), 1);
+}
+
+#[tokio::test]
+async fn kernel_accepted_without_fill_skips_fill_delta_applier_and_keeps_account_unchanged() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+    let fill_applier = RecordingTradeFillDeltaApplier::new(trade_store.clone());
+    let sync_calls = Arc::new(Mutex::new(0));
+    let kernel = ExecutionKernel::with_fill_delta(
+        runtime_store.clone(),
+        CountingAdapter::accepted(),
+        fill_applier.clone(),
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: sync_calls.clone(),
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_run_request("fill-delta-direct-accepted"),
+            SignalEnvelope::new(Signal::Buy),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+    let snapshot = trade_store.snapshot().unwrap();
+    let account = snapshot.account.unwrap();
+    assert!(account.positions.is_empty());
+    assert_eq!(snapshot.trade_records.len(), 0);
+    let order = runtime_store
+        .find_order_by_client_order_id("fill-delta-direct-accepted")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(order.status, OrderStatus::Accepted);
+    assert_eq!(order.filled_quantity, 0);
+    assert!(fill_applier.results().is_empty());
+    let events = runtime_store
+        .list_order_events("fill-delta-direct-accepted")
+        .await
+        .unwrap();
+    assert!(events.iter().any(|event| event.event_type == "accepted"));
+    assert!(
+        !events
+            .iter()
+            .any(|event| event.event_type == "fill_applied")
+    );
+    assert_eq!(*sync_calls.lock().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn fill_delta_applier_ignores_repeated_fill_id() {
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+    let fill_applier = RecordingTradeFillDeltaApplier::new(trade_store.clone());
+
+    let first = fill_applier
+        .apply_fill_delta(sample_fill_delta_context("fill-delta-repeat-1", 1))
+        .await
+        .unwrap();
+    let second = fill_applier
+        .apply_fill_delta(sample_fill_delta_context("fill-delta-repeat-1", 1))
+        .await
+        .unwrap();
+
+    assert!(first.applied);
+    assert_eq!(first.delta_quantity, 50);
+    assert!(first.trade_record_id.is_some());
+    assert!(!second.applied);
+    assert_eq!(second.delta_quantity, 0);
+    assert!(second.trade_record_id.is_none());
+
+    let snapshot = trade_store.snapshot().unwrap();
+    let account = snapshot.account.unwrap();
+    assert_eq!(account.positions.get("000001").unwrap().volume, 50);
+    assert_eq!(snapshot.trade_records.len(), 1);
+}
+
+#[tokio::test]
+async fn fill_apply_failure_keeps_public_order_unfilled_and_records_failure_event() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let sync_calls = Arc::new(Mutex::new(0));
+    let kernel = ExecutionKernel::with_fill_delta(
+        runtime_store.clone(),
+        CountingAdapter::partial_fill(),
+        FailingFillDeltaApplier,
+        FixedRiskEvaluator {
+            decision: RiskDecision::Allow,
+            sync_calls: sync_calls.clone(),
+        },
+    );
+
+    let err = kernel
+        .execute_once(
+            sample_run_request("fill-delta-direct-failed"),
+            SignalEnvelope::new(Signal::Buy),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("fill delta apply failed"));
+    let order = runtime_store
+        .find_order_by_client_order_id("fill-delta-direct-failed")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(order.status, OrderStatus::PendingSubmit);
+    assert_eq!(order.filled_quantity, 0);
+    assert_eq!(order.remaining_quantity, order.requested_quantity);
+    let events = runtime_store
+        .list_order_events("fill-delta-direct-failed")
+        .await
+        .unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|event| event.event_type == "fill_apply_failed")
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| event.event_type == "fill_applied")
+    );
+    assert_eq!(*sync_calls.lock().unwrap(), 0);
 }
 
 #[tokio::test]
@@ -690,6 +1103,16 @@ async fn kernel_recover_pending_orders_advances_mock_live_order() {
     let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
         .await
         .unwrap();
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+    let fill_applier = RecordingTradeFillDeltaApplier::new(trade_store.clone());
     let sync_calls = Arc::new(Mutex::new(0));
     let adapter = MockLiveExecutionAdapter::with_state_template(
         store.clone(),
@@ -708,9 +1131,10 @@ async fn kernel_recover_pending_orders_advances_mock_live_order() {
             ..Default::default()
         },
     );
-    let kernel = ExecutionKernel::new(
+    let kernel = ExecutionKernel::with_fill_delta(
         store.clone(),
         adapter,
+        fill_applier,
         FixedRiskEvaluator {
             decision: RiskDecision::Allow,
             sync_calls: sync_calls.clone(),
@@ -744,6 +1168,39 @@ async fn kernel_recover_pending_orders_advances_mock_live_order() {
         order.remaining_quantity,
         order.requested_quantity - order.filled_quantity
     );
+    let state = store
+        .get_mock_live_order_state(&order.order_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(state.last_applied_fill_id, 1);
+    let snapshot = trade_store.snapshot().unwrap();
+    let account = snapshot.account.unwrap();
+    assert_eq!(account.positions.get("000001").unwrap().volume, 50);
+    assert_eq!(snapshot.trade_records.len(), 1);
+
+    let second_summary = kernel.recover_pending_orders().await.unwrap();
+    assert_eq!(second_summary.scanned, 1);
+    assert_eq!(second_summary.recovered, 1);
+    assert_eq!(*sync_calls.lock().unwrap(), 2);
+
+    let final_order = store
+        .find_order_by_client_order_id("recover-order-1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(final_order.status, OrderStatus::Filled);
+    assert_eq!(final_order.filled_quantity, 100);
+    let final_state = store
+        .get_mock_live_order_state(&final_order.order_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(final_state.last_applied_fill_id, 2);
+    let final_snapshot = trade_store.snapshot().unwrap();
+    let final_account = final_snapshot.account.unwrap();
+    assert_eq!(final_account.positions.get("000001").unwrap().volume, 100);
+    assert_eq!(final_snapshot.trade_records.len(), 2);
 }
 
 #[tokio::test]
@@ -800,6 +1257,15 @@ async fn kernel_recover_pending_orders_marks_unknown_exhaustion_without_changing
     let store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
         .await
         .unwrap();
+    let trade_store = FakePaperTradeStore::default();
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
     let run = sample_run("000001", fixed_ts());
     store.insert_run(&run).await.unwrap();
     let order = OrderRecord {
@@ -823,9 +1289,10 @@ async fn kernel_recover_pending_orders_marks_unknown_exhaustion_without_changing
         .await
         .unwrap();
 
-    let kernel = ExecutionKernel::new(
+    let kernel = ExecutionKernel::with_fill_delta(
         store.clone(),
         MockLiveExecutionAdapter::new(store.clone(), FixedMockLiveClock),
+        RecordingTradeFillDeltaApplier::new(trade_store.clone()),
         FixedRiskEvaluator {
             decision: RiskDecision::Allow,
             sync_calls: Arc::new(Mutex::new(0)),
@@ -850,10 +1317,19 @@ async fn kernel_recover_pending_orders_marks_unknown_exhaustion_without_changing
         .unwrap()
         .unwrap();
     assert!(state.recovery_exhausted);
-    assert_eq!(state.exhausted_reason.as_deref(), Some("unknown_retry_budget_exceeded"));
+    assert_eq!(
+        state.exhausted_reason.as_deref(),
+        Some("unknown_retry_budget_exceeded")
+    );
 
     let events = store.list_order_events(&order.order_id).await.unwrap();
-    assert!(events
-        .iter()
-        .any(|event| event.event_type == "recovery_exhausted"));
+    assert!(
+        events
+            .iter()
+            .any(|event| event.event_type == "recovery_exhausted")
+    );
+    let snapshot = trade_store.snapshot().unwrap();
+    let account = snapshot.account.unwrap();
+    assert!(account.positions.is_empty());
+    assert_eq!(snapshot.trade_records.len(), 0);
 }

@@ -1,17 +1,11 @@
 use super::*;
+use crate::cli::{RiskImportCommands, RiskRebuildCommands};
+use crate::risk::{RiskRuleType, RuleValue};
+use std::path::Path;
 
 pub async fn run_risk_command(cmd: RiskCommands) -> Result<()> {
     let service = RiskService::new(create_risk_store());
-    let trade_snapshot = if matches!(
-        &cmd,
-        RiskCommands::Status | RiskCommands::Pnl | RiskCommands::Position
-    ) {
-        Some(load_risk_account_snapshot().await?)
-    } else {
-        None
-    };
-    let output =
-        execute_risk_command_with_service_at(cmd, &service, trade_snapshot, Utc::now()).await?;
+    let output = execute_risk_command_with_service_at(cmd, &service, Utc::now()).await?;
     print_risk_command_output(&output);
     Ok(())
 }
@@ -21,6 +15,8 @@ pub(super) enum RiskCommandOutput {
     RuleSet(RiskRule),
     RuleList(Vec<RiskRule>),
     RuleToggled(RiskRule),
+    ImportSummary(crate::risk::LiveImportBatchSummary),
+    RebuildSummary(crate::risk::LiveImportMirrorAccount),
     Log(Vec<RiskLogEvent>),
     LockReleased(BuyLockState),
     Status(RiskStatus),
@@ -31,13 +27,31 @@ pub(super) enum RiskCommandOutput {
 pub(super) async fn execute_risk_command_with_service_at<Store>(
     cmd: RiskCommands,
     service: &RiskService<Store>,
-    trade_snapshot: Option<RiskAccountSnapshot>,
     now: chrono::DateTime<Utc>,
 ) -> Result<RiskCommandOutput>
 where
     Store: crate::risk::RiskStore,
 {
     match cmd {
+        RiskCommands::Import(import_cmd) => match import_cmd {
+            RiskImportCommands::LiveTrades { account, input } => {
+                let store = create_live_import_store().await?;
+                let contents = std::fs::read_to_string(&input)?;
+                let records = parse_live_import_by_path(&input, &contents)?;
+                Ok(RiskCommandOutput::ImportSummary(
+                    store.import_records(&account, &input, &records, now).await?,
+                ))
+            }
+        },
+        RiskCommands::Rebuild(rebuild_cmd) => match rebuild_cmd {
+            RiskRebuildCommands::LiveAccount { account } => {
+                let store = create_live_import_store().await?;
+                let engine = crate::risk::SqliteLiveMirrorRebuildEngine::new(store);
+                Ok(RiskCommandOutput::RebuildSummary(
+                    engine.rebuild_account(&account, now).await?,
+                ))
+            }
+        },
         RiskCommands::Rule(rule_cmd) => match rule_cmd {
             RiskRuleCommands::Set { rule_type, value } => Ok(RiskCommandOutput::RuleSet(
                 service.set_rule(&rule_type, &value, now).await?,
@@ -68,19 +82,16 @@ where
                 service.release_buy_lock(now).await?,
             )),
         },
-        RiskCommands::Status => Ok(RiskCommandOutput::Status(
-            service
-                .status(&require_trade_snapshot(trade_snapshot)?, now)
+        RiskCommands::Status { source, account } => Ok(RiskCommandOutput::Status(
+            load_risk_status_for_source(service, source.as_deref(), account.as_deref(), now)
                 .await?,
         )),
-        RiskCommands::Pnl => Ok(RiskCommandOutput::Pnl(
-            service
-                .status(&require_trade_snapshot(trade_snapshot)?, now)
+        RiskCommands::Pnl { source, account } => Ok(RiskCommandOutput::Pnl(
+            load_risk_status_for_source(service, source.as_deref(), account.as_deref(), now)
                 .await?,
         )),
-        RiskCommands::Position => Ok(RiskCommandOutput::Position(
-            service
-                .status(&require_trade_snapshot(trade_snapshot)?, now)
+        RiskCommands::Position { source, account } => Ok(RiskCommandOutput::Position(
+            load_risk_status_for_source(service, source.as_deref(), account.as_deref(), now)
                 .await?,
         )),
     }
@@ -100,6 +111,26 @@ fn print_risk_command_output(output: &RiskCommandOutput) {
             let status = if rule.enabled { "启用" } else { "禁用" };
             println!("✅ 已{}风控规则 {}", status, rule.rule_type.as_cli_str());
         }
+        RiskCommandOutput::ImportSummary(summary) => {
+            println!(
+                "✅ 已导入 {}: total={} inserted={} skipped={} conflicts={}",
+                summary.account_id,
+                summary.total_rows,
+                summary.inserted,
+                summary.skipped_duplicates,
+                summary.conflicts
+            );
+        }
+        RiskCommandOutput::RebuildSummary(summary) => {
+            println!(
+                "✅ 已重建 {} as_of={} cash={} positions={} realized_pnl={}",
+                summary.account_id,
+                summary.as_of.to_rfc3339(),
+                summary.cash_balance,
+                summary.positions.len(),
+                summary.realized_pnl
+            );
+        }
         RiskCommandOutput::Log(events) => print_risk_log(events),
         RiskCommandOutput::LockReleased(lock_state) => {
             if let Some(trading_date) = lock_state.released_for_date {
@@ -112,14 +143,6 @@ fn print_risk_command_output(output: &RiskCommandOutput) {
         RiskCommandOutput::Pnl(status) => print_risk_pnl(status),
         RiskCommandOutput::Position(status) => print_risk_positions(status),
     }
-}
-
-fn require_trade_snapshot(
-    trade_snapshot: Option<RiskAccountSnapshot>,
-) -> Result<RiskAccountSnapshot> {
-    trade_snapshot.ok_or_else(|| {
-        QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
-    })
 }
 
 fn print_risk_rules(rules: &[RiskRule]) {
@@ -420,7 +443,41 @@ fn create_risk_store() -> JsonRiskStore {
     JsonRiskStore::new(runtime.risk_path)
 }
 
-async fn load_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
+async fn create_live_import_store() -> Result<crate::risk::SqliteLiveImportStore> {
+    let runtime = CliRuntime::load();
+    let live_import_path = runtime.risk_path.with_file_name("live_import.db");
+    crate::risk::SqliteLiveImportStore::new(live_import_path).await
+}
+
+async fn load_risk_status_for_source<Store>(
+    service: &RiskService<Store>,
+    source: Option<&str>,
+    account: Option<&str>,
+    now: DateTime<Utc>,
+) -> Result<RiskStatus>
+where
+    Store: crate::risk::RiskStore,
+{
+    match parse_risk_source(source)? {
+        crate::risk::RiskAccountSource::Paper => {
+            service.status(&load_paper_risk_account_snapshot().await?, now).await
+        }
+        crate::risk::RiskAccountSource::LiveImport => {
+            let account = account.ok_or_else(|| {
+                QuantixError::Other("risk --source live_import 需要显式指定 --account".to_string())
+            })?;
+            let store = create_live_import_store().await?;
+            let mirror = store
+                .get_latest_mirror_account(account)
+                .await?
+                .ok_or_else(|| QuantixError::Other(format!("live_import mirror 不存在: {account}")))?;
+            let rules = service.list_rules().await?;
+            Ok(build_risk_status_from_live_import(&mirror, &rules))
+        }
+    }
+}
+
+async fn load_paper_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
     let runtime = CliRuntime::load();
     let trade_store = JsonPaperTradeStore::new(runtime.trade_path);
     let account = trade_store
@@ -432,6 +489,106 @@ async fn load_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
         })?;
 
     Ok(build_risk_account_snapshot(&account))
+}
+
+fn build_risk_status_from_live_import(
+    mirror: &crate::risk::LiveImportMirrorAccount,
+    rules: &[RiskRule],
+) -> RiskStatus {
+    let positions: Vec<(String, rust_decimal::Decimal)> = mirror
+        .positions
+        .iter()
+        .map(|position| {
+            (
+                position.code.clone(),
+                rust_decimal::Decimal::from(position.volume) * position.avg_cost,
+            )
+        })
+        .collect();
+    let daily_pnl = mirror.current_total_assets - mirror.starting_total_assets;
+    let daily_pnl_pct = if mirror.starting_total_assets.is_zero() {
+        rust_decimal::Decimal::ZERO
+    } else {
+        daily_pnl / mirror.starting_total_assets * rust_decimal::Decimal::from(100)
+    };
+
+    let daily_loss_limit = rules
+        .iter()
+        .find(|rule| rule.enabled && rule.rule_type == RiskRuleType::DailyLossLimit);
+    let buy_locked = daily_loss_limit
+        .map(|rule| match rule.value {
+            RuleValue::Amount(limit) => daily_pnl <= -limit,
+            RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
+        })
+        .unwrap_or(false);
+    let lock_reason = if buy_locked {
+        daily_loss_limit
+            .map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
+    } else {
+        None
+    };
+
+    RiskStatus {
+        account_id: mirror.account_id.clone(),
+        trading_date: mirror.trading_date,
+        starting_total_assets: mirror.starting_total_assets,
+        current_total_assets: mirror.current_total_assets,
+        daily_pnl,
+        daily_pnl_pct,
+        buy_locked,
+        manual_release_active: false,
+        lock_state_source: if buy_locked {
+            RiskLockStateSource::DailyLossLocked
+        } else {
+            RiskLockStateSource::Open
+        },
+        lock_reason: lock_reason.clone(),
+        lock_trigger_reason: lock_reason,
+        lock_triggered_at: if buy_locked {
+            Some(mirror.last_rebuild_at)
+        } else {
+            None
+        },
+        lock_effective_trading_date: if buy_locked {
+            Some(mirror.trading_date)
+        } else {
+            None
+        },
+        position_ratios: build_position_rows(mirror.current_total_assets, &positions),
+        rules: rules
+            .iter()
+            .map(|rule| crate::risk::RiskRuleSnapshot {
+                rule_type: rule.rule_type,
+                value: rule.value.clone(),
+                enabled: rule.enabled,
+            })
+            .collect(),
+    }
+}
+
+fn parse_risk_source(raw: Option<&str>) -> Result<crate::risk::RiskAccountSource> {
+    match raw {
+        None => Ok(crate::risk::RiskAccountSource::Paper),
+        Some(value) => crate::risk::RiskAccountSource::from_str(value).ok_or_else(|| {
+            QuantixError::Other(format!("risk --source 不支持的值: {value}"))
+        }),
+    }
+}
+
+fn parse_live_import_by_path(path: &str, contents: &str) -> Result<Vec<crate::risk::LiveImportRecord>> {
+    match Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("csv") => crate::risk::parse_live_import_csv(contents),
+        Some("json") => crate::risk::parse_live_import_json(contents),
+        other => Err(QuantixError::Other(format!(
+            "risk import 暂不支持的文件扩展: {}",
+            other.unwrap_or("<none>")
+        ))),
+    }
 }
 
 fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapshot {
@@ -454,4 +611,22 @@ fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapsh
         account.available_cash + position_value,
         positions,
     )
+}
+
+fn build_position_rows(
+    total_assets: rust_decimal::Decimal,
+    positions: &[(String, rust_decimal::Decimal)],
+) -> Vec<PositionRiskRow> {
+    positions
+        .iter()
+        .map(|(code, market_value)| PositionRiskRow {
+            code: code.clone(),
+            market_value: *market_value,
+            ratio_pct: if total_assets.is_zero() {
+                rust_decimal::Decimal::ZERO
+            } else {
+                *market_value / total_assets * rust_decimal::Decimal::from(100)
+            },
+        })
+        .collect()
 }

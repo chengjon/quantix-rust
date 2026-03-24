@@ -180,6 +180,46 @@ fn parses_strategy_request_and_service_commands() {
         other => panic!("unexpected command: {:?}", other),
     }
 
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "strategy",
+        "request",
+        "execute",
+        "--request-id",
+        "req-1",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Request(StrategyRequestCommands::Execute {
+            request_id,
+        })) => {
+            assert_eq!(request_id, "req-1");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "strategy",
+        "request",
+        "cancel",
+        "--request-id",
+        "req-2",
+        "--reason",
+        "manual cancel",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Request(StrategyRequestCommands::Cancel {
+            request_id,
+            reason,
+        })) => {
+            assert_eq!(request_id, "req-2");
+            assert_eq!(reason.as_deref(), Some("manual cancel"));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
     let cli = Cli::try_parse_from(["quantix", "strategy", "service", "install"]).unwrap();
     match cli.command {
         Commands::Strategy(StrategyCommands::Service(StrategyServiceCommands::Install)) => {}

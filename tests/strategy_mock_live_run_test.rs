@@ -3,18 +3,22 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::kernel::{
-    ExecutionKernel, ExecutionRunRequest, RiskDecision, RiskEvaluator,
+    ExecutionKernel, ExecutionRunRequest, FillDeltaApplier, RiskDecision, RiskEvaluator,
 };
 use quantix_cli::execution::mock_live::{MockLiveClock, MockLiveExecutionAdapter};
 use quantix_cli::execution::models::{
-    ExecutionPolicy, MockLiveFillStep, MockLiveOrderState, OrderIntent, OrderStatus,
+    ExecutionPolicy, FillDeltaContext, FillDeltaResult, MockLiveFillStep, MockLiveOrderState,
+    OrderIntent, OrderSide, OrderStatus,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use quantix_cli::strategy::trait_def::Signal;
 use quantix_cli::trade::{InitAccountRequest, JsonPaperTradeStore, PaperTradeStore, TradeService};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 
 fn fixed_ts() -> DateTime<Utc> {
@@ -94,6 +98,68 @@ struct FixedClock;
 impl MockLiveClock for FixedClock {
     fn now(&self) -> DateTime<Utc> {
         fixed_ts()
+    }
+}
+
+#[derive(Clone)]
+struct TradeFillDeltaApplier<Store> {
+    trade_service: TradeService<Store>,
+    seen_fill_ids: Arc<Mutex<HashSet<(String, u64)>>>,
+}
+
+impl<Store> TradeFillDeltaApplier<Store>
+where
+    Store: PaperTradeStore,
+{
+    fn new(store: Store) -> Self {
+        Self {
+            trade_service: TradeService::new(store),
+            seen_fill_ids: Arc::new(Mutex::new(HashSet::new())),
+        }
+    }
+}
+
+#[async_trait]
+impl<Store> FillDeltaApplier for TradeFillDeltaApplier<Store>
+where
+    Store: PaperTradeStore + Clone,
+{
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        let Some(fill_details) = ctx.fill_details else {
+            return Ok(FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            });
+        };
+
+        let is_new_fill = {
+            let mut seen = self.seen_fill_ids.lock().unwrap();
+            seen.insert((ctx.client_order_id.clone(), fill_details.fill_id))
+        };
+        if !is_new_fill {
+            return Ok(FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            });
+        }
+
+        let request = quantix_cli::trade::TradeOrderRequest::new(
+            ctx.symbol.clone(),
+            fill_details.fill_price.to_f64().unwrap(),
+            fill_details.fill_quantity,
+        )?;
+        let record = match ctx.side {
+            OrderSide::Buy => self.trade_service.buy(request, ctx.event_time).await?,
+            OrderSide::Sell => self.trade_service.sell(request, ctx.event_time).await?,
+        };
+
+        Ok(FillDeltaResult {
+            applied: true,
+            delta_quantity: fill_details.fill_quantity,
+            trade_record_id: Some(record.id),
+        })
     }
 }
 
@@ -290,4 +356,111 @@ async fn mock_live_recovery_advances_runtime_order_status() {
         .unwrap();
     assert_eq!(order.status, OrderStatus::PartiallyFilled);
     assert_eq!(order.filled_quantity, 50);
+}
+
+#[tokio::test]
+async fn mock_live_recovery_applies_only_new_fill_deltas_to_account() {
+    let dir = tempdir().unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let loader = FakeBarLoader {
+        bars: buy_fixture(),
+    };
+    let envelope = StrategyRuntime::new(loader)
+        .run_ma_cross_once("000001", 5, 10)
+        .await
+        .unwrap();
+
+    let kernel = ExecutionKernel::with_fill_delta(
+        runtime_store.clone(),
+        MockLiveExecutionAdapter::with_state_template(
+            runtime_store.clone(),
+            FixedClock,
+            MockLiveOrderState {
+                fill_plan: vec![
+                    MockLiveFillStep {
+                        quantity: 50,
+                        delay_secs: 0,
+                    },
+                    MockLiveFillStep {
+                        quantity: 50,
+                        delay_secs: 0,
+                    },
+                ],
+                ..Default::default()
+            },
+        ),
+        TradeFillDeltaApplier::new(trade_store.clone()),
+        FixedRisk {
+            decision: RiskDecision::Allow,
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_request("run-mock-rec-2", "run-mock-rec-2_000001_1", fixed_ts()),
+            envelope,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+
+    let before_recovery = trade_store.load_state().await.unwrap().unwrap();
+    assert!(
+        before_recovery
+            .account
+            .as_ref()
+            .unwrap()
+            .positions
+            .is_empty()
+    );
+    assert_eq!(before_recovery.trade_records.len(), 0);
+
+    let first_summary = kernel.recover_pending_orders().await.unwrap();
+    assert_eq!(first_summary.scanned, 1);
+    assert_eq!(first_summary.recovered, 1);
+
+    let after_first = trade_store.load_state().await.unwrap().unwrap();
+    assert_eq!(
+        after_first
+            .account
+            .as_ref()
+            .unwrap()
+            .positions
+            .get("000001")
+            .unwrap()
+            .volume,
+        50
+    );
+    assert_eq!(after_first.trade_records.len(), 1);
+
+    let second_summary = kernel.recover_pending_orders().await.unwrap();
+    assert_eq!(second_summary.scanned, 1);
+    assert_eq!(second_summary.recovered, 1);
+
+    let after_second = trade_store.load_state().await.unwrap().unwrap();
+    assert_eq!(
+        after_second
+            .account
+            .as_ref()
+            .unwrap()
+            .positions
+            .get("000001")
+            .unwrap()
+            .volume,
+        100
+    );
+    assert_eq!(after_second.trade_records.len(), 2);
 }

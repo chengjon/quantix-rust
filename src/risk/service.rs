@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::sync::Arc;
 
 use crate::core::{QuantixError, Result};
 use crate::risk::models::{
@@ -9,6 +10,7 @@ use crate::risk::models::{
     RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot, RiskRuleType,
     RiskState, RiskStatus, RuleValue,
 };
+use crate::risk::volatility::{DefaultRiskBarLoader, RiskBarLoader, evaluate_volatility_limit};
 
 const DEFAULT_RISK_EVENT_LIMIT: usize = 100;
 
@@ -23,6 +25,7 @@ pub trait RiskStore: Send + Sync {
 pub struct RiskService<Store> {
     store: Store,
     event_limit: usize,
+    bar_loader: Arc<dyn RiskBarLoader>,
 }
 
 impl<Store> RiskService<Store>
@@ -30,9 +33,17 @@ where
     Store: RiskStore,
 {
     pub fn new(store: Store) -> Self {
+        Self::with_bar_loader(store, DefaultRiskBarLoader::from_env())
+    }
+
+    pub fn with_bar_loader<Loader>(store: Store, bar_loader: Loader) -> Self
+    where
+        Loader: RiskBarLoader + 'static,
+    {
         Self {
             store,
             event_limit: DEFAULT_RISK_EVENT_LIMIT,
+            bar_loader: Arc::new(bar_loader),
         }
     }
 
@@ -133,6 +144,10 @@ where
 
         if let Some(rule) = find_enabled_rule(&state, RiskRuleType::PositionLimit) {
             check_position_limit(rule, projected_buy)?;
+        }
+
+        if let Some(rule) = find_enabled_rule(&state, RiskRuleType::VolatilityLimit).cloned() {
+            evaluate_volatility_limit(&rule, projected_buy, self.bar_loader.as_ref()).await?;
         }
 
         Ok(())

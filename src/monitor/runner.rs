@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::ToPrimitive;
+use uuid::Uuid;
 
 use crate::core::Result;
 use crate::monitor::{
@@ -8,7 +10,11 @@ use crate::monitor::{
     MonitorRunMode, MonitorService, MonitorWatchlistReader, NewMonitorEvent,
     SqliteMonitorAlertStore,
 };
-use crate::stop::{StopRuleStore, StopService, StopTriggerKind, TriggeredStop};
+use crate::stop::{
+    StopHistoryEvent, StopHistoryEventType, StopHistoryTriggerKind, StopRuleStore, StopService,
+    StopTriggerKind, TriggeredStop,
+};
+use crate::trade::PaperTradeStore;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MonitorIterationOutput {
@@ -18,23 +24,26 @@ pub struct MonitorIterationOutput {
 }
 
 #[derive(Debug, Clone)]
-pub struct MonitorRunner<RW, RQ, SS> {
+pub struct MonitorRunner<RW, RQ, SS, TS> {
     monitor_service: MonitorService<RW, RQ, SqliteMonitorAlertStore>,
     alert_store: SqliteMonitorAlertStore,
     stop_store: SS,
+    trade_store: TS,
 }
 
-impl<RW, RQ, SS> MonitorRunner<RW, RQ, SS>
+impl<RW, RQ, SS, TS> MonitorRunner<RW, RQ, SS, TS>
 where
     RW: MonitorWatchlistReader,
     RQ: MonitorQuoteReader,
     SS: StopRuleStore + Clone,
+    TS: PaperTradeStore + Clone,
 {
     pub fn new(
         watchlist_reader: RW,
         quote_reader: RQ,
         alert_store: SqliteMonitorAlertStore,
         stop_store: SS,
+        trade_store: TS,
     ) -> Self {
         let monitor_service =
             MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
@@ -42,6 +51,7 @@ where
             monitor_service,
             alert_store,
             stop_store,
+            trade_store,
         }
     }
 
@@ -70,6 +80,7 @@ where
             .filter_map(|row| row.quote_time)
             .max()
             .unwrap_or(now);
+        let avg_cost_by_code = self.load_avg_cost_by_code().await?;
 
         let mut new_events = self
             .persist_alert_events(&snapshot, config.max_event_history, run_mode, observed_at)
@@ -80,6 +91,7 @@ where
                 config.max_event_history,
                 run_mode,
                 observed_at,
+                &avg_cost_by_code,
                 &mut new_events,
             )
             .await?;
@@ -169,6 +181,7 @@ where
         max_event_history: usize,
         run_mode: MonitorRunMode,
         observed_at: DateTime<Utc>,
+        avg_cost_by_code: &std::collections::HashMap<String, f64>,
         new_events: &mut Vec<MonitorEventRow>,
     ) -> Result<Vec<TriggeredStop>> {
         let rules = self.stop_store.list_rules().await?;
@@ -177,7 +190,12 @@ where
         }
 
         let stop_service = StopService::new(self.stop_store.clone());
-        let results = stop_service.evaluate_rules(&rules, &snapshot.rows, observed_at);
+        let results = stop_service.evaluate_rules_with_anchor_map(
+            &rules,
+            &snapshot.rows,
+            avg_cost_by_code,
+            observed_at,
+        );
         let mut triggered_stops = Vec::new();
 
         for (original_rule, result) in rules.iter().zip(results.into_iter()) {
@@ -218,6 +236,22 @@ where
                     new_events.push(event_row_from_new_event(0, &event));
                 }
 
+                self.stop_store
+                    .append_history(StopHistoryEvent {
+                        id: Uuid::new_v4().to_string(),
+                        code: triggered_stop.code.clone(),
+                        event_type: StopHistoryEventType::Trigger,
+                        trigger_kind: Some(stop_history_trigger_kind(triggered_stop.kind)),
+                        trigger_price: Some(triggered_stop.current_price),
+                        anchor_price: triggered_stop.anchor_price,
+                        anchor_source: triggered_stop
+                            .anchor_source
+                            .map(|source| source.as_str().to_string()),
+                        snapshot_json: serde_json::to_value(&result.updated_rule)?,
+                        created_at: triggered_stop.triggered_at.unwrap_or(observed_at),
+                    })
+                    .await?;
+
                 triggered_stops.push(triggered_stop);
             } else {
                 self.alert_store
@@ -228,6 +262,21 @@ where
 
         Ok(triggered_stops)
     }
+
+    async fn load_avg_cost_by_code(&self) -> Result<std::collections::HashMap<String, f64>> {
+        let Some(state) = self.trade_store.load_state().await? else {
+            return Ok(std::collections::HashMap::new());
+        };
+        let Some(account) = state.account else {
+            return Ok(std::collections::HashMap::new());
+        };
+
+        Ok(account
+            .positions
+            .into_iter()
+            .filter_map(|(code, position)| position.avg_cost.to_f64().map(|avg_cost| (code, avg_cost)))
+            .collect())
+    }
 }
 
 fn stop_event_type(kind: StopTriggerKind) -> MonitorEventType {
@@ -235,6 +284,14 @@ fn stop_event_type(kind: StopTriggerKind) -> MonitorEventType {
         StopTriggerKind::Loss => MonitorEventType::StopLoss,
         StopTriggerKind::Profit => MonitorEventType::StopProfit,
         StopTriggerKind::TrailingLoss => MonitorEventType::TrailingStop,
+    }
+}
+
+fn stop_history_trigger_kind(kind: StopTriggerKind) -> StopHistoryTriggerKind {
+    match kind {
+        StopTriggerKind::Loss => StopHistoryTriggerKind::Loss,
+        StopTriggerKind::Profit => StopHistoryTriggerKind::Profit,
+        StopTriggerKind::TrailingLoss => StopHistoryTriggerKind::Trailing,
     }
 }
 
