@@ -105,7 +105,7 @@ where
         now: DateTime<Utc>,
     ) -> Result<RiskStatus> {
         let mut state = self.load_state().await?;
-        let status = self.refresh_state(&mut state, snapshot, now);
+        let status = self.refresh_state(&mut state, snapshot, now)?;
         self.store.save_state(&state).await?;
         Ok(status)
     }
@@ -117,7 +117,7 @@ where
         now: DateTime<Utc>,
     ) -> Result<()> {
         let mut state = self.load_state().await?;
-        self.refresh_state(&mut state, snapshot, now);
+        self.refresh_state(&mut state, snapshot, now)?;
         self.store.save_state(&state).await?;
 
         if state.buy_lock.locked {
@@ -257,7 +257,7 @@ where
         state: &mut RiskState,
         snapshot: &RiskAccountSnapshot,
         now: DateTime<Utc>,
-    ) -> RiskStatus {
+    ) -> Result<RiskStatus> {
         let trading_date = now.date_naive();
         state.account_id = snapshot.account_id.clone();
 
@@ -288,10 +288,10 @@ where
         }
 
         if let Some(rule) = find_enabled_rule(state, RiskRuleType::DailyLossLimit).cloned() {
-            apply_daily_loss_rule(state, self.event_limit, &rule, snapshot.total_assets, now);
+            apply_daily_loss_rule(state, self.event_limit, &rule, snapshot.total_assets, now)?;
         }
 
-        build_status(state, snapshot, trading_date)
+        Ok(build_status(state, snapshot, trading_date))
     }
 }
 
@@ -336,15 +336,12 @@ fn apply_daily_loss_rule(
     rule: &RiskRule,
     current_total_assets: Decimal,
     now: DateTime<Utc>,
-) {
+) -> Result<()> {
     let baseline = state.daily_baseline.as_ref().expect("baseline initialized");
     let daily_pnl = current_total_assets - baseline.starting_total_assets;
     let daily_pnl_pct = pct_change(daily_pnl, baseline.starting_total_assets);
 
-    let triggered = match rule.value {
-        RuleValue::Amount(limit) => daily_pnl <= -limit,
-        RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
-    };
+    let triggered = evaluate_daily_loss_rule_triggered(rule, daily_pnl, daily_pnl_pct)?;
 
     if triggered
         && !state.buy_lock.locked
@@ -368,6 +365,22 @@ fn apply_daily_loss_rule(
                 detail: reason,
             },
         );
+    }
+
+    Ok(())
+}
+
+fn evaluate_daily_loss_rule_triggered(
+    rule: &RiskRule,
+    daily_pnl: Decimal,
+    daily_pnl_pct: Decimal,
+) -> Result<bool> {
+    match &rule.value {
+        RuleValue::Amount(limit) => Ok(daily_pnl <= -*limit),
+        RuleValue::Percentage(limit_pct) => Ok(daily_pnl_pct <= -*limit_pct),
+        RuleValue::TextList(_) => Err(QuantixError::Other(
+            "risk rule daily-loss-limit 配置无效".to_string(),
+        )),
     }
 }
 
