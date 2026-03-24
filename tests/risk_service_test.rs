@@ -3,7 +3,7 @@ use chrono::{DateTime, Duration, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::risk::{
     ProjectedBuyImpact, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRuleType,
-    RiskService, RiskState, RiskStore, RuleValue,
+    RiskRule, RiskService, RiskState, RiskStore, RuleValue,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -17,6 +17,10 @@ struct FakeRiskStore {
 impl FakeRiskStore {
     fn snapshot(&self) -> Option<RiskState> {
         self.state.lock().unwrap().clone()
+    }
+
+    fn set_snapshot(&self, state: RiskState) {
+        *self.state.lock().unwrap() = Some(state);
     }
 }
 
@@ -122,6 +126,105 @@ async fn set_rule_upserts_volatility_limit_percentage_values() {
     assert_eq!(state.rules.len(), 1);
     assert_eq!(state.rules[0].rule_type, RiskRuleType::VolatilityLimit);
     assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
+}
+
+#[tokio::test]
+async fn set_rule_upserts_industry_blocklist_values() {
+    let (service, store) = service();
+
+    let rule = service
+        .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+        .await
+        .unwrap();
+    assert_eq!(rule.rule_type, RiskRuleType::IndustryBlocklist);
+    assert_eq!(
+        rule.value,
+        RuleValue::TextList(vec!["银行".to_string(), "地产".to_string()])
+    );
+
+    let state = store.snapshot().unwrap();
+    assert_eq!(state.rules.len(), 1);
+    assert_eq!(state.rules[0].rule_type, RiskRuleType::IndustryBlocklist);
+    assert_eq!(
+        state.rules[0].value,
+        RuleValue::TextList(vec!["银行".to_string(), "地产".to_string()])
+    );
+}
+
+#[tokio::test]
+async fn set_rule_industry_blocklist_ignores_empty_segments() {
+    let cases = vec![
+        (
+            "银行, ,地产",
+            vec!["银行".to_string(), "地产".to_string()],
+        ),
+        ("银行,", vec!["银行".to_string()]),
+        (",地产", vec!["地产".to_string()]),
+        (
+            "银行,,地产",
+            vec!["银行".to_string(), "地产".to_string()],
+        ),
+    ];
+
+    for (raw, expected) in cases {
+        let (service, store) = service();
+
+        let rule = service
+            .set_rule("industry-blocklist", raw, fixed_ts())
+            .await
+            .unwrap();
+
+        assert_eq!(rule.rule_type, RiskRuleType::IndustryBlocklist);
+        assert_eq!(rule.value, RuleValue::TextList(expected.clone()));
+
+        let state = store.snapshot().unwrap();
+        assert_eq!(state.rules.len(), 1);
+        assert_eq!(state.rules[0].value, RuleValue::TextList(expected));
+    }
+}
+
+#[tokio::test]
+async fn set_rule_industry_blocklist_rejects_empty_names() {
+    let (service, _) = service();
+
+    let err = service
+        .set_rule("industry-blocklist", " , , ", fixed_ts())
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("industry-blocklist"));
+}
+
+#[test]
+fn text_list_display_joins_values_with_commas() {
+    let value = RuleValue::TextList(vec![
+        "银行".to_string(),
+        "地产".to_string(),
+        "煤炭".to_string(),
+    ]);
+    assert_eq!(value.display(), "银行,地产,煤炭");
+}
+
+#[tokio::test]
+async fn status_rejects_invalid_daily_loss_rule_value_type() {
+    let (service, store) = service();
+    let now = fixed_ts();
+    let mut state = RiskState::default();
+    state.rules.push(RiskRule {
+        rule_type: RiskRuleType::DailyLossLimit,
+        value: RuleValue::TextList(vec!["银行".to_string()]),
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+    });
+    store.set_snapshot(state);
+
+    let err = service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("daily-loss-limit"));
+    assert!(err.to_string().contains("配置无效"));
 }
 
 #[tokio::test]

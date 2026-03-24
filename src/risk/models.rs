@@ -46,6 +46,7 @@ pub enum RiskRuleType {
     PositionLimit,
     DailyLossLimit,
     VolatilityLimit,
+    IndustryBlocklist,
 }
 
 impl RiskRuleType {
@@ -54,6 +55,7 @@ impl RiskRuleType {
             "position-limit" => Ok(Self::PositionLimit),
             "daily-loss-limit" => Ok(Self::DailyLossLimit),
             "volatility-limit" => Ok(Self::VolatilityLimit),
+            "industry-blocklist" => Ok(Self::IndustryBlocklist),
             other => Err(QuantixError::Other(format!(
                 "risk rule 不支持的类型: {other}"
             ))),
@@ -65,6 +67,7 @@ impl RiskRuleType {
             Self::PositionLimit => "position-limit",
             Self::DailyLossLimit => "daily-loss-limit",
             Self::VolatilityLimit => "volatility-limit",
+            Self::IndustryBlocklist => "industry-blocklist",
         }
     }
 }
@@ -73,10 +76,28 @@ impl RiskRuleType {
 pub enum RuleValue {
     Percentage(Decimal),
     Amount(Decimal),
+    TextList(Vec<String>),
 }
 
 impl RuleValue {
     pub fn parse(rule_type: RiskRuleType, raw: &str) -> Result<Self> {
+        if rule_type == RiskRuleType::IndustryBlocklist {
+            let values = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|segment| !segment.is_empty())
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+
+            if values.is_empty() {
+                return Err(QuantixError::Other(format!(
+                    "risk rule industry-blocklist 至少需要一个行业名称: {raw}"
+                )));
+            }
+
+            return Ok(Self::TextList(values));
+        }
+
         let value = raw.trim();
         let is_percentage = value.ends_with('%');
         let number = if is_percentage {
@@ -112,6 +133,7 @@ impl RuleValue {
             (RiskRuleType::VolatilityLimit, false) => Err(QuantixError::Other(
                 "risk rule volatility-limit 仅支持百分比值，例如 4%".to_string(),
             )),
+            (RiskRuleType::IndustryBlocklist, _) => unreachable!(),
         }
     }
 
@@ -119,6 +141,7 @@ impl RuleValue {
         match self {
             Self::Percentage(value) => format!("{value}%"),
             Self::Amount(value) => value.to_string(),
+            Self::TextList(values) => values.join(","),
         }
     }
 }

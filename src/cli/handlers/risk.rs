@@ -472,7 +472,7 @@ where
                 .await?
                 .ok_or_else(|| QuantixError::Other(format!("live_import mirror 不存在: {account}")))?;
             let rules = service.list_rules().await?;
-            Ok(build_risk_status_from_live_import(&mirror, &rules))
+            Ok(build_risk_status_from_live_import(&mirror, &rules)?)
         }
     }
 }
@@ -494,7 +494,7 @@ async fn load_paper_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
 fn build_risk_status_from_live_import(
     mirror: &crate::risk::LiveImportMirrorAccount,
     rules: &[RiskRule],
-) -> RiskStatus {
+) -> Result<RiskStatus> {
     let positions: Vec<(String, rust_decimal::Decimal)> = mirror
         .positions
         .iter()
@@ -515,12 +515,10 @@ fn build_risk_status_from_live_import(
     let daily_loss_limit = rules
         .iter()
         .find(|rule| rule.enabled && rule.rule_type == RiskRuleType::DailyLossLimit);
-    let buy_locked = daily_loss_limit
-        .map(|rule| match rule.value {
-            RuleValue::Amount(limit) => daily_pnl <= -limit,
-            RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
-        })
-        .unwrap_or(false);
+    let buy_locked = match daily_loss_limit {
+        Some(rule) => evaluate_daily_loss_rule_triggered(rule, daily_pnl, daily_pnl_pct)?,
+        None => false,
+    };
     let lock_reason = if buy_locked {
         daily_loss_limit
             .map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
@@ -528,7 +526,7 @@ fn build_risk_status_from_live_import(
         None
     };
 
-    RiskStatus {
+    Ok(RiskStatus {
         account_id: mirror.account_id.clone(),
         trading_date: mirror.trading_date,
         starting_total_assets: mirror.starting_total_assets,
@@ -563,6 +561,20 @@ fn build_risk_status_from_live_import(
                 enabled: rule.enabled,
             })
             .collect(),
+    })
+}
+
+fn evaluate_daily_loss_rule_triggered(
+    rule: &RiskRule,
+    daily_pnl: rust_decimal::Decimal,
+    daily_pnl_pct: rust_decimal::Decimal,
+) -> Result<bool> {
+    match &rule.value {
+        RuleValue::Amount(limit) => Ok(daily_pnl <= -*limit),
+        RuleValue::Percentage(limit_pct) => Ok(daily_pnl_pct <= -*limit_pct),
+        RuleValue::TextList(_) => Err(QuantixError::Other(
+            "risk rule daily-loss-limit 配置无效".to_string(),
+        )),
     }
 }
 
