@@ -101,6 +101,9 @@ export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 
 # 风控 JSON 路径（可选）
 export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
+
+# 策略运行时审计 SQLite 路径（可选）
+export QUANTIX_STRATEGY_RUNTIME_DB_PATH="$HOME/.quantix/strategy/runtime.db"
 ```
 
 ### 运行测试
@@ -450,7 +453,7 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 |------|------|
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
-| `paper` | 模拟盘模式 (开发中) |
+| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
 
 ##### 示例
 
@@ -460,6 +463,10 @@ quantix strategy run -n ma_cross
 
 # 运行策略回测指定股票
 quantix strategy run -n ma_cross -c 000001
+
+# 使用 paper 模式单次执行
+quantix trade init --capital 1000000
+quantix strategy run -n ma_cross --mode paper -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -471,6 +478,15 @@ quantix strategy run -n ma_cross --mode live
 运行策略: ma_cross (backtest)
 股票代码: 000001
 ```
+
+##### 当前 Phase 29A 边界
+
+- `paper` 模式当前只支持 `ma_cross`
+- `paper` 模式当前只支持单代码、单次执行
+- 首次使用前请先执行 `quantix trade init`
+- 运行审计默认写入 `~/.quantix/strategy/runtime.db`
+- 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
+- `live` 模式仍在开发中
 
 ---
 
@@ -942,7 +958,7 @@ quantix market overview --top 5
 
 ### monitor - 实时监控
 
-提供 Phase 24B 的最小监控自动化闭环：一次性/重复自选池扫描、持久化价格告警、守护进程入口、`systemd --user` 服务管理，以及业务事件历史。
+提供 Phase 24A 的最小监控闭环：一次性自选池扫描加持久化价格告警管理。
 
 #### 存储路径
 
@@ -950,66 +966,35 @@ quantix market overview --top 5
 - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
 - 告警使用 SQLite 持久化，`watchlist --once` 命中时会在终端输出并更新最后触发时间
 
-#### 配置路径
-
-- 默认路径：`~/.quantix/monitor/config.json`
-- 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
-- `watchlist --repeat`、`daemon run`、`service` 命令共享同一份 monitor 配置
-
 #### P0 范围
 
-- 支持 `watchlist --once`、`watchlist --repeat`、`daemon run`
-- 支持 `systemd --user` 用户服务的安装、启停、状态查看、自启开关
-- 支持价格阈值告警的添加、列表、删除，以及业务事件历史查看
-- 业务事件历史只记录价格告警命中和 stop 触发，不记录服务生命周期日志
-- 当前后台服务能力面向 WSL2/Linux 的 `systemd --user`
-- `--refresh`、系统通知延后到后续 Phase
+- 只支持 `watchlist --once`
+- 只支持价格阈值告警的添加、列表、删除
+- `--refresh`、`--repeat`、系统通知延后到后续 Phase
 
 #### 命令摘要
 
 ```bash
 quantix monitor watchlist --once
-quantix monitor watchlist --repeat
 quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)
 quantix monitor alert list
 quantix monitor alert remove <ID>
-quantix monitor config show
-quantix monitor config set --interval-seconds <N>
-quantix monitor config set --group <GROUP>
-quantix monitor config clear-group
-quantix monitor config set --persist-events <true|false>
-quantix monitor daemon run
-quantix monitor service install
-quantix monitor service uninstall
-quantix monitor service start
-quantix monitor service stop
-quantix monitor service status
-quantix monitor service enable
-quantix monitor service disable
-quantix monitor event list [--limit <N>] [--code <CODE>] [--type <TYPE>]
 ```
 
 #### 参数约束
 
-- `watchlist` 当前必须且只能显式带 `--once` 或 `--repeat`
+- `watchlist` 当前必须显式带 `--once`
 - `alert add` 必须且只能指定一个阈值：`--above` 或 `--below`
-- `config set` 每次只允许修改一个字段
-- `event list` 默认返回最近 20 条业务事件
-- `service` 命令调用 `systemctl --user`
 - 当前只复用现有自选池与 TDX 行情链路，不提供板块/概念监控
 
 #### 常用示例
 
 ```bash
 quantix monitor watchlist --once
-quantix monitor watchlist --repeat
 quantix monitor alert add 000001 --above 16.0
 quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
-quantix monitor config show
-quantix monitor service install
-quantix monitor event list --limit 10
 ```
 
 ---
