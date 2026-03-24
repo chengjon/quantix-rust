@@ -32,9 +32,7 @@ fn generate_price_series_local(start_price: f64, count: usize, trend: PriceTrend
                     price -= 0.3
                 }
             }
-            PriceTrend::Volatile => {
-                price += (i % 5) as f64 - 2.0
-            }
+            PriceTrend::Volatile => price += (i % 5) as f64 - 2.0,
         }
 
         if price < 1.0 {
@@ -102,8 +100,7 @@ fn create_test_data() -> HashMap<String, Vec<Kline>> {
                 close: Decimal::from_str(price.to_string().as_str()).unwrap(),
                 volume: 1000000,
                 amount: Some(
-                    Decimal::from_str(price.to_string().as_str()).unwrap()
-                        * Decimal::from(1000000),
+                    Decimal::from_str(price.to_string().as_str()).unwrap() * Decimal::from(1000000),
                 ),
                 adjust_type: AdjustType::None,
             }
@@ -152,8 +149,7 @@ fn create_ma_cross_test_data() -> HashMap<String, Vec<Kline>> {
                 close: Decimal::from_str(price.to_string().as_str()).unwrap(),
                 volume: 1000000,
                 amount: Some(
-                    Decimal::from_str(price.to_string().as_str()).unwrap()
-                        * Decimal::from(1000000),
+                    Decimal::from_str(price.to_string().as_str()).unwrap() * Decimal::from(1000000),
                 ),
                 adjust_type: AdjustType::None,
             }
@@ -176,8 +172,14 @@ mod integration_tests {
 
         assert_eq!(klines.len(), 100);
         assert_eq!(klines[0].date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
-        assert_eq!(klines[31].date, NaiveDate::from_ymd_opt(2024, 2, 1).unwrap());
-        assert_eq!(klines[99].date, NaiveDate::from_ymd_opt(2024, 4, 9).unwrap());
+        assert_eq!(
+            klines[31].date,
+            NaiveDate::from_ymd_opt(2024, 2, 1).unwrap()
+        );
+        assert_eq!(
+            klines[99].date,
+            NaiveDate::from_ymd_opt(2024, 4, 9).unwrap()
+        );
     }
 
     #[tokio::test]
@@ -200,7 +202,10 @@ mod integration_tests {
         }
 
         assert!(has_buy, "MA Cross 测试夹具应该触发买入信号");
-        assert!(has_sell_after_buy, "MA Cross 测试夹具应该在买入后触发卖出信号");
+        assert!(
+            has_sell_after_buy,
+            "MA Cross 测试夹具应该在买入后触发卖出信号"
+        );
     }
 
     /// 测试 MA Cross 策略与回测引擎集成
@@ -285,9 +290,7 @@ mod integration_tests {
         let mut data = HashMap::new();
 
         for code in &["000001", "000002", "000003"] {
-            let prices: Vec<f64> = (0..50)
-                .map(|i| 100.0 + i as f64 * 0.3)
-                .collect();
+            let prices: Vec<f64> = (0..50).map(|i| 100.0 + i as f64 * 0.3).collect();
 
             let klines: Vec<Kline> = prices
                 .iter()
@@ -408,7 +411,10 @@ mod integration_tests {
 
         println!("性能基准测试 (1000根K线):");
         println!("  执行时间: {:?}", duration);
-        println!("  每根K线平均时间: {:.2}μs", duration.as_micros() as f64 / 1000.0);
+        println!(
+            "  每根K线平均时间: {:.2}μs",
+            duration.as_micros() as f64 / 1000.0
+        );
         println!("  总收益率: {}%", result.report.total_return * dec!(100));
         println!("  最终权益: {}", result.final_equity);
 

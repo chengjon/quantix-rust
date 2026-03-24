@@ -180,7 +180,9 @@ impl TaskScheduler {
                     let task_name = task_name_owned.clone();
                     let scheduler_handle = scheduler_handle.clone();
                     Box::pin(async move {
-                        if let Err(err) = scheduler_handle.execute_registered_callback(&task_name).await
+                        if let Err(err) = scheduler_handle
+                            .execute_registered_callback(&task_name)
+                            .await
                         {
                             warn!("执行任务 {} 失败: {}", task_name, err);
                         }

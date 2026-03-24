@@ -32,8 +32,8 @@ impl Default for MomentumConfig {
             slow_period: 26,
             signal_period: 9,
             macd_positive_threshold: rust_decimal::Decimal::from(5), // MACD > 0.05 看多
-            macd_negative_threshold: rust_decimal::Decimal::from(5),            // MACD < -0.05 看空
-            enable_divergence: false, // 暂不启用背离检测
+            macd_negative_threshold: rust_decimal::Decimal::from(5), // MACD < -0.05 看空
+            enable_divergence: false,                                // 暂不启用背离检测
         }
     }
 }

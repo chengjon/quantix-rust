@@ -76,7 +76,24 @@ cargo run -- menu
 cargo run -- data query --code 000001 --period 1d
 
 # 运行回测
-cargo run -- strategy run ma-cross --code 000001
+cargo run -- strategy run -n ma_cross --code 000001
+
+# 运行 paper 策略前先初始化 paper 账户
+cargo run -- trade init --capital 1000000
+cargo run -- strategy run -n ma_cross --mode paper --code 000001
+
+# 初始化策略信号守护进程配置
+cargo run -- strategy config init
+
+# 当主读取器为空或失败时，允许 daemon 回退到本地 TDX day 文件
+export QUANTIX_TDX_ROOT=/mnt/d/ProgramData/tdx_20251231
+export QUANTIX_TDX_MARKET=sz
+
+# 跑一轮 signal daemon（不会自动交易）
+cargo run -- strategy daemon run --once
+
+# 查看待审批 signal
+cargo run -- strategy signal list --approval-status pending
 
 # 启动任务调度器
 cargo run -- task start

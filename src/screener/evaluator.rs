@@ -6,7 +6,9 @@ use rust_decimal::Decimal;
 
 pub fn required_lookback(invocation: &PresetInvocation) -> Result<usize> {
     match invocation.kind {
-        PresetKind::CloseAboveMa | PresetKind::CloseBelowMa => get_usize_param(invocation, "period"),
+        PresetKind::CloseAboveMa | PresetKind::CloseBelowMa => {
+            get_usize_param(invocation, "period")
+        }
         PresetKind::RsiGte | PresetKind::RsiLte => Ok(get_usize_param(invocation, "period")? + 1),
         PresetKind::VolumeRatioGte => get_usize_param(invocation, "window"),
     }

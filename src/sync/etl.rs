@@ -137,7 +137,8 @@ impl DataSync {
 
         let start = Utc::now();
 
-        let minute_data = Self::fetch_minute_source_data(&self.config, start_time, end_time).await?;
+        let minute_data =
+            Self::fetch_minute_source_data(&self.config, start_time, end_time).await?;
 
         let records_synced = self.write_klines_to_clickhouse(&minute_data).await?;
 

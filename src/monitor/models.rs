@@ -28,6 +28,54 @@ pub struct PriceAlert {
     pub last_triggered_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonitorEventType {
+    PriceAlert,
+    StopLoss,
+    StopProfit,
+    TrailingStop,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonitorRunMode {
+    Foreground,
+    Daemon,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewMonitorEvent {
+    pub event_time: DateTime<Utc>,
+    pub event_type: MonitorEventType,
+    pub code: String,
+    pub price: Option<f64>,
+    pub message: String,
+    pub source_type: String,
+    pub source_key: String,
+    pub observed_at: Option<DateTime<Utc>>,
+    pub run_mode: MonitorRunMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MonitorEventRow {
+    pub id: i64,
+    pub event_time: DateTime<Utc>,
+    pub event_type: MonitorEventType,
+    pub code: String,
+    pub price: Option<f64>,
+    pub message: String,
+    pub source_type: String,
+    pub source_key: String,
+    pub observed_at: Option<DateTime<Utc>>,
+    pub run_mode: MonitorRunMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MonitorEventFilter {
+    pub limit: usize,
+    pub code: Option<String>,
+    pub event_type: Option<MonitorEventType>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TriggeredAlert {
     pub alert_id: i64,

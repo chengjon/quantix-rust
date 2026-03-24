@@ -52,13 +52,11 @@ fn parses_watchlist_list_command_with_filters_and_price_flag() {
 
 #[test]
 fn parses_watchlist_group_create_command() {
-    let cli = Cli::try_parse_from(["quantix", "watchlist", "group", "create", "--name", "core"])
-        .unwrap();
+    let cli =
+        Cli::try_parse_from(["quantix", "watchlist", "group", "create", "--name", "core"]).unwrap();
 
     match cli.command {
-        Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create {
-            name,
-        })) => {
+        Commands::Watchlist(WatchlistCommands::Group(WatchlistGroupCommands::Create { name })) => {
             assert_eq!(name, "core");
         }
         other => panic!("unexpected command: {:?}", other),

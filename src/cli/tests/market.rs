@@ -16,7 +16,8 @@ fn parses_market_sector_command_with_top() {
 
 #[test]
 fn parses_market_concept_command_with_date() {
-    let cli = Cli::try_parse_from(["quantix", "market", "concept", "--date", "2026-03-09"]).unwrap();
+    let cli =
+        Cli::try_parse_from(["quantix", "market", "concept", "--date", "2026-03-09"]).unwrap();
 
     match cli.command {
         Commands::Market(MarketCommands::Concept { top, date, sort_by }) => {

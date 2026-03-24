@@ -90,14 +90,16 @@ pub fn calculate_macd(
     let ema_fast = calculate_ema(closes, fast_period);
     let ema_slow = calculate_ema(closes, slow_period);
 
-    let macd_line: Vec<Decimal> = ema_fast.iter()
+    let macd_line: Vec<Decimal> = ema_fast
+        .iter()
         .zip(ema_slow.iter())
         .map(|(fast, slow)| *fast - *slow)
         .collect();
 
     let signal_line = calculate_ema(&macd_line, signal_period);
 
-    let histogram: Vec<Decimal> = macd_line.iter()
+    let histogram: Vec<Decimal> = macd_line
+        .iter()
         .zip(signal_line.iter())
         .map(|(macd, signal)| *macd - *signal)
         .collect();

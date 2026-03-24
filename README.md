@@ -8,7 +8,18 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 - 仓库内本地 worktree 放在 `.worktrees/`，全文检索和批量扫描应排除该目录，避免重复命中。
 - 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
-- Foundation P0 的任务能力只支持直接运行 CLI 前台进程，不假设 daemon、常驻调度服务或任务持久化已经可用。
+- Foundation P0 当前支持前台 CLI、单机 daemon 与 `systemd --user` 用户服务，不假设多 worker、分布式调度或真实 broker 已可用。
+
+## 路线图与 Backlog
+
+项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
+
+当前建议的推进顺序：
+
+1. 先补齐策略执行主线闭环，优先推进 Phase 29C 与 execution request 生命周期。
+2. 再推进 real live adapter、live-ready automation 与更细粒度 execution policy。
+3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
+4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
 
 ## 功能特性
 
@@ -203,24 +214,45 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Phase 24: 实时监控 ✅
 - **监控命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/monitor/*`)
   - `quantix monitor watchlist --once` - 扫描当前自选池并输出终端监控快照
+  - `quantix monitor watchlist --repeat` - 在前台持续轮询自选池并输出监控快照
   - `quantix monitor alert add 000001 --above 16.0` - 添加向上突破价格告警
   - `quantix monitor alert add 000001 --below 15.0` - 添加向下跌破价格告警
   - `quantix monitor alert list` - 查看当前有效价格告警
   - `quantix monitor alert remove 1` - 删除指定价格告警
+  - `quantix monitor config show` - 查看当前监控配置
+  - `quantix monitor daemon run` - 运行 monitor 守护进程
+  - `quantix monitor service install` - 安装 `systemd --user` 监控服务
+  - `quantix monitor service-config show` - 查看 monitor service 二进制配置
+  - `quantix monitor service-config set --quantix-bin /abs/path/to/quantix` - 设置稳定的 service 二进制路径
+  - `quantix monitor event list` - 查看最近监控业务事件
 - **SQLite 告警持久化** (`src/monitor/storage.rs`)
   - 默认路径 `~/.quantix/monitor/alerts.db`
   - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
+- **JSON 配置持久化** (`src/monitor/config.rs`)
+  - 默认路径 `~/.quantix/monitor/config.json`
+  - 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
+- **Service 配置与包装脚本** (`src/monitor/service_config.rs`, `src/monitor/systemd.rs`)
+  - service 配置路径 `~/.quantix/monitor/service.json`
+  - wrapper 脚本路径 `~/.local/bin/quantix-monitor-run`
 - **P0 约束**
-  - 仅支持一次性 `watchlist --once` 扫描和终端输出
-  - 复用现有自选池加载与 TDX 行情查询链路
-  - `--refresh / --repeat / 系统通知延后到后续 Phase`
+  - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run` 与 `systemd --user` 用户服务
+  - 复用现有自选池加载、TDX 行情查询与 stop 规则评估链路
+  - 业务事件只持久化价格告警命中与 stop 触发，不持久化服务生命周期日志
+  - `systemd --user` 当前面向 WSL2/Linux 用户环境
+  - `service install` 要求先配置稳定的 `quantix` 二进制绝对路径
+  - `service uninstall` 必须先停服务再卸载
+  - 系统通知延后到后续 Phase
 
 #### Phase 25: 止盈止损 ✅
 - **止盈止损命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/stop/*`)
   - `quantix stop set 000001 --loss 14.5` - 为自选池代码设置固定止损价
   - `quantix stop set 000001 --profit 18.0` - 为自选池代码设置固定止盈价
   - `quantix stop set 000001 --trailing 5 --profit 18.0` - 为自选池代码设置跟踪止损并可叠加止盈价
+  - `quantix stop set 000001 --loss-pct 5` - 为自选池代码设置百分比止损
+  - `quantix stop update 000001 --profit-pct 12 --clear-profit` - 局部更新规则并清理旧阈值
   - `quantix stop list` - 查看当前有效规则
+  - `quantix stop status --code 000001` - 查看当前评估状态、锚点来源和有效阈值
+  - `quantix stop history --code 000001 --limit 10` - 查看规则变更与触发审计历史
   - `quantix stop remove 000001` - 删除指定代码的规则
 - **复用监控 SQLite** (`src/monitor/storage.rs`, `src/stop/storage.rs`)
   - 默认路径 `~/.quantix/monitor/alerts.db`
@@ -228,8 +260,13 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **P0 约束**
   - 仅允许对已在本地自选池中的股票设置规则
   - 每个代码只保留一条有效规则，重复 `stop set` 会整条覆盖旧规则
+  - `stop update` 采用局部 patch 语义，只改显式传入字段
+  - 百分比规则优先锚定本地 paper 持仓均价
+  - 无持仓时退回到规则的 reference_price
+  - `stop status` 会展示 `anchor_source`、当前阈值和 `eval_state`
+  - stop_history 会记录规则变更和 trigger 审计事件
   - quantix monitor watchlist --once 会在监控快照阶段继续评估止盈止损规则
-  - `stop status / stop history / stop update / 百分比止损止盈参数延后到后续 Phase`
+  - 当前不自动下单，也不直接触发卖出执行
 
 #### Phase 26: 模拟交易 ✅
 - **模拟交易命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/trade/*`)
@@ -256,26 +293,119 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix risk rule set --type position-limit --value 20%` - 设置单票仓位上限
   - `quantix risk rule set --type daily-loss-limit --value 50000` - 设置日亏损金额阈值
   - `quantix risk rule set --type daily-loss-limit --value 5%` - 设置日亏损比例阈值
+  - `quantix risk rule set --type volatility-limit --value 4%` - 设置 ATR 波动率阈值
+  - `quantix risk import live-trades --account live-001 --input /tmp/live.csv` - 导入标准化实盘流水
+  - `quantix risk rebuild live-account --account live-001` - 从导入流水全量重建实盘镜像账户
   - `quantix risk rule list` - 查看当前风控规则
   - `quantix risk rule enable --type position-limit` - 启用指定规则
   - `quantix risk rule disable --type daily-loss-limit` - 禁用指定规则
   - `quantix risk status` - 查看当前纸面账户风控状态
   - `quantix risk pnl` - 查看当前当日盈亏快照
   - `quantix risk position` - 查看当前持仓风险分布
+  - `quantix risk status --source live_import --account live-001` - 查看导入镜像账户风控状态
+  - `quantix risk pnl --source live_import --account live-001` - 查看导入镜像账户盈亏快照
+  - `quantix risk position --source live_import --account live-001` - 查看导入镜像账户持仓风险分布
   - `quantix risk log` - 查看最近风控事件
   - `quantix risk lock release` - 手动释放当前交易日买入锁
 - **JSON 持久化** (`src/risk/storage.rs`)
   - 默认路径 `~/.quantix/risk/risk_state.json`
   - 可通过 `QUANTIX_RISK_PATH` 覆盖
 - **P0 约束**
-  - 仅支持本地 paper-trade 账户，不覆盖实盘账户导入/监控
+  - `paper` 仍是默认数据源，`live_import` 需要显式 `--source live_import --account <ID>`
+  - live_import 镜像账户与 paper_trade.json 严格隔离
+  - `volatility-limit` 使用 `ATR(14) / latest_close * 100`
+  - `volatility-limit` 缺少日线时会拒绝买单而不是静默跳过
+  - `volatility-limit` 只拦截新的买单，不影响卖出
+  - 实盘导入当前只支持项目标准化 CSV/JSON
+  - failed rebuild 会保留上一次成功镜像状态
   - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交，`trade init/reset` 会清除当日买入锁但保留已配置规则
   - 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
   - `risk status` 会额外显示锁状态来源、作用交易日、触发原因、触发时间，便于区分真实锁定与同日手动释放生效
   - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件，不记录每次买入拒单
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
-  - `实盘导入 / 波动率和行业规则 / 自动减仓` 延后到后续 Phase
+  - `行业规则 / 自动减仓` 延后到后续 Phase
+
+#### Phase 29: 策略 Paper 执行骨架 ✅
+- **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
+  - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
+  - `quantix strategy run -n ma_cross --mode mock_live --code 000001` - 运行 `ma_cross` 的单次 mock-live 执行
+- **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
+  - 默认路径 `~/.quantix/strategy/runtime.db`
+  - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
+- **P0 约束**
+  - 当前仅支持 `ma_cross`
+  - 当前仅支持单代码、单次执行
+  - 执行前请先运行 `quantix trade init`
+  - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
+  - `paper` 是立即成交路径，`mock_live` 当前会返回非终态订单状态
+  - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
+  - 同一个 mock-live 订单在 partial fill 场景下可能写出多笔 `TradeRecord`
+  - 这些增量成交会直接体现在 `trade history`、`trade fees`、`trade overview` 的本地视图里
+  - `live 模式仍在开发中`
+  - `execution daemon`、自动审批、real live adapter 延后到后续 Phase
+
+#### Phase 29B: 策略信号守护进程 ✅
+- **策略守护进程配置** (`src/strategy/config.rs`)
+  - `quantix strategy config init`
+  - `quantix strategy config show`
+  - 默认路径 `~/.quantix/strategy/config.json`
+- **策略信号守护进程** (`src/strategy/daemon.rs`, `src/strategy/registry.rs`)
+  - `quantix strategy daemon run`
+  - `quantix strategy daemon run --once`
+  - 当前支持：单代码、多个策略实例、日线新 bar 触发
+  - 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
+  - fallback 读取根目录通过 `QUANTIX_TDX_ROOT` 指定
+  - 当同一代码在多个 TDX 市场目录命中时，可通过 `QUANTIX_TDX_MARKET` 指定 `sh/sz/bj/ds`
+- **Signal / Execution Request** (`src/execution/runtime_store.rs`)
+  - `quantix strategy signal list`
+  - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
+  - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
+  - `quantix strategy request list`
+  - `quantix strategy request execute --request-id <ID>`
+  - `quantix strategy request cancel --request-id <ID> [--reason <TEXT>]`
+  - 批准 signal 只会创建 `execution_request`，不会自动交易
+  - `request execute` 会手动消费一个 `pending execution_request`
+  - `strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`
+  - `strategy signal approve` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
+  - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
+  - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
+- **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
+  - `quantix strategy service install`
+  - `quantix strategy service status`
+  - `quantix strategy service-config show`
+  - `quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env`
+  - 默认 service 配置路径 `~/.quantix/strategy/service.json`
+  - 可选环境文件 `~/.quantix/strategy/service.env`
+  - wrapper 路径 `~/.local/bin/quantix-strategy-run`
+- **当前边界**
+  - `strategy daemon` 不自动交易
+  - `strategy run --mode paper` 仍保留为直接执行路径
+  - `strategy daemon run --once` 首次启动只 bootstrap 到最新 bar，可能输出 `strategy daemon 未生成新信号`
+  - 自动审批 / execution daemon / live adapter 延后到后续 Phase
+
+#### Phase 29C: 执行自动化收口 ✅
+- **执行自动化命令** (`src/execution/config.rs`, `src/execution/daemon.rs`, `src/cli/handlers.rs`)
+  - `quantix execution config init`
+  - `quantix execution config show`
+  - `quantix execution daemon run`
+  - `quantix execution daemon run --once`
+- **执行配置持久化** (`src/execution/config.rs`)
+  - 默认路径 `~/.quantix/execution/config.json`
+  - 可通过 `QUANTIX_EXECUTION_CONFIG_PATH` 覆盖
+- **自动审批与 request claim**
+  - `execution_request` 当前新增 `in_progress`
+  - `strategy daemon` 仍负责生成 signal 和可选 auto-approval
+  - `execution daemon` 只消费 `pending execution_request`
+  - `strategy request execute` 与 `execution daemon` 复用同一条 request 消费路径
+  - 自动审批当前只支持 `manual|always`
+  - `manual` 保持人工 `strategy signal approve`
+  - `always` 会在 signal 生成后直接创建 `pending execution_request`
+- **P0 约束**
+  - `execution daemon` 当前是单 worker、串行消费
+  - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
+  - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
+  - `live` adapter 仍未实现
 
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)

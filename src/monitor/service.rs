@@ -62,7 +62,10 @@ where
             return Ok(MonitorWatchlistSnapshot::default());
         }
 
-        let codes = items.iter().map(|item| item.code.clone()).collect::<Vec<_>>();
+        let codes = items
+            .iter()
+            .map(|item| item.code.clone())
+            .collect::<Vec<_>>();
         let quote_map = self
             .quote_reader
             .load_quotes(&codes)
@@ -77,7 +80,11 @@ where
 
         for item in items {
             let code = item.code.clone();
-            rows.push(build_snapshot_row(item, quote_map.get(&code), &mut warnings));
+            rows.push(build_snapshot_row(
+                item,
+                quote_map.get(&code),
+                &mut warnings,
+            ));
         }
 
         let mut seen_alert_ids = HashSet::new();

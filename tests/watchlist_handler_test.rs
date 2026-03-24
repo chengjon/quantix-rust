@@ -1,6 +1,6 @@
 use quantix_cli::cli::{
-    handlers::run_watchlist_command, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    handlers::run_watchlist_command,
 };
 use quantix_cli::watchlist::{WatchlistAction, WatchlistStorage};
 use std::sync::{Mutex, OnceLock};
@@ -95,7 +95,10 @@ async fn group_move_and_tag_commands_share_same_store() {
 
     let store = WatchlistStorage::new(&path).load().unwrap().unwrap();
     assert_eq!(store.groups.get("default").unwrap(), &Vec::<String>::new());
-    assert_eq!(store.groups.get("core").unwrap(), &vec!["000001".to_string()]);
+    assert_eq!(
+        store.groups.get("core").unwrap(),
+        &vec!["000001".to_string()]
+    );
     assert_eq!(
         store.entries.get("000001").unwrap().tags,
         vec!["bank".to_string()]

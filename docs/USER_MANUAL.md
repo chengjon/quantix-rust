@@ -10,6 +10,7 @@
   - [menu - 交互式菜单](#menu---交互式菜单)
   - [data - 数据管理](#data---数据管理)
   - [strategy - 策略管理](#strategy---策略管理)
+  - [execution - 执行自动化](#execution---执行自动化)
   - [task - 任务调度](#task---任务调度)
   - [analyze - 分析工具](#analyze---分析工具)
   - [watchlist - 自选池](#watchlist---自选池)
@@ -86,6 +87,10 @@ export POSTGRES_URL="postgresql://localhost:5432/quantix"
 export CLICKHOUSE_URL="http://localhost:8123"
 export CLICKHOUSE_DB="quantix"
 
+# 策略 signal daemon 的本地 TDX fallback（可选）
+export QUANTIX_TDX_ROOT="$HOME/.local/share/tdx"
+export QUANTIX_TDX_MARKET="sz"
+
 # TDX 数据源
 export TDX_HOST="192.168.1.100"
 export TDX_PORT=7709
@@ -101,6 +106,12 @@ export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 
 # 风控 JSON 路径（可选）
 export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
+
+# 策略运行时审计 SQLite 路径（可选）
+export QUANTIX_STRATEGY_RUNTIME_DB_PATH="$HOME/.quantix/strategy/runtime.db"
+
+# execution daemon JSON 配置路径（可选）
+export QUANTIX_EXECUTION_CONFIG_PATH="$HOME/.quantix/execution/config.json"
 ```
 
 ### 运行测试
@@ -450,7 +461,8 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 |------|------|
 | `backtest` | 回测模式 |
 | `live` | 实盘模式 (开发中) |
-| `paper` | 模拟盘模式 (开发中) |
+| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
+| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |
 
 ##### 示例
 
@@ -460,6 +472,13 @@ quantix strategy run -n ma_cross
 
 # 运行策略回测指定股票
 quantix strategy run -n ma_cross -c 000001
+
+# 使用 paper 模式单次执行
+quantix trade init --capital 1000000
+quantix strategy run -n ma_cross --mode paper -c 000001
+
+# 使用 mock_live 模式单次执行
+quantix strategy run -n ma_cross --mode mock_live -c 000001
 
 # 使用实盘模式
 quantix strategy run -n ma_cross --mode live
@@ -471,6 +490,120 @@ quantix strategy run -n ma_cross --mode live
 运行策略: ma_cross (backtest)
 股票代码: 000001
 ```
+
+##### 当前 Phase 29A 边界
+
+- `paper` 模式当前只支持 `ma_cross`
+- `paper` 模式当前只支持单代码、单次执行
+- `mock_live` 模式当前支持非终态订单生命周期模拟
+- 首次使用前请先执行 `quantix trade init`
+- 运行审计默认写入 `~/.quantix/strategy/runtime.db`
+- 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
+- `mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态
+- 同一个 mock-live 订单在 partial fill 路径下可能生成多笔 `TradeRecord`
+- 这些增量成交会直接出现在 `trade history`、`trade fees`、`trade overview` 的本地视图中
+- `live` 模式仍在开发中
+
+##### Phase 29B: 策略信号守护进程
+
+```bash
+quantix strategy config init
+quantix strategy config show
+
+quantix strategy daemon run --once
+quantix strategy daemon run
+
+quantix strategy signal list --approval-status pending
+quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default
+quantix strategy signal reject --signal-id <ID> --reason "manual reject"
+quantix strategy request list --status pending
+quantix strategy request execute --request-id <ID>
+quantix strategy request cancel --request-id <ID> [--reason <TEXT>]
+
+quantix strategy service-config show
+quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env
+quantix strategy service install
+quantix strategy service start
+quantix strategy service status
+```
+
+默认路径：
+
+- `~/.quantix/strategy/config.json`
+- `~/.quantix/strategy/runtime.db`
+- `~/.quantix/strategy/service.json`
+- `~/.quantix/strategy/service.env`
+- `~/.local/bin/quantix-strategy-run`
+
+当前 Phase 29B 边界：
+
+- `strategy daemon` 当前只支持单代码
+- 同一代码下可配置多个策略实例
+- 首次启动只 bootstrap 到最新 bar，不回补历史 signal
+- `strategy daemon run --once` 首次启动可能只输出 `strategy daemon 未生成新信号`
+- daemon 优先读取已落库日线；主读取器返回空或失败时，可回退到本地 TDX `day` 文件
+- `QUANTIX_TDX_ROOT` 用于指定本地 TDX 根目录
+- `QUANTIX_TDX_MARKET` 用于在 `sh/sz/bj/ds` 之间消解同代码歧义
+- signal 批准后只会写入 `execution_request`
+- `request execute` 会手动消费一个 `pending execution_request`
+- 不会自动交易，不会修改 paper 账户
+- `strategy run --mode paper` 仍保留为直接执行路径
+- `execution daemon`、自动审批、live adapter 延后到后续 Phase
+
+当前输出语义：
+
+- `strategy signal list` 会输出 `source=<SOURCE> fallback=<BOOL>`
+- `strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- `strategy signal reject` 会输出 `signal_id signal_status=<STATUS> approval_status=<STATUS> reason=<TEXT>`
+- `strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- mock_live request 即使返回 `accepted` 也会被标记为 `completed`
+- `strategy service install/start/stop/enable/disable` 成功时会输出明确消息
+
+---
+
+### execution - 执行自动化
+
+执行 `pending execution_request` 的前台守护进程与配置命令。
+
+#### 子命令
+
+- `config` - 初始化或查看 execution daemon 配置
+- `daemon` - 前台运行 execution daemon
+
+#### 用法
+
+```bash
+quantix execution config init
+quantix execution config show
+quantix execution daemon run
+quantix execution daemon run --once
+```
+
+#### 默认路径
+
+- `~/.quantix/execution/config.json`
+- `QUANTIX_EXECUTION_CONFIG_PATH`
+
+#### 当前 Phase 29C 边界
+
+- `execution_request` 当前新增 `in_progress`
+- `execution daemon` 只会 claim/consume `pending execution_request`
+- `strategy request execute` 与 `execution daemon` 复用同一条 request 消费路径
+- `manual|always` 是当前 auto-approval 的全部策略面
+- `manual` 下仍需显式 `strategy signal approve`
+- `always` 下 `strategy daemon` 生成 signal 后会直接创建 `pending execution_request`
+- `execution daemon` 不负责 signal 审批
+- `execution daemon` 当前是单 worker、串行消费
+- request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
+- `mock_live` request 即使返回 `accepted` 也会被标记为 `completed`
+- `live` adapter 仍未实现
+
+#### 当前输出语义
+
+- `quantix execution config init/show` 会输出完整 JSON 配置
+- `quantix execution daemon run --once` 在没有待消费 request 时会输出 `execution daemon 未找到 pending request`
+- request 消费成功时会输出 `execution daemon consumed request status=completed`
+- request 消费失败时会输出 `execution daemon consumed request status=failed`
 
 ---
 
@@ -942,7 +1075,7 @@ quantix market overview --top 5
 
 ### monitor - 实时监控
 
-提供 Phase 24A 的最小监控闭环：一次性自选池扫描加持久化价格告警管理。
+提供 Phase 24B 的最小监控自动化闭环：一次性/重复自选池扫描、持久化价格告警、守护进程入口、`systemd --user` 服务管理，以及业务事件历史。
 
 #### 存储路径
 
@@ -950,42 +1083,86 @@ quantix market overview --top 5
 - 可通过 `QUANTIX_MONITOR_DB_PATH` 覆盖
 - 告警使用 SQLite 持久化，`watchlist --once` 命中时会在终端输出并更新最后触发时间
 
+#### 配置路径
+
+- 默认路径：`~/.quantix/monitor/config.json`
+- 可通过 `QUANTIX_MONITOR_CONFIG_PATH` 覆盖
+- `watchlist --repeat`、`daemon run`、`service` 命令共享同一份 monitor 配置
+
+#### Service 配置路径
+
+- 默认路径：`~/.quantix/monitor/service.json`
+- service wrapper 路径：`~/.local/bin/quantix-monitor-run`
+- `service install` 会从 `service.json` 读取稳定的 `quantix` 二进制绝对路径
+
 #### P0 范围
 
-- 只支持 `watchlist --once`
-- 只支持价格阈值告警的添加、列表、删除
-- `--refresh`、`--repeat`、系统通知延后到后续 Phase
+- 支持 `watchlist --once`、`watchlist --repeat`、`daemon run`
+- 支持 `systemd --user` 用户服务的安装、启停、状态查看、自启开关
+- 支持 `service-config show` / `service-config set --quantix-bin`
+- 支持价格阈值告警的添加、列表、删除，以及业务事件历史查看
+- 业务事件历史只记录价格告警命中和 stop 触发，不记录服务生命周期日志
+- 当前后台服务能力面向 WSL2/Linux 的 `systemd --user`
+- `service install` 要求 `service.json` 中的 `quantix` 路径存在且可执行
+- `service uninstall` 会要求先执行 `service stop`
+- `--refresh`、系统通知延后到后续 Phase
 
 #### 命令摘要
 
 ```bash
 quantix monitor watchlist --once
+quantix monitor watchlist --repeat
 quantix monitor alert add <CODE> (--above <PRICE> | --below <PRICE>)
 quantix monitor alert list
 quantix monitor alert remove <ID>
+quantix monitor config show
+quantix monitor config set --interval-seconds <N>
+quantix monitor config set --group <GROUP>
+quantix monitor config clear-group
+quantix monitor config set --persist-events <true|false>
+quantix monitor daemon run
+quantix monitor service install
+quantix monitor service uninstall
+quantix monitor service start
+quantix monitor service stop
+quantix monitor service status
+quantix monitor service enable
+quantix monitor service disable
+quantix monitor service-config show
+quantix monitor service-config set --quantix-bin /absolute/path/to/quantix
+quantix monitor event list [--limit <N>] [--code <CODE>] [--type <TYPE>]
 ```
 
 #### 参数约束
 
-- `watchlist` 当前必须显式带 `--once`
+- `watchlist` 当前必须且只能显式带 `--once` 或 `--repeat`
 - `alert add` 必须且只能指定一个阈值：`--above` 或 `--below`
+- `config set` 每次只允许修改一个字段
+- `event list` 默认返回最近 20 条业务事件
+- `service` 命令调用 `systemctl --user`
+- `service-config set --quantix-bin` 必须传绝对路径
 - 当前只复用现有自选池与 TDX 行情链路，不提供板块/概念监控
 
 #### 常用示例
 
 ```bash
 quantix monitor watchlist --once
+quantix monitor watchlist --repeat
 quantix monitor alert add 000001 --above 16.0
 quantix monitor alert add 000001 --below 15.0
 quantix monitor alert list
 quantix monitor alert remove 1
+quantix monitor config show
+quantix monitor service install
+quantix monitor service-config set --quantix-bin /usr/local/bin/quantix
+quantix monitor event list --limit 10
 ```
 
 ---
 
 ### stop - 止盈止损
 
-提供 Phase 25A 的最小止盈止损闭环：为自选池代码维护单条规则，并在 `monitor watchlist --once` 里直接复用当前快照价格做评估。
+提供 Phase 25B 的 stop 闭环：为自选池代码维护固定价、百分比和 trailing 规则，支持局部更新、状态查看、历史审计，并在 `monitor watchlist --once` 中继续复用当前快照价格做评估。
 
 #### 存储路径
 
@@ -995,33 +1172,48 @@ quantix monitor alert remove 1
 
 #### P0 范围
 
-- 仅支持固定止损价、固定止盈价、跟踪止损百分比
+- 支持固定止损价、固定止盈价、百分比止损、百分比止盈、跟踪止损百分比
 - 仅允许为当前本地自选池中的代码设置规则
 - 每个代码只保留一条有效规则，重复 `stop set` 会整条覆盖旧规则
+- `stop update` 采用 patch 语义，只修改显式传入的字段
 - `quantix monitor watchlist --once` 会在输出监控快照后继续评估止盈止损规则
-- `stop status`、`stop history`、`stop update`、`--loss-pct`、`--profit-pct` 延后到后续 Phase
+- 百分比阈值优先使用当前本地 `paper` 持仓 `avg_cost` 作为锚点
+- 没有持仓时退回到规则持久化的 `reference_price`
+- `stop status` 会显示 `anchor_source`、有效阈值和 `eval_state`
+- `stop history` 会记录 `set`、`update`、`remove` 和 `trigger` 事件
+- 当前不自动卖出，不直接触发执行请求
 
 #### 命令摘要
 
 ```bash
-quantix stop set <CODE> [--loss <PRICE>] [--profit <PRICE>] [--trailing <PCT>]
+quantix stop set <CODE> [--loss <PRICE>] [--profit <PRICE>] [--loss-pct <PCT>] [--profit-pct <PCT>] [--trailing <PCT>]
+quantix stop update <CODE> [--loss <PRICE>] [--profit <PRICE>] [--loss-pct <PCT>] [--profit-pct <PCT>] [--trailing <PCT>] [--clear-loss] [--clear-profit] [--clear-loss-pct] [--clear-profit-pct] [--clear-trailing]
 quantix stop list
+quantix stop status [--code <CODE>]
+quantix stop history [--code <CODE>] [--limit <N>] [--date <YYYY-MM-DD>] [--type <EVENT>]
 quantix stop remove <CODE>
 ```
 
 #### 参数约束
 
-- `stop set` 至少需要一个条件：`--loss`、`--profit`、`--trailing`
-- `--loss` 与 `--trailing` 不能同时使用
+- `stop set` / `stop update` 至少需要一个有效阈值或清理动作
+- `--loss` 与 `--loss-pct` 互斥，`--profit` 与 `--profit-pct` 互斥
+- `--trailing` 与 `--loss` / `--loss-pct` 互斥
 - `--loss`、`--profit` 必须是有限正数
+- `--loss-pct`、`--profit-pct` 必须是有限正数
 - `--trailing` 必须在 0 到 100 之间，且可以与 `--profit` 组合
+- `stop history --type` 当前支持：`set`、`update`、`remove`、`trigger`
 
 #### 常用示例
 
 ```bash
 quantix stop set 000001 --loss 14.5
 quantix stop set 000001 --profit 18.0
+quantix stop set 000001 --loss-pct 5
+quantix stop update 000001 --profit-pct 12 --clear-profit
 quantix stop set 000001 --trailing 5 --profit 18.0
+quantix stop status --code 000001
+quantix stop history --code 000001 --limit 10
 quantix stop list
 quantix monitor watchlist --once
 quantix stop remove 000001
@@ -1088,7 +1280,7 @@ quantix trade cash
 
 ### risk - 风险管理
 
-提供 Phase 27A 的最小纸上交易风控闭环：本地规则配置、状态快照、当日买入锁手动释放，以及在 `trade buy` / `trade init` / `trade reset` / `trade sell` 上的 CLI 集成。
+提供 Phase 27B 的风控闭环：在保留本地 paper-trade 风控的同时，支持导入标准化实盘流水、重建只读镜像账户，并通过 `--source paper|live_import` 显式切换风险视图。
 
 #### 存储路径
 
@@ -1097,29 +1289,39 @@ quantix trade cash
 
 #### P0 范围
 
-- 仅支持本地 paper-trade 账户
-- 仅支持 `position-limit` 与 `daily-loss-limit` 两类规则
+- 默认数据源仍是本地 paper-trade 账户
+- 支持导入标准化 `CSV/JSON` 实盘流水并重建只读镜像账户
+- 仅支持 `position-limit`、`daily-loss-limit`、`volatility-limit` 三类规则
 - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交
 - `trade init` / `trade reset` 会清除当日买入锁并保留已配置规则
 - 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
+- `--source live_import` 只读，不会回写 `paper_trade.json`
+- `--source live_import` 要求显式指定 `--account`
+- `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
+- `volatility-limit` 缺少或不足日线时会拒绝买单
+- 实盘导入当前只支持项目标准化 CSV/JSON
+- failed rebuild 不会覆盖上一次成功镜像状态
 - `risk status` 会显示锁状态来源、作用交易日、触发原因、触发时间
 - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件
 - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
 - `risk log` 当前支持按事件写入日 `--date` 和事件类型 `--type` 过滤
-- 实盘导入、波动率规则、行业规则、自动减仓 延后到后续 Phase
+- 行业规则、自动减仓 延后到后续 Phase
 
 #### 命令摘要
 
 ```bash
+quantix risk import live-trades --account <ID> --input <FILE>
+quantix risk rebuild live-account --account <ID>
 quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 50000
 quantix risk rule set --type daily-loss-limit --value 5%
+quantix risk rule set --type volatility-limit --value 4%
 quantix risk rule list
 quantix risk rule enable --type position-limit
 quantix risk rule disable --type daily-loss-limit
-quantix risk status
-quantix risk pnl
-quantix risk position
+quantix risk status --source paper|live_import [--account <ID>]
+quantix risk pnl --source paper|live_import [--account <ID>]
+quantix risk position --source paper|live_import [--account <ID>]
 quantix risk log [--limit <N>] [--date <YYYY-MM-DD>] [--type <EVENT>]
 quantix risk lock release
 ```
@@ -1128,7 +1330,15 @@ quantix risk lock release
 
 - `position-limit` 仅接受百分比值，例如 `20%`
 - `daily-loss-limit` 同时支持金额值和百分比值，例如 `50000` 或 `5%`
+- `volatility-limit` 仅接受百分比值，例如 `4%`
+- `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
 - `risk status`、`risk pnl`、`risk position` 依赖已初始化的 paper-trade 账户；首次使用前请先执行 `quantix trade init`
+- `risk import live-trades` 当前只接受项目标准化 `CSV/JSON`
+- `risk rebuild live-account` 始终做全量 replay，不做增量重建
+- `--source live_import` 要求显式指定 `--account`
+- live_import 镜像账户不会回写 `paper_trade.json`
+- failed rebuild 不会覆盖上一次成功镜像状态
+- `volatility-limit` 缺少或不足日线时会拒绝买单
 - 当日买入锁触发后，新的 `trade buy` 会被拒绝，但 `trade sell` 仍允许执行
 - `risk status` 的 `状态来源` 当前只区分 `open`、`daily_loss_locked`、`manual_release_active`
 - `risk log` 不依赖已初始化的 paper-trade 账户；没有事件时返回空列表视图
@@ -1141,11 +1351,17 @@ quantix risk lock release
 
 ```bash
 quantix trade init --capital 1000000
+quantix risk import live-trades --account live-001 --input /tmp/live.csv
+quantix risk rebuild live-account --account live-001
 quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 5%
+quantix risk rule set --type volatility-limit --value 4%
 quantix risk status
+quantix risk status --source live_import --account live-001
 quantix risk pnl
+quantix risk pnl --source live_import --account live-001
 quantix risk position
+quantix risk position --source live_import --account live-001
 quantix risk log --limit 10
 quantix risk log --date 2026-03-12 --type buy-lock-released
 quantix trade buy 000001 --price 15.0 --volume 1000

@@ -33,7 +33,10 @@ pub trait WatchlistNameLookup: Send + Sync {
 
 #[async_trait]
 pub trait WatchlistQuoteLookup: Send + Sync {
-    async fn lookup_quotes(&self, codes: &[String]) -> Result<HashMap<String, WatchlistQuoteSnapshot>>;
+    async fn lookup_quotes(
+        &self,
+        codes: &[String],
+    ) -> Result<HashMap<String, WatchlistQuoteSnapshot>>;
 }
 
 pub struct WatchlistResolver {
@@ -59,7 +62,10 @@ impl WatchlistResolver {
     ) -> Vec<WatchlistDisplayRow> {
         let quote_map = if with_price {
             let codes: Vec<String> = items.iter().map(|item| item.code.clone()).collect();
-            self.quote_lookup.lookup_quotes(&codes).await.unwrap_or_default()
+            self.quote_lookup
+                .lookup_quotes(&codes)
+                .await
+                .unwrap_or_default()
         } else {
             HashMap::new()
         };
@@ -123,7 +129,10 @@ pub struct TdxWatchlistQuoteLookup;
 
 #[async_trait]
 impl WatchlistQuoteLookup for TdxWatchlistQuoteLookup {
-    async fn lookup_quotes(&self, codes: &[String]) -> Result<HashMap<String, WatchlistQuoteSnapshot>> {
+    async fn lookup_quotes(
+        &self,
+        codes: &[String],
+    ) -> Result<HashMap<String, WatchlistQuoteSnapshot>> {
         if codes.is_empty() {
             return Ok(HashMap::new());
         }

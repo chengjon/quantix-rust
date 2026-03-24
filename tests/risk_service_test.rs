@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::risk::{
-    ProjectedBuyImpact, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType,
-    RiskRuleType, RiskService, RiskState, RiskStore, RuleValue,
+    ProjectedBuyImpact, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRuleType,
+    RiskService, RiskState, RiskStore, RuleValue,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -108,6 +108,23 @@ async fn set_rule_upserts_daily_loss_percentage_values() {
 }
 
 #[tokio::test]
+async fn set_rule_upserts_volatility_limit_percentage_values() {
+    let (service, store) = service();
+
+    let rule = service
+        .set_rule("volatility-limit", "4%", fixed_ts())
+        .await
+        .unwrap();
+    assert_eq!(rule.rule_type, RiskRuleType::VolatilityLimit);
+    assert_eq!(rule.value, RuleValue::Percentage(dec!(4)));
+
+    let state = store.snapshot().unwrap();
+    assert_eq!(state.rules.len(), 1);
+    assert_eq!(state.rules[0].rule_type, RiskRuleType::VolatilityLimit);
+    assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
+}
+
+#[tokio::test]
 async fn position_limit_rejects_amount_syntax() {
     let (service, _) = service();
 
@@ -116,6 +133,17 @@ async fn position_limit_rejects_amount_syntax() {
         .await
         .unwrap_err();
     assert!(err.to_string().contains("position-limit"));
+}
+
+#[tokio::test]
+async fn volatility_limit_rejects_amount_syntax() {
+    let (service, _) = service();
+
+    let err = service
+        .set_rule("volatility-limit", "50000", fixed_ts())
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("volatility-limit"));
 }
 
 #[tokio::test]
@@ -274,7 +302,10 @@ async fn daily_loss_percentage_triggers_buy_lock() {
     assert!(status.buy_locked);
     assert_eq!(status.daily_pnl_pct, dec!(-5.1));
     assert!(status.lock_reason.unwrap().contains("5%"));
-    assert_eq!(status.lock_state_source, RiskLockStateSource::DailyLossLocked);
+    assert_eq!(
+        status.lock_state_source,
+        RiskLockStateSource::DailyLossLocked
+    );
     assert!(status.lock_trigger_reason.as_ref().unwrap().contains("5%"));
     assert_eq!(status.lock_triggered_at, Some(now + Duration::hours(2)));
     assert_eq!(status.lock_effective_trading_date, Some(now.date_naive()));
@@ -378,7 +409,10 @@ async fn release_buy_lock_suppresses_same_day_relock() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await
@@ -397,12 +431,17 @@ async fn release_buy_lock_suppresses_same_day_relock() {
         .unwrap();
     assert!(!status.buy_locked);
     assert!(status.manual_release_active);
-    assert_eq!(status.lock_state_source, RiskLockStateSource::ManualReleaseActive);
-    assert!(status
-        .lock_trigger_reason
-        .as_ref()
-        .unwrap()
-        .contains("50000"));
+    assert_eq!(
+        status.lock_state_source,
+        RiskLockStateSource::ManualReleaseActive
+    );
+    assert!(
+        status
+            .lock_trigger_reason
+            .as_ref()
+            .unwrap()
+            .contains("50000")
+    );
     assert_eq!(status.lock_triggered_at, Some(now + Duration::hours(1)));
     assert_eq!(status.lock_effective_trading_date, Some(now.date_naive()));
 
@@ -420,7 +459,10 @@ async fn release_buy_lock_is_cleared_on_day_rollover() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await
@@ -458,7 +500,10 @@ async fn list_log_returns_newest_first_rule_and_lock_events() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await
@@ -471,7 +516,10 @@ async fn list_log_returns_newest_first_rule_and_lock_events() {
     let events = service.list_log(Some(10), None, None).await.unwrap();
     assert_eq!(events.len(), 3);
     assert_eq!(events[0].event_type, RiskLogEventType::BuyLockReleased);
-    assert_eq!(events[1].event_type, RiskLogEventType::DailyLossLockTriggered);
+    assert_eq!(
+        events[1].event_type,
+        RiskLogEventType::DailyLossLockTriggered
+    );
     assert_eq!(events[2].event_type, RiskLogEventType::RuleSet);
 }
 
@@ -484,7 +532,10 @@ async fn idempotent_release_does_not_append_duplicate_log_events() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await
@@ -515,7 +566,10 @@ async fn day_rollover_clearing_lock_appends_log_event() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await
@@ -563,7 +617,10 @@ async fn list_log_filters_by_type_and_date_together() {
         .set_rule("daily-loss-limit", "50000", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     service
         .sync_after_trade_snapshot(&snapshot(dec!(949000), &[]), now + Duration::hours(1))
         .await

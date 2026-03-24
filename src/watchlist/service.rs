@@ -36,11 +36,14 @@ impl WatchlistService {
         }
 
         codes.push(code.to_string());
-        store.entries.entry(code.to_string()).or_insert(WatchlistEntry {
-            tags: Vec::new(),
-            added_at: now,
-            updated_at: now,
-        });
+        store
+            .entries
+            .entry(code.to_string())
+            .or_insert(WatchlistEntry {
+                tags: Vec::new(),
+                added_at: now,
+                updated_at: now,
+            });
         self.touch(store, now);
         self.push_history(
             store,
@@ -305,7 +308,8 @@ impl WatchlistService {
 
     fn find_group_for_code(&self, store: &WatchlistStore, code: &str) -> Option<String> {
         store.groups.iter().find_map(|(group, codes)| {
-            codes.iter()
+            codes
+                .iter()
                 .any(|candidate| candidate == code)
                 .then(|| group.clone())
         })

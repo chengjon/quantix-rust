@@ -75,7 +75,16 @@ async fn smoke_add_tag_and_filter_list_flow() {
     }
 
     run_cli(&["watchlist", "add", "--code", "000001"]).await;
-    run_cli(&["watchlist", "tag", "add", "--code", "000001", "--tag", "bank"]).await;
+    run_cli(&[
+        "watchlist",
+        "tag",
+        "add",
+        "--code",
+        "000001",
+        "--tag",
+        "bank",
+    ])
+    .await;
     run_cli(&["watchlist", "list", "--tag", "bank"]).await;
 
     let store = WatchlistStorage::new(&path).load().unwrap().unwrap();
@@ -102,7 +111,10 @@ async fn smoke_move_and_history_flow() {
     run_cli(&["watchlist", "history", "--code", "000001", "--limit", "5"]).await;
 
     let store = WatchlistStorage::new(&path).load().unwrap().unwrap();
-    assert_eq!(store.groups.get("core").unwrap(), &vec!["000001".to_string()]);
+    assert_eq!(
+        store.groups.get("core").unwrap(),
+        &vec!["000001".to_string()]
+    );
     let actions: Vec<WatchlistAction> = store
         .history
         .iter()

@@ -46,7 +46,10 @@ impl ClickHouseClient {
             .with_user(user)
             .with_password(password);
 
-        info!("ClickHouse 客户端初始化: {} -> {} (user: {})", url, database, user);
+        info!(
+            "ClickHouse 客户端初始化: {} -> {} (user: {})",
+            url, database, user
+        );
 
         Ok(Self {
             client,
@@ -60,7 +63,13 @@ impl ClickHouseClient {
 
     /// 使用共享设置创建
     pub async fn from_settings(settings: &ClickHouseSettings) -> Result<Self> {
-        Self::new(&settings.url, &settings.database, &settings.user, &settings.password).await
+        Self::new(
+            &settings.url,
+            &settings.database,
+            &settings.user,
+            &settings.password,
+        )
+        .await
     }
 
     /// 使用默认配置创建
@@ -87,7 +96,8 @@ impl ClickHouseClient {
         let client = reqwest::Client::new();
 
         // Use POST request to avoid URL encoding issues with special characters
-        let url = format!("{}/?user={}&password={}&database={}",
+        let url = format!(
+            "{}/?user={}&password={}&database={}",
             self.http_url,
             urlencoding::encode(&self.http_user),
             urlencoding::encode(&self.http_password),
@@ -104,10 +114,9 @@ impl ClickHouseClient {
             .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP query failed: {}", e)))?;
 
         let status = response.status();
-        let body = response
-            .text()
-            .await
-            .map_err(|e| QuantixError::DatabaseQuery(format!("HTTP response read failed: {}", e)))?;
+        let body = response.text().await.map_err(|e| {
+            QuantixError::DatabaseQuery(format!("HTTP response read failed: {}", e))
+        })?;
 
         if !status.is_success() {
             return Err(QuantixError::DatabaseQuery(format!(
@@ -125,8 +134,9 @@ impl ClickHouseClient {
             if line.is_empty() {
                 continue;
             }
-            let item: T = serde_json::from_str(line)
-                .map_err(|e| QuantixError::DatabaseQuery(format!("JSON parse failed: {} in {}", e, line)))?;
+            let item: T = serde_json::from_str(line).map_err(|e| {
+                QuantixError::DatabaseQuery(format!("JSON parse failed: {} in {}", e, line))
+            })?;
             results.push(item);
         }
 
@@ -1194,7 +1204,10 @@ mod tests {
 
         assert_eq!(row.sector_code, "BK0001");
         assert_eq!(row.sector_name, "银行");
-        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(
+            row.trade_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap()
+        );
         assert_eq!(row.updated_at, "2026-03-14 15:12:16");
         assert!(row.leader_code.is_none());
     }
@@ -1206,7 +1219,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(
+            row.trade_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap()
+        );
         assert_eq!(row.total_amount, 85.7);
         assert_eq!(row.updated_at, "2026-03-14 15:12:16");
     }
@@ -1218,7 +1234,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(row.trade_date, chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap());
+        assert_eq!(
+            row.trade_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap()
+        );
         assert_eq!(row.limit_up_count, 45);
         assert_eq!(row.updated_at, "2026-03-14 15:12:16");
     }
