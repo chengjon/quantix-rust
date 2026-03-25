@@ -74,6 +74,87 @@ impl OrderStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignalStatus {
+    New,
+    Superseded,
+    Expired,
+}
+
+impl SignalStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::New => "new",
+            Self::Superseded => "superseded",
+            Self::Expired => "expired",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "new" => Some(Self::New),
+            "superseded" => Some(Self::Superseded),
+            "expired" => Some(Self::Expired),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApprovalStatus {
+    Pending,
+    Approved,
+    Rejected,
+}
+
+impl ApprovalStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Approved => "approved",
+            Self::Rejected => "rejected",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "pending" => Some(Self::Pending),
+            "approved" => Some(Self::Approved),
+            "rejected" => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionRequestStatus {
+    Pending,
+    Completed,
+    Failed,
+    Canceled,
+}
+
+impl ExecutionRequestStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Canceled => "canceled",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "pending" => Some(Self::Pending),
+            "completed" => Some(Self::Completed),
+            "failed" => Some(Self::Failed),
+            "canceled" => Some(Self::Canceled),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderSide {
     Buy,
     Sell,
@@ -211,6 +292,49 @@ pub struct RunnerCheckpointRecord {
     pub checkpoint_id: String,
     pub strategy_name: String,
     pub mode: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub last_processed_bar: Option<DateTime<Utc>>,
+    pub last_run_id: Option<String>,
+    pub state_json: Value,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StrategySignalRecord {
+    pub signal_id: String,
+    pub strategy_instance_id: String,
+    pub strategy_name: String,
+    pub symbol: String,
+    pub timeframe: String,
+    pub bar_end: DateTime<Utc>,
+    pub signal_value: String,
+    pub signal_status: SignalStatus,
+    pub approval_status: ApprovalStatus,
+    pub run_id: String,
+    pub metadata_json: Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecutionRequestRecord {
+    pub request_id: String,
+    pub signal_id: String,
+    pub target_mode: String,
+    pub target_account: String,
+    pub request_status: ExecutionRequestStatus,
+    pub approved_by: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub payload_json: Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StrategyDaemonCheckpointRecord {
+    pub checkpoint_id: String,
+    pub strategy_instance_id: String,
+    pub strategy_name: String,
     pub symbol: String,
     pub timeframe: String,
     pub last_processed_bar: Option<DateTime<Utc>>,
