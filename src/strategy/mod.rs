@@ -10,6 +10,8 @@ pub mod momentum;
 pub mod breakout;
 pub mod grid;
 pub mod runtime;
+pub mod config;
+pub mod service_config;
 
 // 测试工具（仅测试时编译）
 #[cfg(test)]
@@ -23,4 +25,9 @@ pub use mean_reversion::{MeanReversionStrategy, MeanReversionConfig};
 pub use momentum::{MomentumStrategy, MomentumConfig};
 pub use breakout::{BreakoutStrategy, BreakoutConfig};
 pub use grid::{GridStrategy, GridConfig};
+pub use config::{
+    BootstrapPolicy, ConfiguredStock, ConfiguredStrategyInstance, JsonStrategyConfigStore,
+    StrategyDaemonConfig,
+};
 pub use runtime::{StrategyBarLoader, StrategyRuntime};
+pub use service_config::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
