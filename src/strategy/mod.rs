@@ -9,6 +9,7 @@ pub mod mean_reversion;
 pub mod momentum;
 pub mod breakout;
 pub mod grid;
+pub mod runtime;
 
 // 测试工具（仅测试时编译）
 #[cfg(test)]
@@ -22,3 +23,4 @@ pub use mean_reversion::{MeanReversionStrategy, MeanReversionConfig};
 pub use momentum::{MomentumStrategy, MomentumConfig};
 pub use breakout::{BreakoutStrategy, BreakoutConfig};
 pub use grid::{GridStrategy, GridConfig};
+pub use runtime::{StrategyBarLoader, StrategyRuntime};
