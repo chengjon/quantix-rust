@@ -6,11 +6,13 @@ use std::sync::Arc;
 
 use crate::core::{QuantixError, Result};
 use crate::risk::industry::{IndustryResolver, ResolvedIndustry};
+use crate::risk::industry_store::SqliteIndustryStore;
 use crate::risk::models::{
     BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact, RiskAccountSnapshot,
     RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot,
     RiskRuleType, RiskState, RiskStatus, RuleValue,
 };
+use crate::risk::storage::JsonRiskStore;
 
 const DEFAULT_RISK_EVENT_LIMIT: usize = 100;
 
@@ -342,6 +344,16 @@ where
         }
 
         Ok(build_status(state, snapshot, trading_date))
+    }
+}
+
+impl RiskService<JsonRiskStore> {
+    pub async fn from_json_store(store: JsonRiskStore) -> Result<Self> {
+        let industry_store = SqliteIndustryStore::from_risk_state_path(store.path()).await?;
+        Ok(Self::with_industry_resolver(
+            store,
+            IndustryResolver::new(industry_store),
+        ))
     }
 }
 

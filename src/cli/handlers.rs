@@ -688,8 +688,9 @@ pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
 pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {
     let trade_store = create_trade_store();
     let service = TradeService::new(trade_store.clone());
-    let risk_service = RiskService::new(create_risk_store());
-    let output = execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
+    let output =
+        execute_trade_command_with_runtime_risk(cmd, &service, &trade_store, create_risk_store())
+            .await?;
     print_trade_command_output(&output);
     Ok(())
 }
@@ -1174,6 +1175,19 @@ where
         }
         other => execute_trade_command_with_service(other, trade_service).await,
     }
+}
+
+async fn execute_trade_command_with_runtime_risk<TradeStore>(
+    cmd: TradeCommands,
+    trade_service: &TradeService<TradeStore>,
+    trade_store: &TradeStore,
+    risk_store: JsonRiskStore,
+) -> Result<TradeCommandOutput>
+where
+    TradeStore: PaperTradeStore,
+{
+    let risk_service = RiskService::from_json_store(risk_store).await?;
+    execute_trade_command_with_risk(cmd, trade_service, trade_store, &risk_service).await
 }
 
 fn build_trade_init_request(
@@ -3083,6 +3097,31 @@ mod tests {
         (TradeService::new(store.clone()), store)
     }
 
+    async fn seed_current_industry(
+        risk_state_path: &std::path::Path,
+        code: &str,
+        industry_name: &str,
+    ) {
+        let store = crate::risk::SqliteIndustryStore::from_risk_state_path(risk_state_path)
+            .await
+            .unwrap();
+        store
+            .upsert_shenwan_current_rows(
+                &[crate::risk::ShenwanCurrentSeedRow {
+                    security_code: code.to_string(),
+                    industry_name: industry_name.to_string(),
+                    source: "test_seed".to_string(),
+                }],
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+    }
+
+    fn fixed_ts() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
+    }
+
     #[derive(Clone, Default)]
     struct FakeTradeQuoteLookup {
         quotes: HashMap<String, WatchlistQuoteSnapshot>,
@@ -3263,6 +3302,122 @@ mod tests {
                 volume: 400,
             },
             &service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::TradeExecuted(record) => {
+                assert_eq!(record.side, TradeSide::Sell);
+                assert_eq!(record.code, "000001");
+                assert_eq!(record.price, dec!(16));
+                assert_eq!(record.volume, 400);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_buy_with_runtime_risk_rejects_when_industry_is_blocked() {
+        let (service, store) = trade_service();
+        let dir = tempfile::tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let risk_store = JsonRiskStore::new(risk_state_path);
+
+        execute_trade_command_with_runtime_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            risk_store.clone(),
+        )
+        .await
+        .unwrap();
+
+        let risk_service = RiskService::from_json_store(risk_store).await.unwrap();
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let err = execute_trade_command_with_risk(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("industry-blocklist"));
+
+        let state = store.snapshot().unwrap();
+        let account = state.account.unwrap();
+        assert!(account.positions.is_empty());
+        assert!(state.trade_records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_execute_trade_sell_with_runtime_risk_succeeds_when_industry_is_blocked() {
+        let (service, store) = trade_service();
+        let dir = tempfile::tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        seed_current_industry(&risk_state_path, "000001.SZ", "银行").await;
+        let risk_store = JsonRiskStore::new(risk_state_path.clone());
+
+        execute_trade_command_with_runtime_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            risk_store.clone(),
+        )
+        .await
+        .unwrap();
+
+        let risk_service = RiskService::from_json_store(risk_store).await.unwrap();
+        execute_trade_command_with_risk(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        risk_service
+            .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+            .await
+            .unwrap();
+
+        let output = execute_trade_command_with_risk(
+            TradeCommands::Sell {
+                code: "000001".to_string(),
+                price: 16.0,
+                volume: 400,
+            },
+            &service,
+            &store,
+            &risk_service,
         )
         .await
         .unwrap();
