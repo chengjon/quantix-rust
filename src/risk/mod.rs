@@ -16,5 +16,5 @@ pub use models::{
     RiskLogEventType, RiskPositionSnapshot, RiskRule, RiskRuleSnapshot, RiskRuleType, RiskState,
     RiskStatus, RuleValue,
 };
-pub use service::{RiskService, RiskStore};
+pub use service::{RiskIndustryResolver, RiskService, RiskStore};
 pub use storage::JsonRiskStore;

@@ -2,8 +2,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::sync::Arc;
 
 use crate::core::{QuantixError, Result};
+use crate::risk::industry::{IndustryResolver, ResolvedIndustry};
 use crate::risk::models::{
     BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact, RiskAccountSnapshot,
     RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule, RiskRuleSnapshot,
@@ -19,10 +21,33 @@ pub trait RiskStore: Send + Sync {
     async fn save_state(&self, state: &RiskState) -> Result<()>;
 }
 
+#[async_trait]
+pub trait RiskIndustryResolver: Send + Sync + std::fmt::Debug {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: NaiveDate,
+        captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry>;
+}
+
+#[async_trait]
+impl RiskIndustryResolver for IndustryResolver {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: NaiveDate,
+        captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry> {
+        IndustryResolver::resolve(self, code, query_date, captured_at).await
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RiskService<Store> {
     store: Store,
     event_limit: usize,
+    industry_resolver: Option<Arc<dyn RiskIndustryResolver>>,
 }
 
 impl<Store> RiskService<Store>
@@ -30,9 +55,24 @@ where
     Store: RiskStore,
 {
     pub fn new(store: Store) -> Self {
+        Self::with_dependencies(store, None::<IndustryResolver>)
+    }
+
+    pub fn with_industry_resolver<Resolver>(store: Store, industry_resolver: Resolver) -> Self
+    where
+        Resolver: RiskIndustryResolver + 'static,
+    {
+        Self::with_dependencies(store, Some(industry_resolver))
+    }
+
+    fn with_dependencies<Resolver>(store: Store, industry_resolver: Option<Resolver>) -> Self
+    where
+        Resolver: RiskIndustryResolver + 'static,
+    {
         Self {
             store,
             event_limit: DEFAULT_RISK_EVENT_LIMIT,
+            industry_resolver: industry_resolver.map(|resolver| Arc::new(resolver) as _),
         }
     }
 
@@ -133,6 +173,16 @@ where
 
         if let Some(rule) = find_enabled_rule(&state, RiskRuleType::PositionLimit) {
             check_position_limit(rule, projected_buy)?;
+        }
+
+        if let Some(rule) = find_enabled_rule(&state, RiskRuleType::IndustryBlocklist).cloned() {
+            evaluate_industry_blocklist(
+                &rule,
+                projected_buy,
+                self.industry_resolver.as_deref(),
+                now,
+            )
+            .await?;
         }
 
         Ok(())
@@ -403,6 +453,50 @@ fn check_position_limit(rule: &RiskRule, projected_buy: &ProjectedBuyImpact) -> 
         return Err(QuantixError::Other(format!(
             "risk rule position-limit 已超限: {} 预计仓位 {}%",
             limit_pct, projected_ratio_pct
+        )));
+    }
+
+    Ok(())
+}
+
+async fn evaluate_industry_blocklist(
+    rule: &RiskRule,
+    projected_buy: &ProjectedBuyImpact,
+    resolver: Option<&dyn RiskIndustryResolver>,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    let RuleValue::TextList(blocked_industries) = &rule.value else {
+        return Err(QuantixError::Other(
+            "risk rule industry-blocklist 配置无效".to_string(),
+        ));
+    };
+
+    let resolver = resolver.ok_or_else(|| {
+        QuantixError::Other(format!(
+            "risk rule industry-blocklist 检查失败: code={} 原因=未配置行业解析器",
+            projected_buy.code
+        ))
+    })?;
+
+    let resolved = resolver
+        .resolve(&projected_buy.code, now.date_naive(), now)
+        .await
+        .map_err(|err| {
+            QuantixError::Other(format!(
+                "risk rule industry-blocklist 检查失败: code={} 原因={}",
+                projected_buy.code, err
+            ))
+        })?;
+
+    if blocked_industries
+        .iter()
+        .any(|industry_name| industry_name == &resolved.industry_name)
+    {
+        return Err(QuantixError::Other(format!(
+            "risk rule industry-blocklist 已拒绝: code={} industry={} blocked={}",
+            resolved.code,
+            resolved.industry_name,
+            blocked_industries.join(",")
         )));
     }
 
