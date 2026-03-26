@@ -1174,6 +1174,10 @@ pub enum ExecutionCommands {
     /// 执行守护进程
     #[command(subcommand)]
     Daemon(ExecutionDaemonCommands),
+
+    /// Bridge 诊断与预览命令
+    #[command(subcommand)]
+    Bridge(ExecutionBridgeCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -1192,6 +1196,19 @@ pub enum ExecutionDaemonCommands {
         /// 仅执行一轮
         #[arg(long)]
         once: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionBridgeCommands {
+    /// 查看 bridge 能力状态
+    Status,
+
+    /// 使用 frozen execution request 预览 QMT payload
+    QmtPreview {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
     },
 }
 

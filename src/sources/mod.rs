@@ -1,5 +1,6 @@
 pub mod akshare;
 pub mod auction_collector;
+pub mod bridge_tdx;
 pub mod eastmoney;
 pub mod kline_aggregator;
 pub mod quote_collector;
@@ -12,6 +13,7 @@ pub mod websocket;
 
 pub use akshare::AkShareSource;
 pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};
+pub use bridge_tdx::BridgeTdxSource;
 pub use eastmoney::{
     Board, EastMoneySource, FinancialData, MoneyFlowData, Quote, StockInfo as EastMoneyStockInfo,
 };

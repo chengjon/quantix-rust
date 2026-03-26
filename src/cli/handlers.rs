@@ -1,9 +1,9 @@
 use super::{
-    AnalyzeCommands, DataCommands, ExecutionCommands, ExecutionConfigCommands,
-    ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
-    ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    AnalyzeCommands, DataCommands, ExecutionBridgeCommands, ExecutionCommands,
+    ExecutionConfigCommands, ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands,
+    MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands,
+    MonitorServiceCommands, MonitorServiceConfigCommands, RiskCommands, RiskLockCommands,
+    RiskRuleCommands, ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
@@ -13,6 +13,7 @@ use crate::analysis::candle_patterns::{
     CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
 };
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
+use crate::bridge::client::BridgeHttpClient;
 /// CLI 命令处理器
 ///
 /// 实现各个子命令的处理逻辑
@@ -34,6 +35,7 @@ use crate::execution::models::{
     StrategySignalRecord,
 };
 use crate::execution::paper::PaperExecutionAdapter;
+use crate::execution::qmt_bridge::QmtBridgePreviewAdapter;
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::market::{
     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
@@ -483,6 +485,14 @@ pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
                 execute_execution_daemon_run(once).await?;
             }
         },
+        ExecutionCommands::Bridge(subcommand) => match subcommand {
+            ExecutionBridgeCommands::Status => {
+                execute_execution_bridge_status().await?;
+            }
+            ExecutionBridgeCommands::QmtPreview { request_id } => {
+                execute_execution_bridge_qmt_preview(&request_id).await?;
+            }
+        },
     }
 
     Ok(())
@@ -767,6 +777,12 @@ fn create_execution_config_store() -> JsonExecutionConfigStore {
     JsonExecutionConfigStore::new(runtime.execution_config_path)
 }
 
+fn create_bridge_client() -> Result<BridgeHttpClient> {
+    let runtime = CliRuntime::load();
+    BridgeHttpClient::new(runtime.bridge.base_url, runtime.bridge.api_key)
+        .map_err(|err| QuantixError::Other(err.to_string()))
+}
+
 async fn execute_execution_config_init() -> Result<()> {
     let config = create_execution_config_store().load_or_create()?;
     println!("{}", serde_json::to_string_pretty(&config)?);
@@ -805,6 +821,46 @@ async fn execute_execution_daemon_run(once: bool) -> Result<()> {
         print_execution_daemon_summary(&summary);
         tokio::time::sleep(Duration::from_secs(config.poll_interval_secs)).await;
     }
+}
+
+async fn execute_execution_bridge_status() -> Result<()> {
+    let capabilities = create_bridge_client()?.capabilities().await.map_err(|err| {
+        QuantixError::Other(format!("bridge status 查询失败: {err}"))
+    })?;
+
+    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+        "tdx": {
+            "enabled": capabilities.tdx.enabled,
+            "supports": capabilities.tdx.supports
+        },
+        "qmt": {
+            "enabled": capabilities.qmt.enabled,
+            "mode": capabilities.qmt.mode,
+            "supports": capabilities.qmt.supports
+        }
+    }))?);
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_preview(request_id: &str) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request = runtime_store
+        .get_execution_request(request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
+
+    let adapter = QmtBridgePreviewAdapter::new(create_bridge_client()?);
+    let preview = adapter.preview_request(&request).await?;
+
+    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+        "request_id": request_id,
+        "adapter_order_id": preview.adapter_order_id,
+        "latest_status": preview.latest_status.as_str(),
+        "filled_quantity": preview.filled_quantity,
+        "rejection_reason": preview.rejection_reason,
+    }))?);
+    Ok(())
 }
 
 fn print_execution_daemon_summary(summary: &ExecutionDaemonIterationSummary) {

@@ -96,6 +96,7 @@ tui = ["ratatui", "crossterm"]
 tokio-test = "0.4"
 criterion = "0.5"
 tempfile = "3.8"
+wiremock = "0.6"
 
 [[bin]]
 name = "quantix"

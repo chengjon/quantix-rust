@@ -1,0 +1,92 @@
+use crate::bridge::client::BridgeHttpClient;
+use crate::bridge::models::BridgeQmtPreviewRequest;
+use crate::core::{QuantixError, Result};
+use crate::execution::adapter::OrderInitialResponse;
+use crate::execution::models::{ExecutionRequestRecord, OrderStatus};
+
+#[derive(Debug, Clone)]
+pub struct QmtBridgePreviewAdapter {
+    client: BridgeHttpClient,
+}
+
+impl QmtBridgePreviewAdapter {
+    pub fn new(client: BridgeHttpClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn preview_request(
+        &self,
+        request: &ExecutionRequestRecord,
+    ) -> Result<OrderInitialResponse> {
+        let snapshot = request
+            .payload_json
+            .get("execution_snapshot")
+            .ok_or_else(|| QuantixError::Other("request 缺少 execution_snapshot".to_string()))?;
+        let order_intent = snapshot
+            .get("order_intent")
+            .ok_or_else(|| QuantixError::Other("request 缺少 order_intent".to_string()))?;
+
+        let symbol = snapshot
+            .get("symbol")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| QuantixError::Other("request 缺少 symbol".to_string()))?;
+        let side = order_intent
+            .get("side")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| QuantixError::Other("request 缺少 side".to_string()))?;
+        let quantity = order_intent
+            .get("requested_quantity")
+            .and_then(|value| value.as_i64())
+            .ok_or_else(|| QuantixError::Other("request 缺少 requested_quantity".to_string()))?;
+        let price = order_intent
+            .get("requested_price")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| QuantixError::Other("request 缺少 requested_price".to_string()))?;
+        let order_type = order_intent
+            .get("order_type")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| QuantixError::Other("request 缺少 order_type".to_string()))?;
+
+        let response = self
+            .client
+            .qmt_preview_order(&BridgeQmtPreviewRequest {
+                request_id: request.request_id.clone(),
+                client_order_id: request.request_id.clone(),
+                symbol: normalize_symbol(symbol),
+                side: side.to_string(),
+                quantity,
+                price: price.to_string(),
+                order_type: order_type.to_string(),
+                snapshot_metadata: serde_json::json!({
+                    "source": "execution_request"
+                }),
+            })
+            .await
+            .map_err(|err| QuantixError::Other(err.to_string()))?;
+
+        let _ = response.broker_payload;
+
+        Ok(OrderInitialResponse {
+            adapter_order_id: response.adapter_order_id,
+            latest_status: OrderStatus::from_str(&response.latest_status).ok_or_else(|| {
+                QuantixError::Other(format!("未知 preview 状态: {}", response.latest_status))
+            })?,
+            filled_quantity: response.filled_quantity,
+            avg_fill_price: None,
+            fill_details: None,
+            rejection_reason: response.rejection_reason,
+        })
+    }
+}
+
+fn normalize_symbol(symbol: &str) -> String {
+    if symbol.contains('.') {
+        return symbol.to_string();
+    }
+
+    if symbol.starts_with('6') {
+        format!("{symbol}.SH")
+    } else {
+        format!("{symbol}.SZ")
+    }
+}

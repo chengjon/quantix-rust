@@ -407,6 +407,28 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
   - `live` adapter 仍未实现
 
+### Windows Bridge v1
+- **TDX bridge source**
+  - 通过 Windows `quantix-bridge` 暴露远端行情与 K 线读取
+  - 当前 bridge 的首个真实能力是 `TDX bridge source`
+- **QMT preview-only**
+  - 当前只支持 frozen execution request 的 broker payload 预览
+  - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
+
+#### Windows 侧目录
+- `/mnt/d/mystocks/quantix/quantix_bridge`
+
+#### Bridge 环境变量
+- `QUANTIX_BRIDGE_BASE_URL`
+- `QUANTIX_BRIDGE_API_KEY`
+
+#### Bridge CLI
+- `quantix execution bridge status`
+- `quantix execution bridge qmt-preview --request-id <ID>`
+
+#### 当前边界
+- 真实 `QMT live` adapter 延后到后续 phase
+
 #### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
