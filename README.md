@@ -13,6 +13,8 @@ A 股量化交易 CLI 工具 - Rust 实现
 ## 路线图与 Backlog
 
 项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
+当前功能树见 [FUNCTION_MAP.md](docs/FUNCTION_MAP.md)。
+变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 当前建议的推进顺序：
 
@@ -20,6 +22,18 @@ A 股量化交易 CLI 工具 - Rust 实现
 2. 再推进 real live adapter、live-ready automation 与更细粒度 execution policy。
 3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
 4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
+
+## 当前完成状态
+
+截至 2026-03-26，当前已经完成并落地的任务可概括为：
+
+- 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
+- operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
+- Windows Bridge v1 已完成首版设计与实现集成：
+  - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
+  - `QMT preview-only` 已接入 execution bridge CLI，用于基于 frozen request 做 broker payload 预览
+  - canonical Windows-side 路径固定为 `/mnt/d/mystocks/quantix/quantix_bridge`
+- 当前明确仍未完成的是真实 `live` broker execution，以及 `Wind` / `Choice` bridge 支持。
 
 ## 功能特性
 
