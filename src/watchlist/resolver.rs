@@ -1,5 +1,6 @@
 use crate::core::Result;
 use crate::db::PostgresClient;
+use crate::bridge::client::BridgeHttpClient;
 use crate::watchlist::WatchlistListItem;
 use async_trait::async_trait;
 use futures_util::future::join_all;
@@ -143,6 +144,54 @@ impl WatchlistQuoteLookup for TdxWatchlistQuoteLookup {
             .map(|code| (infer_market(code), code.as_str()))
             .collect();
 
+        let quotes = source.fetch_quotes_batch(&code_refs).await?;
+        let mut result = HashMap::with_capacity(quotes.len());
+
+        for quote in quotes {
+            let latest_price = Decimal::from_f64_retain(quote.price);
+            let change_pct = Decimal::from_f64_retain(quote.change_percent);
+
+            if let Some(price) = latest_price {
+                result.insert(
+                    quote.code,
+                    WatchlistQuoteSnapshot {
+                        latest_price: price,
+                        price_change_pct: change_pct,
+                    },
+                );
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BridgeTdxWatchlistQuoteLookup {
+    client: BridgeHttpClient,
+}
+
+impl BridgeTdxWatchlistQuoteLookup {
+    pub fn new(client: BridgeHttpClient) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl WatchlistQuoteLookup for BridgeTdxWatchlistQuoteLookup {
+    async fn lookup_quotes(
+        &self,
+        codes: &[String],
+    ) -> Result<HashMap<String, WatchlistQuoteSnapshot>> {
+        if codes.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let source = crate::sources::BridgeTdxSource::new(self.client.clone());
+        let code_refs: Vec<(u16, &str)> = codes
+            .iter()
+            .map(|code| (infer_market(code), code.as_str()))
+            .collect();
         let quotes = source.fetch_quotes_batch(&code_refs).await?;
         let mut result = HashMap::with_capacity(quotes.len());
 

@@ -5,4 +5,5 @@ pub mod kernel;
 pub mod mock_live;
 pub mod models;
 pub mod paper;
+pub mod qmt_bridge;
 pub mod runtime_store;

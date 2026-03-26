@@ -247,6 +247,33 @@ fn user_manual_documents_phase26_trade_commands() {
 }
 
 #[test]
+fn readme_and_user_manual_document_bridge_v1_commands() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let manual =
+        fs::read_to_string(repo_root().join("docs").join("USER_MANUAL.md"))
+            .expect("expected USER_MANUAL.md");
+
+    for expected in [
+        "Windows Bridge v1",
+        "QUANTIX_BRIDGE_BASE_URL",
+        "QUANTIX_BRIDGE_API_KEY",
+        "quantix execution bridge status",
+        "quantix execution bridge qmt-preview --request-id <ID>",
+        "QMT preview-only",
+        "TDX bridge source",
+    ] {
+        assert!(
+            readme.contains(expected),
+            "expected README to contain {expected}"
+        );
+        assert!(
+            manual.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_phase27_risk_boundary() {
     let readme_path = repo_root().join("README.md");
     let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");

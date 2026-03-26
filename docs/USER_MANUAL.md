@@ -605,6 +605,28 @@ quantix execution daemon run --once
 - request 消费成功时会输出 `execution daemon consumed request status=completed`
 - request 消费失败时会输出 `execution daemon consumed request status=failed`
 
+#### Windows Bridge v1
+
+- `TDX bridge source` 通过 Windows `quantix-bridge` 提供远端行情与 K 线读取
+- `QMT preview-only` 只消费 frozen execution request 的快照做 broker payload 预览
+- `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
+
+##### Windows 侧目录
+
+- `/mnt/d/mystocks/quantix/quantix_bridge`
+
+##### Bridge 环境变量
+
+- `QUANTIX_BRIDGE_BASE_URL`
+- `QUANTIX_BRIDGE_API_KEY`
+
+##### Bridge 命令
+
+```bash
+quantix execution bridge status
+quantix execution bridge qmt-preview --request-id <ID>
+```
+
 ---
 
 #### strategy list - 列出策略
@@ -1413,6 +1435,8 @@ Quantix-Rust 支持多种数据源，可根据需要切换使用。
 ### TDX (通达信)
 
 实时行情数据采集。
+
+也支持通过 `Windows Bridge v1` 作为 `TDX bridge source` 做远端读取。
 
 ```rust
 use quantix_cli::sources::TdxSource;

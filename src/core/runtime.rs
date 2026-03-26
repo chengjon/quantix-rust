@@ -13,6 +13,8 @@ pub const MONITOR_CONFIG_PATH_ENV: &str = "QUANTIX_MONITOR_CONFIG_PATH";
 pub const STRATEGY_CONFIG_PATH_ENV: &str = "QUANTIX_STRATEGY_CONFIG_PATH";
 pub const STRATEGY_RUNTIME_DB_PATH_ENV: &str = "QUANTIX_STRATEGY_RUNTIME_DB_PATH";
 pub const EXECUTION_CONFIG_PATH_ENV: &str = "QUANTIX_EXECUTION_CONFIG_PATH";
+pub const BRIDGE_BASE_URL_ENV: &str = "QUANTIX_BRIDGE_BASE_URL";
+pub const BRIDGE_API_KEY_ENV: &str = "QUANTIX_BRIDGE_API_KEY";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClickHouseSettings {
@@ -41,6 +43,7 @@ impl ClickHouseSettings {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
+    pub bridge: BridgeRuntimeSettings,
     pub watchlist_path: PathBuf,
     pub trade_path: PathBuf,
     pub risk_path: PathBuf,
@@ -51,11 +54,20 @@ pub struct CliRuntime {
     pub execution_config_path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BridgeRuntimeSettings {
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub tdx_enabled: bool,
+    pub qmt_preview_enabled: bool,
+}
+
 impl CliRuntime {
     pub fn load() -> Self {
         load_dotenv_if_present();
         Self {
             clickhouse: ClickHouseSettings::from_env(),
+            bridge: BridgeRuntimeSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
             trade_path: resolve_trade_path(),
             risk_path: resolve_risk_path(),
@@ -64,6 +76,18 @@ impl CliRuntime {
             strategy_config_path: resolve_strategy_config_path(),
             strategy_runtime_db_path: resolve_strategy_runtime_db_path(),
             execution_config_path: resolve_execution_config_path(),
+        }
+    }
+}
+
+impl BridgeRuntimeSettings {
+    pub fn from_env() -> Self {
+        Self {
+            base_url: std::env::var(BRIDGE_BASE_URL_ENV)
+                .unwrap_or_else(|_| "http://127.0.0.1:17580".to_string()),
+            api_key: std::env::var(BRIDGE_API_KEY_ENV).ok(),
+            tdx_enabled: true,
+            qmt_preview_enabled: true,
         }
     }
 }
