@@ -92,9 +92,7 @@ impl Strategy for MACrossStrategy {
         let curr_long_ma = curr_long_ma.unwrap();
 
         // 需要上一时刻的均线数据来判断交叉
-        if let (Some(prev_short), Some(prev_long)) =
-            (self.last_short_ma, self.last_long_ma)
-        {
+        if let (Some(prev_short), Some(prev_long)) = (self.last_short_ma, self.last_long_ma) {
             // 检测金叉 - 买入信号
             if self.is_golden_cross(prev_short, prev_long, curr_short_ma, curr_long_ma) {
                 self.last_short_ma = Some(curr_short_ma);
@@ -132,7 +130,7 @@ impl Strategy for MACrossStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{create_test_kline, PriceTrend};
+    use crate::strategy::test_utils::{PriceTrend, create_test_kline};
     use rust_decimal_macros::dec;
 
     #[tokio::test]
@@ -164,7 +162,7 @@ mod tests {
         let prices: Vec<f64> = vec![
             10.0, 10.5, 11.0, 11.5, 12.0, // 上涨
             12.5, 13.0, 14.0, 13.5, 13.0, // 见顶回落
-            12.5, 12.0, 11.5, 11.0,       // 继续下跌
+            12.5, 12.0, 11.5, 11.0, // 继续下跌
         ];
 
         let mut has_bought = false;

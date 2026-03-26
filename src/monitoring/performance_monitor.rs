@@ -232,12 +232,13 @@ impl PerformanceMonitor {
 
         // 年化收益率
         let days_elapsed = (Utc::now().naive_utc().date() - self.start_date).num_days();
-        self.current_metrics.annual_return = if days_elapsed > 0 && self.current_metrics.total_return != Decimal::ZERO {
-            let daily_return = self.current_metrics.total_return / Decimal::from(days_elapsed);
-            daily_return * Decimal::from(365)
-        } else {
-            Decimal::ZERO
-        };
+        self.current_metrics.annual_return =
+            if days_elapsed > 0 && self.current_metrics.total_return != Decimal::ZERO {
+                let daily_return = self.current_metrics.total_return / Decimal::from(days_elapsed);
+                daily_return * Decimal::from(365)
+            } else {
+                Decimal::ZERO
+            };
 
         // 当前回撤
         self.current_metrics.current_drawdown = if self.peak_equity > Decimal::ZERO {
@@ -291,7 +292,8 @@ impl PerformanceMonitor {
         }
 
         let returns: Vec<_> = self.trade_returns.iter().collect();
-        let mean_return = returns.iter().map(|&&r| r).sum::<Decimal>() / Decimal::from(returns.len());
+        let mean_return =
+            returns.iter().map(|&&r| r).sum::<Decimal>() / Decimal::from(returns.len());
 
         let variance = returns
             .iter()
@@ -320,7 +322,8 @@ impl PerformanceMonitor {
         }
 
         let returns: Vec<_> = self.trade_returns.iter().collect();
-        let mean_return = returns.iter().map(|&&r| r).sum::<Decimal>() / Decimal::from(returns.len());
+        let mean_return =
+            returns.iter().map(|&&r| r).sum::<Decimal>() / Decimal::from(returns.len());
 
         // 计算下行偏差
         let negative_returns: Vec<_> = returns.iter().filter(|&&r| *r < Decimal::ZERO).collect();
@@ -328,10 +331,7 @@ impl PerformanceMonitor {
             return Decimal::from(100); // 无下行风险，返回高分
         }
 
-        let downside_variance = negative_returns
-            .iter()
-            .map(|&&r| r * r)
-            .sum::<Decimal>()
+        let downside_variance = negative_returns.iter().map(|&&r| r * r).sum::<Decimal>()
             / Decimal::from(negative_returns.len());
 
         let downside_deviation = if downside_variance > Decimal::ZERO {

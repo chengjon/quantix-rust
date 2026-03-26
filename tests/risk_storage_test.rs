@@ -90,7 +90,10 @@ async fn persisted_state_survives_reopen() {
 
     assert_eq!(state.rules.len(), 2);
     assert!(state.buy_lock.locked);
-    assert_eq!(state.daily_baseline.unwrap().starting_total_assets, dec!(1000000));
+    assert_eq!(
+        state.daily_baseline.unwrap().starting_total_assets,
+        dec!(1000000)
+    );
 }
 
 #[cfg(unix)]
@@ -110,6 +113,9 @@ async fn save_state_replaces_file_via_atomic_rename() {
     let after_inode = fs::metadata(&path).unwrap().ino();
     let loaded = store.load_state().await.unwrap().unwrap();
 
-    assert_ne!(before_inode, after_inode, "expected atomic replace via temp-file rename");
+    assert_ne!(
+        before_inode, after_inode,
+        "expected atomic replace via temp-file rename"
+    );
     assert_eq!(loaded, reset_state);
 }

@@ -537,12 +537,14 @@ pub fn calculate_sharpe_ratio(returns: &[Decimal], risk_free_rate: Decimal) -> D
     let avg_return = sum / Decimal::from(returns.len() as i64);
 
     // 计算标准差
-    let variance = returns.iter()
+    let variance = returns
+        .iter()
         .map(|r| {
             let diff = r - avg_return;
             diff * diff
         })
-        .sum::<Decimal>() / Decimal::from(returns.len() as i64);
+        .sum::<Decimal>()
+        / Decimal::from(returns.len() as i64);
 
     let std_dev = variance.sqrt().unwrap_or(Decimal::ZERO);
 

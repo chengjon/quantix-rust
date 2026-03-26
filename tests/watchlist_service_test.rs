@@ -45,10 +45,15 @@ fn move_between_groups_records_history() {
 
     service.create_group(&mut store, "core", now).unwrap();
     service.add(&mut store, "000001", None, now).unwrap();
-    service.move_code(&mut store, "000001", "core", now).unwrap();
+    service
+        .move_code(&mut store, "000001", "core", now)
+        .unwrap();
 
     assert_eq!(store.groups.get("default").unwrap(), &Vec::<String>::new());
-    assert_eq!(store.groups.get("core").unwrap(), &vec!["000001".to_string()]);
+    assert_eq!(
+        store.groups.get("core").unwrap(),
+        &vec!["000001".to_string()]
+    );
 
     let latest = service.history(&store, Some("000001"), None);
     assert_eq!(latest[0].action, WatchlistAction::Move);
@@ -62,9 +67,14 @@ fn add_and_remove_tag_updates_entry() {
 
     service.add(&mut store, "000001", None, now).unwrap();
     service.add_tag(&mut store, "000001", "bank", now).unwrap();
-    service.remove_tag(&mut store, "000001", "bank", now).unwrap();
+    service
+        .remove_tag(&mut store, "000001", "bank", now)
+        .unwrap();
 
-    assert_eq!(store.entries.get("000001").unwrap().tags, Vec::<String>::new());
+    assert_eq!(
+        store.entries.get("000001").unwrap().tags,
+        Vec::<String>::new()
+    );
 }
 
 #[test]
@@ -91,9 +101,13 @@ fn history_contains_mutation_events_newest_first() {
 
     service.create_group(&mut store, "core", now).unwrap();
     service.add(&mut store, "000001", None, now).unwrap();
-    service.move_code(&mut store, "000001", "core", now).unwrap();
+    service
+        .move_code(&mut store, "000001", "core", now)
+        .unwrap();
     service.add_tag(&mut store, "000001", "bank", now).unwrap();
-    service.remove_tag(&mut store, "000001", "bank", now).unwrap();
+    service
+        .remove_tag(&mut store, "000001", "bank", now)
+        .unwrap();
     service.remove(&mut store, "000001", now).unwrap();
 
     let history = service.history(&store, Some("000001"), None);

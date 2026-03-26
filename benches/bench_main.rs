@@ -12,13 +12,13 @@
 // - 策略执行性能
 // - 内存使用分析
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use chrono::NaiveDate;
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use quantix_cli::{
     analysis::{indicators_benches::*, performance::*},
     data::models::*,
     io::*,
 };
-use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::time::Duration;
@@ -135,13 +135,17 @@ fn bench_validation(c: &mut Criterion) {
         let klines = generate_test_klines(*size);
         let validator = DataValidator::with_defaults();
 
-        group.bench_with_input(BenchmarkId::new("validate_klines", size), &klines, |b, data| {
-            b.iter(|| validator.validate_klines(black_box(data)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("validate_klines", size),
+            &klines,
+            |b, data| b.iter(|| validator.validate_klines(black_box(data))),
+        );
 
-        group.bench_with_input(BenchmarkId::new("quality_report", size), &klines, |b, data| {
-            b.iter(|| validator.quality_report(black_box(data)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("quality_report", size),
+            &klines,
+            |b, data| b.iter(|| validator.quality_report(black_box(data))),
+        );
     }
 
     group.finish();
@@ -151,7 +155,8 @@ fn bench_validation(c: &mut Criterion) {
 fn bench_performance_metrics(c: &mut Criterion) {
     let mut group = c.benchmark_group("performance");
 
-    for size in [100, 500, 1000].iter() {  // 使用更小的规模避免溢出
+    for size in [100, 500, 1000].iter() {
+        // 使用更小的规模避免溢出
         // 生成权益曲线（使用更小的基数和收益率避免溢出）
         let base_equity = dec!(10000);
         let returns: Vec<Decimal> = (0..*size)
@@ -170,22 +175,28 @@ fn bench_performance_metrics(c: &mut Criterion) {
         }
 
         // 总收益率计算
-        group.bench_with_input(BenchmarkId::new("total_return", size), &equity_curve, |b, data| {
-            b.iter(|| calculate_total_return(black_box(data)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("total_return", size),
+            &equity_curve,
+            |b, data| b.iter(|| calculate_total_return(black_box(data))),
+        );
 
         // 最大回撤计算
-        group.bench_with_input(BenchmarkId::new("max_drawdown", size), &equity_curve, |b, data| {
-            b.iter(|| calculate_max_drawdown(black_box(data)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("max_drawdown", size),
+            &equity_curve,
+            |b, data| b.iter(|| calculate_max_drawdown(black_box(data))),
+        );
 
         // 夏普比率计算
-        let returns: Vec<Decimal> = equity_curve.windows(2)
+        let returns: Vec<Decimal> = equity_curve
+            .windows(2)
             .map(|w| (w[1] - w[0]) / w[0])
             .collect();
 
         // 确保收益率不会导致溢出
-        let safe_returns: Vec<Decimal> = returns.iter()
+        let safe_returns: Vec<Decimal> = returns
+            .iter()
             .map(|r| {
                 let val = r.abs();
                 if val > dec!(0) && val < dec!(1) {
@@ -196,9 +207,11 @@ fn bench_performance_metrics(c: &mut Criterion) {
             })
             .collect();
 
-        group.bench_with_input(BenchmarkId::new("sharpe_ratio", size), &safe_returns, |b, data| {
-            b.iter(|| calculate_sharpe_ratio(black_box(data), dec!(0.03)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("sharpe_ratio", size),
+            &safe_returns,
+            |b, data| b.iter(|| calculate_sharpe_ratio(black_box(data), dec!(0.03))),
+        );
     }
 
     group.finish();
@@ -214,14 +227,18 @@ fn bench_batch_processing(c: &mut Criterion) {
         let temp_dir = tempfile::tempdir().unwrap();
         let processor = BatchProcessor::with_defaults();
 
-        group.bench_with_input(BenchmarkId::new("process_in_batches", size), &klines, |b, data| {
-            b.iter(|| {
-                processor.process_in_batches(black_box(data.clone()), |chunk| {
-                    // 模拟处理
-                    chunk.len()
+        group.bench_with_input(
+            BenchmarkId::new("process_in_batches", size),
+            &klines,
+            |b, data| {
+                b.iter(|| {
+                    processor.process_in_batches(black_box(data.clone()), |chunk| {
+                        // 模拟处理
+                        chunk.len()
+                    })
                 })
-            })
-        });
+            },
+        );
     }
 
     group.finish();
@@ -233,8 +250,8 @@ fn benchmark_config() -> Criterion {
         .warm_up_time(Duration::from_secs(3))
         .measurement_time(Duration::from_secs(10))
         .significance_level(0.05) // 95% 置信度
-        .noise_threshold(0.02)     // 2% 噪声阈值
-        .sample_size(100)           // 每个基准 100 次迭代
+        .noise_threshold(0.02) // 2% 噪声阈值
+        .sample_size(100) // 每个基准 100 次迭代
 }
 
 criterion_group! {

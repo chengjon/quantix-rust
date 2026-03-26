@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use quantix_cli::trade::{
-    FeeConfig, PaperTradeAccount, PaperTradeState, TradeOverview, TradePosition,
-    TradeQuoteStatus, TradeRecord, TradeReportingService, TradeSide,
+    FeeConfig, PaperTradeAccount, PaperTradeState, TradeOverview, TradePosition, TradeQuoteStatus,
+    TradeRecord, TradeReportingService, TradeSide,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -202,4 +202,53 @@ fn empty_state_returns_empty_rows_and_zeroed_overview() {
     assert_eq!(overview.trade_count, 0);
     assert_eq!(overview.holding_count, 0);
     assert_eq!(overview.total_fee, Decimal::ZERO);
+}
+
+#[test]
+fn reporting_keeps_multiple_partial_fills_as_separate_trade_rows() {
+    let mut state = sample_state();
+    state.trade_records = vec![
+        TradeRecord {
+            id: "mock-fill-1".to_string(),
+            code: "000001".to_string(),
+            side: TradeSide::Buy,
+            price: dec!(10),
+            volume: 50,
+            amount: dec!(500),
+            commission: dec!(5),
+            stamp_duty: dec!(0),
+            transfer_fee: dec!(0),
+            total_fee: dec!(5),
+            executed_at: fixed_ts(10, 10),
+        },
+        TradeRecord {
+            id: "mock-fill-2".to_string(),
+            code: "000001".to_string(),
+            side: TradeSide::Buy,
+            price: dec!(10.2),
+            volume: 50,
+            amount: dec!(510),
+            commission: dec!(5),
+            stamp_duty: dec!(0),
+            transfer_fee: dec!(0),
+            total_fee: dec!(5),
+            executed_at: fixed_ts(10, 11),
+        },
+    ];
+
+    let reporting = TradeReportingService::new();
+    let history_rows = reporting.history_rows(&state, Some("000001"), None);
+    assert_eq!(history_rows.len(), 2);
+    assert_eq!(history_rows[0].executed_at, fixed_ts(10, 11));
+    assert_eq!(history_rows[0].price, dec!(10.2));
+    assert_eq!(history_rows[1].executed_at, fixed_ts(10, 10));
+    assert_eq!(history_rows[1].price, dec!(10));
+
+    let fee_rows = reporting.fee_rows(&state, Some("000001"), None);
+    assert_eq!(fee_rows.len(), 2);
+
+    let overview = reporting.overview(&state);
+    assert_eq!(overview.trade_count, 2);
+    assert_eq!(overview.total_buy_amount, dec!(1010));
+    assert_eq!(overview.total_fee, dec!(10));
 }

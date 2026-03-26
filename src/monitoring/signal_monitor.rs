@@ -311,11 +311,7 @@ impl SignalMonitor {
 
     /// 获取最近的信号
     pub fn get_recent_signals(&self, count: usize) -> Vec<&SignalEvent> {
-        self.signal_history
-            .iter()
-            .rev()
-            .take(count)
-            .collect()
+        self.signal_history.iter().rev().take(count).collect()
     }
 
     /// 获取指定策略的最近信号
@@ -366,12 +362,7 @@ mod tests {
     use chrono::NaiveDateTime;
     use rust_decimal_macros::dec;
 
-    fn create_test_signal(
-        strategy: &str,
-        code: &str,
-        signal: Signal,
-        price: f64,
-    ) -> SignalEvent {
+    fn create_test_signal(strategy: &str, code: &str, signal: Signal, price: f64) -> SignalEvent {
         SignalEvent::new(
             strategy.to_string(),
             code.to_string(),
@@ -406,7 +397,12 @@ mod tests {
         let mut monitor = SignalMonitor::with_defaults();
 
         monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Buy, 100.0));
-        monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Sell, 105.0));
+        monitor.record_signal(create_test_signal(
+            "MA_Cross",
+            "000001",
+            Signal::Sell,
+            105.0,
+        ));
         monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Buy, 98.0));
 
         let stats = monitor.get_strategy_stats("MA_Cross").unwrap();
@@ -424,7 +420,12 @@ mod tests {
         let mut monitor = SignalMonitor::new(config);
 
         for i in 0..10 {
-            monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Buy, 100.0 + i as f64));
+            monitor.record_signal(create_test_signal(
+                "MA_Cross",
+                "000001",
+                Signal::Buy,
+                100.0 + i as f64,
+            ));
         }
 
         assert_eq!(monitor.history_size(), 5);
@@ -449,7 +450,12 @@ mod tests {
         let mut monitor = SignalMonitor::with_defaults();
 
         monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Buy, 100.0));
-        monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Sell, 105.0));
+        monitor.record_signal(create_test_signal(
+            "MA_Cross",
+            "000001",
+            Signal::Sell,
+            105.0,
+        ));
         monitor.record_signal(create_test_signal("MA_Cross", "000002", Signal::Buy, 50.0));
 
         let stats1 = monitor.get_code_stats("000001").unwrap();
@@ -489,7 +495,12 @@ mod tests {
         let mut monitor = SignalMonitor::with_defaults();
 
         monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Buy, 100.0));
-        monitor.record_signal(create_test_signal("MA_Cross", "000001", Signal::Sell, 105.0));
+        monitor.record_signal(create_test_signal(
+            "MA_Cross",
+            "000001",
+            Signal::Sell,
+            105.0,
+        ));
 
         let stats = monitor.get_strategy_stats("MA_Cross").unwrap();
         assert_eq!(stats.total_count, 2);

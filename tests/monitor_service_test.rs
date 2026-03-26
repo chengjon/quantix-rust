@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::monitor::{
-    MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService,
-    MonitorWatchlistReader, PriceAlert, PriceAlertKind,
+    MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService, MonitorWatchlistReader,
+    PriceAlert, PriceAlertKind,
 };
 use quantix_cli::watchlist::WatchlistListItem;
 use std::sync::{Arc, Mutex};
@@ -150,7 +150,10 @@ async fn watchlist_once_builds_rows_from_watchlist_items_plus_current_quotes() {
             ],
         },
         FakeQuoteReader {
-            quotes: vec![quote_row("000001", 15.2, 1.8), quote_row("000002", 22.5, 3.1)],
+            quotes: vec![
+                quote_row("000001", 15.2, 1.8),
+                quote_row("000002", 22.5, 3.1),
+            ],
         },
         FakeAlertStore::default(),
     );
@@ -199,7 +202,10 @@ async fn matching_above_alerts_are_returned_as_triggered_alerts() {
     assert_eq!(snapshot.triggered_alerts[0].code, "000001");
     assert_eq!(snapshot.triggered_alerts[0].current_price, 16.2);
     assert_eq!(snapshot.triggered_alerts[0].target_price, 16.0);
-    assert_eq!(snapshot.triggered_alerts[0].triggered_at, Some(sample_time()));
+    assert_eq!(
+        snapshot.triggered_alerts[0].triggered_at,
+        Some(sample_time())
+    );
 }
 
 #[tokio::test]
@@ -229,7 +235,10 @@ async fn matching_below_alerts_are_returned_as_triggered_alerts() {
     assert_eq!(snapshot.triggered_alerts[0].code, "000002");
     assert_eq!(snapshot.triggered_alerts[0].current_price, 11.8);
     assert_eq!(snapshot.triggered_alerts[0].target_price, 12.0);
-    assert_eq!(snapshot.triggered_alerts[0].triggered_at, Some(sample_time()));
+    assert_eq!(
+        snapshot.triggered_alerts[0].triggered_at,
+        Some(sample_time())
+    );
 }
 
 #[tokio::test]
@@ -361,15 +370,10 @@ async fn add_alert_delegates_to_store_and_returns_created_alert() {
 #[tokio::test]
 async fn list_alerts_returns_alerts_from_store() {
     let store = FakeAlertStore::default();
-    store
-        .state
-        .lock()
-        .unwrap()
-        .alerts
-        .extend([
-            price_alert(1, "000001", PriceAlertKind::Above, 12.0),
-            price_alert(2, "000002", PriceAlertKind::Below, 8.8),
-        ]);
+    store.state.lock().unwrap().alerts.extend([
+        price_alert(1, "000001", PriceAlertKind::Above, 12.0),
+        price_alert(2, "000002", PriceAlertKind::Below, 8.8),
+    ]);
 
     let service = MonitorService::new(
         FakeWatchlistReader { items: Vec::new() },

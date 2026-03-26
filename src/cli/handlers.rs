@@ -1,24 +1,51 @@
 use super::{
-    AnalyzeCommands, DataCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands, StopCommands,
-    StrategyCommands, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    AnalyzeCommands, DataCommands, ExecutionCommands, ExecutionConfigCommands,
+    ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
+    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
+    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
+use crate::analysis::candle_patterns::{
+    CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
+};
 use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
 /// CLI 命令处理器
 ///
 /// 实现各个子命令的处理逻辑
 use crate::core::{CliRuntime, QuantixError, Result};
+use crate::data::models::Kline;
 use crate::db::clickhouse::ClickHouseClient;
+use crate::execution::config::JsonExecutionConfigStore;
+use crate::execution::daemon::{
+    ExecutionDaemonIterationSummary, consume_next_pending_request_with_components,
+};
+use crate::execution::kernel::{
+    ExecutionKernel, ExecutionRunRequest, FillDeltaApplier, KernelExecutionResult, RiskDecision,
+    RiskEvaluator,
+};
+use crate::execution::mock_live::{MockLiveExecutionAdapter, SystemMockLiveClock};
+use crate::execution::models::{
+    ApprovalStatus, ExecutionPolicy, ExecutionRequestRecord, ExecutionRequestStatus,
+    FillDeltaContext, FillDeltaResult, OrderIntent, OrderStatus, SignalStatus,
+    StrategySignalRecord,
+};
+use crate::execution::paper::PaperExecutionAdapter;
+use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::market::{
     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
     MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
 };
 use crate::monitor::storage::SqliteMonitorAlertStore;
 use crate::monitor::{
-    MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService, MonitorWatchlistReader,
-    MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
+    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
+    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
+    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
 };
 use crate::risk::{
     BuyLockState, JsonRiskStore, PositionRiskRow, RiskAccountSnapshot, RiskLockStateSource,
@@ -28,15 +55,24 @@ use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
+use crate::sources::TdxDayFile;
 use crate::stop::{
-    SqliteStopRuleStore, StopRule, StopRuleStore, StopService, StopTriggerKind, TriggeredStop,
+    SqliteStopRuleStore, StopHistoryEvent, StopHistoryEventType, StopRule, StopRuleStore,
+    StopRuleUpdate, StopService, StopStatusRow, StopTriggerKind, TriggeredStop,
+};
+use crate::strategy::daemon::StrategyBarLoadTelemetry;
+use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
+use crate::strategy::trait_def::Signal;
+use crate::strategy::{
+    FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
+    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary,
+    StrategySignalDaemon, StrategyUserServiceInstaller,
 };
 use crate::tasks::{TaskScheduler, TaskTemplates};
 use crate::trade::{
     CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview,
-    TradePosition, TradePositionCurrentRow, TradeQuoteStatus, TradeRecord,
-    TradeReportingService, TradeService,
+    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
+    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
 };
 use crate::watchlist::{
     PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
@@ -44,15 +80,17 @@ use crate::watchlist::{
     WatchlistStorage, WatchlistStore,
 };
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 mod risk;
 
@@ -311,8 +349,1006 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
         StrategyCommands::Show { name } => {
             show_strategy(name).await?;
         }
+        StrategyCommands::Config(subcommand) => match subcommand {
+            StrategyConfigCommands::Init => {
+                execute_strategy_config_init().await?;
+            }
+            StrategyConfigCommands::Show => {
+                execute_strategy_config_show().await?;
+            }
+        },
+        StrategyCommands::Daemon(subcommand) => match subcommand {
+            StrategyDaemonCommands::Run { once } => {
+                execute_strategy_daemon_run(once).await?;
+            }
+        },
+        StrategyCommands::Signal(subcommand) => match subcommand {
+            StrategySignalCommands::List {
+                approval_status,
+                signal_status,
+                ..
+            } => {
+                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref())
+                    .await?;
+            }
+            StrategySignalCommands::Approve {
+                signal_id,
+                target_mode,
+                target_account,
+            } => {
+                execute_strategy_signal_approve(&signal_id, &target_mode, &target_account).await?;
+            }
+            StrategySignalCommands::Reject { signal_id, reason } => {
+                execute_strategy_signal_reject(&signal_id, reason.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Request(subcommand) => match subcommand {
+            StrategyRequestCommands::List { status, .. } => {
+                execute_strategy_request_list(status.as_deref()).await?;
+            }
+            StrategyRequestCommands::Execute { request_id } => {
+                execute_strategy_request_execute(&request_id).await?;
+            }
+            StrategyRequestCommands::Cancel { request_id, reason } => {
+                execute_strategy_request_cancel(&request_id, reason.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Service(subcommand) => match subcommand {
+            StrategyServiceCommands::Install => {
+                execute_strategy_service_command(StrategyServiceCommands::Install)?;
+            }
+            StrategyServiceCommands::Uninstall => {
+                execute_strategy_service_command(StrategyServiceCommands::Uninstall)?;
+            }
+            StrategyServiceCommands::Start => {
+                execute_strategy_service_command(StrategyServiceCommands::Start)?;
+            }
+            StrategyServiceCommands::Stop => {
+                execute_strategy_service_command(StrategyServiceCommands::Stop)?;
+            }
+            StrategyServiceCommands::Status => {
+                execute_strategy_service_command(StrategyServiceCommands::Status)?;
+            }
+            StrategyServiceCommands::Enable => {
+                execute_strategy_service_command(StrategyServiceCommands::Enable)?;
+            }
+            StrategyServiceCommands::Disable => {
+                execute_strategy_service_command(StrategyServiceCommands::Disable)?;
+            }
+        },
+        StrategyCommands::ServiceConfig(subcommand) => match subcommand {
+            StrategyServiceConfigCommands::Show => {
+                let output = execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Show,
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
+                print_strategy_service_config_output(output)?;
+            }
+            StrategyServiceConfigCommands::Set {
+                quantix_bin,
+                env_file,
+            } => {
+                let output = execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Set {
+                        quantix_bin,
+                        env_file,
+                    },
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
+                print_strategy_service_config_output(output)?;
+            }
+        },
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StrategyRunSummary {
+    run_id: String,
+    strategy_name: String,
+    mode: String,
+    symbol: String,
+    signal: Signal,
+    order_status: Option<OrderStatus>,
+    message: String,
+}
+
+#[derive(Debug, Clone)]
+struct StrategyRiskBridge<TradeStore, RiskStore> {
+    trade_store: TradeStore,
+    risk_service: RiskService<RiskStore>,
+}
+
+impl<TradeStore, RiskStore> StrategyRiskBridge<TradeStore, RiskStore> {
+    fn new(trade_store: TradeStore, risk_service: RiskService<RiskStore>) -> Self {
+        Self {
+            trade_store,
+            risk_service,
+        }
+    }
+}
+
+pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
+    match cmd {
+        ExecutionCommands::Config(subcommand) => match subcommand {
+            ExecutionConfigCommands::Init => {
+                execute_execution_config_init().await?;
+            }
+            ExecutionConfigCommands::Show => {
+                execute_execution_config_show().await?;
+            }
+        },
+        ExecutionCommands::Daemon(subcommand) => match subcommand {
+            ExecutionDaemonCommands::Run { once } => {
+                execute_execution_daemon_run(once).await?;
+            }
+        },
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct StrategyFillDeltaBridge<TradeStore> {
+    trade_service: TradeService<TradeStore>,
+}
+
+impl<TradeStore> StrategyFillDeltaBridge<TradeStore>
+where
+    TradeStore: PaperTradeStore,
+{
+    fn new(trade_store: TradeStore) -> Self {
+        Self {
+            trade_service: TradeService::new(trade_store),
+        }
+    }
+}
+
+#[async_trait]
+impl<TradeStore> FillDeltaApplier for StrategyFillDeltaBridge<TradeStore>
+where
+    TradeStore: PaperTradeStore,
+{
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        if ctx.new_filled_quantity <= ctx.old_filled_quantity {
+            return Ok(FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            });
+        }
+
+        let fill_details = ctx.fill_details.ok_or_else(|| {
+            QuantixError::Other(
+                "strategy run --mode mock_live 增量成交缺少 fill_details".to_string(),
+            )
+        })?;
+
+        let request = TradeOrderRequest::new(
+            ctx.symbol.clone(),
+            decimal_to_f64(fill_details.fill_price, "strategy run --mode mock_live")?,
+            fill_details.fill_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode mock_live"))?;
+
+        let record = match ctx.side {
+            crate::execution::models::OrderSide::Buy => {
+                self.trade_service.buy(request, ctx.event_time).await?
+            }
+            crate::execution::models::OrderSide::Sell => {
+                self.trade_service.sell(request, ctx.event_time).await?
+            }
+        };
+
+        Ok(FillDeltaResult {
+            applied: true,
+            delta_quantity: fill_details.fill_quantity,
+            trade_record_id: Some(record.id),
+        })
+    }
+}
+
+#[async_trait]
+impl<TradeStore, RiskStore> RiskEvaluator for StrategyRiskBridge<TradeStore, RiskStore>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
+        if intent.side == crate::execution::models::OrderSide::Sell {
+            return Ok(RiskDecision::Allow);
+        }
+
+        let account = load_initialized_trade_account(&self.trade_store).await?;
+        let snapshot = build_risk_account_snapshot(&account);
+        let request = TradeOrderRequest::new(
+            intent.symbol.clone(),
+            decimal_to_f64(intent.requested_price, "strategy run --mode paper")?,
+            intent.requested_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode paper"))?;
+        let projected_buy = build_projected_buy_impact(&account, &request);
+
+        match self
+            .risk_service
+            .check_buy(&snapshot, &projected_buy, Utc::now())
+            .await
+        {
+            Ok(()) => Ok(RiskDecision::Allow),
+            Err(QuantixError::Other(reason)) => Ok(RiskDecision::Reject { reason }),
+            Err(other) => Err(other),
+        }
+    }
+
+    async fn sync_after_fill(&self) -> Result<()> {
+        sync_risk_from_trade_store(&self.trade_store, &self.risk_service).await
+    }
+}
+
+async fn execute_strategy_run_with_components<L, TS, RS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_store: RS,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore + Clone,
+{
+    let risk_service = RiskService::new(risk_store.clone());
+    execute_strategy_run_with_risk_service(
+        name,
+        mode,
+        code,
+        loader,
+        trade_store,
+        risk_service,
+        runtime_store,
+    )
+    .await
+}
+
+async fn execute_strategy_run_with_risk_service<L, TS, RS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_service: RiskService<RS>,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore,
+{
+    match mode {
+        "live" => {
+            return Err(QuantixError::Unsupported(
+                "strategy live 模式尚未实现".to_string(),
+            ));
+        }
+        "paper" | "mock_live" => {}
+        other => {
+            return Err(QuantixError::Unsupported(format!(
+                "strategy {other} 模式尚未实现"
+            )));
+        }
+    }
+
+    if name != "ma_cross" {
+        return Err(QuantixError::Other(format!("未知策略: {name}")));
+    }
+
+    let symbol = code.ok_or_else(|| {
+        QuantixError::Other("strategy run --mode paper 需要显式指定 --code".to_string())
+    })?;
+
+    let account = load_initialized_trade_account(&trade_store).await?;
+    let held_volume = account
+        .positions
+        .get(&symbol)
+        .map(|position| position.volume);
+
+    let bars = loader.load_daily_bars(&symbol, 10_000).await?;
+    let latest_bar = bars.last().cloned().ok_or_else(|| {
+        QuantixError::Other(format!("strategy paper 未找到 {} 的日线数据", symbol))
+    })?;
+    let bar_end = DateTime::<Utc>::from_naive_utc_and_offset(
+        latest_bar.date.and_hms_opt(15, 0, 0).unwrap(),
+        Utc,
+    );
+
+    let runtime = StrategyRuntime::new(&loader);
+    let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;
+
+    let risk = StrategyRiskBridge::new(trade_store.clone(), risk_service);
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let client_order_id = format!("{run_id}_{symbol}_1");
+    let run_request = ExecutionRunRequest {
+        run_id: run_id.clone(),
+        strategy_name: name.to_string(),
+        mode: mode.to_string(),
+        trigger: "once".to_string(),
+        symbol: symbol.clone(),
+        timeframe: "1d".to_string(),
+        bar_end,
+        market_price: latest_bar.close,
+        held_volume,
+        policy: ExecutionPolicy {
+            fixed_cash_per_buy: dec!(10000),
+            slippage_bps: 0,
+        },
+        client_order_id,
+    };
+    let result = match mode {
+        "paper" => {
+            let trade_service = TradeService::new(trade_store.clone());
+            let adapter = PaperExecutionAdapter::new(trade_service);
+            let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
+            kernel.execute_once(run_request, envelope.clone()).await?
+        }
+        "mock_live" => {
+            let adapter = MockLiveExecutionAdapter::new(runtime_store.clone(), SystemMockLiveClock);
+            let fill_delta = StrategyFillDeltaBridge::new(trade_store.clone());
+            let kernel =
+                ExecutionKernel::with_fill_delta(runtime_store.clone(), adapter, fill_delta, risk);
+            kernel.execute_once(run_request, envelope.clone()).await?
+        }
+        _ => unreachable!("validated strategy mode"),
+    };
+
+    Ok(build_strategy_run_summary(
+        name,
+        mode,
+        &symbol,
+        result,
+        envelope.signal,
+    ))
+}
+
+fn build_strategy_run_summary(
+    strategy_name: &str,
+    mode: &str,
+    symbol: &str,
+    result: KernelExecutionResult,
+    signal: Signal,
+) -> StrategyRunSummary {
+    let message = match result.order_status {
+        Some(status) => format!(
+            "signal={} order_status={}",
+            signal_label(signal),
+            order_status_label(status)
+        ),
+        None => format!("signal={} no_order", signal_label(signal)),
+    };
+
+    StrategyRunSummary {
+        run_id: result.run_id,
+        strategy_name: strategy_name.to_string(),
+        mode: mode.to_string(),
+        symbol: symbol.to_string(),
+        signal,
+        order_status: result.order_status,
+        message,
+    }
+}
+
+fn signal_label(signal: Signal) -> &'static str {
+    match signal {
+        Signal::Buy => "buy",
+        Signal::Sell => "sell",
+        Signal::Hold => "hold",
+    }
+}
+
+fn order_status_label(status: OrderStatus) -> &'static str {
+    status.as_str()
+}
+
+fn print_strategy_run_summary(summary: &StrategyRunSummary) {
+    println!("🧾 运行 ID: {}", summary.run_id);
+    println!("  策略: {}", summary.strategy_name);
+    println!("  模式: {}", summary.mode);
+    println!("  代码: {}", summary.symbol);
+    println!("  信号: {}", signal_label(summary.signal));
+    if let Some(status) = summary.order_status {
+        println!("  订单状态: {}", order_status_label(status));
+    }
+    println!("  结果: {}", summary.message);
+}
+
+fn create_execution_config_store() -> JsonExecutionConfigStore {
+    let runtime = CliRuntime::load();
+    JsonExecutionConfigStore::new(runtime.execution_config_path)
+}
+
+async fn execute_execution_config_init() -> Result<()> {
+    let config = create_execution_config_store().load_or_create()?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+async fn execute_execution_config_show() -> Result<()> {
+    let config = create_execution_config_store().load_or_create()?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+async fn execute_execution_daemon_run(once: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let config_store = JsonExecutionConfigStore::new(runtime.execution_config_path);
+    let config = config_store.load_or_create()?;
+    let trade_store = create_trade_store();
+    let risk_store = create_risk_store();
+
+    if once {
+        let summary =
+            consume_next_pending_request_with_components(&runtime_store, trade_store, risk_store)
+                .await?;
+        print_execution_daemon_summary(&summary);
+        return Ok(());
+    }
+
+    loop {
+        let summary = consume_next_pending_request_with_components(
+            &runtime_store,
+            trade_store.clone(),
+            risk_store.clone(),
+        )
+        .await?;
+        print_execution_daemon_summary(&summary);
+        tokio::time::sleep(Duration::from_secs(config.poll_interval_secs)).await;
+    }
+}
+
+fn print_execution_daemon_summary(summary: &ExecutionDaemonIterationSummary) {
+    if summary.claimed == 0 {
+        println!("execution daemon 未找到 pending request");
+        return;
+    }
+
+    if summary.failed > 0 {
+        println!("execution daemon consumed request status=failed");
+    } else {
+        println!("execution daemon consumed request status=completed");
+    }
+}
+
+fn create_strategy_config_store() -> JsonStrategyConfigStore {
+    let runtime = CliRuntime::load();
+    JsonStrategyConfigStore::new(runtime.strategy_config_path)
+}
+
+async fn execute_strategy_config_init() -> Result<()> {
+    let config = execute_strategy_config_init_to_store(&create_strategy_config_store())?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+fn execute_strategy_config_init_to_store(
+    store: &JsonStrategyConfigStore,
+) -> Result<StrategyDaemonConfig> {
+    store.load_or_create()
+}
+
+async fn execute_strategy_config_show() -> Result<()> {
+    let config = execute_strategy_config_show_from_store(&create_strategy_config_store())?;
+    println!("{}", serde_json::to_string_pretty(&config)?);
+    Ok(())
+}
+
+fn execute_strategy_config_show_from_store(
+    store: &JsonStrategyConfigStore,
+) -> Result<StrategyDaemonConfig> {
+    store.load_or_create()
+}
+
+async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
+    let loader = FallbackStrategyBarLoader::from_env_with_primary_source_id(
+        ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+        "clickhouse-storage",
+    );
+
+    if once {
+        match execute_strategy_daemon_run_once_with_components(
+            loader,
+            &config_store,
+            &runtime_store,
+        )
+        .await?
+        {
+            Some(signal) => println!("{}", format_strategy_signal_row(&signal)),
+            None => println!("strategy daemon 未生成新信号"),
+        }
+        return Ok(());
+    }
+
+    let mut daemon = StrategySignalDaemon::new(loader, runtime_store, config_store)?;
+    loop {
+        daemon.run_once().await?;
+        tokio::time::sleep(Duration::from_secs(daemon.check_interval_secs())).await;
+    }
+}
+
+async fn execute_strategy_daemon_run_once_with_components<L>(
+    loader: L,
+    config_store: &JsonStrategyConfigStore,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<Option<StrategySignalRecord>>
+where
+    L: StrategyBarLoader + StrategyBarLoadTelemetry,
+{
+    let before_ids: Vec<String> = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .map(|row| row.signal_id)
+        .collect();
+    let mut daemon =
+        StrategySignalDaemon::new(loader, runtime_store.clone(), config_store.clone())?;
+    daemon.run_once().await?;
+
+    let latest = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .find(|row| !before_ids.iter().any(|id| id == &row.signal_id));
+
+    Ok(latest)
+}
+
+async fn execute_strategy_signal_list(
+    approval_status: Option<&str>,
+    signal_status: Option<&str>,
+) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let rows =
+        execute_strategy_signal_list_with_store(&runtime_store, approval_status, signal_status)
+            .await?;
+
+    for row in rows {
+        println!("{}", format_strategy_signal_row(&row));
+    }
+
+    Ok(())
+}
+
+fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
+    let source_id = row
+        .metadata_json
+        .get("bar_source_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let fallback = row
+        .metadata_json
+        .get("bar_source_fallback")
+        .and_then(|value| value.as_bool())
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    format!(
+        "{} {} {} {} {} {} bar_end={} source={} fallback={}",
+        row.signal_id,
+        row.strategy_instance_id,
+        row.symbol,
+        row.signal_value,
+        row.signal_status.as_str(),
+        row.approval_status.as_str(),
+        row.bar_end.format("%Y-%m-%dT%H:%M:%SZ"),
+        source_id,
+        fallback
+    )
+}
+
+async fn execute_strategy_signal_list_with_store(
+    store: &StrategyRuntimeStore,
+    approval_status: Option<&str>,
+    signal_status: Option<&str>,
+) -> Result<Vec<StrategySignalRecord>> {
+    let approval_filter = approval_status.map(parse_approval_status).transpose()?;
+    let signal_filter = signal_status.map(parse_signal_status).transpose()?;
+
+    let rows = store.list_signals().await?;
+    Ok(rows
+        .into_iter()
+        .filter(|row| approval_filter.is_none_or(|status| row.approval_status == status))
+        .filter(|row| signal_filter.is_none_or(|status| row.signal_status == status))
+        .collect())
+}
+
+async fn execute_strategy_signal_approve(
+    signal_id: &str,
+    target_mode: &str,
+    target_account: &str,
+) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request = execute_strategy_signal_approve_with_store(
+        &runtime_store,
+        signal_id,
+        target_mode,
+        target_account,
+    )
+    .await?;
+    println!("{}", format_strategy_approval_result(&request));
+    Ok(())
+}
+
+async fn execute_strategy_signal_approve_with_store(
+    store: &StrategyRuntimeStore,
+    signal_id: &str,
+    target_mode: &str,
+    target_account: &str,
+) -> Result<ExecutionRequestRecord> {
+    store
+        .approve_signal_and_create_request(signal_id, target_mode, target_account, Some("cli"))
+        .await
+}
+
+async fn execute_strategy_signal_reject(signal_id: &str, reason: Option<&str>) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let signal =
+        execute_strategy_signal_reject_with_store(&runtime_store, signal_id, reason).await?;
+    println!("{}", format_strategy_rejection_result(&signal));
+    Ok(())
+}
+
+async fn execute_strategy_signal_reject_with_store(
+    store: &StrategyRuntimeStore,
+    signal_id: &str,
+    reason: Option<&str>,
+) -> Result<StrategySignalRecord> {
+    store.reject_signal(signal_id, reason).await?;
+    store
+        .get_signal(signal_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("signal 不存在: {signal_id}")))
+}
+
+async fn execute_strategy_request_list(status: Option<&str>) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let rows = execute_strategy_request_list_with_store(&runtime_store, status).await?;
+
+    for row in rows {
+        println!("{}", format_strategy_request_row(&row));
+    }
+
+    Ok(())
+}
+
+async fn execute_strategy_request_execute(request_id: &str) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request = execute_strategy_request_execute_with_components(
+        &runtime_store,
+        request_id,
+        create_trade_store(),
+        create_risk_store(),
+    )
+    .await?;
+    println!("{}", format_strategy_request_row(&request));
+    Ok(())
+}
+
+async fn execute_strategy_request_execute_with_components<TS, RS>(
+    store: &StrategyRuntimeStore,
+    request_id: &str,
+    trade_store: TS,
+    risk_store: RS,
+) -> Result<ExecutionRequestRecord>
+where
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore + Clone,
+{
+    crate::execution::daemon::execute_request_by_id_with_components(
+        store,
+        request_id,
+        trade_store,
+        risk_store,
+    )
+    .await
+}
+
+async fn execute_strategy_request_cancel(request_id: &str, reason: Option<&str>) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request =
+        execute_strategy_request_cancel_with_store(&runtime_store, request_id, reason).await?;
+    println!("{}", format_strategy_request_row(&request));
+    Ok(())
+}
+
+async fn execute_strategy_request_cancel_with_store(
+    store: &StrategyRuntimeStore,
+    request_id: &str,
+    reason: Option<&str>,
+) -> Result<ExecutionRequestRecord> {
+    let request = store
+        .get_execution_request(request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
+    if request.request_status != ExecutionRequestStatus::Pending {
+        return Err(QuantixError::Other(format!(
+            "request 不是 pending: {request_id}"
+        )));
+    }
+
+    let payload_json = merge_execution_request_payload(
+        &request.payload_json,
+        "cancellation",
+        serde_json::json!({
+            "canceled_at": Utc::now().to_rfc3339(),
+            "reason": reason.unwrap_or("manual cancel"),
+        }),
+    );
+    let updated = store
+        .try_cancel_execution_request(&request.request_id, payload_json, Utc::now())
+        .await?;
+    if !updated {
+        return Err(QuantixError::Other(format!(
+            "request 状态已变化: {}",
+            request.request_id
+        )));
+    }
+    store
+        .get_execution_request(&request.request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {}", request.request_id)))
+}
+
+fn format_strategy_approval_result(request: &ExecutionRequestRecord) -> String {
+    format!(
+        "{} signal={} target={}/{} status={}",
+        request.request_id,
+        request.signal_id,
+        request.target_mode,
+        request.target_account,
+        request.request_status.as_str()
+    )
+}
+
+fn format_strategy_rejection_result(signal: &StrategySignalRecord) -> String {
+    let reason = signal
+        .metadata_json
+        .get("rejection_reason")
+        .and_then(|value| value.as_str())
+        .unwrap_or("-");
+
+    format!(
+        "{} signal_status={} approval_status={} reason={}",
+        signal.signal_id,
+        signal.signal_status.as_str(),
+        signal.approval_status.as_str(),
+        reason
+    )
+}
+
+fn format_strategy_request_row(row: &ExecutionRequestRecord) -> String {
+    let result = row
+        .payload_json
+        .get("execution_result")
+        .and_then(|value| {
+            let order_status = value.get("order_status").and_then(|item| item.as_str())?;
+            let client_order_id = value
+                .get("client_order_id")
+                .and_then(|item| item.as_str())
+                .unwrap_or("-");
+            Some(format!(
+                " result=order_status={} client_order_id={}",
+                order_status, client_order_id
+            ))
+        })
+        .or_else(|| {
+            row.payload_json.get("execution_error").and_then(|value| {
+                let message = value.get("message").and_then(|item| item.as_str())?;
+                Some(format!(" result=error={message}"))
+            })
+        })
+        .or_else(|| {
+            row.payload_json.get("cancellation").and_then(|value| {
+                let reason = value.get("reason").and_then(|item| item.as_str())?;
+                Some(format!(" result=reason={reason}"))
+            })
+        })
+        .unwrap_or_default();
+
+    format!(
+        "{} signal={} target={}/{} status={}{} created_at={}",
+        row.request_id,
+        row.signal_id,
+        row.target_mode,
+        row.target_account,
+        row.request_status.as_str(),
+        result,
+        row.created_at.format("%Y-%m-%dT%H:%M:%SZ")
+    )
+}
+
+async fn execute_strategy_request_list_with_store(
+    store: &StrategyRuntimeStore,
+    status: Option<&str>,
+) -> Result<Vec<ExecutionRequestRecord>> {
+    let status_filter = status.map(parse_execution_request_status).transpose()?;
+    store.list_execution_requests(status_filter).await
+}
+
+fn parse_approval_status(value: &str) -> Result<ApprovalStatus> {
+    ApprovalStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 approval_status: {value}")))
+}
+
+fn parse_signal_status(value: &str) -> Result<SignalStatus> {
+    SignalStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 signal_status: {value}")))
+}
+
+fn parse_execution_request_status(value: &str) -> Result<ExecutionRequestStatus> {
+    ExecutionRequestStatus::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 request_status: {value}")))
+}
+
+fn merge_execution_request_payload(
+    original: &serde_json::Value,
+    key: &str,
+    value: serde_json::Value,
+) -> serde_json::Value {
+    let mut payload = match original {
+        serde_json::Value::Object(map) => serde_json::Value::Object(map.clone()),
+        _ => serde_json::json!({}),
+    };
+    payload[key] = value;
+    payload
+}
+
+fn execute_strategy_service_config_command_with_store(
+    cmd: StrategyServiceConfigCommands,
+    store: &JsonStrategyServiceConfigStore,
+) -> Result<Option<StrategyServiceConfig>> {
+    match cmd {
+        StrategyServiceConfigCommands::Show => match store.load() {
+            Ok(config) => Ok(Some(config)),
+            Err(QuantixError::Config(_)) => Ok(None),
+            Err(other) => Err(other),
+        },
+        StrategyServiceConfigCommands::Set {
+            quantix_bin,
+            env_file,
+        } => {
+            let config = StrategyServiceConfig {
+                quantix_bin_path: quantix_bin.into(),
+                environment_file_path: env_file.map(Into::into),
+            };
+            JsonStrategyServiceConfigStore::validate(&config)?;
+            store.save(&config)?;
+            Ok(Some(config))
+        }
+    }
+}
+
+fn print_strategy_service_config_output(config: Option<StrategyServiceConfig>) -> Result<()> {
+    match config {
+        Some(config) => {
+            println!("{}", serde_json::to_string_pretty(&config)?);
+        }
+        None => {
+            println!(
+                "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+trait StrategyServiceInstallerOps {
+    fn install(&self) -> Result<()>;
+    fn uninstall(&self) -> Result<()>;
+    fn start(&self) -> Result<()>;
+    fn stop(&self) -> Result<()>;
+    fn enable(&self) -> Result<()>;
+    fn disable(&self) -> Result<()>;
+    fn status(&self) -> Result<String>;
+    fn status_summary(&self) -> Result<StrategyServiceStatusSummary>;
+}
+
+impl StrategyServiceInstallerOps for StrategyUserServiceInstaller {
+    fn install(&self) -> Result<()> {
+        StrategyUserServiceInstaller::install(self)
+    }
+
+    fn uninstall(&self) -> Result<()> {
+        StrategyUserServiceInstaller::uninstall(self)
+    }
+
+    fn start(&self) -> Result<()> {
+        StrategyUserServiceInstaller::start(self)
+    }
+
+    fn stop(&self) -> Result<()> {
+        StrategyUserServiceInstaller::stop(self)
+    }
+
+    fn enable(&self) -> Result<()> {
+        StrategyUserServiceInstaller::enable(self)
+    }
+
+    fn disable(&self) -> Result<()> {
+        StrategyUserServiceInstaller::disable(self)
+    }
+
+    fn status(&self) -> Result<String> {
+        StrategyUserServiceInstaller::status(self)
+    }
+
+    fn status_summary(&self) -> Result<StrategyServiceStatusSummary> {
+        StrategyUserServiceInstaller::status_summary(self)
+    }
+}
+
+fn execute_strategy_service_command(cmd: StrategyServiceCommands) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let store = JsonStrategyServiceConfigStore::with_default_path()?;
+    let service_config = match store.load() {
+        Ok(config) => config,
+        Err(QuantixError::Config(_)) => {
+            return Err(QuantixError::Other(
+                "strategy service 未配置，请先运行 strategy service-config set --quantix-bin /abs/path/to/quantix".to_string(),
+            ));
+        }
+        Err(other) => return Err(other),
+    };
+    let installer = StrategyUserServiceInstaller::new(runtime, service_config);
+    let message = execute_strategy_service_command_with_installer(cmd, &installer)?;
+    println!("{}", message);
+    Ok(())
+}
+
+fn execute_strategy_service_command_with_installer<I>(
+    cmd: StrategyServiceCommands,
+    installer: &I,
+) -> Result<String>
+where
+    I: StrategyServiceInstallerOps,
+{
+    match cmd {
+        StrategyServiceCommands::Install => {
+            installer.install()?;
+            Ok("strategy service installed".to_string())
+        }
+        StrategyServiceCommands::Uninstall => {
+            installer.uninstall()?;
+            Ok("strategy service uninstalled".to_string())
+        }
+        StrategyServiceCommands::Start => {
+            installer.start()?;
+            Ok("strategy service started".to_string())
+        }
+        StrategyServiceCommands::Stop => {
+            installer.stop()?;
+            Ok("strategy service stopped".to_string())
+        }
+        StrategyServiceCommands::Enable => {
+            installer.enable()?;
+            Ok("strategy service enabled".to_string())
+        }
+        StrategyServiceCommands::Disable => {
+            installer.disable()?;
+            Ok("strategy service disabled".to_string())
+        }
+        StrategyServiceCommands::Status => installer.status(),
+    }
 }
 
 /// 运行策略
@@ -326,8 +1362,23 @@ async fn run_strategy(name: String, mode: String, code: Option<String>) -> Resul
         "ma_cross" => {
             if mode == "backtest" {
                 run_ma_cross_backtest(code).await?;
+            } else if mode == "paper" || mode == "live" {
+                let runtime = CliRuntime::load();
+                let runtime_store =
+                    StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+                let summary = execute_strategy_run_with_components(
+                    &name,
+                    &mode,
+                    code,
+                    ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+                    create_trade_store(),
+                    create_risk_store(),
+                    &runtime_store,
+                )
+                .await?;
+                print_strategy_run_summary(&summary);
             } else {
-                println!("⚠️  暂不支持实时模式");
+                println!("⚠️  暂不支持该运行模式");
             }
         }
         _ => {
@@ -640,6 +1691,34 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id).await?;
         }
+        AnalyzeCommands::CandlePattern {
+            candle,
+            code,
+            tdx_root,
+            market,
+            day_file,
+            start,
+            end,
+            r#type,
+            limit,
+            reference,
+            previous_close,
+        } => {
+            analyze_candle_patterns(
+                candle,
+                code,
+                tdx_root,
+                market,
+                day_file,
+                start,
+                end,
+                r#type,
+                limit,
+                reference,
+                previous_close,
+            )
+            .await?;
+        }
         AnalyzeCommands::Screener(cmd) => {
             run_screener_command(cmd).await?;
         }
@@ -648,39 +1727,100 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
 }
 
 pub async fn run_monitor_command(cmd: MonitorCommands) -> Result<()> {
-    let watchlist_reader = ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
-    let quote_reader = TdxMonitorQuoteReader;
-    let alert_store = create_monitor_alert_store().await?;
-    let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
-    let output = match cmd {
-        MonitorCommands::Watchlist { once } => {
-            let stop_store = create_stop_rule_store().await?;
-            execute_monitor_command_with_stop_store(
-                MonitorCommands::Watchlist { once },
-                &service,
-                &stop_store,
-            )
-            .await?
+    match cmd {
+        MonitorCommands::Watchlist {
+            once: true,
+            repeat: false,
         }
-        other => execute_monitor_command_with_service(other, &service).await?,
-    };
+        | MonitorCommands::Alert(_) => {
+            let watchlist_reader =
+                ConfiguredMonitorWatchlistReader::new(create_watchlist_storage());
+            let quote_reader = TdxMonitorQuoteReader;
+            let alert_store = create_monitor_alert_store().await?;
+            let service = MonitorService::new(watchlist_reader, quote_reader, alert_store.clone());
+            let output = match cmd {
+                MonitorCommands::Watchlist { once, repeat } => {
+                    let stop_store = create_stop_rule_store().await?;
+                    execute_monitor_command_with_stop_store(
+                        MonitorCommands::Watchlist { once, repeat },
+                        &service,
+                        &stop_store,
+                    )
+                    .await?
+                }
+                other => execute_monitor_command_with_service(other, &service).await?,
+            };
 
-    if let MonitorCommandOutput::Watchlist {
-        snapshot,
-        triggered_stops: _,
-    } = &output
-    {
-        persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
+            if let MonitorCommandOutput::Watchlist {
+                snapshot,
+                triggered_stops: _,
+            } = &output
+            {
+                persist_triggered_monitor_alerts(&alert_store, snapshot, Utc::now()).await?;
+            }
+
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Config(config_cmd) => {
+            let runtime = CliRuntime::load();
+            let store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let output = execute_monitor_config_command_with_store(config_cmd, &store)?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Event(event_cmd) => {
+            let store = create_monitor_alert_store().await?;
+            let output = execute_monitor_event_command_with_store(event_cmd, &store).await?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Watchlist {
+            once: false,
+            repeat: true,
+        } => {
+            let runtime = CliRuntime::load();
+            let config_store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let runner = create_configured_monitor_runner().await?;
+            run_monitor_loop(&config_store, &runner, MonitorRunMode::Foreground).await
+        }
+        MonitorCommands::Daemon(MonitorDaemonCommands::Run) => {
+            let runtime = CliRuntime::load();
+            let config_store = JsonMonitorConfigStore::new(runtime.monitor_config_path);
+            let runner = create_configured_monitor_runner().await?;
+            run_monitor_loop(&config_store, &runner, MonitorRunMode::Daemon).await
+        }
+        MonitorCommands::Service(service_cmd) => {
+            let output = execute_monitor_service_command(service_cmd)?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::ServiceConfig(service_config_cmd) => {
+            let store = JsonMonitorServiceConfigStore::with_default_path()?;
+            let output =
+                execute_monitor_service_config_command_with_store(service_config_cmd, &store)?;
+            print_monitor_command_output(&output);
+            Ok(())
+        }
+        MonitorCommands::Watchlist { once, repeat } => Err(QuantixError::Other(format!(
+            "invalid monitor watchlist mode: once={}, repeat={}",
+            once, repeat
+        ))),
     }
-
-    print_monitor_command_output(&output);
-    Ok(())
 }
 
 pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
     let watchlist_storage = create_watchlist_storage();
     let service = StopService::new(create_stop_rule_store().await?);
-    let output = execute_stop_command_with_service(cmd, &service, &watchlist_storage).await?;
+    let trade_store = create_trade_store();
+    let output = execute_stop_command_with_context(
+        cmd,
+        &service,
+        &watchlist_storage,
+        &TdxWatchlistQuoteLookup,
+        &trade_store,
+    )
+    .await?;
     print_stop_command_output(&output);
     Ok(())
 }
@@ -689,7 +1829,8 @@ pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {
     let trade_store = create_trade_store();
     let service = TradeService::new(trade_store.clone());
     let risk_service = RiskService::new(create_risk_store());
-    let output = execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
+    let output =
+        execute_trade_command_with_risk(cmd, &service, &trade_store, &risk_service).await?;
     print_trade_command_output(&output);
     Ok(())
 }
@@ -700,8 +1841,17 @@ enum MonitorCommandOutput {
         snapshot: MonitorWatchlistSnapshot,
         triggered_stops: Vec<TriggeredStop>,
     },
+    AutomationIteration {
+        run_mode: MonitorRunMode,
+        output: MonitorIterationOutput,
+    },
     AlertAdded(PriceAlert),
     AlertList(Vec<PriceAlert>),
+    Config(MonitorConfig),
+    EventList(Vec<MonitorEventRow>),
+    ServiceConfig(MonitorServiceConfig),
+    ServiceStatus(MonitorServiceStatusSummary),
+    ServiceMessage(String),
     AlertRemoved {
         id: u64,
         removed: bool,
@@ -711,7 +1861,10 @@ enum MonitorCommandOutput {
 #[derive(Debug, Clone, PartialEq)]
 enum StopCommandOutput {
     RuleSet(StopRule),
+    RuleUpdated(StopRule),
     RuleList(Vec<StopRule>),
+    StatusRows(Vec<StopStatusRow>),
+    HistoryRows(Vec<StopHistoryEvent>),
     RuleRemoved { code: String, removed: bool },
 }
 
@@ -822,8 +1975,8 @@ where
     RS: MonitorAlertStore,
 {
     match cmd {
-        MonitorCommands::Watchlist { once } => {
-            validate_monitor_watchlist_command(once)?;
+        MonitorCommands::Watchlist { once, repeat } => {
+            validate_monitor_watchlist_command(once, repeat)?;
             Ok(MonitorCommandOutput::Watchlist {
                 snapshot: service.load_watchlist_snapshot().await?,
                 triggered_stops: Vec::new(),
@@ -850,6 +2003,21 @@ where
                 Ok(MonitorCommandOutput::AlertRemoved { id, removed })
             }
         },
+        MonitorCommands::Config(_) => Err(QuantixError::Unsupported(
+            "monitor config 尚未实现".to_string(),
+        )),
+        MonitorCommands::Daemon(_) => Err(QuantixError::Unsupported(
+            "monitor daemon 尚未实现".to_string(),
+        )),
+        MonitorCommands::Service(_) => Err(QuantixError::Unsupported(
+            "monitor service 尚未实现".to_string(),
+        )),
+        MonitorCommands::Event(_) => Err(QuantixError::Unsupported(
+            "monitor event 尚未实现".to_string(),
+        )),
+        MonitorCommands::ServiceConfig(_) => Err(QuantixError::Unsupported(
+            "monitor service-config 尚未实现".to_string(),
+        )),
     }
 }
 
@@ -865,10 +2033,12 @@ where
     SS: StopRuleStore + Clone,
 {
     match cmd {
-        MonitorCommands::Watchlist { once } => {
-            validate_monitor_watchlist_command(once)?;
+        MonitorCommands::Watchlist { once, repeat } => {
+            validate_monitor_watchlist_command(once, repeat)?;
             let snapshot = service.load_watchlist_snapshot().await?;
-            let triggered_stops = evaluate_stop_rules_for_snapshot(&snapshot, stop_store).await?;
+            let trade_store = create_trade_store();
+            let triggered_stops =
+                evaluate_stop_rules_for_snapshot(&snapshot, stop_store, &trade_store).await?;
             Ok(MonitorCommandOutput::Watchlist {
                 snapshot,
                 triggered_stops,
@@ -878,12 +2048,14 @@ where
     }
 }
 
-async fn evaluate_stop_rules_for_snapshot<SS>(
+async fn evaluate_stop_rules_for_snapshot<SS, TS>(
     snapshot: &MonitorWatchlistSnapshot,
     stop_store: &SS,
+    trade_store: &TS,
 ) -> Result<Vec<TriggeredStop>>
 where
     SS: StopRuleStore + Clone,
+    TS: PaperTradeStore,
 {
     let rules = stop_store.list_rules().await?;
     if rules.is_empty() {
@@ -896,8 +2068,10 @@ where
         .filter_map(|row| row.quote_time)
         .max()
         .unwrap_or_else(Utc::now);
+    let avg_cost_by_code = build_avg_cost_map_from_trade_store(trade_store).await?;
     let stop_service = StopService::new(stop_store.clone());
-    let results = stop_service.evaluate_rules(&rules, &snapshot.rows, observed_at);
+    let results =
+        stop_service.evaluate_rules_with_anchor_map(&rules, &snapshot.rows, &avg_cost_by_code, observed_at);
     let mut triggered_stops = Vec::new();
 
     for (original_rule, result) in rules.iter().zip(results.into_iter()) {
@@ -906,6 +2080,25 @@ where
         }
 
         if let Some(triggered_stop) = result.triggered_stop {
+            stop_store
+                .append_history(StopHistoryEvent {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    code: triggered_stop.code.clone(),
+                    event_type: StopHistoryEventType::Trigger,
+                    trigger_kind: Some(match triggered_stop.kind {
+                        StopTriggerKind::Loss => crate::stop::StopHistoryTriggerKind::Loss,
+                        StopTriggerKind::Profit => crate::stop::StopHistoryTriggerKind::Profit,
+                        StopTriggerKind::TrailingLoss => crate::stop::StopHistoryTriggerKind::Trailing,
+                    }),
+                    trigger_price: Some(triggered_stop.current_price),
+                    anchor_price: triggered_stop.anchor_price,
+                    anchor_source: triggered_stop
+                        .anchor_source
+                        .map(|source| source.as_str().to_string()),
+                    snapshot_json: serde_json::to_value(&result.updated_rule)?,
+                    created_at: triggered_stop.triggered_at.unwrap_or(observed_at),
+                })
+                .await?;
             triggered_stops.push(triggered_stop);
         }
     }
@@ -921,22 +2114,131 @@ async fn execute_stop_command_with_service<RS>(
 where
     RS: StopRuleStore,
 {
+    let trade_store = create_trade_store();
+    execute_stop_command_with_context(
+        cmd,
+        service,
+        watchlist_storage,
+        &TdxWatchlistQuoteLookup,
+        &trade_store,
+    )
+    .await
+}
+
+async fn execute_stop_command_with_context<RS, Q, TS>(
+    cmd: StopCommands,
+    service: &StopService<RS>,
+    watchlist_storage: &WatchlistStorage,
+    quote_lookup: &Q,
+    trade_store: &TS,
+) -> Result<StopCommandOutput>
+where
+    RS: StopRuleStore,
+    Q: WatchlistQuoteLookup,
+    TS: PaperTradeStore,
+{
     match cmd {
         StopCommands::Set {
             code,
             loss,
             profit,
+            loss_pct,
+            profit_pct,
             trailing,
         } => {
             ensure_watchlist_contains_code(watchlist_storage, &code)?;
+            let reference_price = if loss_pct.is_some() || profit_pct.is_some() {
+                Some(resolve_stop_reference_price(&code, quote_lookup, trade_store).await?)
+            } else {
+                None
+            };
             let rule = service
-                .set_rule(&code, loss, profit, trailing, Utc::now())
+                .set_rule(
+                    &code,
+                    loss,
+                    profit,
+                    loss_pct,
+                    profit_pct,
+                    trailing,
+                    reference_price,
+                    Utc::now(),
+                )
                 .await?;
             Ok(StopCommandOutput::RuleSet(rule))
         }
+        StopCommands::Update {
+            code,
+            loss,
+            profit,
+            loss_pct,
+            profit_pct,
+            trailing,
+            clear_loss,
+            clear_profit,
+            clear_loss_pct,
+            clear_profit_pct,
+            clear_trailing,
+        } => {
+            ensure_watchlist_contains_code(watchlist_storage, &code)?;
+            let existing = service
+                .get_rule(&code)
+                .await?
+                .ok_or_else(|| QuantixError::Other(format!("stop update 未找到规则: {code}")))?;
+            let needs_reference_price = (loss_pct.is_some() || profit_pct.is_some())
+                && existing.reference_price.is_none();
+            let reference_price = if needs_reference_price {
+                Some(Some(
+                    resolve_stop_reference_price(&code, quote_lookup, trade_store).await?,
+                ))
+            } else {
+                None
+            };
+            let rule = service
+                .update_rule(
+                    &code,
+                    StopRuleUpdate {
+                        stop_loss_price: patch_value(loss, clear_loss),
+                        take_profit_price: patch_value(profit, clear_profit),
+                        stop_loss_pct: patch_value(loss_pct, clear_loss_pct),
+                        take_profit_pct: patch_value(profit_pct, clear_profit_pct),
+                        trailing_pct: patch_value(trailing, clear_trailing),
+                        reference_price,
+                    },
+                    Utc::now(),
+                )
+                .await?;
+            Ok(StopCommandOutput::RuleUpdated(rule))
+        }
         StopCommands::List => Ok(StopCommandOutput::RuleList(service.list_rules().await?)),
+        StopCommands::Status { code } => {
+            let rules = filter_stop_rules(service.list_rules().await?, code.as_deref());
+            let status_rows =
+                build_stop_status_rows(service, &rules, quote_lookup, trade_store, Utc::now())
+                    .await?;
+            Ok(StopCommandOutput::StatusRows(status_rows))
+        }
+        StopCommands::History {
+            code,
+            limit,
+            date,
+            event_type,
+        } => Ok(StopCommandOutput::HistoryRows(
+            service
+                .history(
+                    code.as_deref(),
+                    date.as_deref()
+                        .map(|raw| parse_stop_history_date(raw))
+                        .transpose()?,
+                    event_type
+                        .as_deref()
+                        .map(parse_stop_history_event_type)
+                        .transpose()?,
+                    Some(limit),
+                )
+                .await?,
+        )),
         StopCommands::Remove { code } => {
-            let removed = service.remove_rule(&code).await?;
+            let removed = service.remove_rule(&code, Utc::now()).await?;
             Ok(StopCommandOutput::RuleRemoved { code, removed })
         }
     }
@@ -1011,15 +2313,19 @@ where
         }
         TradeCommands::History { code, limit } => {
             let state = service.state_snapshot().await?;
-            Ok(TradeCommandOutput::HistoryRows(
-                reporting.history_rows(&state, code.as_deref(), limit),
-            ))
+            Ok(TradeCommandOutput::HistoryRows(reporting.history_rows(
+                &state,
+                code.as_deref(),
+                limit,
+            )))
         }
         TradeCommands::Fees { code, limit } => {
             let state = service.state_snapshot().await?;
-            Ok(TradeCommandOutput::FeeRows(
-                reporting.fee_rows(&state, code.as_deref(), limit),
-            ))
+            Ok(TradeCommandOutput::FeeRows(reporting.fee_rows(
+                &state,
+                code.as_deref(),
+                limit,
+            )))
         }
         TradeCommands::Overview { current: false } => {
             let state = service.state_snapshot().await?;
@@ -1116,7 +2422,9 @@ where
             )?;
             let account = trade_service.init_account(request, Utc::now()).await?;
             let snapshot = build_risk_account_snapshot(&account);
-            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            risk_service
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
             Ok(TradeCommandOutput::AccountInitialized(account))
         }
         TradeCommands::Reset {
@@ -1136,7 +2444,9 @@ where
             )?;
             let account = trade_service.reset_account(request, Utc::now()).await?;
             let snapshot = build_risk_account_snapshot(&account);
-            risk_service.sync_after_trade_reset(&snapshot, Utc::now()).await?;
+            risk_service
+                .sync_after_trade_reset(&snapshot, Utc::now())
+                .await?;
             Ok(TradeCommandOutput::AccountReset(account))
         }
         TradeCommands::Buy {
@@ -1148,7 +2458,9 @@ where
             let account = load_initialized_trade_account(trade_store).await?;
             let snapshot = build_risk_account_snapshot(&account);
             let projected_buy = build_projected_buy_impact(&account, &request);
-            risk_service.check_buy(&snapshot, &projected_buy, Utc::now()).await?;
+            risk_service
+                .check_buy(&snapshot, &projected_buy, Utc::now())
+                .await?;
 
             let record = trade_service.buy(request, Utc::now()).await?;
             sync_risk_from_trade_store(trade_store, risk_service).await?;
@@ -1165,12 +2477,8 @@ where
             Ok(TradeCommandOutput::TradeExecuted(record))
         }
         TradeCommands::Overview { current: true } | TradeCommands::Position { current: true } => {
-            execute_trade_command_with_quote_lookup(
-                cmd,
-                trade_service,
-                &TdxWatchlistQuoteLookup,
-            )
-            .await
+            execute_trade_command_with_quote_lookup(cmd, trade_service, &TdxWatchlistQuoteLookup)
+                .await
         }
         other => execute_trade_command_with_service(other, trade_service).await,
     }
@@ -1204,6 +2512,12 @@ fn build_trade_order_request(
         .map_err(|err| remap_trade_request_error(err, command_name))
 }
 
+fn decimal_to_f64(value: Decimal, command_name: &str) -> Result<f64> {
+    value
+        .to_f64()
+        .ok_or_else(|| QuantixError::Other(format!("{command_name} 无法将价格 {value} 转换为 f64")))
+}
+
 fn remap_trade_request_error(err: QuantixError, command_name: &str) -> QuantixError {
     match err {
         QuantixError::Other(message) => QuantixError::Other(
@@ -1213,6 +2527,112 @@ fn remap_trade_request_error(err: QuantixError, command_name: &str) -> QuantixEr
         ),
         other => other,
     }
+}
+
+fn patch_value(value: Option<f64>, clear: bool) -> Option<Option<f64>> {
+    if clear {
+        Some(None)
+    } else {
+        value.map(Some)
+    }
+}
+
+fn parse_stop_history_event_type(value: &str) -> Result<StopHistoryEventType> {
+    StopHistoryEventType::from_str(value)
+        .ok_or_else(|| QuantixError::Other(format!("未知 stop history event_type: {value}")))
+}
+
+fn parse_stop_history_date(value: &str) -> Result<NaiveDate> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| QuantixError::Other(format!("stop history --date 无效: {value}")))
+}
+
+fn filter_stop_rules(rules: Vec<StopRule>, code: Option<&str>) -> Vec<StopRule> {
+    match code {
+        Some(code) => rules.into_iter().filter(|rule| rule.code == code).collect(),
+        None => rules,
+    }
+}
+
+async fn build_avg_cost_map_from_trade_store<Store>(
+    trade_store: &Store,
+) -> Result<HashMap<String, f64>>
+where
+    Store: PaperTradeStore,
+{
+    let Some(state) = trade_store.load_state().await? else {
+        return Ok(HashMap::new());
+    };
+    let Some(account) = state.account else {
+        return Ok(HashMap::new());
+    };
+
+    Ok(account
+        .positions
+        .into_iter()
+        .filter_map(|(code, position)| position.avg_cost.to_f64().map(|avg_cost| (code, avg_cost)))
+        .collect())
+}
+
+async fn resolve_stop_reference_price<Q, TS>(
+    code: &str,
+    quote_lookup: &Q,
+    trade_store: &TS,
+) -> Result<f64>
+where
+    Q: WatchlistQuoteLookup,
+    TS: PaperTradeStore,
+{
+    let quote_price = quote_lookup
+        .lookup_quotes(&[code.to_string()])
+        .await
+        .ok()
+        .and_then(|quotes| quotes.get(code).and_then(|snapshot| snapshot.latest_price.to_f64()));
+    if let Some(price) = quote_price {
+        return Ok(price);
+    }
+
+    let avg_cost_by_code = build_avg_cost_map_from_trade_store(trade_store).await?;
+    if let Some(avg_cost) = avg_cost_by_code.get(code).copied() {
+        return Ok(avg_cost);
+    }
+
+    Err(QuantixError::Other(format!(
+        "stop percent 规则缺少参考价，且当前无法从行情或持仓解析 {} 的 reference_price",
+        code
+    )))
+}
+
+async fn build_stop_status_rows<RS, Q, TS>(
+    service: &StopService<RS>,
+    rules: &[StopRule],
+    quote_lookup: &Q,
+    trade_store: &TS,
+    observed_at: DateTime<Utc>,
+) -> Result<Vec<StopStatusRow>>
+where
+    RS: StopRuleStore,
+    Q: WatchlistQuoteLookup,
+    TS: PaperTradeStore,
+{
+    let codes: Vec<String> = rules.iter().map(|rule| rule.code.clone()).collect();
+    let quote_rows = quote_lookup
+        .lookup_quotes(&codes)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(code, snapshot)| MonitorQuoteRow {
+            code,
+            group: String::new(),
+            tags: Vec::new(),
+            last_price: snapshot.latest_price.to_f64(),
+            change_pct: snapshot.price_change_pct.and_then(|value| value.to_f64()),
+            quote_time: None,
+            note: None,
+        })
+        .collect::<Vec<_>>();
+    let avg_cost_by_code = build_avg_cost_map_from_trade_store(trade_store).await?;
+    Ok(service.status_rows(rules, &quote_rows, &avg_cost_by_code, observed_at))
 }
 
 async fn execute_market_command_with_reader<R>(
@@ -1278,12 +2698,12 @@ where
     }
 }
 
-fn validate_monitor_watchlist_command(once: bool) -> Result<()> {
-    if once {
+fn validate_monitor_watchlist_command(once: bool, repeat: bool) -> Result<()> {
+    if once ^ repeat {
         Ok(())
     } else {
         Err(QuantixError::Other(
-            "monitor watchlist 当前仅支持 --once".to_string(),
+            "monitor watchlist 必须且只能指定 --once 或 --repeat 之一".to_string(),
         ))
     }
 }
@@ -1314,6 +2734,19 @@ fn monitor_alert_id_to_i64(id: u64) -> Result<i64> {
     i64::try_from(id).map_err(|_| QuantixError::Other(format!("告警 ID 超出支持范围: {}", id)))
 }
 
+fn parse_monitor_event_type(value: &str) -> Result<MonitorEventType> {
+    match value {
+        "price-alert" => Ok(MonitorEventType::PriceAlert),
+        "stop-loss" => Ok(MonitorEventType::StopLoss),
+        "stop-profit" => Ok(MonitorEventType::StopProfit),
+        "trailing-stop" => Ok(MonitorEventType::TrailingStop),
+        other => Err(QuantixError::Other(format!(
+            "monitor event list 不支持的事件类型: {}",
+            other
+        ))),
+    }
+}
+
 async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
     let runtime = CliRuntime::load();
     SqliteMonitorAlertStore::new(runtime.monitor_db_path).await
@@ -1322,6 +2755,282 @@ async fn create_monitor_alert_store() -> Result<SqliteMonitorAlertStore> {
 async fn create_stop_rule_store() -> Result<SqliteStopRuleStore> {
     let runtime = CliRuntime::load();
     SqliteStopRuleStore::new(runtime.monitor_db_path).await
+}
+
+async fn create_configured_monitor_runner() -> Result<
+    MonitorRunner<
+        ConfiguredMonitorWatchlistReader,
+        TdxMonitorQuoteReader,
+        SqliteStopRuleStore,
+        JsonPaperTradeStore,
+    >,
+> {
+    let alert_store = create_monitor_alert_store().await?;
+    let stop_store = create_stop_rule_store().await?;
+    let trade_store = create_trade_store();
+    Ok(MonitorRunner::new(
+        ConfiguredMonitorWatchlistReader::new(create_watchlist_storage()),
+        TdxMonitorQuoteReader,
+        alert_store,
+        stop_store,
+        trade_store,
+    ))
+}
+
+fn execute_monitor_config_command_with_store(
+    cmd: MonitorConfigCommands,
+    store: &JsonMonitorConfigStore,
+) -> Result<MonitorCommandOutput> {
+    let mut config = store.load_or_create()?;
+
+    match cmd {
+        MonitorConfigCommands::Show => Ok(MonitorCommandOutput::Config(config)),
+        MonitorConfigCommands::Set {
+            interval_seconds,
+            group,
+            persist_events,
+        } => {
+            if let Some(value) = interval_seconds {
+                config.interval_seconds = value.max(1);
+            }
+            if let Some(value) = group {
+                config.watchlist_group = Some(value);
+            }
+            if let Some(value) = persist_events {
+                config.persist_events = value;
+            }
+
+            store.save(&config)?;
+            Ok(MonitorCommandOutput::Config(config))
+        }
+        MonitorConfigCommands::ClearGroup => {
+            config.watchlist_group = None;
+            store.save(&config)?;
+            Ok(MonitorCommandOutput::Config(config))
+        }
+    }
+}
+
+async fn execute_monitor_event_command_with_store(
+    cmd: MonitorEventCommands,
+    store: &SqliteMonitorAlertStore,
+) -> Result<MonitorCommandOutput> {
+    match cmd {
+        MonitorEventCommands::List {
+            limit,
+            code,
+            event_type,
+        } => Ok(MonitorCommandOutput::EventList(
+            store
+                .list_events(&MonitorEventFilter {
+                    limit,
+                    code,
+                    event_type: event_type
+                        .as_deref()
+                        .map(parse_monitor_event_type)
+                        .transpose()?,
+                })
+                .await?,
+        )),
+    }
+}
+
+fn execute_monitor_service_config_command_with_store(
+    cmd: MonitorServiceConfigCommands,
+    store: &JsonMonitorServiceConfigStore,
+) -> Result<MonitorCommandOutput> {
+    match cmd {
+        MonitorServiceConfigCommands::Show => match store.load() {
+            Ok(config) => Ok(MonitorCommandOutput::ServiceConfig(config)),
+            Err(QuantixError::Config(_)) => Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service 未配置，请先运行 monitor service-config set --quantix-bin /abs/path/to/quantix".to_string(),
+            )),
+            Err(other) => Err(other),
+        },
+        MonitorServiceConfigCommands::Set { quantix_bin } => {
+            let config = MonitorServiceConfig {
+                quantix_bin_path: quantix_bin.into(),
+            };
+            JsonMonitorServiceConfigStore::validate(&config)?;
+            store.save(&config)?;
+            Ok(MonitorCommandOutput::ServiceConfig(config))
+        }
+    }
+}
+
+trait MonitorServiceInstallerOps {
+    fn install(&self) -> Result<()>;
+    fn uninstall(&self) -> Result<()>;
+    fn start(&self) -> Result<()>;
+    fn stop(&self) -> Result<()>;
+    fn enable(&self) -> Result<()>;
+    fn disable(&self) -> Result<()>;
+    fn status(&self) -> Result<String>;
+    fn status_summary(&self) -> Result<MonitorServiceStatusSummary>;
+}
+
+impl MonitorServiceInstallerOps for MonitorUserServiceInstaller {
+    fn install(&self) -> Result<()> {
+        MonitorUserServiceInstaller::install(self)
+    }
+
+    fn uninstall(&self) -> Result<()> {
+        MonitorUserServiceInstaller::uninstall(self)
+    }
+
+    fn start(&self) -> Result<()> {
+        MonitorUserServiceInstaller::start(self)
+    }
+
+    fn stop(&self) -> Result<()> {
+        MonitorUserServiceInstaller::stop(self)
+    }
+
+    fn enable(&self) -> Result<()> {
+        MonitorUserServiceInstaller::enable(self)
+    }
+
+    fn disable(&self) -> Result<()> {
+        MonitorUserServiceInstaller::disable(self)
+    }
+
+    fn status(&self) -> Result<String> {
+        MonitorUserServiceInstaller::status(self)
+    }
+
+    fn status_summary(&self) -> Result<MonitorServiceStatusSummary> {
+        MonitorUserServiceInstaller::status_summary(self)
+    }
+}
+
+fn execute_monitor_service_command(cmd: MonitorServiceCommands) -> Result<MonitorCommandOutput> {
+    let runtime = CliRuntime::load();
+    let store = JsonMonitorServiceConfigStore::with_default_path()?;
+    let service_config = match store.load() {
+        Ok(config) => config,
+        Err(QuantixError::Config(_)) if matches!(cmd, MonitorServiceCommands::Status) => {
+            return Ok(MonitorCommandOutput::ServiceStatus(
+                build_unconfigured_monitor_service_status_summary(),
+            ));
+        }
+        Err(other) => return Err(other),
+    };
+    let installer = MonitorUserServiceInstaller::new(runtime, service_config);
+    execute_monitor_service_command_with_installer(cmd, &installer)
+}
+
+fn execute_monitor_service_command_with_installer<I>(
+    cmd: MonitorServiceCommands,
+    installer: &I,
+) -> Result<MonitorCommandOutput>
+where
+    I: MonitorServiceInstallerOps,
+{
+    match cmd {
+        MonitorServiceCommands::Install => {
+            installer.install()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service installed".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Uninstall => {
+            installer.uninstall()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service uninstalled".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Start => {
+            installer.start()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service started".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Stop => {
+            installer.stop()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service stopped".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Status => Ok(MonitorCommandOutput::ServiceStatus(
+            installer.status_summary()?,
+        )),
+        MonitorServiceCommands::Enable => {
+            installer.enable()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service enabled".to_string(),
+            ))
+        }
+        MonitorServiceCommands::Disable => {
+            installer.disable()?;
+            Ok(MonitorCommandOutput::ServiceMessage(
+                "monitor service disabled".to_string(),
+            ))
+        }
+    }
+}
+
+async fn execute_monitor_iteration_with_runner<RW, RQ, SS, TS>(
+    cmd: MonitorCommands,
+    config: &MonitorConfig,
+    runner: &MonitorRunner<RW, RQ, SS, TS>,
+    now: DateTime<Utc>,
+) -> Result<MonitorCommandOutput>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    SS: StopRuleStore + Clone,
+    TS: PaperTradeStore + Clone,
+{
+    match cmd {
+        MonitorCommands::Watchlist {
+            once: false,
+            repeat: true,
+        } => Ok(MonitorCommandOutput::AutomationIteration {
+            run_mode: MonitorRunMode::Foreground,
+            output: runner
+                .run_once(config, MonitorRunMode::Foreground, now)
+                .await?,
+        }),
+        MonitorCommands::Daemon(MonitorDaemonCommands::Run) => {
+            Ok(MonitorCommandOutput::AutomationIteration {
+                run_mode: MonitorRunMode::Daemon,
+                output: runner.run_once(config, MonitorRunMode::Daemon, now).await?,
+            })
+        }
+        other => Err(QuantixError::Unsupported(format!(
+            "monitor iteration helper does not support {:?}",
+            other
+        ))),
+    }
+}
+
+async fn run_monitor_loop<RW, RQ, SS, TS>(
+    config_store: &JsonMonitorConfigStore,
+    runner: &MonitorRunner<RW, RQ, SS, TS>,
+    run_mode: MonitorRunMode,
+) -> Result<()>
+where
+    RW: MonitorWatchlistReader,
+    RQ: MonitorQuoteReader,
+    SS: StopRuleStore + Clone,
+    TS: PaperTradeStore + Clone,
+{
+    loop {
+        let config = config_store.load_or_create()?;
+        let output = runner.run_once(&config, run_mode, Utc::now()).await?;
+        print_monitor_command_output(&MonitorCommandOutput::AutomationIteration {
+            run_mode,
+            output,
+        });
+
+        let sleep_duration = Duration::from_secs(config.interval_seconds.max(1));
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => break,
+            _ = tokio::time::sleep(sleep_duration) => {}
+        }
+    }
+
+    Ok(())
 }
 
 async fn persist_triggered_monitor_alerts<RS>(
@@ -1420,7 +3129,12 @@ fn print_stop_command_output(output: &StopCommandOutput) {
         StopCommandOutput::RuleSet(rule) => {
             println!("✅ 已设置 {} 的止盈止损规则", rule.code);
         }
+        StopCommandOutput::RuleUpdated(rule) => {
+            println!("✅ 已更新 {} 的止盈止损规则", rule.code);
+        }
         StopCommandOutput::RuleList(rules) => print_stop_rules(rules),
+        StopCommandOutput::StatusRows(rows) => print_stop_status_rows(rows),
+        StopCommandOutput::HistoryRows(rows) => print_stop_history_rows(rows),
         StopCommandOutput::RuleRemoved { code, removed } => {
             if *removed {
                 println!("✅ 已移除 {} 的止盈止损规则", code);
@@ -1428,6 +3142,59 @@ fn print_stop_command_output(output: &StopCommandOutput) {
                 println!("⚠️  未找到 {} 的止盈止损规则", code);
             }
         }
+    }
+}
+
+fn print_stop_status_rows(rows: &[StopStatusRow]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的止盈止损状态");
+        return;
+    }
+
+    for row in rows {
+        println!(
+            "{} last_price={:?} anchor_price={:?} anchor_source={} loss_threshold={:?} profit_threshold={:?} trailing_pct={:?} highest_price={:?} eval_state={}",
+            row.code,
+            row.last_price,
+            row.anchor_price,
+            row.anchor_source
+                .map(|source| source.as_str())
+                .unwrap_or("-"),
+            row.loss_threshold,
+            row.profit_threshold,
+            row.trailing_pct,
+            row.highest_price,
+            format_stop_eval_state(row.eval_state),
+        );
+    }
+}
+
+fn print_stop_history_rows(rows: &[StopHistoryEvent]) {
+    if rows.is_empty() {
+        println!("📭 没有可展示的止盈止损历史");
+        return;
+    }
+
+    for row in rows {
+        println!(
+            "{} type={} trigger={:?} price={:?} anchor_price={:?} anchor_source={} ts={}",
+            row.code,
+            row.event_type.as_str(),
+            row.trigger_kind.map(|kind| kind.as_str()),
+            row.trigger_price,
+            row.anchor_price,
+            row.anchor_source.as_deref().unwrap_or("-"),
+            row.created_at.to_rfc3339(),
+        );
+    }
+}
+
+fn format_stop_eval_state(state: crate::stop::StopEvalState) -> &'static str {
+    match state {
+        crate::stop::StopEvalState::Armed => "armed",
+        crate::stop::StopEvalState::Triggered => "triggered",
+        crate::stop::StopEvalState::AnchorMissing => "anchor_missing",
+        crate::stop::StopEvalState::QuoteMissing => "quote_missing",
     }
 }
 
@@ -1492,7 +3259,10 @@ fn print_trade_positions(positions: &[TradePosition]) {
         return;
     }
 
-    println!("{:<10} {:<10} {:<14} {}", "代码", "数量", "持仓成本", "最新成交价");
+    println!(
+        "{:<10} {:<10} {:<14} {}",
+        "代码", "数量", "持仓成本", "最新成交价"
+    );
     println!("{}", "-".repeat(56));
 
     for position in positions {
@@ -1750,6 +3520,16 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             snapshot,
             triggered_stops,
         } => print_monitor_watchlist_snapshot(snapshot, triggered_stops),
+        MonitorCommandOutput::AutomationIteration {
+            run_mode: _,
+            output,
+        } => {
+            print_monitor_watchlist_snapshot(&output.snapshot, &output.triggered_stops);
+            if !output.new_events.is_empty() {
+                println!();
+                print_monitor_events(&output.new_events);
+            }
+        }
         MonitorCommandOutput::AlertAdded(alert) => println!(
             "✅ 已添加价格告警 #{} {} {} {:.2}",
             alert.id,
@@ -1758,6 +3538,23 @@ fn print_monitor_command_output(output: &MonitorCommandOutput) {
             alert.target_price
         ),
         MonitorCommandOutput::AlertList(alerts) => print_monitor_alerts(alerts),
+        MonitorCommandOutput::Config(config) => {
+            println!("轮询间隔(秒): {}", config.interval_seconds);
+            println!(
+                "分组过滤: {}",
+                config.watchlist_group.as_deref().unwrap_or("-")
+            );
+            println!("持久化事件: {}", config.persist_events);
+            println!("最大历史条数: {}", config.max_event_history);
+        }
+        MonitorCommandOutput::EventList(rows) => print_monitor_events(rows),
+        MonitorCommandOutput::ServiceConfig(config) => {
+            println!("quantix_bin_path: {}", config.quantix_bin_path.display());
+        }
+        MonitorCommandOutput::ServiceStatus(summary) => {
+            print_monitor_service_status_summary(summary);
+        }
+        MonitorCommandOutput::ServiceMessage(message) => println!("{}", message),
         MonitorCommandOutput::AlertRemoved { id, removed } => {
             if *removed {
                 println!("✅ 已删除价格告警 #{}", id);
@@ -1889,10 +3686,82 @@ fn print_monitor_alerts(alerts: &[PriceAlert]) {
     }
 }
 
+fn print_monitor_events(rows: &[MonitorEventRow]) {
+    if rows.is_empty() {
+        println!("📭 暂无监控事件");
+        return;
+    }
+
+    println!(
+        "{:<20} {:<14} {:<8} {:<8} {:<10}",
+        "时间", "类型", "代码", "价格", "模式"
+    );
+    println!("{}", "-".repeat(72));
+
+    for row in rows {
+        println!(
+            "{:<20} {:<14} {:<8} {:<8} {:<10}",
+            row.event_time.format("%Y-%m-%d %H:%M:%S"),
+            format_monitor_event_type(row.event_type),
+            row.code,
+            row.price
+                .map(|value| format!("{value:.2}"))
+                .unwrap_or_else(|| "-".to_string()),
+            format_monitor_run_mode(row.run_mode),
+        );
+        println!("  {}", row.message);
+    }
+}
+
+fn print_monitor_service_status_summary(summary: &MonitorServiceStatusSummary) {
+    println!(
+        "installed: {}",
+        if summary.installed { "yes" } else { "no" }
+    );
+    println!("enabled: {}", if summary.enabled { "yes" } else { "no" });
+    println!("active: {}", summary.active);
+    println!("unit_path: {}", summary.unit_path.display());
+    println!("wrapper_path: {}", summary.wrapper_path.display());
+    println!("quantix_bin_path: {}", summary.quantix_bin_path.display());
+
+    if let Some(raw_status) = &summary.raw_status {
+        println!();
+        print!("{}", raw_status);
+    }
+}
+
+fn build_unconfigured_monitor_service_status_summary() -> MonitorServiceStatusSummary {
+    MonitorServiceStatusSummary {
+        installed: false,
+        enabled: false,
+        active: "unconfigured".to_string(),
+        unit_path: std::path::PathBuf::from("~/.config/systemd/user/quantix-monitor.service"),
+        wrapper_path: std::path::PathBuf::from("~/.local/bin/quantix-monitor-run"),
+        quantix_bin_path: std::path::PathBuf::from("<unconfigured>"),
+        raw_status: None,
+    }
+}
+
 fn format_monitor_alert_kind(kind: PriceAlertKind) -> &'static str {
     match kind {
         PriceAlertKind::Above => "above",
         PriceAlertKind::Below => "below",
+    }
+}
+
+fn format_monitor_event_type(event_type: MonitorEventType) -> &'static str {
+    match event_type {
+        MonitorEventType::PriceAlert => "price-alert",
+        MonitorEventType::StopLoss => "stop-loss",
+        MonitorEventType::StopProfit => "stop-profit",
+        MonitorEventType::TrailingStop => "trailing-stop",
+    }
+}
+
+fn format_monitor_run_mode(run_mode: MonitorRunMode) -> &'static str {
+    match run_mode {
+        MonitorRunMode::Foreground => "foreground",
+        MonitorRunMode::Daemon => "daemon",
     }
 }
 
@@ -1946,6 +3815,24 @@ impl DailyKlineLoader for ClickHouseDailyKlineLoader {
             rows = rows[rows.len() - lookback..].to_vec();
         }
 
+        Ok(rows)
+    }
+}
+
+#[async_trait]
+impl StrategyBarLoader for ClickHouseDailyKlineLoader {
+    async fn load_daily_bars(
+        &self,
+        code: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let mut rows = self
+            .client
+            .get_kline_data(code, "1d", None, None, None)
+            .await?;
+        if rows.len() > limit {
+            rows = rows[rows.len() - limit..].to_vec();
+        }
         Ok(rows)
     }
 }
@@ -2294,7 +4181,9 @@ where
         .load_state()
         .await?
         .and_then(|state| state.account)
-        .ok_or_else(|| QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string()))
+        .ok_or_else(|| {
+            QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
+        })
 }
 
 async fn load_trade_quote_prices<Q>(
@@ -2532,6 +4421,339 @@ async fn show_backtest_report(id: String) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PatternCandleRow {
+    label: String,
+    candle: CandleInput,
+}
+
+async fn analyze_candle_patterns(
+    candle_specs: Vec<String>,
+    code: Option<String>,
+    tdx_root: Option<String>,
+    market: Option<String>,
+    day_file: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    period_type: String,
+    limit: usize,
+    reference: Option<String>,
+    previous_close: bool,
+) -> Result<()> {
+    let rows = load_pattern_candle_rows(
+        candle_specs,
+        code,
+        tdx_root,
+        market,
+        day_file,
+        start,
+        end,
+        period_type,
+        limit,
+    )
+    .await?;
+    let candles: Vec<CandleInput> = rows.iter().map(|row| row.candle).collect();
+    let policy = build_reference_policy(reference, previous_close)?;
+    let references = sequence_references(&candles, &policy)?;
+    let config = PatternConfig {
+        epsilon: dec!(0.0001),
+    };
+    let patterns = recognize_sequence(&candles, &policy, &config)
+        .map_err(|err| QuantixError::Other(format!("K线形态识别失败: {:?}", err)))?;
+
+    println!("📈 K线形态识别");
+    println!("  数量: {}", candles.len());
+    println!(
+        "  参考策略: {}",
+        if previous_close {
+            "前一根收盘价"
+        } else {
+            "显式参考价"
+        }
+    );
+
+    for (idx, pattern) in patterns.iter().enumerate() {
+        let row = match policy {
+            ReferencePricePolicy::Explicit(_) => &rows[idx],
+            ReferencePricePolicy::PreviousClose => &rows[idx + 1],
+        };
+        let candle = &row.candle;
+
+        println!(
+            "\n#{} {} O={} H={} L={} C={} P={}",
+            idx + 1,
+            row.label,
+            candle.open,
+            candle.high,
+            candle.low,
+            candle.close,
+            references[idx],
+        );
+
+        match pattern.canonical_case {
+            Some(case_id) => println!("  标准形态: {} {}", case_id.id(), case_id.display_name()),
+            None => println!("  标准形态: 扩展形态"),
+        }
+
+        println!(
+            "  偏向: {}",
+            match pattern.bias {
+                MarketBias::Bullish => "看多",
+                MarketBias::Bearish => "看空",
+                MarketBias::Neutral => "看平",
+            }
+        );
+        println!(
+            "  扩展结构: {:?} / {:?} / upper_shadow={} / lower_shadow={}",
+            pattern.extended.reference_span,
+            pattern.extended.body_type,
+            pattern.extended.has_upper_shadow,
+            pattern.extended.has_lower_shadow
+        );
+    }
+
+    Ok(())
+}
+
+async fn load_pattern_candle_rows(
+    candle_specs: Vec<String>,
+    code: Option<String>,
+    tdx_root: Option<String>,
+    market: Option<String>,
+    day_file: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    period_type: String,
+    limit: usize,
+) -> Result<Vec<PatternCandleRow>> {
+    if !candle_specs.is_empty() {
+        return parse_candle_specs(&candle_specs);
+    }
+
+    let start_date = start
+        .as_ref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
+    let end_date = end
+        .as_ref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
+
+    if let Some(day_file) = day_file {
+        if period_type != "1d" {
+            return Err(QuantixError::Other(
+                "day 文件当前只支持 1d 周期".to_string(),
+            ));
+        }
+        return pattern_rows_from_day_file(day_file, start_date, end_date, limit);
+    }
+
+    if let Some(tdx_root) = tdx_root {
+        if period_type != "1d" {
+            return Err(QuantixError::Other(
+                "TDX day 根目录当前只支持 1d 周期".to_string(),
+            ));
+        }
+        let code = code.ok_or_else(|| {
+            QuantixError::Other("使用 --tdx-root 时必须同时提供 --code".to_string())
+        })?;
+        let day_file = resolve_tdx_day_file_path(tdx_root, &code, market.as_deref())?;
+        return pattern_rows_from_day_file(day_file, start_date, end_date, limit);
+    }
+
+    let code = code.ok_or_else(|| {
+        QuantixError::Other("缺少 K线输入，请提供 --candle、--day-file 或 --code".to_string())
+    })?;
+
+    let client = create_clickhouse_client().await?;
+    let klines = client
+        .get_kline_data(&code, &period_type, start_date, end_date, Some(limit))
+        .await?;
+
+    if klines.is_empty() {
+        return Err(QuantixError::Other(format!("未找到 {} 的 K线数据", code)));
+    }
+
+    Ok(pattern_rows_from_klines(&klines))
+}
+
+fn build_reference_policy(
+    reference: Option<String>,
+    previous_close: bool,
+) -> Result<ReferencePricePolicy> {
+    if previous_close {
+        return Ok(ReferencePricePolicy::PreviousClose);
+    }
+
+    let reference = reference.ok_or_else(|| {
+        QuantixError::Other("缺少参考价，请提供 --reference 或 --previous-close".to_string())
+    })?;
+
+    let value = Decimal::from_str(&reference)
+        .map_err(|e| QuantixError::Other(format!("参考价格式非法: {}", e)))?;
+
+    Ok(ReferencePricePolicy::Explicit(value))
+}
+
+fn parse_candle_specs(specs: &[String]) -> Result<Vec<PatternCandleRow>> {
+    specs
+        .iter()
+        .enumerate()
+        .map(|(idx, spec)| {
+            Ok(PatternCandleRow {
+                label: format!("manual-{}", idx + 1),
+                candle: parse_candle_spec(spec)?,
+            })
+        })
+        .collect()
+}
+
+fn parse_candle_spec(spec: &str) -> Result<CandleInput> {
+    let parts: Vec<&str> = spec.split(',').map(str::trim).collect();
+    if parts.len() != 4 {
+        return Err(QuantixError::Other(format!(
+            "K线格式非法: {}，期望 o,h,l,c",
+            spec
+        )));
+    }
+
+    let parse_decimal = |value: &str| {
+        Decimal::from_str(value).map_err(|e| QuantixError::Other(format!("价格格式非法: {}", e)))
+    };
+
+    Ok(CandleInput {
+        open: parse_decimal(parts[0])?,
+        high: parse_decimal(parts[1])?,
+        low: parse_decimal(parts[2])?,
+        close: parse_decimal(parts[3])?,
+    })
+}
+
+fn sequence_references(
+    candles: &[CandleInput],
+    policy: &ReferencePricePolicy,
+) -> Result<Vec<Decimal>> {
+    match policy {
+        ReferencePricePolicy::Explicit(value) => Ok(vec![*value; candles.len()]),
+        ReferencePricePolicy::PreviousClose => {
+            if candles.len() < 2 {
+                return Err(QuantixError::Other(
+                    "使用 --previous-close 时至少需要两根 K线".to_string(),
+                ));
+            }
+
+            Ok(candles.windows(2).map(|pair| pair[0].close).collect())
+        }
+    }
+}
+
+fn pattern_rows_from_klines(klines: &[Kline]) -> Vec<PatternCandleRow> {
+    klines
+        .iter()
+        .map(|kline| PatternCandleRow {
+            label: kline.date.to_string(),
+            candle: CandleInput {
+                open: kline.open,
+                high: kline.high,
+                low: kline.low,
+                close: kline.close,
+            },
+        })
+        .collect()
+}
+
+fn pattern_rows_from_day_file(
+    day_file: impl AsRef<Path>,
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+    limit: usize,
+) -> Result<Vec<PatternCandleRow>> {
+    let path = day_file.as_ref();
+    let code = infer_tdx_code_from_day_file_path(path)?;
+    let mut klines = TdxDayFile::to_klines(code, path, crate::data::models::AdjustType::None)?;
+
+    if let Some(start_date) = start {
+        klines.retain(|kline| kline.date >= start_date);
+    }
+    if let Some(end_date) = end {
+        klines.retain(|kline| kline.date <= end_date);
+    }
+    if limit > 0 && klines.len() > limit {
+        klines = klines[klines.len() - limit..].to_vec();
+    }
+
+    Ok(pattern_rows_from_klines(&klines))
+}
+
+fn infer_tdx_code_from_day_file_path(path: impl AsRef<Path>) -> Result<u32> {
+    let stem = path
+        .as_ref()
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| QuantixError::Other("无法从 day 文件路径解析股票代码".to_string()))?;
+
+    let digits: String = stem.chars().filter(|ch| ch.is_ascii_digit()).collect();
+    if digits.len() != 6 {
+        return Err(QuantixError::Other(format!(
+            "无法从 day 文件名解析 6 位股票代码: {}",
+            path.as_ref().display()
+        )));
+    }
+
+    digits
+        .parse::<u32>()
+        .map_err(|e| QuantixError::Other(format!("股票代码解析失败: {}", e)))
+}
+
+fn resolve_tdx_day_file_path(
+    tdx_root: impl AsRef<Path>,
+    code: &str,
+    market: Option<&str>,
+) -> Result<std::path::PathBuf> {
+    let root = tdx_root.as_ref();
+
+    if let Some(market) = market {
+        let market = market.to_ascii_lowercase();
+        let path = root
+            .join("vipdoc")
+            .join(&market)
+            .join("lday")
+            .join(format!("{}{}.day", market, code));
+        if path.exists() {
+            return Ok(path);
+        }
+        return Err(QuantixError::Other(format!(
+            "未找到指定市场的 day 文件: {}",
+            path.display()
+        )));
+    }
+
+    let matches: Vec<std::path::PathBuf> = ["sh", "sz", "bj", "ds"]
+        .iter()
+        .map(|market| {
+            root.join("vipdoc")
+                .join(market)
+                .join("lday")
+                .join(format!("{}{}.day", market, code))
+        })
+        .filter(|path| path.exists())
+        .collect();
+
+    match matches.as_slice() {
+        [single] => Ok(single.clone()),
+        [] => Err(QuantixError::Other(format!(
+            "未找到 {} 对应的 day 文件，请确认 --tdx-root 或补充 --market",
+            code
+        ))),
+        many => Err(QuantixError::Other(format!(
+            "代码 {} 在多个市场目录匹配到多个 day 文件: {}，请补充 --market",
+            code,
+            many.iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))),
+    }
+}
+
 /// 状态命令
 pub async fn run_status(health: bool) -> Result<()> {
     if health {
@@ -2573,7 +4795,11 @@ pub async fn run_status(health: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{MonitorAlertCommands, MonitorCommands, StopCommands, TradeCommands};
+    use crate::cli::{
+        MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
+        MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands,
+        StrategyServiceCommands, TradeCommands,
+    };
     use crate::core::QuantixError;
     use crate::core::config::{
         CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
@@ -2584,19 +4810,27 @@ mod tests {
         MarketSentimentSnapshot, NorthFlowSnapshot,
     };
     use crate::monitor::{
-        MonitorAlertStore, MonitorQuoteReader, MonitorQuoteRow, MonitorService,
-        MonitorWatchlistReader, PriceAlert, PriceAlertKind, TriggeredAlert,
+        JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorEventType,
+        MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+        MonitorServiceConfig, MonitorServiceStatusSummary, MonitorWatchlistReader, PriceAlert,
+        PriceAlertKind, SqliteMonitorAlertStore, TriggeredAlert,
     };
     use crate::screener::DailyKlineLoader;
     use crate::stop::{StopRule, StopRuleStore, StopService, StopTriggerKind};
-    use crate::trade::{PaperTradeState, PaperTradeStore, TradeService, TradeSide};
+    use crate::strategy::runtime::StrategyBarLoader;
+    use crate::trade::{
+        JsonPaperTradeStore, PaperTradeState, PaperTradeStore, TradeService, TradeSide,
+    };
     use crate::watchlist::{WatchlistListItem, WatchlistQuoteLookup, WatchlistQuoteSnapshot};
+    use crate::{execution::runtime_store::StrategyRuntimeStore, risk::JsonRiskStore};
     use async_trait::async_trait;
     use chrono::{NaiveDate, TimeZone, Utc};
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
+    use serde_json::json;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex, OnceLock};
+    use tempfile::tempdir;
 
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -2660,6 +4894,159 @@ mod tests {
         assert_eq!(client.database(), "quantix_runtime_test");
         assert_eq!(client.http_auth_for_test().0, "handler_user");
         assert_eq!(client.http_auth_for_test().1, "handler_password");
+    }
+
+    #[test]
+    fn test_parse_candle_spec_parses_ohlc_values() {
+        let candle = parse_candle_spec("10,12,8,10").unwrap();
+
+        assert_eq!(candle.open, dec!(10));
+        assert_eq!(candle.high, dec!(12));
+        assert_eq!(candle.low, dec!(8));
+        assert_eq!(candle.close, dec!(10));
+    }
+
+    #[test]
+    fn test_pattern_rows_from_klines_preserve_dates_and_ohlc() {
+        let rows = pattern_rows_from_klines(&[Kline {
+            code: "000001".to_string(),
+            date: NaiveDate::from_ymd_opt(2026, 3, 17).unwrap(),
+            open: dec!(10),
+            high: dec!(12),
+            low: dec!(8),
+            close: dec!(10),
+            volume: 100,
+            amount: None,
+            adjust_type: AdjustType::None,
+        }]);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "2026-03-17");
+        assert_eq!(rows[0].candle.open, dec!(10));
+        assert_eq!(rows[0].candle.high, dec!(12));
+        assert_eq!(rows[0].candle.low, dec!(8));
+        assert_eq!(rows[0].candle.close, dec!(10));
+    }
+
+    #[test]
+    fn test_sequence_references_uses_previous_close_values() {
+        let candles = vec![
+            CandleInput {
+                open: dec!(10),
+                high: dec!(10),
+                low: dec!(10),
+                close: dec!(10),
+            },
+            CandleInput {
+                open: dec!(10),
+                high: dec!(12),
+                low: dec!(10),
+                close: dec!(12),
+            },
+            CandleInput {
+                open: dec!(12),
+                high: dec!(12),
+                low: dec!(8),
+                close: dec!(10),
+            },
+        ];
+
+        let refs = sequence_references(&candles, &ReferencePricePolicy::PreviousClose).unwrap();
+
+        assert_eq!(refs, vec![dec!(10), dec!(12)]);
+    }
+
+    #[test]
+    fn test_infer_tdx_code_from_day_file_path_extracts_six_digit_code() {
+        assert_eq!(
+            infer_tdx_code_from_day_file_path(
+                "/mnt/d/ProgramData/tdx_20251231/vipdoc/sh/lday/sh000001.day"
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            infer_tdx_code_from_day_file_path("/tmp/sz300750.day").unwrap(),
+            300750
+        );
+    }
+
+    #[test]
+    fn test_pattern_rows_from_day_file_reads_and_limits_rows() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("sh000001.day");
+        let mut bytes = Vec::new();
+
+        bytes.extend(build_day_record_bytes(
+            20260315, 1000, 1100, 900, 1050, 1000.0, 200, 980,
+        ));
+        bytes.extend(build_day_record_bytes(
+            20260316, 1050, 1200, 1000, 1180, 1200.0, 220, 1050,
+        ));
+        std::fs::write(&path, bytes).unwrap();
+
+        let rows = pattern_rows_from_day_file(&path, None, None, 1).unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "2026-03-16");
+        assert_eq!(rows[0].candle.open, dec!(10.5));
+        assert_eq!(rows[0].candle.high, dec!(12));
+        assert_eq!(rows[0].candle.low, dec!(10));
+        assert_eq!(rows[0].candle.close, dec!(11.8));
+    }
+
+    #[test]
+    fn test_resolve_tdx_day_file_path_prefers_explicit_market() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let sh_dir = root.join("vipdoc").join("sh").join("lday");
+        let sz_dir = root.join("vipdoc").join("sz").join("lday");
+        std::fs::create_dir_all(&sh_dir).unwrap();
+        std::fs::create_dir_all(&sz_dir).unwrap();
+        std::fs::write(sh_dir.join("sh000001.day"), []).unwrap();
+        std::fs::write(sz_dir.join("sz000001.day"), []).unwrap();
+
+        let resolved = resolve_tdx_day_file_path(root, "000001", Some("sz")).unwrap();
+
+        assert_eq!(resolved, sz_dir.join("sz000001.day"));
+    }
+
+    #[test]
+    fn test_resolve_tdx_day_file_path_rejects_ambiguous_market() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        let sh_dir = root.join("vipdoc").join("sh").join("lday");
+        let sz_dir = root.join("vipdoc").join("sz").join("lday");
+        std::fs::create_dir_all(&sh_dir).unwrap();
+        std::fs::create_dir_all(&sz_dir).unwrap();
+        std::fs::write(sh_dir.join("sh000001.day"), []).unwrap();
+        std::fs::write(sz_dir.join("sz000001.day"), []).unwrap();
+
+        let error = resolve_tdx_day_file_path(root, "000001", None).unwrap_err();
+
+        assert!(error.to_string().contains("匹配到多个"));
+    }
+
+    fn build_day_record_bytes(
+        date: u32,
+        open: u32,
+        high: u32,
+        low: u32,
+        close: u32,
+        amount: f32,
+        volume: u32,
+        prev_close: u32,
+    ) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(32);
+        buf.extend(date.to_le_bytes());
+        buf.extend(open.to_le_bytes());
+        buf.extend(high.to_le_bytes());
+        buf.extend(low.to_le_bytes());
+        buf.extend(close.to_le_bytes());
+        buf.extend(amount.to_le_bytes());
+        buf.extend(volume.to_le_bytes());
+        buf.extend(prev_close.to_le_bytes());
+        buf
     }
 
     #[test]
@@ -2737,9 +5124,41 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Default)]
+    fn fixed_ts() -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 17, 9, 30, 0).unwrap()
+    }
+
+    fn sample_run(
+        symbol: &str,
+        bar_end: DateTime<Utc>,
+    ) -> crate::execution::models::StrategyRunRecord {
+        crate::execution::models::StrategyRunRecord {
+            run_id: uuid::Uuid::new_v4().to_string(),
+            strategy_name: "ma_cross".to_string(),
+            mode: "signal".to_string(),
+            trigger: "daemon".to_string(),
+            status: crate::execution::models::StrategyRunStatus::Running,
+            symbol: symbol.to_string(),
+            timeframe: "1d".to_string(),
+            bar_end,
+            started_at: fixed_ts(),
+            finished_at: None,
+            metadata_json: serde_json::json!({}),
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
     struct FakeLoader {
         data: HashMap<String, Vec<Kline>>,
+    }
+
+    impl StrategyBarLoadTelemetry for FakeLoader {
+        fn last_source(&self) -> Option<crate::strategy::StrategyBarLoadSource> {
+            Some(crate::strategy::StrategyBarLoadSource {
+                source_id: "test-primary".to_string(),
+                fallback_used: false,
+            })
+        }
     }
 
     #[async_trait]
@@ -2755,6 +5174,817 @@ mod tests {
             }
             Ok(rows)
         }
+    }
+
+    #[async_trait]
+    impl StrategyBarLoader for FakeLoader {
+        async fn load_daily_bars(
+            &self,
+            code: &str,
+            limit: usize,
+        ) -> crate::core::Result<Vec<Kline>> {
+            let mut rows = self.data.get(code).cloned().unwrap_or_default();
+            if rows.len() > limit {
+                rows = rows[rows.len() - limit..].to_vec();
+            }
+            Ok(rows)
+        }
+    }
+
+    #[async_trait]
+    impl crate::risk::RiskBarLoader for FakeLoader {
+        async fn load_daily_bars(
+            &self,
+            code: &str,
+            limit: usize,
+        ) -> crate::core::Result<Vec<Kline>> {
+            let mut rows = self.data.get(code).cloned().unwrap_or_default();
+            if rows.len() > limit {
+                rows = rows[rows.len() - limit..].to_vec();
+            }
+            Ok(rows)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_requires_explicit_code() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            None,
+            FakeLoader::default(),
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("--code"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_requires_initialized_account() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                (1..=30)
+                    .map(|day| make_kline("000001", day, dec!(10) + Decimal::from(day), 1000))
+                    .collect(),
+            )]),
+        };
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "paper",
+            Some("000001".to_string()),
+            loader,
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("trade init"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_live_remains_unsupported() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+
+        let err = execute_strategy_run_with_components(
+            "ma_cross",
+            "live",
+            Some("000001".to_string()),
+            FakeLoader::default(),
+            JsonPaperTradeStore::new(dir.path().join("paper_trade.json")),
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_mock_live_returns_non_final_status() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_components(
+            "ma_cross",
+            "mock_live",
+            Some("000001".to_string()),
+            loader,
+            trade_store,
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.mode, "mock_live");
+        assert_eq!(summary.order_status, Some(OrderStatus::Accepted));
+        assert!(summary.message.contains("order_status=accepted"));
+    }
+
+    #[tokio::test]
+    async fn test_strategy_paper_risk_bridge_surfaces_volatility_limit_reason() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                    .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+        let risk_service = RiskService::with_bar_loader(
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            loader.clone(),
+        );
+        risk_service
+            .set_rule("volatility-limit", "4%", fixed_ts())
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_risk_service(
+            "ma_cross",
+            "paper",
+            Some("000001".to_string()),
+            loader,
+            trade_store,
+            risk_service,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.order_status, Some(OrderStatus::Rejected));
+
+        let order = runtime_store
+            .find_first_order_for_run(&summary.run_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "risk_rejected");
+        assert!(
+            events[0].details_json["reason"]
+                .as_str()
+                .unwrap()
+                .contains("volatility-limit")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_strategy_mock_live_risk_bridge_surfaces_volatility_limit_reason() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                [
+                    dec!(10),
+                    dec!(9),
+                    dec!(8),
+                    dec!(7),
+                    dec!(6),
+                    dec!(5),
+                    dec!(4),
+                    dec!(3),
+                    dec!(2),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(1),
+                    dec!(12),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, close)| make_kline("000001", (idx + 1) as u32, close, 1000))
+                .collect(),
+            )]),
+        };
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+        let risk_service = RiskService::with_bar_loader(
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            loader.clone(),
+        );
+        risk_service
+            .set_rule("volatility-limit", "4%", fixed_ts())
+            .await
+            .unwrap();
+
+        let summary = execute_strategy_run_with_risk_service(
+            "ma_cross",
+            "mock_live",
+            Some("000001".to_string()),
+            loader,
+            trade_store.clone(),
+            risk_service,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.order_status, Some(OrderStatus::Rejected));
+
+        let order = runtime_store
+            .find_first_order_for_run(&summary.run_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "risk_rejected");
+        assert!(
+            events[0].details_json["reason"]
+                .as_str()
+                .unwrap()
+                .contains("volatility-limit")
+        );
+
+        let state = trade_store.load_state().await.unwrap().unwrap();
+        assert!(state.account.unwrap().positions.is_empty());
+    }
+
+    #[test]
+    fn test_execute_strategy_config_init_creates_default_file() {
+        let dir = tempdir().unwrap();
+        let store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
+
+        let config = execute_strategy_config_init_to_store(&store).unwrap();
+
+        assert_eq!(config.check_interval_secs, 60);
+        assert!(dir.path().join("strategy-config.json").exists());
+    }
+
+    #[test]
+    fn test_execute_strategy_config_show_returns_saved_config() {
+        let dir = tempdir().unwrap();
+        let store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
+        let expected = store.load_or_create().unwrap();
+
+        let shown = execute_strategy_config_show_from_store(&store).unwrap();
+
+        assert_eq!(shown, expected);
+    }
+
+    #[test]
+    fn test_execute_strategy_service_config_show_reports_not_configured_when_missing() {
+        let dir = tempdir().unwrap();
+        let store = crate::strategy::JsonStrategyServiceConfigStore::new(
+            dir.path().join("strategy-service.json"),
+        );
+
+        let shown = execute_strategy_service_config_command_with_store(
+            StrategyServiceConfigCommands::Show,
+            &store,
+        )
+        .unwrap();
+
+        assert!(shown.is_none());
+    }
+
+    #[test]
+    fn test_execute_strategy_service_config_set_persists_values() {
+        let dir = tempdir().unwrap();
+        let binary_path = dir.path().join("quantix");
+        std::fs::write(&binary_path, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut perms = std::fs::metadata(&binary_path).unwrap().permissions();
+        use std::os::unix::fs::PermissionsExt;
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&binary_path, perms).unwrap();
+
+        let store = crate::strategy::JsonStrategyServiceConfigStore::new(
+            dir.path().join("strategy-service.json"),
+        );
+
+        let shown = execute_strategy_service_config_command_with_store(
+            StrategyServiceConfigCommands::Set {
+                quantix_bin: binary_path.display().to_string(),
+                env_file: Some("/tmp/strategy.env".to_string()),
+            },
+            &store,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(shown.quantix_bin_path, binary_path);
+        assert_eq!(
+            shown.environment_file_path,
+            Some(std::path::PathBuf::from("/tmp/strategy.env"))
+        );
+
+        let saved = store.load().unwrap();
+        assert_eq!(saved.quantix_bin_path, binary_path);
+        assert_eq!(
+            saved.environment_file_path,
+            Some(std::path::PathBuf::from("/tmp/strategy.env"))
+        );
+    }
+
+    #[derive(Default)]
+    struct FakeStrategyServiceInstaller {
+        status_output: Option<String>,
+    }
+
+    impl StrategyServiceInstallerOps for FakeStrategyServiceInstaller {
+        fn install(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn uninstall(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn start(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn enable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn disable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn status(&self) -> Result<String> {
+            Ok(self
+                .status_output
+                .clone()
+                .unwrap_or_else(|| "installed: yes".to_string()))
+        }
+
+        fn status_summary(&self) -> Result<StrategyServiceStatusSummary> {
+            Ok(StrategyServiceStatusSummary {
+                installed: true,
+                enabled: false,
+                active: "inactive".to_string(),
+                unit_path: std::path::PathBuf::from(
+                    "~/.config/systemd/user/quantix-strategy.service",
+                ),
+                wrapper_path: std::path::PathBuf::from("~/.local/bin/quantix-strategy-run"),
+                quantix_bin_path: std::path::PathBuf::from("/bin/echo"),
+                environment_file_path: None,
+                raw_status: None,
+            })
+        }
+    }
+
+    #[test]
+    fn test_execute_strategy_service_install_returns_message() {
+        let message = execute_strategy_service_command_with_installer(
+            StrategyServiceCommands::Install,
+            &FakeStrategyServiceInstaller::default(),
+        )
+        .unwrap();
+
+        assert_eq!(message, "strategy service installed");
+    }
+
+    #[test]
+    fn test_execute_strategy_service_status_returns_status_text() {
+        let message = execute_strategy_service_command_with_installer(
+            StrategyServiceCommands::Status,
+            &FakeStrategyServiceInstaller {
+                status_output: Some("installed: yes\nenabled: no".to_string()),
+            },
+        )
+        .unwrap();
+
+        assert!(message.contains("installed: yes"));
+        assert!(message.contains("enabled: no"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_strategy_daemon_once_bootstraps_and_then_emits_signal() {
+        let dir = tempdir().unwrap();
+        let config_store =
+            crate::strategy::JsonStrategyConfigStore::new(dir.path().join("strategy-config.json"));
+        config_store.load_or_create().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let mut loader = FakeLoader::default();
+        loader.data.insert(
+            "000001".to_string(),
+            vec![
+                make_kline("000001", 1, dec!(10), 1000),
+                make_kline("000001", 2, dec!(10), 1000),
+                make_kline("000001", 3, dec!(10), 1000),
+                make_kline("000001", 4, dec!(9), 1000),
+                make_kline("000001", 5, dec!(9), 1000),
+                make_kline("000001", 6, dec!(20), 1000),
+            ],
+        );
+
+        let first = execute_strategy_daemon_run_once_with_components(
+            loader.clone(),
+            &config_store,
+            &runtime_store,
+        )
+        .await
+        .unwrap();
+        assert!(first.is_none());
+        assert_eq!(runtime_store.count_signals().await.unwrap(), 0);
+
+        loader
+            .data
+            .get_mut("000001")
+            .unwrap()
+            .push(make_kline("000001", 7, dec!(21), 1000));
+
+        let second =
+            execute_strategy_daemon_run_once_with_components(loader, &config_store, &runtime_store)
+                .await
+                .unwrap();
+        assert_eq!(
+            second.map(|signal| signal.metadata_json["bar_source_id"].clone()),
+            Some(json!("test-primary"))
+        );
+        assert_eq!(runtime_store.count_signals().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_execute_strategy_signal_list_approve_reject_and_request_list() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let run = sample_run("000001", fixed_ts());
+        runtime_store.insert_run(&run).await.unwrap();
+
+        let signal = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-1".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "buy".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Pending,
+            run_id: run.run_id.clone(),
+            metadata_json: json!({}),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+        runtime_store.insert_signal(&signal).await.unwrap();
+
+        let pending =
+            execute_strategy_signal_list_with_store(&runtime_store, Some("pending"), None)
+                .await
+                .unwrap();
+        assert_eq!(pending.len(), 1);
+
+        let request = execute_strategy_signal_approve_with_store(
+            &runtime_store,
+            "signal-1",
+            "paper",
+            "default",
+        )
+        .await
+        .unwrap();
+        assert_eq!(request.signal_id, "signal-1");
+
+        let requests = execute_strategy_request_list_with_store(&runtime_store, Some("pending"))
+            .await
+            .unwrap();
+        assert_eq!(requests.len(), 1);
+
+        let second = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-2".to_string(),
+            bar_end: fixed_ts() + chrono::Duration::days(1),
+            ..signal
+        };
+        runtime_store.insert_signal(&second).await.unwrap();
+        execute_strategy_signal_reject_with_store(&runtime_store, "signal-2", Some("manual"))
+            .await
+            .unwrap();
+
+        let rejected = runtime_store.get_signal("signal-2").await.unwrap().unwrap();
+        assert_eq!(
+            rejected.approval_status,
+            crate::execution::models::ApprovalStatus::Rejected
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_strategy_request_execute_and_cancel() {
+        let dir = tempdir().unwrap();
+        let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+            .await
+            .unwrap();
+        let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+        let risk_store = JsonRiskStore::new(dir.path().join("risk_state.json"));
+
+        let trade_service = TradeService::new(trade_store.clone());
+        trade_service
+            .init_account(
+                crate::trade::InitAccountRequest::new(Some(100000.0), None, None, None, None)
+                    .unwrap(),
+                fixed_ts(),
+            )
+            .await
+            .unwrap();
+
+        let run = sample_run("000001", fixed_ts());
+        runtime_store.insert_run(&run).await.unwrap();
+
+        let signal = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-request-exec".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "buy".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Pending,
+            run_id: run.run_id.clone(),
+            metadata_json: json!({
+                "market_price": "12.34",
+                "signal_value": "buy",
+                "execution_policy": {
+                    "fixed_cash_per_buy": "10000",
+                    "slippage_bps": 0
+                },
+                "bar_source_id": "test-primary",
+                "bar_source_fallback": false
+            }),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+        runtime_store.insert_signal(&signal).await.unwrap();
+
+        let request = execute_strategy_signal_approve_with_store(
+            &runtime_store,
+            "signal-request-exec",
+            "mock_live",
+            "default",
+        )
+        .await
+        .unwrap();
+
+        let completed = execute_strategy_request_execute_with_components(
+            &runtime_store,
+            &request.request_id,
+            trade_store.clone(),
+            risk_store.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            completed.request_status,
+            crate::execution::models::ExecutionRequestStatus::Completed
+        );
+        assert_eq!(
+            completed.payload_json["execution_result"]["order_status"],
+            "accepted"
+        );
+
+        let second_signal = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-request-cancel".to_string(),
+            bar_end: fixed_ts() + chrono::Duration::days(1),
+            ..signal
+        };
+        runtime_store.insert_signal(&second_signal).await.unwrap();
+
+        let cancel_request = execute_strategy_signal_approve_with_store(
+            &runtime_store,
+            "signal-request-cancel",
+            "paper",
+            "default",
+        )
+        .await
+        .unwrap();
+
+        let canceled = execute_strategy_request_cancel_with_store(
+            &runtime_store,
+            &cancel_request.request_id,
+            Some("manual cancel"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            canceled.request_status,
+            crate::execution::models::ExecutionRequestStatus::Canceled
+        );
+        assert_eq!(
+            canceled.payload_json["cancellation"]["reason"],
+            "manual cancel"
+        );
+    }
+
+    #[test]
+    fn test_format_strategy_approval_result_includes_target_and_status() {
+        let row = crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-1".to_string(),
+            signal_id: "signal-1".to_string(),
+            target_mode: "paper".to_string(),
+            target_account: "default".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Pending,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({}),
+        };
+
+        let line = format_strategy_approval_result(&row);
+
+        assert!(line.contains("req-1"));
+        assert!(line.contains("signal=signal-1"));
+        assert!(line.contains("target=paper/default"));
+        assert!(line.contains("status=pending"));
+    }
+
+    #[test]
+    fn test_format_strategy_rejection_result_includes_reason() {
+        let row = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-2".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "sell".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Rejected,
+            run_id: "run-2".to_string(),
+            metadata_json: json!({"rejection_reason": "manual reject"}),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+
+        let line = format_strategy_rejection_result(&row);
+
+        assert!(line.contains("signal-2"));
+        assert!(line.contains("signal_status=new"));
+        assert!(line.contains("approval_status=rejected"));
+        assert!(line.contains("reason=manual reject"));
+    }
+
+    #[test]
+    fn test_format_strategy_request_row_includes_target_and_status() {
+        let row = crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-2".to_string(),
+            signal_id: "signal-9".to_string(),
+            target_mode: "paper".to_string(),
+            target_account: "swing".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Completed,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({
+                "execution_result": {
+                    "order_status": "accepted",
+                    "client_order_id": "req-2_000001_1"
+                }
+            }),
+        };
+
+        let line = format_strategy_request_row(&row);
+
+        assert!(line.contains("req-2"));
+        assert!(line.contains("signal=signal-9"));
+        assert!(line.contains("target=paper/swing"));
+        assert!(line.contains("status=completed"));
+        assert!(line.contains("result=order_status=accepted client_order_id=req-2_000001_1"));
+        assert!(line.contains("created_at=2026-03-17T09:30:00Z"));
+    }
+
+    #[test]
+    fn test_format_strategy_signal_row_includes_source_metadata() {
+        let row = crate::execution::models::StrategySignalRecord {
+            signal_id: "signal-1".to_string(),
+            strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            symbol: "000001".to_string(),
+            timeframe: "1d".to_string(),
+            bar_end: fixed_ts(),
+            signal_value: "buy".to_string(),
+            signal_status: crate::execution::models::SignalStatus::New,
+            approval_status: crate::execution::models::ApprovalStatus::Pending,
+            run_id: "run-1".to_string(),
+            metadata_json: json!({
+                "bar_source_id": "clickhouse-storage",
+                "bar_source_fallback": false
+            }),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+        };
+
+        let line = format_strategy_signal_row(&row);
+
+        assert!(line.contains("signal-1"));
+        assert!(line.contains("bar_end=2026-03-17T09:30:00Z"));
+        assert!(line.contains("source=clickhouse-storage"));
+        assert!(line.contains("fallback=false"));
     }
 
     #[tokio::test]
@@ -2985,6 +6215,7 @@ mod tests {
     #[derive(Debug, Clone, Default)]
     struct FakeStopRuleState {
         rules: Vec<StopRule>,
+        history: Vec<crate::stop::StopHistoryEvent>,
         removed_codes: Vec<String>,
     }
 
@@ -3013,6 +6244,29 @@ mod tests {
             Ok(self.state.lock().unwrap().rules.clone())
         }
 
+        async fn get_rule(&self, code: &str) -> Result<Option<StopRule>> {
+            Ok(self
+                .state
+                .lock()
+                .unwrap()
+                .rules
+                .iter()
+                .find(|rule| rule.code == code)
+                .cloned())
+        }
+
+        async fn append_history(&self, _event: crate::stop::StopHistoryEvent) -> Result<()> {
+            self.state.lock().unwrap().history.push(_event);
+            Ok(())
+        }
+
+        async fn list_history(
+            &self,
+            _filter: crate::stop::StopHistoryFilter,
+        ) -> Result<Vec<crate::stop::StopHistoryEvent>> {
+            Ok(self.state.lock().unwrap().history.clone())
+        }
+
         async fn remove_rule(&self, code: &str) -> Result<bool> {
             let mut state = self.state.lock().unwrap();
             let before = state.rules.len();
@@ -3035,8 +6289,11 @@ mod tests {
             code: code.to_string(),
             stop_loss_price: Some(14.5),
             take_profit_price: None,
+            stop_loss_pct: None,
+            take_profit_pct: None,
             trailing_pct: None,
             highest_price: None,
+            reference_price: None,
             last_triggered_at: None,
             created_at: stop_sample_time(),
             updated_at: stop_sample_time(),
@@ -3230,6 +6487,64 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_trade_buy_rejects_when_volatility_limit_exceeds_threshold() {
+        let (service, store) = trade_service();
+        let dir = tempdir().unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                (1..=15)
+                    .map(|day| make_kline("000001", day, dec!(10), 1000))
+                    .collect(),
+            )]),
+        };
+        let risk_service = RiskService::with_bar_loader(
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            loader,
+        );
+
+        execute_trade_command_with_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        risk_service
+            .set_rule("volatility-limit", "4%", fixed_ts())
+            .await
+            .unwrap();
+
+        let err = execute_trade_command_with_risk(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("volatility-limit"));
+
+        let state = store.snapshot().unwrap();
+        let account = state.account.unwrap();
+        assert!(account.positions.is_empty());
+        assert!(state.trade_records.is_empty());
+    }
+
+    #[tokio::test]
     async fn test_execute_trade_sell_succeeds_and_returns_trade_summary() {
         let (service, _) = trade_service();
 
@@ -3279,6 +6594,78 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_trade_sell_ignores_volatility_limit() {
+        let (service, store) = trade_service();
+        let dir = tempdir().unwrap();
+        let loader = FakeLoader {
+            data: HashMap::from([(
+                "000001".to_string(),
+                (1..=15)
+                    .map(|day| make_kline("000001", day, dec!(10), 1000))
+                    .collect(),
+            )]),
+        };
+        let risk_service = RiskService::with_bar_loader(
+            JsonRiskStore::new(dir.path().join("risk_state.json")),
+            loader,
+        );
+
+        execute_trade_command_with_risk(
+            TradeCommands::Init {
+                capital: None,
+                commission_rate: None,
+                commission_min: None,
+                stamp_duty_rate: None,
+                transfer_fee_rate: None,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        execute_trade_command_with_service(
+            TradeCommands::Buy {
+                code: "000001".to_string(),
+                price: 15.0,
+                volume: 1000,
+            },
+            &service,
+        )
+        .await
+        .unwrap();
+
+        risk_service
+            .set_rule("volatility-limit", "4%", fixed_ts())
+            .await
+            .unwrap();
+
+        let output = execute_trade_command_with_risk(
+            TradeCommands::Sell {
+                code: "000001".to_string(),
+                price: 16.0,
+                volume: 400,
+            },
+            &service,
+            &store,
+            &risk_service,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            TradeCommandOutput::TradeExecuted(record) => {
+                assert_eq!(record.side, TradeSide::Sell);
+                assert_eq!(record.code, "000001");
+                assert_eq!(record.price, dec!(16));
+                assert_eq!(record.volume, 400);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
     async fn test_execute_trade_position_returns_current_positions() {
         let (service, _) = trade_service();
 
@@ -3309,8 +6696,8 @@ mod tests {
             TradeCommands::Position { current: false },
             &service,
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         match output {
             TradeCommandOutput::PositionList(positions) => {
@@ -4027,6 +7414,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: Some(14.5),
                 profit: None,
+                loss_pct: None,
+                profit_pct: None,
                 trailing: None,
             },
             &service,
@@ -4058,6 +7447,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: None,
                 profit: Some(18.0),
+                loss_pct: None,
+                profit_pct: None,
                 trailing: None,
             },
             &service,
@@ -4085,6 +7476,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: None,
                 profit: Some(18.0),
+                loss_pct: None,
+                profit_pct: None,
                 trailing: Some(5.0),
             },
             &service,
@@ -4112,6 +7505,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: None,
                 profit: None,
+                loss_pct: None,
+                profit_pct: None,
                 trailing: None,
             },
             &service,
@@ -4127,6 +7522,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: Some(14.5),
                 profit: None,
+                loss_pct: None,
+                profit_pct: None,
                 trailing: Some(5.0),
             },
             &service,
@@ -4135,7 +7532,11 @@ mod tests {
         .await
         .unwrap_err();
         assert!(matches!(conflict_err, QuantixError::Other(_)));
-        assert!(conflict_err.to_string().contains("--loss 和 --trailing"));
+        assert!(
+            conflict_err
+                .to_string()
+                .contains("--trailing 和 --loss/--loss-pct")
+        );
     }
 
     #[tokio::test]
@@ -4148,6 +7549,8 @@ mod tests {
                 code: "000002".to_string(),
                 loss: Some(14.5),
                 profit: None,
+                loss_pct: None,
+                profit_pct: None,
                 trailing: None,
             },
             &service,
@@ -4169,12 +7572,16 @@ mod tests {
                     code: "000001".to_string(),
                     stop_loss_price: Some(14.5),
                     take_profit_price: Some(18.0),
+                    stop_loss_pct: None,
+                    take_profit_pct: None,
                     trailing_pct: None,
                     highest_price: Some(19.2),
+                    reference_price: None,
                     last_triggered_at: Some(stop_sample_time()),
                     created_at: stop_sample_time(),
                     updated_at: stop_sample_time(),
                 }],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4185,6 +7592,8 @@ mod tests {
                 code: "000001".to_string(),
                 loss: None,
                 profit: Some(21.0),
+                loss_pct: None,
+                profit_pct: None,
                 trailing: Some(5.0),
             },
             &service,
@@ -4220,6 +7629,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![stop_rule("000001")],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4244,6 +7654,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![stop_rule("000001")],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4273,6 +7684,233 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_stop_set_loss_pct_resolves_reference_price_from_quote() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore::default();
+        let service = StopService::new(store.clone());
+        let trade_store = FakePaperTradeStore::default();
+        let quote_lookup = FakeTradeQuoteLookup {
+            quotes: HashMap::from([(
+                "000001".to_string(),
+                WatchlistQuoteSnapshot {
+                    latest_price: dec!(15.2),
+                    price_change_pct: None,
+                },
+            )]),
+            fail: false,
+        };
+
+        let output = execute_stop_command_with_context(
+            StopCommands::Set {
+                code: "000001".to_string(),
+                loss: None,
+                profit: None,
+                loss_pct: Some(5.0),
+                profit_pct: None,
+                trailing: None,
+            },
+            &service,
+            &storage,
+            &quote_lookup,
+            &trade_store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.stop_loss_pct, Some(5.0));
+                assert_eq!(rule.reference_price, Some(15.2));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_update_applies_patch_and_clear_flags() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![StopRule {
+                    code: "000001".to_string(),
+                    stop_loss_price: Some(14.5),
+                    take_profit_price: Some(18.0),
+                    stop_loss_pct: None,
+                    take_profit_pct: None,
+                    trailing_pct: None,
+                    highest_price: None,
+                    reference_price: None,
+                    last_triggered_at: None,
+                    created_at: stop_sample_time(),
+                    updated_at: stop_sample_time(),
+                }],
+                history: Vec::new(),
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = StopService::new(store);
+        let trade_store = FakePaperTradeStore::default();
+        let quote_lookup = FakeTradeQuoteLookup {
+            quotes: HashMap::from([(
+                "000001".to_string(),
+                WatchlistQuoteSnapshot {
+                    latest_price: dec!(15.2),
+                    price_change_pct: None,
+                },
+            )]),
+            fail: false,
+        };
+
+        let output = execute_stop_command_with_context(
+            StopCommands::Update {
+                code: "000001".to_string(),
+                loss: None,
+                profit: None,
+                loss_pct: None,
+                profit_pct: Some(12.0),
+                trailing: None,
+                clear_loss: true,
+                clear_profit: true,
+                clear_loss_pct: false,
+                clear_profit_pct: false,
+                clear_trailing: false,
+            },
+            &service,
+            &storage,
+            &quote_lookup,
+            &trade_store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            StopCommandOutput::RuleUpdated(rule) => {
+                assert_eq!(rule.stop_loss_price, None);
+                assert_eq!(rule.take_profit_price, None);
+                assert_eq!(rule.take_profit_pct, Some(12.0));
+                assert_eq!(rule.reference_price, Some(15.2));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_stop_status_and_history_return_evaluated_rows() {
+        let (_dir, storage) = stop_watchlist_storage(&["000001"]);
+        let stop_store = FakeStopRuleStore {
+            state: Arc::new(Mutex::new(FakeStopRuleState {
+                rules: vec![StopRule {
+                    code: "000001".to_string(),
+                    stop_loss_price: None,
+                    take_profit_price: None,
+                    stop_loss_pct: Some(5.0),
+                    take_profit_pct: None,
+                    trailing_pct: None,
+                    highest_price: None,
+                    reference_price: Some(15.2),
+                    last_triggered_at: None,
+                    created_at: stop_sample_time(),
+                    updated_at: stop_sample_time(),
+                }],
+                history: vec![crate::stop::StopHistoryEvent {
+                    id: "hist-1".to_string(),
+                    code: "000001".to_string(),
+                    event_type: StopHistoryEventType::Set,
+                    trigger_kind: None,
+                    trigger_price: None,
+                    anchor_price: Some(15.2),
+                    anchor_source: Some("reference_price".to_string()),
+                    snapshot_json: serde_json::json!({
+                        "code": "000001",
+                        "stop_loss_pct": 5.0
+                    }),
+                    created_at: stop_sample_time(),
+                }],
+                removed_codes: Vec::new(),
+            })),
+        };
+        let service = StopService::new(stop_store.clone());
+        let trade_store = FakePaperTradeStore {
+            state: Arc::new(Mutex::new(Some(PaperTradeState {
+                version: 1,
+                account: Some(PaperTradeAccount {
+                    account_id: "default".to_string(),
+                    initial_capital: dec!(100000),
+                    available_cash: dec!(80000),
+                    fee_config: crate::trade::FeeConfig::default(),
+                    positions: std::collections::BTreeMap::from([(
+                        "000001".to_string(),
+                        crate::trade::TradePosition {
+                            code: "000001".to_string(),
+                            volume: 1000,
+                            avg_cost: dec!(20),
+                            last_trade_price: dec!(20),
+                            opened_at: stop_sample_time(),
+                            updated_at: stop_sample_time(),
+                        },
+                    )]),
+                    created_at: stop_sample_time(),
+                    updated_at: stop_sample_time(),
+                }),
+                trade_records: Vec::new(),
+            }))),
+        };
+        let quote_lookup = FakeTradeQuoteLookup {
+            quotes: HashMap::from([(
+                "000001".to_string(),
+                WatchlistQuoteSnapshot {
+                    latest_price: dec!(19),
+                    price_change_pct: None,
+                },
+            )]),
+            fail: false,
+        };
+
+        let status_output = execute_stop_command_with_context(
+            StopCommands::Status {
+                code: Some("000001".to_string()),
+            },
+            &service,
+            &storage,
+            &quote_lookup,
+            &trade_store,
+        )
+        .await
+        .unwrap();
+
+        match status_output {
+            StopCommandOutput::StatusRows(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].anchor_source, Some(crate::stop::StopAnchorSource::PositionCost));
+                assert_eq!(rows[0].loss_threshold, Some(19.0));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let history_output = execute_stop_command_with_context(
+            StopCommands::History {
+                code: Some("000001".to_string()),
+                limit: 10,
+                date: None,
+                event_type: None,
+            },
+            &service,
+            &storage,
+            &quote_lookup,
+            &trade_store,
+        )
+        .await
+        .unwrap();
+
+        match history_output {
+            StopCommandOutput::HistoryRows(rows) => {
+                assert!(!rows.is_empty());
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
     async fn test_execute_monitor_watchlist_once_returns_rows() {
         let service = MonitorService::new(
             FakeMonitorWatchlistReader {
@@ -4291,7 +7929,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
         )
         .await
@@ -4334,7 +7975,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
         )
         .await
@@ -4365,14 +8009,18 @@ mod tests {
         );
 
         let err = execute_monitor_command_with_service(
-            MonitorCommands::Watchlist { once: false },
+            MonitorCommands::Watchlist {
+                once: false,
+                repeat: false,
+            },
             &service,
         )
         .await
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Other(_)));
-        assert!(err.to_string().contains("仅支持 --once"));
+        assert!(err.to_string().contains("--once"));
+        assert!(err.to_string().contains("--repeat"));
     }
 
     #[tokio::test]
@@ -4380,6 +8028,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![stop_rule("000001")],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4394,7 +8043,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4424,6 +8076,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![rule],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4438,7 +8091,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4467,6 +8123,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![rule],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4481,7 +8138,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4511,6 +8171,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![rule],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4525,7 +8186,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4557,6 +8221,7 @@ mod tests {
         let store = FakeStopRuleStore {
             state: Arc::new(Mutex::new(FakeStopRuleState {
                 rules: vec![stop_rule("000001")],
+                history: Vec::new(),
                 removed_codes: Vec::new(),
             })),
         };
@@ -4579,7 +8244,10 @@ mod tests {
         );
 
         let output = execute_monitor_command_with_stop_store(
-            MonitorCommands::Watchlist { once: true },
+            MonitorCommands::Watchlist {
+                once: true,
+                repeat: false,
+            },
             &service,
             &store,
         )
@@ -4831,6 +8499,336 @@ mod tests {
         assert_eq!(alerts[0].last_triggered_at, Some(monitor_sample_time()));
     }
 
+    #[test]
+    fn test_execute_monitor_config_show_returns_default_config() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorConfigStore::new(dir.path().join("monitor-config.json"));
+
+        let output =
+            execute_monitor_config_command_with_store(MonitorConfigCommands::Show, &store).unwrap();
+
+        match output {
+            MonitorCommandOutput::Config(config) => {
+                assert_eq!(config.interval_seconds, 30);
+                assert_eq!(config.watchlist_group, None);
+                assert!(config.persist_events);
+                assert_eq!(config.max_event_history, 1000);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_config_set_updates_persisted_values() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorConfigStore::new(dir.path().join("monitor-config.json"));
+
+        let output = execute_monitor_config_command_with_store(
+            MonitorConfigCommands::Set {
+                interval_seconds: Some(15),
+                group: None,
+                persist_events: None,
+            },
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::Config(config) => {
+                assert_eq!(config.interval_seconds, 15);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let reloaded = store.load_or_create().unwrap();
+        assert_eq!(reloaded.interval_seconds, 15);
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_event_list_returns_filtered_rows() {
+        let dir = tempdir().unwrap();
+        let store = SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+            .await
+            .unwrap();
+        store
+            .record_event_edge(
+                "price_alert",
+                "price_alert:000001",
+                true,
+                Some(crate::monitor::NewMonitorEvent {
+                    event_time: monitor_sample_time(),
+                    event_type: MonitorEventType::PriceAlert,
+                    code: "000001".to_string(),
+                    price: Some(16.2),
+                    message: "000001 triggered".to_string(),
+                    source_type: "price_alert".to_string(),
+                    source_key: "price_alert:000001".to_string(),
+                    observed_at: Some(monitor_sample_time()),
+                    run_mode: MonitorRunMode::Daemon,
+                }),
+                1000,
+            )
+            .await
+            .unwrap();
+
+        let output = execute_monitor_event_command_with_store(
+            MonitorEventCommands::List {
+                limit: 10,
+                code: Some("000001".to_string()),
+                event_type: Some("price-alert".to_string()),
+            },
+            &store,
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::EventList(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].code, "000001");
+                assert_eq!(rows[0].event_type, MonitorEventType::PriceAlert);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_repeat_uses_runner_in_foreground_mode() {
+        let dir = tempdir().unwrap();
+        let runner = MonitorRunner::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.2)],
+            },
+            SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+                .await
+                .unwrap(),
+            FakeStopRuleStore::default(),
+            FakePaperTradeStore::default(),
+        );
+
+        let output = execute_monitor_iteration_with_runner(
+            MonitorCommands::Watchlist {
+                once: false,
+                repeat: true,
+            },
+            &crate::monitor::MonitorConfig::default(),
+            &runner,
+            monitor_sample_time(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AutomationIteration { run_mode, output } => {
+                assert_eq!(run_mode, MonitorRunMode::Foreground);
+                assert_eq!(output.snapshot.rows.len(), 1);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_monitor_daemon_run_uses_runner_in_daemon_mode() {
+        let dir = tempdir().unwrap();
+        let runner = MonitorRunner::new(
+            FakeMonitorWatchlistReader {
+                items: vec![monitor_watchlist_item("000001", "core", &[])],
+            },
+            FakeMonitorQuoteReader {
+                rows: vec![monitor_quote_row("000001", 16.8, 3.2)],
+            },
+            SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
+                .await
+                .unwrap(),
+            FakeStopRuleStore::default(),
+            FakePaperTradeStore::default(),
+        );
+
+        let output = execute_monitor_iteration_with_runner(
+            MonitorCommands::Daemon(MonitorDaemonCommands::Run),
+            &crate::monitor::MonitorConfig::default(),
+            &runner,
+            monitor_sample_time(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::AutomationIteration { run_mode, output } => {
+                assert_eq!(run_mode, MonitorRunMode::Daemon);
+                assert_eq!(output.snapshot.rows.len(), 1);
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_service_config_show_returns_saved_binary_path() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
+        store
+            .save(&MonitorServiceConfig {
+                quantix_bin_path: "/bin/echo".into(),
+            })
+            .unwrap();
+
+        let output = execute_monitor_service_config_command_with_store(
+            MonitorServiceConfigCommands::Show,
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::ServiceConfig(config) => {
+                assert_eq!(
+                    config.quantix_bin_path,
+                    std::path::PathBuf::from("/bin/echo")
+                );
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_service_config_show_reports_not_configured_when_missing() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
+
+        let output = execute_monitor_service_config_command_with_store(
+            MonitorServiceConfigCommands::Show,
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::ServiceMessage(message) => {
+                assert!(message.contains("未配置"));
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_service_config_set_persists_binary_path() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
+
+        let output = execute_monitor_service_config_command_with_store(
+            MonitorServiceConfigCommands::Set {
+                quantix_bin: "/bin/echo".to_string(),
+            },
+            &store,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::ServiceConfig(config) => {
+                assert_eq!(
+                    config.quantix_bin_path,
+                    std::path::PathBuf::from("/bin/echo")
+                );
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+
+        let saved = store.load().unwrap();
+        assert_eq!(
+            saved.quantix_bin_path,
+            std::path::PathBuf::from("/bin/echo")
+        );
+    }
+
+    #[test]
+    fn test_execute_monitor_service_config_set_rejects_invalid_binary_path() {
+        let dir = tempdir().unwrap();
+        let store = JsonMonitorServiceConfigStore::new(dir.path().join("service.json"));
+
+        let err = execute_monitor_service_config_command_with_store(
+            MonitorServiceConfigCommands::Set {
+                quantix_bin: "relative/path".to_string(),
+            },
+            &store,
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("绝对"));
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct FakeMonitorServiceInstaller {
+        status_summary: Option<MonitorServiceStatusSummary>,
+        status_error: Option<String>,
+        uninstall_error: Option<String>,
+    }
+
+    fn sample_service_status_summary() -> MonitorServiceStatusSummary {
+        MonitorServiceStatusSummary {
+            installed: true,
+            enabled: false,
+            active: "inactive".to_string(),
+            unit_path: std::path::PathBuf::from("~/.config/systemd/user/quantix-monitor.service"),
+            wrapper_path: std::path::PathBuf::from("~/.local/bin/quantix-monitor-run"),
+            quantix_bin_path: std::path::PathBuf::from("/bin/echo"),
+            raw_status: None,
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_service_status_returns_summary() {
+        let installer = FakeMonitorServiceInstaller {
+            status_summary: Some(sample_service_status_summary()),
+            ..Default::default()
+        };
+
+        let output = execute_monitor_service_command_with_installer(
+            MonitorServiceCommands::Status,
+            &installer,
+        )
+        .unwrap();
+
+        match output {
+            MonitorCommandOutput::ServiceStatus(summary) => {
+                assert!(summary.installed);
+                assert_eq!(summary.active, "inactive");
+            }
+            other => panic!("unexpected output: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_execute_monitor_service_uninstall_surfaces_stop_first_error() {
+        let installer = FakeMonitorServiceInstaller {
+            uninstall_error: Some(
+                "monitor service 仍在运行，请先执行 monitor service stop".to_string(),
+            ),
+            ..Default::default()
+        };
+
+        let err = execute_monitor_service_command_with_installer(
+            MonitorServiceCommands::Uninstall,
+            &installer,
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("monitor service stop"));
+    }
+
+    #[test]
+    fn test_build_unconfigured_monitor_service_status_summary_marks_unconfigured() {
+        let summary = build_unconfigured_monitor_service_status_summary();
+
+        assert!(!summary.installed);
+        assert!(!summary.enabled);
+        assert_eq!(summary.active, "unconfigured");
+        assert_eq!(
+            summary.quantix_bin_path,
+            std::path::PathBuf::from("<unconfigured>")
+        );
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct MarketBoardRequest {
         board_type: BoardType,
@@ -4861,6 +8859,50 @@ mod tests {
         fn new() -> Self {
             Self {
                 state: Arc::new(Mutex::new(FakeMarketState::default())),
+            }
+        }
+    }
+
+    impl MonitorServiceInstallerOps for FakeMonitorServiceInstaller {
+        fn install(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn uninstall(&self) -> Result<()> {
+            match &self.uninstall_error {
+                Some(message) => Err(QuantixError::Other(message.clone())),
+                None => Ok(()),
+            }
+        }
+
+        fn start(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn stop(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn enable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn disable(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn status(&self) -> Result<String> {
+            match &self.status_error {
+                Some(message) => Err(QuantixError::Other(message.clone())),
+                None => Ok("status-text".to_string()),
+            }
+        }
+
+        fn status_summary(&self) -> Result<MonitorServiceStatusSummary> {
+            match (&self.status_summary, &self.status_error) {
+                (_, Some(message)) => Err(QuantixError::Other(message.clone())),
+                (Some(summary), None) => Ok(summary.clone()),
+                (None, None) => Err(QuantixError::Other("missing status summary".to_string())),
             }
         }
     }

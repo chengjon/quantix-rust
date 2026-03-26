@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use quantix_cli::core::{CliRuntime, ClickHouseSettings};
 use quantix_cli::monitor::{
-    systemd::{MonitorServiceStatusSummary, MonitorUserServiceInstaller},
     MonitorServiceConfig,
+    systemd::{MonitorServiceStatusSummary, MonitorUserServiceInstaller},
 };
 
 fn sample_runtime() -> CliRuntime {
@@ -21,6 +21,7 @@ fn sample_runtime() -> CliRuntime {
         monitor_config_path: PathBuf::from("/tmp/quantix/monitor/config.json"),
         strategy_config_path: PathBuf::from("/tmp/quantix/strategy/config.json"),
         strategy_runtime_db_path: PathBuf::from("/tmp/quantix/strategy/runtime.db"),
+        execution_config_path: PathBuf::from("/tmp/quantix/execution/config.json"),
     }
 }
 
@@ -32,10 +33,7 @@ fn sample_service_config() -> MonitorServiceConfig {
 
 #[test]
 fn monitor_systemd_render_unit_uses_wrapper_script_instead_of_current_exe() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     let unit = installer.render_unit();
 
@@ -46,10 +44,7 @@ fn monitor_systemd_render_unit_uses_wrapper_script_instead_of_current_exe() {
 
 #[test]
 fn monitor_systemd_unit_path_targets_user_service_directory() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     assert_eq!(
         installer.unit_path(),
@@ -59,10 +54,7 @@ fn monitor_systemd_unit_path_targets_user_service_directory() {
 
 #[test]
 fn monitor_systemd_wrapper_path_targets_local_bin() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     assert_eq!(
         installer.wrapper_path(),
@@ -72,10 +64,7 @@ fn monitor_systemd_wrapper_path_targets_local_bin() {
 
 #[test]
 fn monitor_systemd_render_wrapper_script_runs_configured_quantix_binary() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     let script = installer.render_wrapper_script();
 
@@ -85,10 +74,7 @@ fn monitor_systemd_render_wrapper_script_runs_configured_quantix_binary() {
 
 #[test]
 fn monitor_systemd_command_args_target_systemctl_user_scope() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     assert_eq!(
         installer.systemctl_args("start"),
@@ -102,16 +88,17 @@ fn monitor_systemd_command_args_target_systemctl_user_scope() {
 
 #[test]
 fn monitor_systemd_render_unit_includes_environment_lines_for_runtime_paths() {
-    let installer = MonitorUserServiceInstaller::new(
-        sample_runtime(),
-        sample_service_config(),
-    );
+    let installer = MonitorUserServiceInstaller::new(sample_runtime(), sample_service_config());
 
     let unit = installer.render_unit();
 
-    assert!(unit.contains("Environment=QUANTIX_WATCHLIST_PATH=/tmp/quantix/watchlist/watchlist.json"));
+    assert!(
+        unit.contains("Environment=QUANTIX_WATCHLIST_PATH=/tmp/quantix/watchlist/watchlist.json")
+    );
     assert!(unit.contains("Environment=QUANTIX_MONITOR_DB_PATH=/tmp/quantix/monitor/alerts.db"));
-    assert!(unit.contains("Environment=QUANTIX_MONITOR_CONFIG_PATH=/tmp/quantix/monitor/config.json"));
+    assert!(
+        unit.contains("Environment=QUANTIX_MONITOR_CONFIG_PATH=/tmp/quantix/monitor/config.json")
+    );
 }
 
 #[test]

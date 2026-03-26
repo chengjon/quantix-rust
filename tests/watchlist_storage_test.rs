@@ -99,7 +99,11 @@ fn save_and_load_round_trip_preserves_tags_and_history() {
 #[test]
 fn load_or_create_creates_missing_parent_directory() {
     let dir = tempdir().unwrap();
-    let path = dir.path().join("nested").join("watchlist").join("store.json");
+    let path = dir
+        .path()
+        .join("nested")
+        .join("watchlist")
+        .join("store.json");
     let storage = WatchlistStorage::new(path.clone());
 
     let store = storage.load_or_create().unwrap();

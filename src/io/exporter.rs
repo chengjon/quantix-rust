@@ -102,9 +102,7 @@ impl DataExporter {
         }
 
         let duration = start.elapsed();
-        let file_size = std::fs::metadata(output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             output_path: output_path.to_string_lossy().to_string(),
@@ -141,10 +139,22 @@ impl DataExporter {
             wtr.write_record(&[
                 &kline.code,
                 &kline.date.to_string(),
-                &format!("{:.prec$}", kline.open, prec = self.config.decimal_precision),
-                &format!("{:.prec$}", kline.high, prec = self.config.decimal_precision),
+                &format!(
+                    "{:.prec$}",
+                    kline.open,
+                    prec = self.config.decimal_precision
+                ),
+                &format!(
+                    "{:.prec$}",
+                    kline.high,
+                    prec = self.config.decimal_precision
+                ),
                 &format!("{:.prec$}", kline.low, prec = self.config.decimal_precision),
-                &format!("{:.prec$}", kline.close, prec = self.config.decimal_precision),
+                &format!(
+                    "{:.prec$}",
+                    kline.close,
+                    prec = self.config.decimal_precision
+                ),
                 &kline.volume.to_string(),
                 &kline
                     .amount
@@ -176,10 +186,8 @@ impl DataExporter {
 
     /// 导出为 Parquet
     async fn export_parquet<P: AsRef<Path>>(&self, klines: &[Kline], output_path: P) -> Result<()> {
-        use arrow::array::{
-            Float64Array, PrimitiveArray, RecordBatch, StringArray,
-        };
-        use arrow::datatypes::{DataType, Date32Type, Field, Schema, Int64Type};
+        use arrow::array::{Float64Array, PrimitiveArray, RecordBatch, StringArray};
+        use arrow::datatypes::{DataType, Date32Type, Field, Int64Type, Schema};
         use parquet::arrow::arrow_writer::ArrowWriter;
         use std::sync::Arc;
 
@@ -199,12 +207,28 @@ impl DataExporter {
         let codes: Vec<&str> = klines.iter().map(|k| k.code.as_str()).collect();
         let dates: Vec<i32> = klines
             .iter()
-            .map(|k| k.date.signed_duration_since(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()).num_days() as i32)
+            .map(|k| {
+                k.date
+                    .signed_duration_since(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap())
+                    .num_days() as i32
+            })
             .collect();
-        let opens: Vec<f64> = klines.iter().map(|k| k.open.to_f64().unwrap_or(0.0)).collect();
-        let highs: Vec<f64> = klines.iter().map(|k| k.high.to_f64().unwrap_or(0.0)).collect();
-        let lows: Vec<f64> = klines.iter().map(|k| k.low.to_f64().unwrap_or(0.0)).collect();
-        let closes: Vec<f64> = klines.iter().map(|k| k.close.to_f64().unwrap_or(0.0)).collect();
+        let opens: Vec<f64> = klines
+            .iter()
+            .map(|k| k.open.to_f64().unwrap_or(0.0))
+            .collect();
+        let highs: Vec<f64> = klines
+            .iter()
+            .map(|k| k.high.to_f64().unwrap_or(0.0))
+            .collect();
+        let lows: Vec<f64> = klines
+            .iter()
+            .map(|k| k.low.to_f64().unwrap_or(0.0))
+            .collect();
+        let closes: Vec<f64> = klines
+            .iter()
+            .map(|k| k.close.to_f64().unwrap_or(0.0))
+            .collect();
         let volumes: Vec<i64> = klines.iter().map(|k| k.volume).collect();
         let amounts: Vec<f64> = klines
             .iter()
@@ -238,22 +262,24 @@ impl DataExporter {
         .map_err(|e| crate::core::QuantixError::Other(format!("创建 RecordBatch 失败: {}", e)))?;
 
         // 写入 Parquet 文件
-        let file = File::create(output_path.as_ref())
-            .map_err(|e| crate::core::QuantixError::Other(format!("创建 Parquet 文件失败: {}", e)))?;
+        let file = File::create(output_path.as_ref()).map_err(|e| {
+            crate::core::QuantixError::Other(format!("创建 Parquet 文件失败: {}", e))
+        })?;
 
-        let props = parquet::file::properties::WriterProperties::builder()
-            .build();
+        let props = parquet::file::properties::WriterProperties::builder().build();
 
-        let mut writer = ArrowWriter::try_new(file, Arc::new(schema), Some(props))
-            .map_err(|e| crate::core::QuantixError::Other(format!("创建 ArrowWriter 失败: {}", e)))?;
+        let mut writer =
+            ArrowWriter::try_new(file, Arc::new(schema), Some(props)).map_err(|e| {
+                crate::core::QuantixError::Other(format!("创建 ArrowWriter 失败: {}", e))
+            })?;
 
-        writer
-            .write(&batch)
-            .map_err(|e| crate::core::QuantixError::Other(format!("写入 Parquet 数据失败: {}", e)))?;
+        writer.write(&batch).map_err(|e| {
+            crate::core::QuantixError::Other(format!("写入 Parquet 数据失败: {}", e))
+        })?;
 
-        writer
-            .close()
-            .map_err(|e| crate::core::QuantixError::Other(format!("完成 Parquet 写入失败: {}", e)))?;
+        writer.close().map_err(|e| {
+            crate::core::QuantixError::Other(format!("完成 Parquet 写入失败: {}", e))
+        })?;
 
         Ok(())
     }
@@ -282,7 +308,9 @@ mod tests {
                     low: Decimal::from_f64_retain(9.0 + i_f64 * 0.1).unwrap(),
                     close: Decimal::from_f64_retain(10.5 + i_f64 * 0.1).unwrap(),
                     volume: 1000000 + i_i64 * 1000,
-                    amount: Some(Decimal::from_f64_retain((10000000 + i_i64 * 10000) as f64).unwrap()),
+                    amount: Some(
+                        Decimal::from_f64_retain((10000000 + i_i64 * 10000) as f64).unwrap(),
+                    ),
                     adjust_type: AdjustType::None,
                 }
             })

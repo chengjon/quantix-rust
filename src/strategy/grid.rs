@@ -95,18 +95,24 @@ impl GridStrategy {
     }
 
     /// 初始化网格
-    fn initialize_grid(&mut self, current_price: rust_decimal::Decimal, current_atr: rust_decimal::Decimal) {
+    fn initialize_grid(
+        &mut self,
+        current_price: rust_decimal::Decimal,
+        current_atr: rust_decimal::Decimal,
+    ) {
         // 计算中心价格为当前价格
         self.center_price = Some(current_price);
 
         // 计算上下边界
-        let half_range = current_atr * self.config.range_multiplier / rust_decimal::Decimal::from(10);
+        let half_range =
+            current_atr * self.config.range_multiplier / rust_decimal::Decimal::from(10);
         self.upper_bound = Some(current_price + half_range);
         self.lower_bound = Some(current_price - half_range);
 
         // 计算网格间距
         let range = self.upper_bound.unwrap() - self.lower_bound.unwrap();
-        self.grid_spacing = Some(range / rust_decimal::Decimal::from(self.config.grid_count as u64));
+        self.grid_spacing =
+            Some(range / rust_decimal::Decimal::from(self.config.grid_count as u64));
 
         // 生成网格订单
         self.generate_grid_orders();

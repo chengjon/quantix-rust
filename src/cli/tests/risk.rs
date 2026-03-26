@@ -1,6 +1,7 @@
 use super::*;
-use crate::risk::{JsonRiskStore, RiskStore, RiskRuleType, RuleValue};
+use crate::risk::{JsonRiskStore, RiskRuleType, RiskStore, RuleValue, SqliteLiveImportStore};
 use rust_decimal_macros::dec;
+use std::fs;
 use std::sync::{Mutex, OnceLock};
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
@@ -78,6 +79,25 @@ fn parses_risk() {
         other => panic!("unexpected command: {:?}", other),
     }
 
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "rule",
+        "set",
+        "--type",
+        "volatility-limit",
+        "--value",
+        "4%",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Risk(RiskCommands::Rule(RiskRuleCommands::Set { rule_type, value })) => {
+            assert_eq!(rule_type, "volatility-limit");
+            assert_eq!(value, "4%");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
     let cli = Cli::try_parse_from(["quantix", "risk", "rule", "list"]).unwrap();
     match cli.command {
         Commands::Risk(RiskCommands::Rule(RiskRuleCommands::List)) => {}
@@ -118,19 +138,89 @@ fn parses_risk() {
 
     let cli = Cli::try_parse_from(["quantix", "risk", "status"]).unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Status) => {}
+        Commands::Risk(RiskCommands::Status {
+            source,
+            account,
+        }) => {
+            assert_eq!(source, None);
+            assert_eq!(account, None);
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 
     let cli = Cli::try_parse_from(["quantix", "risk", "pnl"]).unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Pnl) => {}
+        Commands::Risk(RiskCommands::Pnl { source, account }) => {
+            assert_eq!(source, None);
+            assert_eq!(account, None);
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 
     let cli = Cli::try_parse_from(["quantix", "risk", "position"]).unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Position) => {}
+        Commands::Risk(RiskCommands::Position { source, account }) => {
+            assert_eq!(source, None);
+            assert_eq!(account, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "status",
+        "--source",
+        "live_import",
+        "--account",
+        "live-001",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Risk(RiskCommands::Status { source, account }) => {
+            assert_eq!(source.as_deref(), Some("live_import"));
+            assert_eq!(account.as_deref(), Some("live-001"));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "import",
+        "live-trades",
+        "--account",
+        "live-001",
+        "--input",
+        "/tmp/live.csv",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Risk(RiskCommands::Import(RiskImportCommands::LiveTrades {
+            account,
+            input,
+        })) => {
+            assert_eq!(account, "live-001");
+            assert_eq!(input, "/tmp/live.csv");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "rebuild",
+        "live-account",
+        "--account",
+        "live-001",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Risk(RiskCommands::Rebuild(RiskRebuildCommands::LiveAccount {
+            account,
+        })) => {
+            assert_eq!(account, "live-001");
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 
@@ -215,8 +305,8 @@ fn parses_risk_rejects_missing_value_or_type() {
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--value"));
 
-    let err = Cli::try_parse_from(["quantix", "risk", "rule", "set", "--value", "20%"])
-        .unwrap_err();
+    let err =
+        Cli::try_parse_from(["quantix", "risk", "rule", "set", "--value", "20%"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     assert!(err.to_string().contains("--type"));
 }
@@ -255,4 +345,129 @@ async fn run_risk_rule_set_dispatches_to_handler() {
     assert_eq!(state.rules.len(), 1);
     assert_eq!(state.rules[0].rule_type, RiskRuleType::PositionLimit);
     assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(20)));
+}
+
+#[tokio::test]
+async fn run_risk_rule_set_volatility_limit_dispatches_to_handler() {
+    let _lock = env_lock();
+    let _guard = RiskEnvGuard::capture();
+    let dir = tempfile::tempdir().unwrap();
+    let risk_path = dir.path().join("risk.json");
+    let trade_path = dir.path().join("trade.json");
+    unsafe {
+        std::env::set_var("QUANTIX_RISK_PATH", &risk_path);
+        std::env::set_var("QUANTIX_TRADE_PATH", &trade_path);
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "rule",
+        "set",
+        "--type",
+        "volatility-limit",
+        "--value",
+        "4%",
+    ])
+    .unwrap();
+
+    cli.run().await.unwrap();
+
+    let state = JsonRiskStore::new(risk_path)
+        .load_state()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(state.rules.len(), 1);
+    assert_eq!(state.rules[0].rule_type, RiskRuleType::VolatilityLimit);
+    assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
+}
+
+#[tokio::test]
+async fn run_risk_import_rebuild_and_live_import_status_dispatch_to_handlers() {
+    let _lock = env_lock();
+    let _guard = RiskEnvGuard::capture();
+    let dir = tempfile::tempdir().unwrap();
+    let risk_path = dir.path().join("risk.json");
+    let trade_path = dir.path().join("trade.json");
+    let input_path = dir.path().join("live.csv");
+    fs::write(
+        &input_path,
+        "record_type,account_id,external_id,code,side,price,volume,fee_total,business_type,amount,executed_at,occurred_at\ncash,live-001,cash-1,,,,,,deposit,100000.00,,2026-03-24T09:00:00Z\ntrade,live-001,fill-1,000001,buy,15.20,100,5.00,,,2026-03-24T09:35:00Z,\n",
+    )
+    .unwrap();
+    unsafe {
+        std::env::set_var("QUANTIX_RISK_PATH", &risk_path);
+        std::env::set_var("QUANTIX_TRADE_PATH", &trade_path);
+    }
+
+    Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "import",
+        "live-trades",
+        "--account",
+        "live-001",
+        "--input",
+        input_path.to_str().unwrap(),
+    ])
+    .unwrap()
+    .run()
+    .await
+    .unwrap();
+
+    Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "rebuild",
+        "live-account",
+        "--account",
+        "live-001",
+    ])
+    .unwrap()
+    .run()
+    .await
+    .unwrap();
+
+    Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "status",
+        "--source",
+        "live_import",
+        "--account",
+        "live-001",
+    ])
+    .unwrap()
+    .run()
+    .await
+    .unwrap();
+
+    let live_import_path = risk_path.with_file_name("live_import.db");
+    let store = SqliteLiveImportStore::new(&live_import_path).await.unwrap();
+    let mirror = store
+        .get_latest_mirror_account("live-001")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(mirror.account_id, "live-001");
+    assert_eq!(mirror.positions.len(), 1);
+
+    let risk_state = JsonRiskStore::new(&risk_path).load_state().await.unwrap();
+    assert!(risk_state.is_none());
+}
+
+#[tokio::test]
+async fn run_risk_live_import_status_requires_account_flag() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "status",
+        "--source",
+        "live_import",
+    ])
+    .unwrap();
+
+    let err = cli.run().await.unwrap_err();
+    assert!(err.to_string().contains("--account"));
 }

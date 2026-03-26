@@ -131,18 +131,11 @@ pub enum OptimizationSuggestion {
         reason: String,
     },
     /// 启用并行处理
-    EnableParallelProcessing {
-        suggested_threads: usize,
-    },
+    EnableParallelProcessing { suggested_threads: usize },
     /// 使用预分配
-    UsePreallocation {
-        type_name: String,
-        capacity: usize,
-    },
+    UsePreallocation { type_name: String, capacity: usize },
     /// 缓存计算结果
-    CacheComputation {
-        function_name: String,
-    },
+    CacheComputation { function_name: String },
     /// 使用零拷贝
     UseZeroCopy {
         current_approach: String,
@@ -185,9 +178,7 @@ pub fn analyze_performance(
             .map(|n| n.get())
             .unwrap_or(4);
 
-        suggestions.push(OptimizationSuggestion::EnableParallelProcessing {
-            suggested_threads,
-        });
+        suggestions.push(OptimizationSuggestion::EnableParallelProcessing { suggested_threads });
     }
 
     suggestions

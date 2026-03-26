@@ -71,6 +71,10 @@ pub enum Commands {
     #[command(subcommand)]
     Risk(RiskCommands),
 
+    /// 执行自动化命令
+    #[command(subcommand)]
+    Execution(ExecutionCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -146,6 +150,170 @@ pub enum StrategyCommands {
         #[arg(short, long)]
         name: String,
     },
+
+    /// 策略调度配置
+    #[command(subcommand)]
+    Config(StrategyConfigCommands),
+
+    /// 策略守护进程
+    #[command(subcommand)]
+    Daemon(StrategyDaemonCommands),
+
+    /// 策略信号
+    #[command(subcommand)]
+    Signal(StrategySignalCommands),
+
+    /// 执行请求
+    #[command(subcommand)]
+    Request(StrategyRequestCommands),
+
+    /// 策略服务
+    #[command(subcommand)]
+    Service(StrategyServiceCommands),
+
+    /// 策略服务配置
+    #[command(subcommand)]
+    ServiceConfig(StrategyServiceConfigCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategyConfigCommands {
+    /// 初始化策略配置
+    Init,
+
+    /// 显示策略配置
+    Show,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategyDaemonCommands {
+    /// 运行策略守护进程
+    Run {
+        /// 仅执行一轮
+        #[arg(long)]
+        once: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategySignalCommands {
+    /// 列出信号
+    List {
+        /// 策略实例 ID
+        #[arg(long = "strategy-instance")]
+        strategy_instance: Option<String>,
+
+        /// 策略名称
+        #[arg(long = "strategy")]
+        strategy: Option<String>,
+
+        /// 股票代码
+        #[arg(short = 'c', long = "code")]
+        code: Option<String>,
+
+        /// 审批状态
+        #[arg(long = "approval-status")]
+        approval_status: Option<String>,
+
+        /// 信号状态
+        #[arg(long = "signal-status")]
+        signal_status: Option<String>,
+
+        /// 限制返回条数
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+    },
+
+    /// 批准信号
+    Approve {
+        /// 信号 ID
+        #[arg(long = "signal-id")]
+        signal_id: String,
+
+        /// 目标执行模式
+        #[arg(long = "target-mode")]
+        target_mode: String,
+
+        /// 目标账户
+        #[arg(long = "target-account")]
+        target_account: String,
+    },
+
+    /// 拒绝信号
+    Reject {
+        /// 信号 ID
+        #[arg(long = "signal-id")]
+        signal_id: String,
+
+        /// 拒绝原因
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategyRequestCommands {
+    /// 列出执行请求
+    List {
+        /// 请求状态
+        #[arg(long)]
+        status: Option<String>,
+
+        /// 目标模式
+        #[arg(long = "target-mode")]
+        target_mode: Option<String>,
+
+        /// 目标账户
+        #[arg(long = "target-account")]
+        target_account: Option<String>,
+
+        /// 限制返回条数
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+    },
+
+    /// 执行一个待处理请求
+    Execute {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+    },
+
+    /// 取消一个待处理请求
+    Cancel {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+
+        /// 取消原因
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategyServiceCommands {
+    Install,
+    Uninstall,
+    Start,
+    Stop,
+    Status,
+    Enable,
+    Disable,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StrategyServiceConfigCommands {
+    Show,
+    Set {
+        /// quantix 二进制绝对路径
+        #[arg(long = "quantix-bin")]
+        quantix_bin: String,
+
+        /// 可选环境文件
+        #[arg(long = "env-file")]
+        env_file: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -202,6 +370,65 @@ pub enum AnalyzeCommands {
         id: String,
     },
 
+    /// K线形态识别
+    #[command(group(
+        ArgGroup::new("candle_pattern_source")
+            .args(["candle", "code", "day_file"])
+            .required(true)
+            .multiple(false)
+    ))]
+    #[command(group(
+        ArgGroup::new("candle_pattern_reference_mode")
+            .args(["reference", "previous_close"])
+            .required(true)
+            .multiple(false)
+    ))]
+    CandlePattern {
+        /// K线，格式为 o,h,l,c，可重复传入表示序列
+        #[arg(long = "candle")]
+        candle: Vec<String>,
+
+        /// 股票代码，从已落库 K线读取一段历史数据
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 通达信根目录，例如 /mnt/d/ProgramData/tdx_20251231
+        #[arg(long = "tdx-root")]
+        tdx_root: Option<String>,
+
+        /// 指定 TDX 市场目录，支持 sh/sz/bj/ds
+        #[arg(long)]
+        market: Option<String>,
+
+        /// 通达信 day 文件路径，直接从源文件读取日线
+        #[arg(long = "day-file")]
+        day_file: Option<String>,
+
+        /// 开始日期 (YYYYMMDD)
+        #[arg(short, long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYYMMDD)
+        #[arg(short, long)]
+        end: Option<String>,
+
+        /// K线周期
+        #[arg(long, default_value = "1d")]
+        r#type: String,
+
+        /// 限制返回条数
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// 显式参考价 p
+        #[arg(long)]
+        reference: Option<String>,
+
+        /// 使用前一根收盘价作为当前 K线参考价
+        #[arg(long)]
+        previous_close: bool,
+    },
+
     /// 选股筛选
     #[command(subcommand)]
     Screener(ScreenerCommands),
@@ -243,15 +470,45 @@ pub enum ScreenerCommands {
 #[derive(Subcommand, Debug)]
 pub enum MonitorCommands {
     /// 运行自选池监控
+    #[command(group(
+        ArgGroup::new("monitor_watchlist_mode")
+            .args(["once", "repeat"])
+            .required(true)
+            .multiple(false)
+    ))]
     Watchlist {
         /// 执行一次监控
-        #[arg(long, required = true)]
+        #[arg(long)]
         once: bool,
+
+        /// 持续重复监控
+        #[arg(long)]
+        repeat: bool,
     },
 
     /// 价格告警管理
     #[command(subcommand)]
     Alert(MonitorAlertCommands),
+
+    /// 监控配置管理
+    #[command(subcommand)]
+    Config(MonitorConfigCommands),
+
+    /// 监控守护进程
+    #[command(subcommand)]
+    Daemon(MonitorDaemonCommands),
+
+    /// systemd 用户服务管理
+    #[command(subcommand)]
+    Service(MonitorServiceCommands),
+
+    /// 监控服务配置
+    #[command(subcommand)]
+    ServiceConfig(MonitorServiceConfigCommands),
+
+    /// 监控事件历史
+    #[command(subcommand)]
+    Event(MonitorEventCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -287,11 +544,96 @@ pub enum MonitorAlertCommands {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum MonitorConfigCommands {
+    /// 显示当前监控配置
+    Show,
+
+    /// 修改监控配置
+    #[command(group(
+        ArgGroup::new("monitor_config_mutation")
+            .args(["interval_seconds", "group", "persist_events"])
+            .required(true)
+            .multiple(false)
+    ))]
+    Set {
+        /// 轮询间隔，单位秒
+        #[arg(long)]
+        interval_seconds: Option<u64>,
+
+        /// 自选池分组
+        #[arg(long)]
+        group: Option<String>,
+
+        /// 是否持久化业务事件
+        #[arg(long)]
+        persist_events: Option<bool>,
+    },
+
+    /// 清除分组限制
+    ClearGroup,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorDaemonCommands {
+    /// 运行监控守护进程
+    Run,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorServiceCommands {
+    /// 安装 systemd 用户服务
+    Install,
+    /// 卸载 systemd 用户服务
+    Uninstall,
+    /// 启动 systemd 用户服务
+    Start,
+    /// 停止 systemd 用户服务
+    Stop,
+    /// 查看 systemd 用户服务状态
+    Status,
+    /// 启用开机自启
+    Enable,
+    /// 禁用开机自启
+    Disable,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorServiceConfigCommands {
+    /// 显示当前服务配置
+    Show,
+
+    /// 设置 quantix 可执行文件路径
+    Set {
+        /// quantix 二进制绝对路径
+        #[arg(long = "quantix-bin")]
+        quantix_bin: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MonitorEventCommands {
+    /// 查看监控事件历史
+    List {
+        /// 限制返回条数
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 按事件类型过滤
+        #[arg(long = "type")]
+        event_type: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum StopCommands {
     /// 设置止盈止损规则
     #[command(group(
         ArgGroup::new("stop_rule_threshold")
-            .args(["loss", "profit", "trailing"])
+            .args(["loss", "profit", "loss_pct", "profit_pct", "trailing"])
             .required(true)
             .multiple(true)
     ))]
@@ -307,13 +649,110 @@ pub enum StopCommands {
         #[arg(long)]
         profit: Option<f64>,
 
+        /// 止损百分比
+        #[arg(long = "loss-pct", conflicts_with_all = ["loss", "trailing"])]
+        loss_pct: Option<f64>,
+
+        /// 止盈百分比
+        #[arg(long = "profit-pct", conflicts_with = "profit")]
+        profit_pct: Option<f64>,
+
         /// 跟踪止损百分比
-        #[arg(long, conflicts_with = "loss")]
+        #[arg(long, conflicts_with_all = ["loss", "loss_pct"])]
         trailing: Option<f64>,
+    },
+
+    /// 更新止盈止损规则
+    #[command(group(
+        ArgGroup::new("stop_rule_update_change")
+            .args([
+                "loss",
+                "profit",
+                "loss_pct",
+                "profit_pct",
+                "trailing",
+                "clear_loss",
+                "clear_profit",
+                "clear_loss_pct",
+                "clear_profit_pct",
+                "clear_trailing",
+            ])
+            .required(true)
+            .multiple(true)
+    ))]
+    Update {
+        /// 股票代码
+        code: String,
+
+        /// 固定止损价
+        #[arg(long, conflicts_with_all = ["loss_pct", "trailing"])]
+        loss: Option<f64>,
+
+        /// 固定止盈价
+        #[arg(long, conflicts_with = "profit_pct")]
+        profit: Option<f64>,
+
+        /// 止损百分比
+        #[arg(long = "loss-pct", conflicts_with_all = ["loss", "trailing"])]
+        loss_pct: Option<f64>,
+
+        /// 止盈百分比
+        #[arg(long = "profit-pct", conflicts_with = "profit")]
+        profit_pct: Option<f64>,
+
+        /// 跟踪止损百分比
+        #[arg(long, conflicts_with_all = ["loss", "loss_pct"])]
+        trailing: Option<f64>,
+
+        /// 清除固定止损价
+        #[arg(long = "clear-loss")]
+        clear_loss: bool,
+
+        /// 清除固定止盈价
+        #[arg(long = "clear-profit")]
+        clear_profit: bool,
+
+        /// 清除止损百分比
+        #[arg(long = "clear-loss-pct")]
+        clear_loss_pct: bool,
+
+        /// 清除止盈百分比
+        #[arg(long = "clear-profit-pct")]
+        clear_profit_pct: bool,
+
+        /// 清除跟踪止损
+        #[arg(long = "clear-trailing")]
+        clear_trailing: bool,
     },
 
     /// 列出止盈止损规则
     List,
+
+    /// 查看止盈止损状态
+    Status {
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+    },
+
+    /// 查看止盈止损历史
+    History {
+        /// 按股票代码过滤
+        #[arg(long)]
+        code: Option<String>,
+
+        /// 限制返回条数
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// 按事件日期过滤 (YYYY-MM-DD)
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 按事件类型过滤
+        #[arg(long = "type")]
+        event_type: Option<String>,
+    },
 
     /// 删除止盈止损规则
     Remove {
@@ -324,6 +763,14 @@ pub enum StopCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum RiskCommands {
+    /// 导入标准化实盘流水
+    #[command(subcommand)]
+    Import(RiskImportCommands),
+
+    /// 重建实盘镜像账户
+    #[command(subcommand)]
+    Rebuild(RiskRebuildCommands),
+
     /// 风控规则管理
     #[command(subcommand)]
     Rule(RiskRuleCommands),
@@ -346,13 +793,61 @@ pub enum RiskCommands {
     Lock(RiskLockCommands),
 
     /// 查看当前风控状态
-    Status,
+    Status {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
 
     /// 查看当前当日盈亏快照
-    Pnl,
+    Pnl {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
 
     /// 查看当前持仓风险分布
-    Position,
+    Position {
+        /// 数据源: paper | live_import
+        #[arg(long)]
+        source: Option<String>,
+
+        /// 账户 ID
+        #[arg(long)]
+        account: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskImportCommands {
+    /// 导入标准化实盘流水
+    LiveTrades {
+        /// 账户 ID
+        #[arg(long)]
+        account: String,
+
+        /// 输入文件
+        #[arg(long)]
+        input: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskRebuildCommands {
+    /// 重建实盘镜像账户
+    LiveAccount {
+        /// 账户 ID
+        #[arg(long)]
+        account: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -670,6 +1165,36 @@ pub enum TradeCommands {
     Cash,
 }
 
+#[derive(Subcommand, Debug)]
+pub enum ExecutionCommands {
+    /// 执行守护进程配置
+    #[command(subcommand)]
+    Config(ExecutionConfigCommands),
+
+    /// 执行守护进程
+    #[command(subcommand)]
+    Daemon(ExecutionDaemonCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionConfigCommands {
+    /// 初始化执行配置
+    Init,
+
+    /// 显示执行配置
+    Show,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionDaemonCommands {
+    /// 运行执行守护进程
+    Run {
+        /// 仅执行一轮
+        #[arg(long)]
+        once: bool,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -712,6 +1237,9 @@ impl Cli {
             }
             Commands::Risk(cmd) => {
                 handlers::run_risk_command(cmd).await?;
+            }
+            Commands::Execution(cmd) => {
+                handlers::run_execution_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;
