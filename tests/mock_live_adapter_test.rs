@@ -159,6 +159,9 @@ async fn unknown_once_fault_recovers_on_follow_up_query() {
         }],
         fault_injection: Some(MockLiveFaultInjection {
             mode: Some("unknown_once".to_string()),
+            delay_seconds: None,
+            rejection_reason: None,
+            timeout_seconds: None,
         }),
         ..Default::default()
     };

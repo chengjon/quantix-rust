@@ -245,6 +245,7 @@ impl std::str::FromStr for LLMProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_message_creation() {

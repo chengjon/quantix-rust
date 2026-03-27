@@ -335,6 +335,7 @@ impl ExecutionAdapter for CountingAdapter {
             filled_quantity: 0,
             avg_fill_price: None,
             fill_details: None,
+            rejection_reason: None,
         })
     }
 
@@ -1296,6 +1297,9 @@ async fn kernel_recover_pending_orders_marks_unknown_exhaustion_without_changing
                 unknown_retries: 3,
                 fault_injection: Some(MockLiveFaultInjection {
                     mode: Some("unknown_always".to_string()),
+                    delay_seconds: None,
+                    rejection_reason: None,
+                    timeout_seconds: None,
                 }),
                 ..Default::default()
             },
