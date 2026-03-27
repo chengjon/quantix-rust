@@ -413,7 +413,7 @@ quantix-rust/
 │   └── 新闻缓存 (cache)
 │       └── 本地缓存存储
 │
-├── 📊 基本面分析 (fundamental/) [📋 计划中 - Phase 4]
+├── 📊 基本面分析 (fundamental/) [🔨 桩架已连线 - Phase 4]
 │   ├── 基本面提供者 (provider)
 │   │   └── FundamentalProvider trait
 │   ├── 数据适配器
@@ -621,7 +621,7 @@ quantix
 │   │   └── --days         # 时间范围
 │   └── trend               # 市场热点趋势
 │
-├── fundamental             # 基本面分析 [📋 计划中 - Phase 4]
+├── fundamental             # 基本面分析 [✅ 已连线 - Phase 4]
 │   ├── show                # 综合基本面
 │   ├── valuation           # 估值指标 PE/PB/PS
 │   ├── earnings            # 财报数据
@@ -631,7 +631,7 @@ quantix
 │   └── dividend            # 分红信息
 │       └── --years         # 历史年数
 │
-├── sentiment               # 舆情分析 [📋 计划中 - Phase 4]
+├── sentiment               # 舆情分析 [✅ 已连线 - Phase 4]
 │   └── show                # 查看舆情情绪
 │       └── --code          # 股票代码（美股）
 │

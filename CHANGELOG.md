@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## 2026-03-28
+
+### Fixed
+- **测试编译错误修复**
+  - 修复 Rust 2024 edition `FromStr` prelude 移除导致的编译错误 (`src/ai/types.rs`)
+  - 补充 `OrderQueryResponse` 新增的 `rejection_reason` 字段 (`tests/execution_kernel_test.rs`)
+  - 补充 `MockLiveFaultInjection` 新增字段 (`delay_seconds`, `rejection_reason`, `timeout_seconds`)
+  - 修复 `test_fuzzy` 断言错误 (ExactName 为正确匹配方式)
+
+### Added
+- **基本面分析模块连线** (`src/fundamental/eastmoney.rs`, `src/cli/handlers.rs`)
+  - `EastMoneyFundamentalProvider` 实现 `FundamentalProvider` trait
+  - CLI handlers 连线 valuation/earnings/institution/dragon-tiger 数据展示
+- **舆情分析模块连线** (`src/market/sentiment/aggregator.rs`, `src/cli/handlers.rs`)
+  - `SentimentAggregator` 新增 `get_mentions()` 和 `get_history()` 方法
+  - CLI handlers 连线 sentiment show/history/mentions 格式化输出
+- **智能导入模块** (`src/import/code_resolver.rs`)
+  - `CodeResolver` 股票代码/名称/拼音解析
+
 ## 2026-03-27 (续3)
 
 ### Added
