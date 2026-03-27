@@ -25,7 +25,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 ## 当前完成状态
 
-截至 2026-03-26，当前已经完成并落地的任务可概括为：
+截至 2026-03-27，当前已经完成并落地的任务可概括为：
 
 - 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
@@ -33,6 +33,11 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
   - `QMT preview-only` 已接入 execution bridge CLI，用于基于 frozen request 做 broker payload 预览
   - canonical Windows-side 路径固定为 `/mnt/d/mystocks/quantix/quantix_bridge`
+- **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
+  - 基于 Surpriver 项目的 Isolation Forest 算法
+  - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
+  - A股特有过滤器（ST、涨跌停、停牌、新股）
+  - 特征提取：成交量回报、对数回报、EOM指标
 - 当前明确仍未完成的是真实 `live` broker execution，以及 `Wind` / `Choice` bridge 支持。
 
 ## 功能特性
@@ -485,7 +490,30 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### 当前边界
 - 真实 `QMT live` adapter 延后到后续 phase
 
-#### Phase 15: 具体策略实现 ✅
+#### Phase 30: 股票异常检测 ✅
+- **异常检测模块** (`src/anomaly/*`)
+  - Isolation Forest 算法实现
+  - 特征提取：成交量回报、对数回报、EOM 指标
+  - 线性回归统计（斜率、R²、p值）
+  - ✅ 28个单元测试通过
+- **东方财富数据源** (`src/anomaly/eastmoney_source.rs`)
+  - 真实 A 股列表获取（沪深主板、创业板、科创板）
+  - K线数据获取（支持多周期：1/5/15/30/60分钟、日线）
+  - 复权类型支持（前复权、后复权、不复权）
+- **A股特有过滤器** (`src/anomaly/filter.rs`)
+  - ST 股票过滤
+  - 涨跌停检测（主板±10%、创业板/科创板±20%、北交所±30%）
+  - 停牌股票检测
+  - 新股过滤
+- **CLI 命令**
+  - `quantix anomaly run` - 使用东方财富 API 检测异常股票
+  - `quantix anomaly run --mock` - 使用模拟数据测试
+  - 支持多种输出格式（table/json/csv）
+- **算法来源**
+  - 移植自 Surpriver 项目
+  - 理论基础：异常股票未来价格波动是正常股票的 2x+
+
+### Phase 15: 具体策略实现 ✅
 - **MA Cross 策略** (`src/strategy/ma_cross.rs`)
   - 完整实现 MA 金叉死叉逻辑
   - 可配置短期和长期均线周期

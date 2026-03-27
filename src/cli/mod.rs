@@ -75,6 +75,18 @@ pub enum Commands {
     #[command(subcommand)]
     Execution(ExecutionCommands),
 
+    /// 异常检测命令 (Isolation Forest)
+    #[command(subcommand)]
+    Anomaly(AnomalyCommands),
+
+    /// 算法交易命令 (TWAP/VWAP)
+    #[command(subcommand)]
+    Algo(AlgoCommands),
+
+    /// 账户管理命令
+    #[command(subcommand)]
+    Account(AccountCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -1210,6 +1222,380 @@ pub enum ExecutionBridgeCommands {
         #[arg(long = "request-id")]
         request_id: String,
     },
+
+    /// 提交真实订单 (需要确认)
+    QmtLive {
+        /// 请求 ID (frozen execution request)
+        #[arg(long = "request-id")]
+        request_id: String,
+
+        /// 跳过确认提示 (危险!)
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// 查询订单状态
+    QmtQuery {
+        /// 订单 ID
+        #[arg(long = "order-id")]
+        order_id: String,
+    },
+
+    /// 撤销订单
+    QmtCancel {
+        /// 订单 ID
+        #[arg(long = "order-id")]
+        order_id: String,
+    },
+
+    /// 查询账户状态
+    QmtAccount,
+
+    /// 查询持仓
+    QmtPositions,
+
+    /// 查询资产
+    QmtAsset,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AnomalyCommands {
+    /// 运行异常检测
+    Run {
+        /// 显示的异常股票数量
+        #[arg(short, long, default_value = "20")]
+        top_n: usize,
+
+        /// K线周期（分钟）: 1, 5, 15, 30, 60
+        #[arg(short, long, default_value = "15")]
+        period: u32,
+
+        /// 最小成交量过滤（手）
+        #[arg(long, default_value = "10000")]
+        min_volume: f64,
+
+        /// 最小波动率过滤
+        #[arg(long, default_value = "0.03")]
+        min_volatility: f64,
+
+        /// 输出格式: cli, json, csv
+        #[arg(short, long, default_value = "cli")]
+        output: String,
+
+        /// Isolation Forest 树数量
+        #[arg(long, default_value = "100")]
+        n_estimators: usize,
+
+        /// 历史K线数量用于特征
+        #[arg(long, default_value = "7")]
+        history: usize,
+
+        /// 使用模拟数据（测试用）
+        #[arg(long)]
+        mock: bool,
+
+        /// 模拟数据股票数量（仅与 --mock 一起使用）
+        #[arg(long, default_value = "100")]
+        mock_count: usize,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AlgoCommands {
+    /// 创建算法任务
+    Create {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 买卖方向: buy | sell
+        #[arg(short, long)]
+        side: String,
+
+        /// 总数量 (股)
+        #[arg(short = 'n', long)]
+        quantity: i64,
+
+        /// 算法类型: twap | vwap
+        #[arg(short = 't', long, default_value = "twap")]
+        algo_type: String,
+
+        /// 执行时长 (分钟)
+        #[arg(short, long, default_value = "30")]
+        duration: u32,
+
+        /// 价格限制
+        #[arg(short = 'p', long)]
+        price: Option<f64>,
+
+        /// 切片数量
+        #[arg(long)]
+        slices: Option<u32>,
+
+        /// 切片间隔 (秒)
+        #[arg(long)]
+        interval: Option<u64>,
+
+        /// 禁用随机化
+        #[arg(long)]
+        no_randomize: bool,
+    },
+
+    /// 启动算法任务
+    Start {
+        /// 算法 ID
+        #[arg(long = "algo-id")]
+        algo_id: String,
+    },
+
+    /// 暂停算法任务
+    Pause {
+        /// 算法 ID
+        #[arg(long = "algo-id")]
+        algo_id: String,
+    },
+
+    /// 恢复算法任务
+    Resume {
+        /// 算法 ID
+        #[arg(long = "algo-id")]
+        algo_id: String,
+    },
+
+    /// 取消算法任务
+    Cancel {
+        /// 算法 ID
+        #[arg(long = "algo-id")]
+        algo_id: String,
+    },
+
+    /// 查看算法状态
+    Status {
+        /// 算法 ID
+        #[arg(long = "algo-id")]
+        algo_id: String,
+    },
+
+    /// 列出活跃算法
+    List,
+
+    /// 预览切片计划 (不执行)
+    Plan {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 买卖方向: buy | sell
+        #[arg(short, long)]
+        side: String,
+
+        /// 总数量 (股)
+        #[arg(short = 'n', long)]
+        quantity: i64,
+
+        /// 算法类型: twap | vwap
+        #[arg(short = 't', long, default_value = "twap")]
+        algo_type: String,
+
+        /// 执行时长 (分钟)
+        #[arg(short, long, default_value = "30")]
+        duration: u32,
+
+        /// 切片数量
+        #[arg(long)]
+        slices: Option<u32>,
+
+        /// 切片间隔 (秒)
+        #[arg(long)]
+        interval: Option<u64>,
+
+        /// 输出格式: table | json
+        #[arg(long, default_value = "table")]
+        output: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AccountCommands {
+    /// 注册新账户
+    Register {
+        /// 账户 ID
+        #[arg(long)]
+        id: String,
+
+        /// 账户类型: paper | live | mock_live
+        #[arg(long, default_value = "paper")]
+        account_type: String,
+
+        /// 初始资金
+        #[arg(long, default_value = "1000000")]
+        capital: f64,
+
+        /// 适配器名称
+        #[arg(long, default_value = "paper")]
+        adapter: String,
+    },
+
+    /// 列出所有账户
+    List {
+        /// 按类型过滤
+        #[arg(long)]
+        account_type: Option<String>,
+
+        /// 仅显示启用的账户
+        #[arg(long)]
+        enabled_only: bool,
+    },
+
+    /// 查看账户详情
+    Show {
+        /// 账户 ID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// 更新账户配置
+    Update {
+        /// 账户 ID
+        #[arg(long)]
+        id: String,
+
+        /// 启用账户
+        #[arg(long)]
+        enable: bool,
+
+        /// 禁用账户
+        #[arg(long)]
+        disable: bool,
+
+        /// 设置初始资金
+        #[arg(long)]
+        capital: Option<f64>,
+
+        /// 设置适配器名称
+        #[arg(long)]
+        adapter: Option<String>,
+    },
+
+    /// 删除账户
+    Remove {
+        /// 账户 ID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// 设置默认账户
+    Default {
+        /// 账户 ID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// 账户组管理
+    #[command(subcommand)]
+    Group(AccountGroupCommands),
+
+    /// 资金聚合视图
+    Summary,
+
+    /// 订单拆分预览
+    Split {
+        /// 股票代码
+        #[arg(long)]
+        code: String,
+
+        /// 买卖方向
+        #[arg(long)]
+        side: String,
+
+        /// 总数量
+        #[arg(long)]
+        quantity: i64,
+
+        /// 目标类型: single | group
+        #[arg(long, default_value = "single")]
+        target_type: String,
+
+        /// 目标 ID (账户 ID 或账户组 ID)
+        #[arg(long)]
+        target_id: String,
+
+        /// 价格 (可选)
+        #[arg(long)]
+        price: Option<f64>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AccountGroupCommands {
+    /// 创建账户组
+    Create {
+        /// 组 ID
+        #[arg(long)]
+        id: String,
+
+        /// 组名称
+        #[arg(long)]
+        name: String,
+
+        /// 分配策略: equal | proportional | weighted | primary_first
+        #[arg(long, default_value = "equal")]
+        strategy: String,
+    },
+
+    /// 列出账户组
+    List,
+
+    /// 查看账户组详情
+    Show {
+        /// 组 ID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// 删除账户组
+    Remove {
+        /// 组 ID
+        #[arg(long)]
+        id: String,
+    },
+
+    /// 向账户组添加账户
+    AddAccount {
+        /// 组 ID
+        #[arg(long = "group-id")]
+        group_id: String,
+
+        /// 账户 ID
+        #[arg(long = "account-id")]
+        account_id: String,
+    },
+
+    /// 从账户组移除账户
+    RemoveAccount {
+        /// 组 ID
+        #[arg(long = "group-id")]
+        group_id: String,
+
+        /// 账户 ID
+        #[arg(long = "account-id")]
+        account_id: String,
+    },
+
+    /// 设置分配策略
+    SetStrategy {
+        /// 组 ID
+        #[arg(long = "group-id")]
+        group_id: String,
+
+        /// 策略: equal | proportional | weighted | primary_first
+        #[arg(long)]
+        strategy: String,
+
+        /// 主账户 ID (仅 primary_first 策略需要)
+        #[arg(long = "primary-account")]
+        primary_account: Option<String>,
+    },
 }
 
 impl Cli {
@@ -1257,6 +1643,15 @@ impl Cli {
             }
             Commands::Execution(cmd) => {
                 handlers::run_execution_command(cmd).await?;
+            }
+            Commands::Anomaly(cmd) => {
+                handlers::run_anomaly_command(cmd).await?;
+            }
+            Commands::Algo(cmd) => {
+                handlers::run_algo_command(cmd).await?;
+            }
+            Commands::Account(cmd) => {
+                handlers::run_account_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

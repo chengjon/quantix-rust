@@ -1,9 +1,10 @@
 use super::{
-    AnalyzeCommands, DataCommands, ExecutionBridgeCommands, ExecutionCommands,
-    ExecutionConfigCommands, ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands,
-    MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands,
-    MonitorServiceCommands, MonitorServiceConfigCommands, RiskCommands, RiskLockCommands,
-    RiskRuleCommands, ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    AccountCommands, AccountGroupCommands, AlgoCommands, AnalyzeCommands, AnomalyCommands,
+    DataCommands, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
+    ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
+    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    MonitorServiceConfigCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
+    ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
@@ -95,8 +96,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod risk;
+mod algo;
+mod account;
 
 pub use self::risk::run_risk_command;
+pub use self::algo::run_algo_command;
+pub use self::account::run_account_command;
 
 async fn create_clickhouse_client() -> Result<ClickHouseClient> {
     let runtime = CliRuntime::load();
@@ -492,6 +497,24 @@ pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
             ExecutionBridgeCommands::QmtPreview { request_id } => {
                 execute_execution_bridge_qmt_preview(&request_id).await?;
             }
+            ExecutionBridgeCommands::QmtLive { request_id, yes } => {
+                execute_execution_bridge_qmt_live(&request_id, yes).await?;
+            }
+            ExecutionBridgeCommands::QmtQuery { order_id } => {
+                execute_execution_bridge_qmt_query(&order_id).await?;
+            }
+            ExecutionBridgeCommands::QmtCancel { order_id } => {
+                execute_execution_bridge_qmt_cancel(&order_id).await?;
+            }
+            ExecutionBridgeCommands::QmtAccount => {
+                execute_execution_bridge_qmt_account().await?;
+            }
+            ExecutionBridgeCommands::QmtPositions => {
+                execute_execution_bridge_qmt_positions().await?;
+            }
+            ExecutionBridgeCommands::QmtAsset => {
+                execute_execution_bridge_qmt_asset().await?;
+            }
         },
     }
 
@@ -777,7 +800,7 @@ fn create_execution_config_store() -> JsonExecutionConfigStore {
     JsonExecutionConfigStore::new(runtime.execution_config_path)
 }
 
-fn create_bridge_client() -> Result<BridgeHttpClient> {
+pub fn create_bridge_client() -> Result<BridgeHttpClient> {
     let runtime = CliRuntime::load();
     BridgeHttpClient::new(runtime.bridge.base_url, runtime.bridge.api_key)
         .map_err(|err| QuantixError::Other(err.to_string()))
@@ -860,6 +883,228 @@ async fn execute_execution_bridge_qmt_preview(request_id: &str) -> Result<()> {
         "filled_quantity": preview.filled_quantity,
         "rejection_reason": preview.rejection_reason,
     }))?);
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_live(request_id: &str, skip_confirm: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let request = runtime_store
+        .get_execution_request(request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
+
+    // 从 payload_json 提取订单信息
+    let snapshot = request
+        .payload_json
+        .get("execution_snapshot")
+        .ok_or_else(|| QuantixError::Other("request 缺少 execution_snapshot".to_string()))?;
+    let order_intent = snapshot
+        .get("order_intent")
+        .ok_or_else(|| QuantixError::Other("request 缺少 order_intent".to_string()))?;
+
+    let symbol = snapshot
+        .get("symbol")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let side = order_intent
+        .get("side")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let quantity = order_intent
+        .get("requested_quantity")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let price = order_intent
+        .get("requested_price")
+        .and_then(|v| v.as_str())
+        .unwrap_or("0");
+    let strategy_name = snapshot
+        .get("strategy_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    // 显示订单信息
+    println!("═══════════════════════════════════════════════════════════════════");
+    println!("⚠️  实盘下单确认");
+    println!("═══════════════════════════════════════════════════════════════════");
+    println!();
+    println!("  股票代码:    {}", symbol);
+    println!("  买卖方向:    {}", side);
+    println!("  数量:        {} 股", quantity);
+    println!("  价格:        {}", price);
+    println!("  策略名称:    {}", strategy_name);
+    println!();
+
+    // 确认提示
+    if !skip_confirm {
+        println!("⚠️  警告: 这将提交真实订单到券商账户!");
+        println!("    输入 'YES' 确认下单，其他任意键取消:");
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if input.trim() != "YES" {
+            println!("已取消下单");
+            return Ok(());
+        }
+    }
+
+    // 构建订单请求
+    let order_type = order_intent
+        .get("order_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("limit");
+
+    // 提交订单
+    let client = create_bridge_client()?;
+    let order_request = crate::bridge::models::BridgeQmtOrderRequest {
+        request_id: request_id.to_string(),
+        client_order_id: request.request_id.clone(),
+        symbol: normalize_symbol_for_bridge(symbol),
+        side: side.to_lowercase(),
+        quantity,
+        price: price.to_string(),
+        order_type: order_type.to_string(),
+        strategy_name: Some(strategy_name.to_string()),
+        order_remark: Some("quantix-cli".to_string()),
+        snapshot_metadata: None,
+    };
+
+    let response = client.qmt_submit_order(&order_request).await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    println!();
+    println!("✓ 订单已提交");
+    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+        "request_id": request_id,
+        "adapter_order_id": response.adapter_order_id,
+        "latest_status": response.latest_status,
+        "filled_quantity": response.filled_quantity,
+        "avg_fill_price": response.avg_fill_price,
+        "rejection_reason": response.rejection_reason,
+    }))?);
+
+    // 更新请求状态
+    if response.latest_status == "rejected" {
+        println!();
+    } else {
+        println!();
+        println!("查询订单状态: quantix execution bridge qmt-query --order-id {}", response.adapter_order_id);
+    }
+
+    Ok(())
+}
+
+fn normalize_symbol_for_bridge(symbol: &str) -> String {
+    if symbol.contains('.') {
+        return symbol.to_string();
+    }
+    if symbol.starts_with('6') {
+        format!("{symbol}.SH")
+    } else {
+        format!("{symbol}.SZ")
+    }
+}
+
+async fn execute_execution_bridge_qmt_query(order_id: &str) -> Result<()> {
+    let client = create_bridge_client()?;
+    let response = client.qmt_query_order(order_id).await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+        "adapter_order_id": response.adapter_order_id,
+        "latest_status": response.latest_status,
+        "filled_quantity": response.filled_quantity,
+        "avg_fill_price": response.avg_fill_price,
+    }))?);
+
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_cancel(order_id: &str) -> Result<()> {
+    println!("⚠️  确认撤销订单: {}", order_id);
+    println!("    输入 'YES' 确认撤单，其他任意键取消:");
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input.trim() != "YES" {
+        println!("已取消撤单");
+        return Ok(());
+    }
+
+    let client = create_bridge_client()?;
+    let response = client.qmt_cancel_order(order_id).await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    if response.success {
+        println!("✓ 撤单成功: {}", response.order_id);
+    } else {
+        println!("✗ 撤单失败: {}", response.error_message.unwrap_or_else(|| "未知错误".to_string()));
+    }
+
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_account() -> Result<()> {
+    let client = create_bridge_client()?;
+    let response = client.qmt_account_status().await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    println!("账户状态");
+    println!("─────────────────────────────────────");
+    println!("  适配器:      {}", response.adapter);
+    println!("  模式:        {}", response.mode);
+    println!("  SDK 可用:   {}", response.sdk_available);
+    println!("  连接状态:    {}", if response.connected { "已连接" } else { "未连接" });
+    if let Some(account) = response.account_masked {
+        println!("  账户:        {}", account);
+    }
+
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_positions() -> Result<()> {
+    let client = create_bridge_client()?;
+    let positions = client.qmt_positions().await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    if positions.is_empty() {
+        println!("当前无持仓");
+        return Ok(());
+    }
+
+    println!("持仓列表");
+    println!("─────────────────────────────────────────────────────────────────────────────────");
+    println!("{:<12} {:<10} {:<12} {:<12} {:<12}",
+        "股票代码", "持仓", "可用", "成本价", "市值"
+    );
+    println!("{}", "-".repeat(76));
+
+    for pos in positions {
+        println!("{:<12} {:<10} {:<12} {:<12} {:<12}",
+            pos.symbol,
+            pos.volume,
+            pos.available,
+            pos.cost_price.as_ref().map(|s| s.as_str()).unwrap_or("-"),
+            pos.market_value.as_ref().map(|s| s.as_str()).unwrap_or("-")
+        );
+    }
+
+    Ok(())
+}
+
+async fn execute_execution_bridge_qmt_asset() -> Result<()> {
+    let client = create_bridge_client()?;
+    let asset = client.qmt_asset().await
+        .map_err(|e| QuantixError::Other(e.to_string()))?;
+
+    println!("资产信息");
+    println!("─────────────────────────────────────");
+    println!("  总资产:      {}", asset.total_asset);
+    println!("  可用现金:    {}", asset.cash);
+    println!("  持仓市值:    {}", asset.market_value);
+    println!("  账户 ID:    {}", asset.account_id);
+
     Ok(())
 }
 
@@ -9407,4 +9652,128 @@ async fn run_export_menu() -> Result<()> {
     }
 
     Ok(())
+}
+
+// ============================================================================
+// 异常检测命令处理
+// ============================================================================
+
+/// 处理异常检测命令
+pub async fn run_anomaly_command(cmd: AnomalyCommands) -> Result<()> {
+    match cmd {
+        AnomalyCommands::Run {
+            top_n,
+            period,
+            min_volume,
+            min_volatility,
+            output,
+            n_estimators,
+            history,
+            mock,
+            mock_count,
+        } => {
+            run_anomaly_detection(
+                top_n,
+                period,
+                min_volume,
+                min_volatility,
+                output,
+                n_estimators,
+                history,
+                mock,
+                mock_count,
+            ).await
+        }
+    }
+}
+
+/// 运行异常检测
+async fn run_anomaly_detection(
+    top_n: usize,
+    period: u32,
+    min_volume: f64,
+    min_volatility: f64,
+    output: String,
+    n_estimators: usize,
+    history: usize,
+    mock: bool,
+    mock_count: usize,
+) -> Result<()> {
+    use crate::anomaly::{
+        AnomalyConfig, AnomalyDetector, DataSource, EastMoneyAnomalySource, FilterConfig, ForestConfig,
+        MockDataSource, FeatureConfig,
+    };
+
+    println!("🚀 启动异常检测...");
+    println!("   K线周期: {}分钟", period);
+    println!("   树数量: {}", n_estimators);
+    println!("   返回数量: {}", top_n);
+
+    // 构建配置
+    let config = AnomalyConfig {
+        features: FeatureConfig {
+            history_to_use: history,
+            ..Default::default()
+        },
+        filter: FilterConfig {
+            min_volume,
+            min_volatility,
+            ..Default::default()
+        },
+        forest: ForestConfig {
+            n_estimators,
+            top_n,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // 创建数据源
+    let data_source: std::sync::Arc<dyn DataSource> = if mock {
+        println!("   使用模拟数据: {} 只股票", mock_count);
+        std::sync::Arc::new(MockDataSource::new(mock_count))
+    } else {
+        println!("   使用东方财富 API 获取实时数据");
+        std::sync::Arc::new(EastMoneyAnomalySource::new())
+    };
+
+    // 创建检测器并运行
+    let detector = AnomalyDetector::new(config, data_source);
+
+    match detector.detect().await {
+        Ok(result) => {
+            // 根据输出格式显示结果
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(&result)
+                        .map_err(|e| QuantixError::Other(format!("JSON序列化失败: {}", e)))?;
+                    println!("{}", json);
+                }
+                "csv" => {
+                    println!("rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20");
+                    for (i, a) in result.anomalies.iter().enumerate() {
+                        println!(
+                            "{},{},{},{:.6},{},{:.4},{:.6},{:.6}",
+                            i + 1,
+                            a.code,
+                            a.name,
+                            a.score,
+                            a.is_anomaly,
+                            a.volume_ratio.unwrap_or(0.0),
+                            a.volatility_5.unwrap_or(0.0),
+                            a.volatility_20.unwrap_or(0.0)
+                        );
+                    }
+                }
+                _ => {
+                    // CLI 格式
+                    detector.output_results(&result);
+                }
+            }
+            Ok(())
+        }
+        Err(e) => {
+            Err(QuantixError::Other(format!("异常检测失败: {}", e)))
+        }
+    }
 }

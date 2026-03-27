@@ -4,7 +4,9 @@ pub mod analysis;
 /// 与 Python quantix 项目共享数据源和数据库
 ///
 /// ## 功能模块
+/// - `account`: 多账户管理
 /// - `analysis`: 回测引擎、性能分析、技术指标
+/// - `anomaly`: 异常检测 (Isolation Forest)
 /// - `sources`: 数据源适配器 (TDX, AkShare, 文件解析)
 /// - `db`: 数据库客户端 (PostgreSQL, TDengine, ClickHouse)
 /// - `data`: 数据模型
@@ -12,6 +14,8 @@ pub mod analysis;
 /// - `io`: 数据导入导出 (Phase 17)
 /// - `strategy`: 交易策略
 /// - `tasks`: 任务调度
+pub mod account;
+pub mod anomaly;
 pub mod cli;
 pub mod core;
 pub mod data;
