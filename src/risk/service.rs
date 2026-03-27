@@ -150,6 +150,11 @@ where
             evaluate_volatility_limit(&rule, projected_buy, self.bar_loader.as_ref()).await?;
         }
 
+        // 行业集中度检查（如果有行业映射数据）
+        if let Some(rule) = find_enabled_rule(&state, RiskRuleType::IndustryLimit) {
+            check_industry_limit(rule, snapshot, projected_buy)?;
+        }
+
         Ok(())
     }
 
@@ -505,4 +510,93 @@ fn push_risk_event(state: &mut RiskState, event_limit: usize, event: RiskLogEven
         let overflow = state.events.len() - event_limit;
         state.events.drain(0..overflow);
     }
+}
+
+/// 行业集中度检查
+///
+/// 检查买入后单一行业的持仓占比是否超过限制
+/// 注意：此功能需要行业映射数据支持，目前为占位实现
+fn check_industry_limit(
+    rule: &RiskRule,
+    _snapshot: &RiskAccountSnapshot,
+    projected_buy: &ProjectedBuyImpact,
+) -> Result<()> {
+    let RuleValue::Percentage(limit_pct) = rule.value.clone() else {
+        return Err(QuantixError::Other(
+            "risk rule industry-limit 配置无效，仅支持百分比".to_string(),
+        ));
+    };
+
+    if projected_buy.projected_total_assets <= Decimal::ZERO {
+        return Err(QuantixError::Other(
+            "risk check projected_total_assets 必须大于 0".to_string(),
+        ));
+    }
+
+    // TODO: 实现行业映射和集中度计算
+    // 当前为占位实现，需要集成行业分类数据源
+    // 步骤：
+    // 1. 根据 projected_buy.code 获取股票所属行业
+    // 2. 计算该行业在当前持仓中的总市值
+    // 3. 加上本次买入的预计市值
+    // 4. 检查是否超过限制
+
+    // 暂时记录日志，不阻止交易
+    tracing::debug!(
+        "industry-limit check: code={}, limit={}%, placeholder implementation",
+        projected_buy.code,
+        limit_pct
+    );
+
+    Ok(())
+}
+
+/// 自动减仓触发检查
+///
+/// 检查是否需要触发自动减仓规则
+/// 返回需要减仓的股票列表和减仓比例
+pub fn check_auto_reduce_trigger(
+    state: &RiskState,
+    snapshot: &RiskAccountSnapshot,
+    now: DateTime<Utc>,
+) -> Option<AutoReduceDecision> {
+    let rule = find_enabled_rule(state, RiskRuleType::AutoReduce)?;
+
+    let baseline = state.daily_baseline.as_ref()?;
+    let daily_pnl = snapshot.total_assets - baseline.starting_total_assets;
+    let daily_pnl_pct = pct_change(daily_pnl, baseline.starting_total_assets);
+
+    let triggered = match rule.value.clone() {
+        RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
+        RuleValue::Amount(limit) => daily_pnl <= -limit,
+    };
+
+    if triggered {
+        // 计算需要减仓的比例（简化实现：减仓50%）
+        let reduce_ratio = dec!(50);
+        Some(AutoReduceDecision {
+            trigger_rule: rule.clone(),
+            current_loss_pct: daily_pnl_pct,
+            reduce_ratio,
+            positions_to_reduce: snapshot.positions.clone(),
+            triggered_at: now,
+        })
+    } else {
+        None
+    }
+}
+
+/// 自动减仓决策
+#[derive(Debug, Clone)]
+pub struct AutoReduceDecision {
+    /// 触发的规则
+    pub trigger_rule: RiskRule,
+    /// 当前亏损百分比
+    pub current_loss_pct: Decimal,
+    /// 减仓比例（百分比）
+    pub reduce_ratio: Decimal,
+    /// 需要减仓的持仓列表
+    pub positions_to_reduce: Vec<crate::risk::models::RiskPositionSnapshot>,
+    /// 触发时间
+    pub triggered_at: DateTime<Utc>,
 }

@@ -40,6 +40,15 @@ pub enum QuantixError {
 
     #[error("其他错误: {0}")]
     Other(String),
+
+    #[error("算法错误: {0}")]
+    Algo(String),
 }
 
 pub type Result<T> = std::result::Result<T, QuantixError>;
+
+impl From<crate::execution::algo::AlgoError> for QuantixError {
+    fn from(err: crate::execution::algo::AlgoError) -> Self {
+        QuantixError::Algo(err.to_string())
+    }
+}

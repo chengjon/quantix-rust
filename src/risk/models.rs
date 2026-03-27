@@ -46,6 +46,10 @@ pub enum RiskRuleType {
     PositionLimit,
     DailyLossLimit,
     VolatilityLimit,
+    /// 行业集中度限制 - 单一行业持仓占总资产的最大比例
+    IndustryLimit,
+    /// 自动减仓 - 当亏损达到阈值时自动卖出
+    AutoReduce,
 }
 
 impl RiskRuleType {
@@ -54,6 +58,8 @@ impl RiskRuleType {
             "position-limit" => Ok(Self::PositionLimit),
             "daily-loss-limit" => Ok(Self::DailyLossLimit),
             "volatility-limit" => Ok(Self::VolatilityLimit),
+            "industry-limit" => Ok(Self::IndustryLimit),
+            "auto-reduce" => Ok(Self::AutoReduce),
             other => Err(QuantixError::Other(format!(
                 "risk rule 不支持的类型: {other}"
             ))),
@@ -65,6 +71,18 @@ impl RiskRuleType {
             Self::PositionLimit => "position-limit",
             Self::DailyLossLimit => "daily-loss-limit",
             Self::VolatilityLimit => "volatility-limit",
+            Self::IndustryLimit => "industry-limit",
+            Self::AutoReduce => "auto-reduce",
+        }
+    }
+
+    pub fn display_label(self) -> &'static str {
+        match self {
+            Self::PositionLimit => "单票仓位上限",
+            Self::DailyLossLimit => "日亏损限制",
+            Self::VolatilityLimit => "波动率限制",
+            Self::IndustryLimit => "行业集中度限制",
+            Self::AutoReduce => "自动减仓",
         }
     }
 }
@@ -112,6 +130,12 @@ impl RuleValue {
             (RiskRuleType::VolatilityLimit, false) => Err(QuantixError::Other(
                 "risk rule volatility-limit 仅支持百分比值，例如 4%".to_string(),
             )),
+            (RiskRuleType::IndustryLimit, true) => Ok(Self::Percentage(decimal)),
+            (RiskRuleType::IndustryLimit, false) => Err(QuantixError::Other(
+                "risk rule industry-limit 仅支持百分比值，例如 30%".to_string(),
+            )),
+            (RiskRuleType::AutoReduce, true) => Ok(Self::Percentage(decimal)),
+            (RiskRuleType::AutoReduce, false) => Ok(Self::Amount(decimal)),
         }
     }
 
@@ -154,6 +178,9 @@ pub enum RiskLogEventType {
     DailyLossLockTriggered,
     BuyLockReleased,
     BuyLockCleared,
+    IndustryLimitTriggered,
+    AutoReduceTriggered,
+    AutoReduceExecuted,
 }
 
 impl RiskLogEventType {
@@ -165,6 +192,9 @@ impl RiskLogEventType {
             "daily-loss-lock-triggered" => Ok(Self::DailyLossLockTriggered),
             "buy-lock-released" => Ok(Self::BuyLockReleased),
             "buy-lock-cleared" => Ok(Self::BuyLockCleared),
+            "industry-limit-triggered" => Ok(Self::IndustryLimitTriggered),
+            "auto-reduce-triggered" => Ok(Self::AutoReduceTriggered),
+            "auto-reduce-executed" => Ok(Self::AutoReduceExecuted),
             other => Err(QuantixError::Other(format!(
                 "risk log 不支持的类型: {other}"
             ))),
@@ -179,6 +209,9 @@ impl RiskLogEventType {
             Self::DailyLossLockTriggered => "daily-loss-lock-triggered",
             Self::BuyLockReleased => "buy-lock-released",
             Self::BuyLockCleared => "buy-lock-cleared",
+            Self::IndustryLimitTriggered => "industry-limit-triggered",
+            Self::AutoReduceTriggered => "auto-reduce-triggered",
+            Self::AutoReduceExecuted => "auto-reduce-executed",
         }
     }
 
@@ -190,6 +223,9 @@ impl RiskLogEventType {
             Self::DailyLossLockTriggered => "日亏损锁触发",
             Self::BuyLockReleased => "买入锁释放",
             Self::BuyLockCleared => "买入锁清除",
+            Self::IndustryLimitTriggered => "行业集中度超限",
+            Self::AutoReduceTriggered => "自动减仓触发",
+            Self::AutoReduceExecuted => "自动减仓执行",
         }
     }
 }

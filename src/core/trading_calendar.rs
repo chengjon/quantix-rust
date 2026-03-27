@@ -1,7 +1,7 @@
 /// A股交易时间日历
 ///
 /// 从短线侠项目迁移，支持交易时段检测和节假日判断
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Weekday};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -58,10 +58,29 @@ pub struct HolidayData {
     pub early_close: Vec<String>, // 提前收盘时间
 }
 
+/// 节假日配置文件结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HolidayConfig {
+    description: Option<String>,
+    source: Option<String>,
+    years: HashMap<String, YearHolidays>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct YearHolidays {
+    holidays: Vec<String>,
+    early_close: Vec<String>,
+    workdays_on_weekend: Vec<String>,
+}
+
 /// A股交易日历管理器
 pub struct TradingCalendar {
     /// 每年的节假日缓存，key为年份，value为节假日日期集合
     holidays: HashMap<i32, HashSet<NaiveDate>>,
+    /// 调休工作日（周末补班）
+    workdays_on_weekend: HashMap<i32, HashSet<NaiveDate>>,
+    /// 配置文件路径
+    config_path: Option<std::path::PathBuf>,
 }
 
 impl TradingCalendar {
@@ -78,18 +97,106 @@ impl TradingCalendar {
         tracing::info!("初始化交易日历");
         Ok(Self {
             holidays: HashMap::new(),
+            workdays_on_weekend: HashMap::new(),
+            config_path: None,
         })
     }
 
+    /// 从配置文件创建交易日历
+    pub async fn from_config(path: impl AsRef<std::path::Path>) -> Result<Self> {
+        let mut calendar = Self {
+            holidays: HashMap::new(),
+            workdays_on_weekend: HashMap::new(),
+            config_path: Some(path.as_ref().to_path_buf()),
+        };
+
+        calendar.load_config().await?;
+        Ok(calendar)
+    }
+
+    /// 从默认路径加载配置
+    pub async fn from_default_config() -> Result<Self> {
+        let default_paths = vec![
+            std::path::PathBuf::from("config/holidays.json"),
+            std::path::PathBuf::from("/etc/quantix/holidays.json"),
+        ];
+
+        for path in default_paths {
+            if path.exists() {
+                return Self::from_config(&path).await;
+            }
+        }
+
+        tracing::warn!("未找到节假日配置文件，使用空节假日数据");
+        Self::new().await
+    }
+
+    /// 加载配置文件
+    async fn load_config(&mut self) -> Result<()> {
+        let path = match &self.config_path {
+            Some(p) => p.clone(),
+            None => return Ok(()),
+        };
+
+        if !path.exists() {
+            tracing::warn!("节假日配置文件不存在: {:?}", path);
+            return Ok(());
+        }
+
+        let content = tokio::fs::read_to_string(&path).await.map_err(|e| {
+            QuantixError::Other(format!("读取节假日配置失败: {}", e))
+        })?;
+
+        let config: HolidayConfig = serde_json::from_str(&content).map_err(|e| {
+            QuantixError::Other(format!("解析节假日配置失败: {}", e))
+        })?;
+
+        for (year_str, year_data) in config.years {
+            let year: i32 = year_str.parse().map_err(|_| {
+                QuantixError::Other(format!("无效的年份: {}", year_str))
+            })?;
+
+            // 解析节假日
+            let mut holiday_set = HashSet::new();
+            for date_str in &year_data.holidays {
+                if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                    holiday_set.insert(date);
+                }
+            }
+            self.holidays.insert(year, holiday_set);
+
+            // 解析调休工作日
+            let mut workday_set = HashSet::new();
+            for date_str in &year_data.workdays_on_weekend {
+                if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                    workday_set.insert(date);
+                }
+            }
+            self.workdays_on_weekend.insert(year, workday_set);
+        }
+
+        tracing::info!(
+            "已加载 {} 年的节假日数据",
+            self.holidays.len()
+        );
+
+        Ok(())
+    }
+
     /// 判断指定日期是否为交易日
-    /// 交易日 = 工作日且非节假日
+    /// 交易日 = 工作日且非节假日，或调休工作日
     pub async fn is_trading_day(&self, date: NaiveDate) -> bool {
-        // 1. 检查是否为周末
+        // 1. 检查是否为调休工作日（周末补班）
+        if self.is_workday_on_weekend(date) {
+            return true;
+        }
+
+        // 2. 检查是否为周末
         if self.is_weekend(date) {
             return false;
         }
 
-        // 2. 检查是否为节假日
+        // 3. 检查是否为节假日
         if self.is_holiday(date).await {
             return false;
         }
@@ -306,6 +413,16 @@ impl TradingCalendar {
         matches!(date.weekday(), Weekday::Sat | Weekday::Sun)
     }
 
+    /// 判断是否为调休工作日（周末补班）
+    fn is_workday_on_weekend(&self, date: NaiveDate) -> bool {
+        let year = date.year();
+        if let Some(workdays) = self.workdays_on_weekend.get(&year) {
+            workdays.contains(&date)
+        } else {
+            false
+        }
+    }
+
     /// 判断是否为节假日
     async fn is_holiday(&self, date: NaiveDate) -> bool {
         let year = date.year();
@@ -356,6 +473,8 @@ impl Default for TradingCalendar {
     fn default() -> Self {
         Self {
             holidays: HashMap::new(),
+            workdays_on_weekend: HashMap::new(),
+            config_path: None,
         }
     }
 }

@@ -223,6 +223,13 @@ where
                 fill_id: fill_index as u64 + 1,
                 fill_quantity: fill_step.quantity,
                 fill_price,
+                last_fill_price: fill_price,
+                last_fill_quantity: fill_step.quantity,
+                total_fills: (fill_index + 1) as i64,
+                commission: Decimal::ZERO,
+                fees: Decimal::ZERO,
+                venue: "mock".to_string(),
+                broker_fill_id: String::new(),
             })
         } else {
             None

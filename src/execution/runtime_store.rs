@@ -1868,6 +1868,44 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             updated_at: parse_timestamp(&updated_at)?,
         })
     }
+
+    /// List all open orders (orders not in terminal state)
+    pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
+        let rows = sqlx::query(
+            r#"
+SELECT
+    order_id,
+    client_order_id,
+    run_id,
+    symbol,
+    side,
+    order_type,
+    requested_quantity,
+    requested_price,
+    filled_quantity,
+    remaining_quantity,
+    avg_fill_price,
+    status,
+    adapter,
+    created_at,
+    updated_at,
+    last_transition_at,
+    version,
+    payload_json
+FROM orders
+WHERE status NOT IN ('filled', 'canceled', 'rejected')
+ORDER BY created_at DESC
+"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut orders = Vec::new();
+        for row in rows {
+            orders.push(Self::row_to_order(row)?);
+        }
+        Ok(orders)
+    }
 }
 
 fn build_execution_snapshot(signal: &StrategySignalRecord) -> Result<serde_json::Value> {

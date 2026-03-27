@@ -1,4 +1,5 @@
 pub mod adapter;
+pub mod algo;
 pub mod config;
 pub mod daemon;
 pub mod kernel;
@@ -6,4 +7,6 @@ pub mod mock_live;
 pub mod models;
 pub mod paper;
 pub mod qmt_bridge;
+pub mod qmt_live_adapter;
+pub mod reconciliation;
 pub mod runtime_store;

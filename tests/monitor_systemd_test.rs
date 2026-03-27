@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use quantix_cli::core::{CliRuntime, ClickHouseSettings};
+use quantix_cli::core::runtime::{BridgeRuntimeSettings, CliRuntime, ClickHouseSettings};
 use quantix_cli::monitor::{
     MonitorServiceConfig,
     systemd::{MonitorServiceStatusSummary, MonitorUserServiceInstaller},
@@ -13,6 +13,12 @@ fn sample_runtime() -> CliRuntime {
             database: "quantix".to_string(),
             user: "default".to_string(),
             password: "".to_string(),
+        },
+        bridge: BridgeRuntimeSettings {
+            base_url: "http://localhost:8080".to_string(),
+            api_key: None,
+            tdx_enabled: false,
+            qmt_preview_enabled: false,
         },
         watchlist_path: PathBuf::from("/tmp/quantix/watchlist/watchlist.json"),
         trade_path: PathBuf::from("/tmp/quantix/trade/paper_trade.json"),

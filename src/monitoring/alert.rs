@@ -17,6 +17,17 @@ pub enum AlertLevel {
     Critical,
 }
 
+impl std::fmt::Display for AlertLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Info => write!(f, "info"),
+            Self::Warning => write!(f, "warning"),
+            Self::Error => write!(f, "error"),
+            Self::Critical => write!(f, "critical"),
+        }
+    }
+}
+
 /// 告警类型
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AlertType {

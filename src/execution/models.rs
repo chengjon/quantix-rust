@@ -33,7 +33,7 @@ impl StrategyRunStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderStatus {
     PendingSubmit,
     Submitted,
@@ -292,6 +292,27 @@ pub struct FillDetails {
     pub fill_id: u64,
     pub fill_quantity: i64,
     pub fill_price: Decimal,
+    /// Last fill price (for incremental fills)
+    #[serde(default)]
+    pub last_fill_price: Decimal,
+    /// Last fill quantity (for incremental fills)
+    #[serde(default)]
+    pub last_fill_quantity: i64,
+    /// Total number of fills
+    #[serde(default)]
+    pub total_fills: i64,
+    /// Commission amount
+    #[serde(default)]
+    pub commission: Decimal,
+    /// Other fees
+    #[serde(default)]
+    pub fees: Decimal,
+    /// Execution venue
+    #[serde(default)]
+    pub venue: String,
+    /// Broker's fill ID
+    #[serde(default)]
+    pub broker_fill_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

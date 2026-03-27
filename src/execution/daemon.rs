@@ -6,12 +6,14 @@ use crate::core::{QuantixError, Result};
 use crate::execution::kernel::{
     ExecutionKernel, FillDeltaApplier, PreparedExecutionRequest, RiskDecision, RiskEvaluator,
 };
+use crate::bridge::client::BridgeHttpClient;
 use crate::execution::mock_live::{MockLiveExecutionAdapter, SystemMockLiveClock};
 use crate::execution::models::{
     ExecutionRequestRecord, ExecutionRequestStatus, FillDeltaContext, FillDeltaResult, OrderIntent,
     OrderSide, OrderType,
 };
 use crate::execution::paper::PaperExecutionAdapter;
+use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::risk::{RiskAccountSnapshot, RiskService, RiskStore};
 use crate::trade::{PaperTradeAccount, PaperTradeStore, TradeOrderRequest, TradeService};
@@ -225,6 +227,15 @@ where
             let adapter = MockLiveExecutionAdapter::new(store.clone(), SystemMockLiveClock);
             let fill_delta = RequestFillDeltaBridge::new(trade_store.clone());
             let kernel = ExecutionKernel::with_fill_delta(store.clone(), adapter, fill_delta, risk);
+            kernel.execute_request(prepared).await
+        }
+        "qmt_live" => {
+            // QMT Live trading via Windows bridge
+            // Requires BRIDGE_QMT_MODE=live in bridge configuration
+            let bridge_client = crate::cli::handlers::create_bridge_client()
+                .map_err(|e| QuantixError::Other(format!("Bridge client error: {}", e)))?;
+            let adapter = QmtLiveExecutionAdapter::new(bridge_client);
+            let kernel = ExecutionKernel::new(store.clone(), adapter, risk);
             kernel.execute_request(prepared).await
         }
         "live" => Err(QuantixError::Unsupported(
