@@ -87,6 +87,10 @@ pub enum Commands {
     #[command(subcommand)]
     Account(AccountCommands),
 
+    /// 通知命令
+    #[command(subcommand)]
+    Notify(NotifyCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -1598,6 +1602,49 @@ pub enum AccountGroupCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum NotifyCommands {
+    /// 发送测试通知
+    Test {
+        /// 指定渠道 (all | telegram | wechat_work | feishu | discord | slack | dingtalk | pushplus)
+        #[arg(long, default_value = "all")]
+        channel: String,
+
+        /// 自定义测试消息
+        #[arg(short, long)]
+        message: Option<String>,
+    },
+
+    /// 发送自定义通知
+    Send {
+        /// 通知标题
+        #[arg(short, long)]
+        title: String,
+
+        /// 通知内容
+        #[arg(short = 'm', long)]
+        message: String,
+
+        /// 通知级别 (info | warning | error | critical)
+        #[arg(long, default_value = "info")]
+        level: String,
+
+        /// 指定渠道 (可选，不指定则使用配置的默认渠道)
+        #[arg(long)]
+        channel: Option<String>,
+    },
+
+    /// 列出可用渠道
+    List,
+
+    /// 测试渠道连通性
+    Check {
+        /// 渠道名称
+        #[arg(long)]
+        channel: String,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -1652,6 +1699,9 @@ impl Cli {
             }
             Commands::Account(cmd) => {
                 handlers::run_account_command(cmd).await?;
+            }
+            Commands::Notify(cmd) => {
+                handlers::run_notify_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

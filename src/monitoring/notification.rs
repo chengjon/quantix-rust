@@ -97,6 +97,73 @@ impl Default for NotificationConfig {
     }
 }
 
+impl NotificationConfig {
+    /// 从环境变量加载配置
+    pub fn from_env() -> Self {
+        let mut enabled_channels = Vec::new();
+
+        // 检查各渠道的环境变量配置
+        let has_telegram = std::env::var("TELEGRAM_BOT_TOKEN").is_ok()
+            && std::env::var("TELEGRAM_CHAT_ID").is_ok();
+        let has_wechat_work = std::env::var("WECHAT_WORK_WEBHOOK_URL").is_ok();
+        let has_feishu = std::env::var("FEISHU_WEBHOOK_URL").is_ok();
+        let has_discord = std::env::var("DISCORD_WEBHOOK_URL").is_ok();
+        let has_slack = std::env::var("SLACK_WEBHOOK_URL").is_ok();
+        let has_dingtalk = std::env::var("DINGTALK_WEBHOOK_URL").is_ok();
+        let has_pushplus = std::env::var("PUSHPLUS_TOKEN").is_ok();
+        let has_webhook = std::env::var("WEBHOOK_URL").is_ok();
+
+        if has_telegram {
+            enabled_channels.push(NotificationChannel::Telegram);
+        }
+        if has_wechat_work {
+            enabled_channels.push(NotificationChannel::WechatWork);
+        }
+        if has_feishu {
+            enabled_channels.push(NotificationChannel::Feishu);
+        }
+        if has_discord {
+            enabled_channels.push(NotificationChannel::Discord);
+        }
+        if has_slack {
+            enabled_channels.push(NotificationChannel::Slack);
+        }
+        if has_dingtalk {
+            enabled_channels.push(NotificationChannel::Dingtalk);
+        }
+        if has_pushplus {
+            enabled_channels.push(NotificationChannel::Pushplus);
+        }
+        if has_webhook {
+            enabled_channels.push(NotificationChannel::Webhook);
+        }
+
+        // 默认总是启用日志渠道
+        enabled_channels.push(NotificationChannel::Log);
+
+        Self {
+            enabled_channels,
+            webhook_url: std::env::var("WEBHOOK_URL").ok(),
+            log_path: std::env::var("NOTIFICATION_LOG_PATH").ok()
+                .or(Some("logs/notifications.log".to_string())),
+            min_level: std::env::var("NOTIFICATION_MIN_LEVEL")
+                .ok()
+                .and_then(|s| match s.to_lowercase().as_str() {
+                    "info" => Some(AlertLevel::Info),
+                    "warning" => Some(AlertLevel::Warning),
+                    "error" => Some(AlertLevel::Error),
+                    "critical" => Some(AlertLevel::Critical),
+                    _ => None,
+                })
+                .unwrap_or(AlertLevel::Warning),
+            quiet_hours: None,
+            templates: HashMap::new(),
+            wechat_work_webhook: std::env::var("WECHAT_WORK_WEBHOOK_URL").ok(),
+            feishu_webhook: std::env::var("FEISHU_WEBHOOK_URL").ok(),
+        }
+    }
+}
+
 /// 静默时段配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuietHours {

@@ -37,3 +37,50 @@ afternoon_end = "15:00:00"
 enable = true
 log_dir = "./logs"
 pid_file = "./quantix.pid"
+
+# ============================================================
+# 通知配置 (Phase 1: 多渠道通知扩展)
+# ============================================================
+
+[notification]
+# 启用的通知渠道 (log | desktop | webhook | telegram | wechat_work | feishu | discord | slack | dingtalk | pushplus)
+enabled_channels = ["log"]
+# 最低通知级别 (info | warning | error | critical)
+min_level = "warning"
+# 通知日志路径
+log_path = "./logs/notifications.log"
+
+# 静默时段 (可选，此时间段内不发送通知)
+# [notification.quiet_hours]
+# start = "23:00"
+# end = "07:00"
+
+# 企业微信配置
+# [notification.wechat_work]
+# webhook_url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+
+# 飞书配置
+# [notification.feishu]
+# webhook_url = "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_HOOK"
+
+# Telegram 配置 (预留)
+# [notification.telegram]
+# bot_token = "YOUR_BOT_TOKEN"
+# chat_id = "YOUR_CHAT_ID"
+
+# Discord 配置 (预留)
+# [notification.discord]
+# webhook_url = "https://discord.com/api/webhooks/YOUR_WEBHOOK"
+
+# Slack 配置 (预留)
+# [notification.slack]
+# webhook_url = "https://hooks.slack.com/services/YOUR_WEBHOOK"
+
+# 钉钉配置 (预留)
+# [notification.dingtalk]
+# webhook_url = "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
+# secret = "YOUR_SECRET"
+
+# PushPlus 配置 (预留)
+# [notification.pushplus]
+# token = "YOUR_TOKEN"
