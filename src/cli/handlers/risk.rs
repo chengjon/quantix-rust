@@ -222,6 +222,8 @@ fn build_risk_log_group_summary(events: &[RiskLogEvent]) -> String {
     let mut lock_triggered = 0;
     let mut lock_released = 0;
     let mut lock_cleared = 0;
+    let mut industry_triggered = 0;
+    let mut auto_reduce = 0;
 
     for event in events {
         match event.event_type {
@@ -231,12 +233,16 @@ fn build_risk_log_group_summary(events: &[RiskLogEvent]) -> String {
             RiskLogEventType::DailyLossLockTriggered => lock_triggered += 1,
             RiskLogEventType::BuyLockReleased => lock_released += 1,
             RiskLogEventType::BuyLockCleared => lock_cleared += 1,
+            RiskLogEventType::IndustryLimitTriggered => industry_triggered += 1,
+            RiskLogEventType::AutoReduceTriggered | RiskLogEventType::AutoReduceExecuted => {
+                auto_reduce += 1
+            }
         }
     }
 
     format!(
-        "摘要: 规则变更 {} / 锁触发 {} / 手动释放 {} / 锁清除 {}",
-        rule_changes, lock_triggered, lock_released, lock_cleared
+        "摘要: 规则变更 {} / 锁触发 {} / 手动释放 {} / 锁清除 {} / 行业超限 {} / 自动减仓 {}",
+        rule_changes, lock_triggered, lock_released, lock_cleared, industry_triggered, auto_reduce
     )
 }
 
@@ -270,6 +276,15 @@ fn display_risk_log_detail(event: &RiskLogEvent) -> String {
             "trade init/reset" => "账户重置清除".to_string(),
             _ => event.detail.clone(),
         },
+        RiskLogEventType::IndustryLimitTriggered => {
+            format!("行业超限: {}", event.detail)
+        }
+        RiskLogEventType::AutoReduceTriggered => {
+            format!("减仓触发: {}", event.detail)
+        }
+        RiskLogEventType::AutoReduceExecuted => {
+            format!("减仓执行: {}", event.detail)
+        }
     }
 }
 
