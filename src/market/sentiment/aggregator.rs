@@ -4,7 +4,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use crate::core::Result;
 use super::provider::SentimentProvider;
-use super::types::{SentimentData, SentimentScore, SentimentLevel, SentimentTrend, SocialMention};
+use super::types::{SentimentData, SentimentScore, SentimentLevel, SentimentTrend, SocialMention, SentimentHistoryPoint};
 
 /// 舆情聚合器
 pub struct SentimentAggregator {
@@ -83,5 +83,34 @@ impl SentimentAggregator {
             .filter(|p| p.is_available())
             .map(|p| p.name())
             .collect()
+    }
+
+    /// 获取社交媒体提及
+    pub async fn get_mentions(&self, code: &str, limit: usize) -> Result<Vec<SocialMention>> {
+        let mut mentions = Vec::new();
+        for provider in &self.providers {
+            if provider.is_available() {
+                if let Ok(m) = provider.get_mentions(code, limit).await {
+                    mentions.extend(m);
+                }
+            }
+        }
+        mentions.sort_by(|a, b| b.published_at.cmp(&a.published_at));
+        mentions.truncate(limit);
+        Ok(mentions)
+    }
+
+    /// 获取历史情绪数据
+    pub async fn get_history(&self, code: &str, days: u32) -> Result<Vec<SentimentHistoryPoint>> {
+        let mut all_history = Vec::new();
+        for provider in &self.providers {
+            if provider.is_available() {
+                if let Ok(history) = provider.get_history(code, days).await {
+                    all_history.extend(history);
+                }
+            }
+        }
+        all_history.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        Ok(all_history)
     }
 }

@@ -92,6 +92,10 @@ use crate::fundamental::valuation::ValuationFetcher;
 use crate::fundamental::earnings::EarningsFetcher;
 use crate::fundamental::institution::InstitutionFetcher;
 use crate::fundamental::dragon_tiger::DragonTigerFetcher;
+use crate::market::sentiment::SentimentAggregator;
+use crate::market::sentiment::types::{
+    SentimentLevel, SentimentTrend,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use dialoguer::{Input, Select, theme::ColorfulTheme};
@@ -11072,22 +11076,32 @@ async fn run_sentiment_show(code: &str) -> Result<()> {
     println!("   代码: {}", code);
     println!();
 
-    // 检查 API 配置
-    let adanos_key = std::env::var("ADANOS_API_KEY").ok();
+    let aggregator = SentimentAggregator::new(vec![]);
+    let data = aggregator.get_sentiment(code).await?;
 
-    if adanos_key.is_none() {
-        println!("❌ 未配置舆情 API");
-        println!();
-        println!("请配置以下环境变量:");
-        println!("  ADANOS_API_KEY=your_key");
-        return Ok(());
-    }
-
-    println!("📈 情绪指数: -");
-    println!("   情绪等级: -");
-    println!("   趋势方向: -");
+    let level = data.sentiment_level;
+    println!("{} 情绪等级: {}", level.emoji(), level.label());
+    println!("📈 情绪指数: {:.2}", data.overall_score);
+    println!("📊 趋势方向: {}", match data.trend {
+        SentimentTrend::RisingFast => "↑ 快速上升",
+        SentimentTrend::Rising => "↑ 上升",
+        SentimentTrend::Stable => "→ 平稳",
+        SentimentTrend::Falling => "↓ 下降",
+        SentimentTrend::FallingFast => "↓ 快速下降",
+    });
     println!();
-    println!("💡 舆情数据需要从 Adanos API 获取");
+
+    if data.source_scores.is_empty() {
+        println!("💡 暂无舆情数据源，请配置 SentimentProvider");
+        println!("   可用提供商: Adanos, EastMoney Guba, Sina Finance");
+    } else {
+        println!("📋 各来源得分:");
+        println!("{:<15} {:<10} {:<10}", "来源", "得分", "样本数");
+        println!("{}", "-".repeat(35));
+        for score in &data.source_scores {
+            println!("{:<15} {:<10.2} {:<10}", score.source, score.score, score.sample_count);
+        }
+    }
 
     Ok(())
 }
@@ -11098,10 +11112,22 @@ async fn run_sentiment_history(code: &str, days: u32) -> Result<()> {
     println!("   天数: {}", days);
     println!();
 
-    println!("📅 历史数据:");
-    println!("   (暂无数据)");
-    println!();
-    println!("💡 历史舆情需要从 Adanos API 获取");
+    let aggregator = SentimentAggregator::new(vec![]);
+    let history = aggregator.get_history(code, days).await?;
+
+    if history.is_empty() {
+        println!("📅 历史数据: (暂无数据)");
+        println!();
+        println!("💡 历史舆情需要配置 SentimentProvider 后获取");
+    } else {
+        println!("📅 历史数据:");
+        println!("{:<20} {:<10} {:<10}", "时间", "得分", "样本数");
+        println!("{}", "-".repeat(40));
+        for point in &history {
+            let ts = point.timestamp.format("%Y-%m-%d %H:%M");
+            println!("{:<20} {:<10.2} {:<10}", ts, point.score, point.sample_count);
+        }
+    }
 
     Ok(())
 }
@@ -11112,10 +11138,24 @@ async fn run_sentiment_mentions(code: &str, max: usize) -> Result<()> {
     println!("   最大数量: {}", max);
     println!();
 
-    println!("📱 最近提及:");
-    println!("   (暂无数据)");
-    println!();
-    println!("💡 社交媒体数据需要从 Adanos API 获取");
+    let aggregator = SentimentAggregator::new(vec![]);
+    let mentions = aggregator.get_mentions(code, max).await?;
+
+    if mentions.is_empty() {
+        println!("📱 最近提及: (暂无数据)");
+        println!();
+        println!("💡 社交媒体数据需要配置 SentimentProvider 后获取");
+    } else {
+        println!("📱 最近提及:");
+        for m in &mentions {
+            let time = m.published_at.map(|t| t.format("%m-%d %H:%M").to_string()).unwrap_or("-".to_string());
+            let sentiment_str = m.sentiment.map(|s| format!("{:.1}", s)).unwrap_or("-".to_string());
+            println!("   {} [{}] {} ( sentiment: {} )", time, m.platform, truncate_str(&m.content, 40), sentiment_str);
+            if let Some(author) = &m.author {
+                println!("      作者: {}", author);
+            }
+        }
+    }
 
     Ok(())
 }
