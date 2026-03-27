@@ -14,7 +14,9 @@ pub mod analysis;
 /// - `io`: 数据导入导出 (Phase 17)
 /// - `strategy`: 交易策略
 /// - `tasks`: 任务调度
+/// - `news`: 新闻搜索模块 (Phase 3)
 pub mod account;
+pub mod ai;
 pub mod anomaly;
 pub mod cli;
 pub mod core;
@@ -26,6 +28,7 @@ pub mod io;
 pub mod market;
 pub mod monitor;
 pub mod monitoring;
+pub mod news;
 pub mod risk;
 pub mod screener;
 pub mod sources;

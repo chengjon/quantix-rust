@@ -91,6 +91,14 @@ pub enum Commands {
     #[command(subcommand)]
     Notify(NotifyCommands),
 
+    /// AI 决策命令
+    #[command(subcommand)]
+    Ai(AiCommands),
+
+    /// 新闻搜索命令
+    #[command(subcommand)]
+    News(NewsCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -286,6 +294,21 @@ pub enum StrategyRequestCommands {
         /// 限制返回条数
         #[arg(short, long, default_value = "20")]
         limit: usize,
+
+        /// 显示统计摘要
+        #[arg(long)]
+        stats: bool,
+    },
+
+    /// 显示请求详情
+    Show {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+
+        /// 显示完整 payload
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// 执行一个待处理请求
@@ -1645,6 +1668,127 @@ pub enum NotifyCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum AiCommands {
+    /// AI 分析股票
+    Analyze {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 使用的模型 (deepseek | openai | ollama)
+        #[arg(short, long, default_value = "deepseek")]
+        model: String,
+
+        /// 是否包含新闻分析
+        #[arg(long)]
+        with_news: bool,
+    },
+
+    /// AI 交易决策
+    Decide {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 当前持仓数量
+        #[arg(long)]
+        position: Option<i64>,
+
+        /// 风险等级 (low | medium | high)
+        #[arg(long, default_value = "medium")]
+        risk: String,
+    },
+
+    /// 交互式问答
+    Ask {
+        /// 问题内容
+        #[arg(short, long)]
+        question: String,
+
+        /// 相关股票代码 (可选)
+        #[arg(short, long)]
+        code: Option<String>,
+
+        /// 使用的模型
+        #[arg(short, long, default_value = "deepseek")]
+        model: String,
+    },
+
+    /// 市场整体分析
+    Market {
+        /// 分析日期 (YYYYMMDD，默认今天)
+        #[arg(short, long)]
+        date: Option<String>,
+    },
+
+    /// AI 配置管理
+    Config {
+        /// 显示当前配置
+        #[arg(long)]
+        show: bool,
+
+        /// 测试 API 连接
+        #[arg(long)]
+        test: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum NewsCommands {
+    /// 搜索新闻
+    Search {
+        /// 搜索关键词
+        #[arg(short, long)]
+        query: String,
+
+        /// 相关股票代码
+        #[arg(short, long)]
+        code: Option<String>,
+
+        /// 时间范围（天数）
+        #[arg(short, long, default_value = "3")]
+        days: u32,
+
+        /// 最大结果数
+        #[arg(short = 'n', long, default_value = "20")]
+        max: usize,
+
+        /// 指定提供商 (tavily | serpapi | bocha)
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
+
+    /// 按股票代码搜索新闻
+    Code {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 时间范围（天数）
+        #[arg(short, long, default_value = "3")]
+        days: u32,
+
+        /// 最大结果数
+        #[arg(short = 'n', long, default_value = "20")]
+        max: usize,
+    },
+
+    /// 新闻趋势分析
+    Trend {
+        /// 日期 (YYYYMMDD，默认今天)
+        #[arg(short, long)]
+        date: Option<String>,
+
+        /// 股票代码 (可选)
+        #[arg(short, long)]
+        code: Option<String>,
+    },
+
+    /// 列出可用的新闻提供商
+    Providers,
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -1702,6 +1846,12 @@ impl Cli {
             }
             Commands::Notify(cmd) => {
                 handlers::run_notify_command(cmd).await?;
+            }
+            Commands::Ai(cmd) => {
+                handlers::run_ai_command(cmd).await?;
+            }
+            Commands::News(cmd) => {
+                handlers::run_news_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

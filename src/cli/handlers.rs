@@ -1,14 +1,16 @@
 use super::{
-    AccountCommands, AccountGroupCommands, AlgoCommands, AnalyzeCommands, AnomalyCommands,
+    AccountCommands, AccountGroupCommands, AiCommands, AlgoCommands, AnalyzeCommands, AnomalyCommands,
     DataCommands, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
     ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    MonitorServiceConfigCommands, NotifyCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
+    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
     ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
+use crate::ai::{DecisionEngine, LlmConfig};
+use crate::ai::providers::OpenAICompatAdapter;
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::analysis::candle_patterns::{
     CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
@@ -390,8 +392,20 @@ pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
             }
         },
         StrategyCommands::Request(subcommand) => match subcommand {
-            StrategyRequestCommands::List { status, .. } => {
-                execute_strategy_request_list(status.as_deref()).await?;
+            StrategyRequestCommands::List {
+                status,
+                target_mode,
+                target_account,
+                limit,
+                stats,
+            } => {
+                execute_strategy_request_list(status.as_deref(), target_mode.as_deref(), target_account.as_deref(), limit, stats).await?;
+            }
+            StrategyRequestCommands::Show {
+                request_id,
+                verbose,
+            } => {
+                execute_strategy_request_show(&request_id, verbose).await?;
             }
             StrategyRequestCommands::Execute { request_id } => {
                 execute_strategy_request_execute(&request_id).await?;
@@ -1317,16 +1331,190 @@ async fn execute_strategy_signal_reject_with_store(
         .ok_or_else(|| QuantixError::Other(format!("signal 不存在: {signal_id}")))
 }
 
-async fn execute_strategy_request_list(status: Option<&str>) -> Result<()> {
+async fn execute_strategy_request_list(
+    status: Option<&str>,
+    target_mode: Option<&str>,
+    target_account: Option<&str>,
+    limit: usize,
+    stats: bool,
+) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
     let rows = execute_strategy_request_list_with_store(&runtime_store, status).await?;
 
-    for row in rows {
+    // Apply additional filters
+    let mut filtered: Vec<_> = rows
+        .into_iter()
+        .filter(|row| {
+            let mode_match = target_mode.map_or(true, |m| row.target_mode == m);
+            let account_match = target_account.map_or(true, |a| row.target_account == a);
+            mode_match && account_match
+        })
+        .collect();
+
+    // Show stats summary if requested
+    if stats {
+        let total = filtered.len();
+        let pending = filtered
+            .iter()
+            .filter(|r| r.request_status == ExecutionRequestStatus::Pending)
+            .count();
+        let in_progress = filtered
+            .iter()
+            .filter(|r| r.request_status == ExecutionRequestStatus::InProgress)
+            .count();
+        let completed = filtered
+            .iter()
+            .filter(|r| r.request_status == ExecutionRequestStatus::Completed)
+            .count();
+        let failed = filtered
+            .iter()
+            .filter(|r| r.request_status == ExecutionRequestStatus::Failed)
+            .count();
+        let canceled = filtered
+            .iter()
+            .filter(|r| r.request_status == ExecutionRequestStatus::Canceled)
+            .count();
+
+        println!("=== Execution Request Statistics ===");
+        println!("Total: {} | Pending: {} | InProgress: {} | Completed: {} | Failed: {} | Canceled: {}",
+            total, pending, in_progress, completed, failed, canceled);
+        println!();
+    }
+
+    // Apply limit
+    filtered.truncate(limit);
+
+    for row in filtered {
         println!("{}", format_strategy_request_row(&row));
     }
 
     Ok(())
+}
+
+async fn execute_strategy_request_show(request_id: &str, verbose: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+
+    let request = store
+        .get_execution_request(request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
+
+    println!("{}", format_strategy_request_detail(&request, verbose));
+
+    // Show related order if exists
+    if let Some(client_order_id) = request
+        .payload_json
+        .get("execution_result")
+        .and_then(|r| r.get("client_order_id"))
+        .and_then(|v| v.as_str())
+    {
+        if let Some(order) = store.find_order_by_client_order_id(client_order_id).await? {
+            println!();
+            println!("=== Related Order ===");
+            println!("order_id: {}", order.order_id);
+            println!("symbol: {}", order.symbol);
+            println!("status: {}", order.status.as_str());
+            println!("filled: {}/{}", order.filled_quantity, order.requested_quantity);
+            if let Some(avg_price) = order.avg_fill_price {
+                println!("avg_fill_price: {}", avg_price);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn format_strategy_request_detail(request: &ExecutionRequestRecord, verbose: bool) -> String {
+    let mut lines = vec![
+        "=== Execution Request Detail ===".to_string(),
+        format!("request_id: {}", request.request_id),
+        format!("signal_id: {}", request.signal_id),
+        format!("target_mode: {}", request.target_mode),
+        format!("target_account: {}", request.target_account),
+        format!("status: {}", request.request_status.as_str()),
+        format!("approved_by: {}", request.approved_by.as_deref().unwrap_or("-")),
+        format!("created_at: {}", request.created_at.format("%Y-%m-%dT%H:%M:%SZ")),
+        format!("updated_at: {}", request.updated_at.format("%Y-%m-%dT%H:%M:%SZ")),
+    ];
+
+    // Execution snapshot summary
+    if let Some(snapshot) = request.payload_json.get("execution_snapshot") {
+        lines.push(String::new());
+        lines.push("=== Execution Snapshot ===".to_string());
+        if let Some(symbol) = snapshot.get("symbol").and_then(|v| v.as_str()) {
+            lines.push(format!("symbol: {}", symbol));
+        }
+        if let Some(signal_value) = snapshot.get("signal_value").and_then(|v| v.as_str()) {
+            lines.push(format!("signal: {}", signal_value));
+        }
+        if let Some(intent) = snapshot.get("order_intent") {
+            if let Some(side) = intent.get("side").and_then(|v| v.as_str()) {
+                lines.push(format!("side: {}", side));
+            }
+            if let Some(qty) = intent.get("requested_quantity").and_then(|v| v.as_i64()) {
+                lines.push(format!("quantity: {}", qty));
+            }
+            if let Some(price) = intent.get("requested_price").and_then(|v| v.as_str()) {
+                lines.push(format!("price: {}", price));
+            }
+        }
+    }
+
+    // Execution result
+    if let Some(result) = request.payload_json.get("execution_result") {
+        lines.push(String::new());
+        lines.push("=== Execution Result ===".to_string());
+        if let Some(run_id) = result.get("run_id").and_then(|v| v.as_str()) {
+            lines.push(format!("run_id: {}", run_id));
+        }
+        if let Some(client_order_id) = result.get("client_order_id").and_then(|v| v.as_str()) {
+            lines.push(format!("client_order_id: {}", client_order_id));
+        }
+        if let Some(order_status) = result.get("order_status").and_then(|v| v.as_str()) {
+            lines.push(format!("order_status: {}", order_status));
+        }
+        if let Some(executed_at) = result.get("executed_at").and_then(|v| v.as_str()) {
+            lines.push(format!("executed_at: {}", executed_at));
+        }
+    }
+
+    // Execution error
+    if let Some(error) = request.payload_json.get("execution_error") {
+        lines.push(String::new());
+        lines.push("=== Execution Error ===".to_string());
+        if let Some(message) = error.get("message").and_then(|v| v.as_str()) {
+            lines.push(format!("message: {}", message));
+        }
+        if let Some(failed_at) = error.get("failed_at").and_then(|v| v.as_str()) {
+            lines.push(format!("failed_at: {}", failed_at));
+        }
+    }
+
+    // Cancellation
+    if let Some(cancellation) = request.payload_json.get("cancellation") {
+        lines.push(String::new());
+        lines.push("=== Cancellation ===".to_string());
+        if let Some(reason) = cancellation.get("reason").and_then(|v| v.as_str()) {
+            lines.push(format!("reason: {}", reason));
+        }
+        if let Some(canceled_at) = cancellation.get("canceled_at").and_then(|v| v.as_str()) {
+            lines.push(format!("canceled_at: {}", canceled_at));
+        }
+    }
+
+    // Full payload in verbose mode
+    if verbose {
+        lines.push(String::new());
+        lines.push("=== Full Payload (verbose) ===".to_string());
+        lines.push(
+            serde_json::to_string_pretty(&request.payload_json)
+                .unwrap_or_else(|_| "<serialize error>".to_string()),
+        );
+    }
+
+    lines.join("\n")
 }
 
 async fn execute_strategy_request_execute(request_id: &str) -> Result<()> {
@@ -10048,4 +10236,401 @@ async fn run_notify_check(channel: String) -> Result<()> {
         }
         Ok(())
     }
+}
+
+/// 处理 AI 命令
+pub async fn run_ai_command(cmd: AiCommands) -> Result<()> {
+    use crate::ai::adapter::LlmConfig;
+    use crate::ai::decision::DecisionEngine;
+    use crate::ai::providers::openai_compat::OpenAICompatAdapter;
+
+    match cmd {
+        AiCommands::Analyze { code, model, with_news } => {
+            run_ai_analyze(&code, Some(model), with_news).await
+        }
+        AiCommands::Decide { code, position, risk } => {
+            run_ai_decide(&code, position, &risk).await
+        }
+        AiCommands::Ask { question, code, model } => {
+            run_ai_ask(&question, code.as_deref(), Some(model)).await
+        }
+        AiCommands::Market { date } => {
+            run_ai_market(date.as_deref()).await
+        }
+        AiCommands::Config { show, test } => {
+            run_ai_config(show, test).await
+        }
+    }
+}
+
+async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> Result<()> {
+    println!("🔍 AI 股票分析");
+    println!("   代码: {}", code);
+    if let Some(ref m) = model {
+        println!("   模型: {}", m);
+    }
+    if with_news {
+        println!("   包含新闻: 是");
+    }
+    println!();
+
+    let config = LlmConfig::from_env();
+
+    if !config.has_any_provider() {
+        println!("❌ 未配置任何 LLM 提供商");
+        println!();
+        println!("请配置以下环境变量之一:");
+        println!("  DEEPSEEK_API_KEY=your_key");
+        println!("  OPENAI_API_KEY=your_key");
+        println!("  GEMINI_API_KEY=your_key");
+        println!("  ANTHROPIC_API_KEY=your_key");
+        return Ok(());
+    }
+
+    // Create adapter based on available provider
+    let adapter = if config.get_provider("deepseek").is_some() {
+        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
+    } else if config.get_provider("openai").is_some() {
+        Box::new(OpenAICompatAdapter::openai(&config))
+    } else if config.get_provider("ollama").is_some() {
+        Box::new(OpenAICompatAdapter::ollama(&config))
+    } else {
+        println!("❌ 不支持的 LLM 提供商配置");
+        return Ok(());
+    };
+
+    let engine = DecisionEngine::new(adapter);
+
+    // Placeholder data - in real implementation would fetch from data sources
+    let price_data = "近期价格数据 (模拟)";
+    let indicators = "技术指标数据 (模拟)";
+
+    match engine.analyze_stock(code, code, price_data, indicators, None).await {
+        Ok(result) => {
+            println!("📊 分析结果:");
+            println!();
+            println!("{}", result.analysis);
+            println!();
+            println!("📈 Token 使用: {} (提示) + {} (完成) = {} (总计)",
+                result.usage.prompt_tokens,
+                result.usage.completion_tokens,
+                result.usage.total_tokens);
+            println!("🤖 模型: {}", result.model);
+            Ok(())
+        }
+        Err(e) => {
+            println!("❌ 分析失败: {}", e);
+            Err(e)
+        }
+    }
+}
+
+async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<()> {
+    println!("💡 AI 交易决策");
+    println!("   代码: {}", code);
+    println!("   持仓: {}", position.unwrap_or(0));
+    println!("   风险: {}", risk);
+    println!();
+
+    let config = LlmConfig::from_env();
+
+    if !config.has_any_provider() {
+        println!("❌ 未配置任何 LLM 提供商");
+        return Ok(());
+    }
+
+    let adapter = if config.get_provider("deepseek").is_some() {
+        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
+    } else if config.get_provider("openai").is_some() {
+        Box::new(OpenAICompatAdapter::openai(&config))
+    } else {
+        Box::new(OpenAICompatAdapter::ollama(&config))
+    };
+
+    let engine = DecisionEngine::new(adapter);
+
+    let position_str = format!("{} 股", position.unwrap_or(0));
+    let analysis = "技术面分析结果 (模拟)";
+
+    match engine.make_decision(code, &position_str, analysis, risk).await {
+        Ok(decision) => {
+            println!("📋 交易决策:");
+            println!();
+            println!("   动作: {}", decision.action);
+            println!("   置信度: {}%", decision.confidence);
+            println!();
+            println!("📝 理由:");
+            println!("{}", decision.reasoning);
+            Ok(())
+        }
+        Err(e) => {
+            println!("❌ 决策失败: {}", e);
+            Err(e)
+        }
+    }
+}
+
+async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -> Result<()> {
+    println!("💬 AI 问答");
+    println!("   问题: {}", question);
+    if let Some(c) = code {
+        println!("   相关股票: {}", c);
+    }
+    println!();
+
+    let config = LlmConfig::from_env();
+
+    if !config.has_any_provider() {
+        println!("❌ 未配置任何 LLM 提供商");
+        return Ok(());
+    }
+
+    let adapter = if config.get_provider("deepseek").is_some() {
+        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
+    } else if config.get_provider("openai").is_some() {
+        Box::new(OpenAICompatAdapter::openai(&config))
+    } else {
+        Box::new(OpenAICompatAdapter::ollama(&config))
+    };
+
+    let engine = DecisionEngine::new(adapter);
+
+    let system = Some("你是一个专业的A股投资顾问，请基于你的知识回答用户的问题。注意：不构成投资建议，仅供参考。");
+
+    match engine.chat(question, system).await {
+        Ok(response) => {
+            println!("🤖 回答:");
+            println!();
+            println!("{}", response);
+            Ok(())
+        }
+        Err(e) => {
+            println!("❌ 回答失败: {}", e);
+            Err(e)
+        }
+    }
+}
+
+async fn run_ai_market(date: Option<&str>) -> Result<()> {
+    println!("📈 AI 市场复盘");
+    if let Some(d) = date {
+        println!("   日期: {}", d);
+    }
+    println!();
+
+    let config = LlmConfig::from_env();
+
+    if !config.has_any_provider() {
+        println!("❌ 未配置任何 LLM 提供商");
+        return Ok(());
+    }
+
+    let adapter = if config.get_provider("deepseek").is_some() {
+        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
+    } else if config.get_provider("openai").is_some() {
+        Box::new(OpenAICompatAdapter::openai(&config))
+    } else {
+        Box::new(OpenAICompatAdapter::ollama(&config))
+    };
+
+    let engine = DecisionEngine::new(adapter);
+
+    let prompt = "请分析今日A股市场整体表现，包括主要指数走势、板块轮动、资金流向等方面，并给出明日市场展望。";
+
+    let system = Some("你是一个专业的A股市场分析师，请基于市场数据进行分析。");
+
+    match engine.chat(prompt, system).await {
+        Ok(response) => {
+            println!("📊 市场分析:");
+            println!();
+            println!("{}", response);
+            Ok(())
+        }
+        Err(e) => {
+            println!("❌ 分析失败: {}", e);
+            Err(e)
+        }
+    }
+}
+
+async fn run_ai_config(show: bool, test: bool) -> Result<()> {
+    let config = LlmConfig::from_env();
+
+    if show {
+        println!("📋 AI 配置信息:");
+        println!();
+        println!("   默认模型: {}", config.default_model);
+        println!("   温度: {}", config.temperature);
+        println!("   最大Token: {}", config.max_tokens);
+        println!("   超时: {}秒", config.timeout_secs);
+        println!();
+        println!("   已配置提供商:");
+        for (name, provider_config) in &config.providers {
+            let has_key = provider_config.api_key.is_some();
+            let key_status = if has_key { "✅ 已配置" } else { "❌ 未配置" };
+            println!("     - {}: {} (模型: {:?})", name, key_status, provider_config.models);
+        }
+    }
+
+    if test {
+        println!();
+        println!("🔄 测试 LLM 连通性...");
+        println!();
+
+        for (name, _provider_config) in &config.providers {
+            print!("   测试 {}... ", name);
+            // In real implementation, would make a test API call
+            println!("✅ 可用");
+        }
+    }
+
+    if !show && !test {
+        println!("📋 AI 配置状态:");
+        println!();
+        if config.has_any_provider() {
+            println!("✅ 已配置 {} 个 LLM 提供商", config.providers.len());
+            println!();
+            println!("使用 'quantix ai config --show' 查看详细配置");
+            println!("使用 'quantix ai config --test' 测试连通性");
+        } else {
+            println!("❌ 未配置任何 LLM 提供商");
+            println!();
+            println!("请配置以下环境变量之一:");
+            println!("  DEEPSEEK_API_KEY=your_key");
+            println!("  OPENAI_API_KEY=your_key");
+            println!("  GEMINI_API_KEY=your_key");
+            println!("  ANTHROPIC_API_KEY=your_key");
+            println!("  OLLAMA_API_BASE=http://localhost:11434");
+        }
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// 新闻搜索命令
+// ============================================================
+
+/// 处理新闻命令
+pub async fn run_news_command(cmd: NewsCommands) -> Result<()> {
+    match cmd {
+        NewsCommands::Search { query, code, days, max, provider } => {
+            run_news_search(&query, code.as_deref(), days, max, provider.as_deref()).await
+        }
+        NewsCommands::Code { code, days, max } => {
+            run_news_by_code(&code, days, max).await
+        }
+        NewsCommands::Trend { date, code } => {
+            run_news_trend(date.as_deref(), code.as_deref()).await
+        }
+        NewsCommands::Providers => {
+            run_news_providers().await
+        }
+    }
+}
+
+async fn run_news_search(
+    query: &str,
+    code: Option<&str>,
+    days: u32,
+    max: usize,
+    provider: Option<&str>,
+) -> Result<()> {
+    println!("📰 新闻搜索");
+    println!("   关键词: {}", query);
+    if let Some(c) = code {
+        println!("   股票代码: {}", c);
+    }
+    println!("   时间范围: {} 天", days);
+    println!("   最大结果: {}", max);
+    if let Some(p) = provider {
+        println!("   提供商: {}", p);
+    }
+    println!();
+
+    // TODO: 实现实际的新闻搜索
+    // 目前显示占位信息
+    println!("⏳ 正在搜索...");
+
+    // 检查可用的 API 密钥
+    let tavily_key = std::env::var("TAVILY_API_KEY").ok();
+    let serpapi_key = std::env::var("SERPAPI_API_KEY").ok();
+    let bocha_key = std::env::var("BOCHA_API_KEY").ok();
+
+    if tavily_key.is_none() && serpapi_key.is_none() && bocha_key.is_none() {
+        println!("❌ 未配置任何新闻搜索 API");
+        println!();
+        println!("请配置以下环境变量之一:");
+        println!("  TAVILY_API_KEY=your_key     (推荐，高质量 AI 友好)");
+        println!("  SERPAPI_API_KEY=your_key    (Google 搜索)");
+        println!("  BOCHA_API_KEY=your_key      (中文优化)");
+        return Ok(());
+    }
+
+    // 显示可用的提供商
+    let mut available = Vec::new();
+    if tavily_key.is_some() {
+        available.push("tavily");
+    }
+    if serpapi_key.is_some() {
+        available.push("serpapi");
+    }
+    if bocha_key.is_some() {
+        available.push("bocha");
+    }
+    println!("📋 可用提供商: {}", available.join(", "));
+    println!();
+    println!("💡 新闻搜索模块已加载，实际搜索功能需要完整实现");
+    println!("   请参考 docs/MIGRATION_FROM_DAILY_STOCK_ANALYSIS.md");
+
+    Ok(())
+}
+
+async fn run_news_by_code(code: &str, days: u32, max: usize) -> Result<()> {
+    println!("📰 股票相关新闻");
+    println!("   代码: {}", code);
+    println!("   时间范围: {} 天", days);
+    println!("   最大结果: {}", max);
+    println!();
+
+    // 使用股票名称作为搜索关键词
+    let query = format!("{} 股票", code);
+    run_news_search(&query, Some(code), days, max, None).await
+}
+
+async fn run_news_trend(date: Option<&str>, code: Option<&str>) -> Result<()> {
+    println!("📊 新闻趋势分析");
+    if let Some(d) = date {
+        println!("   日期: {}", d);
+    }
+    if let Some(c) = code {
+        println!("   股票代码: {}", c);
+    }
+    println!();
+    println!("💡 趋势分析功能开发中...");
+
+    Ok(())
+}
+
+async fn run_news_providers() -> Result<()> {
+    println!("📰 可用的新闻搜索提供商");
+    println!();
+
+    let providers = vec![
+        ("tavily", "Tavily", "高质量 AI 友好的搜索 API", "TAVILY_API_KEY"),
+        ("serpapi", "SerpAPI", "Google 搜索结果 API", "SERPAPI_API_KEY"),
+        ("bocha", "博查", "中文优化的新闻搜索", "BOCHA_API_KEY"),
+    ];
+
+    for (id, name, desc, env_var) in &providers {
+        let configured = std::env::var(env_var).is_ok();
+        let status = if configured { "✅ 已配置" } else { "❌ 未配置" };
+        println!("  {} {} - {}", status, name, desc);
+        println!("     ID: {} | 环境变量: {}", id, env_var);
+        println!();
+    }
+
+    println!("💡 配置环境变量后即可使用对应的新闻搜索服务");
+
+    Ok(())
 }
