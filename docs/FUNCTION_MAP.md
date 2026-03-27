@@ -704,9 +704,37 @@ quantix
 
 ## 更新日志
 
+- **2026-03-27 (续2)**: 添加 Graphiti MCP 集成、多账户管理、算法交易执行器
 - **2026-03-27**: 添加 daily_stock_analysis 迁移计划（AI/News/Fundamental/Notification扩展）
 - **2026-03-27**: 合并 FUNCTION_MAP.md，增加设计边界和运营视图
 - **2026-03-27**: 初版创建，记录当前项目功能结构
+
+---
+
+## 外部集成
+
+### Graphiti MCP 语义记忆层
+
+Graphiti MCP 提供语义记忆能力，用于设计决策、代码审查、调试、交接和文档。
+
+| Group ID | 用途 |
+|----------|------|
+| `quantix_rust_main` | 主设计决策和架构记录 |
+| `quantix_rust_main_review` | 代码审查记录 |
+| `quantix_rust_main_debug` | 调试会话记录 |
+| `quantix_rust_main_handoff` | 交接文档 |
+| `quantix_rust_main_docs` | 技术文档 |
+
+**MCP 配置**:
+```json
+{
+  "graphiti-memory": {
+    "type": "sse",
+    "url": "http://192.168.123.104:8011/mcp",
+    "description": "Graphiti semantic memory layer"
+  }
+}
+```
 
 ---
 

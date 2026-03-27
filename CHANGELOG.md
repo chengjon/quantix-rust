@@ -2,6 +2,49 @@
 
 All notable changes to this project are documented here.
 
+## 2026-03-27 (续2)
+
+### Added
+
+- **多账户管理系统** (`src/account/*`)
+  - `AccountConfig` - 账户配置模型 (Paper/Live/MockLive)
+  - `AccountGroup` - 账户组配置，支持资金分配策略
+  - `AllocationStrategy` - Equal/Proportional/Weighted/PrimaryFirst
+  - `AccountRegistry` - 账户注册表，管理账户和组的 CRUD
+  - `AccountRouter` - 智能订单路由，按策略拆分订单
+  - `JsonAccountRegistryStore` - JSON 持久化存储
+- **账户管理 CLI 命令**
+  - `quantix account register/list/show/update/remove/default`
+  - `quantix account group create/list/show/remove/add-account/remove-account/set-strategy`
+  - `quantix account summary` - 资金聚合视图
+  - `quantix account split` - 订单拆分预览
+- **算法交易执行器** (`src/execution/algo/*`)
+  - TWAP (时间加权平均价格) 执行器
+  - VWAP (成交量加权平均价格) 执行器
+  - 算法执行上下文和状态管理
+- **执行模型增强** (`src/execution/models.rs`)
+  - `FillDetails` 扩展：增量成交追踪 (last_fill_price, last_fill_quantity, total_fills)
+  - Broker 元数据 (commission, fees, venue, broker_fill_id)
+  - `OrderStatus` Serialize/Deserialize 派生
+- **风控增强**
+  - 行业集中度检查 (`check_industry_limit`) 占位实现
+  - 自动减仓触发检测 (`check_auto_reduce_trigger`)
+  - 新增事件类型：`IndustryLimitTriggered`, `AutoReduceTriggered`, `AutoReduceExecuted`
+- **系统通知增强** (`src/monitoring/notification.rs`)
+  - `FeishuSender` - 飞书 Webhook 通知
+  - `WechatWorkSender` - 企业微信通知
+  - 修复飞书发送器的借用错误
+- **Graphiti MCP 集成**
+  - MCP 配置：`graphiti-memory` 服务
+  - 端点：`http://192.168.123.104:8011/mcp`
+  - Group IDs: `quantix_rust_main`, `_review`, `_debug`, `_handoff`, `_docs`
+  - 设计记忆写入：多账户管理系统架构决策
+
+### Changed
+
+- 更新 `README.md` 添加多账户管理和 Graphiti MCP 说明
+- 更新 `docs/FUNCTION_MAP.md` 增加账户管理模块和 CLI 命令树
+
 ## 2026-03-27 (续)
 
 ### Added

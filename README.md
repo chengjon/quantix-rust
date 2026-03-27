@@ -38,6 +38,18 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
   - A股特有过滤器（ST、涨跌停、停牌、新股）
   - 特征提取：成交量回报、对数回报、EOM指标
+- **多账户管理系统**已完成设计与实现：
+  - `AccountConfig` - 账户配置模型 (Paper/Live/MockLive)
+  - `AccountGroup` - 账户组配置，支持资金分配策略
+  - `AllocationStrategy` - Equal/Proportional/Weighted/PrimaryFirst
+  - `AccountRouter` - 智能订单路由，按策略拆分订单
+  - 完整 CLI 命令支持 (`quantix account *`)
+- **算法交易执行器**已完成基础实现：
+  - TWAP (时间加权平均价格) 执行器
+  - VWAP (成交量加权平均价格) 执行器
+- **Graphiti MCP 集成**已完成：
+  - 语义记忆层用于设计决策、代码审查、调试、交接和文档
+  - Group IDs: `quantix_rust_main`, `_review`, `_debug`, `_handoff`, `_docs`
 - 当前明确仍未完成的是真实 `live` broker execution，以及 `Wind` / `Choice` bridge 支持。
 
 ## 功能特性
