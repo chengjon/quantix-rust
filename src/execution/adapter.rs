@@ -30,6 +30,7 @@ pub struct OrderQueryResponse {
     pub filled_quantity: i64,
     pub avg_fill_price: Option<Decimal>,
     pub fill_details: Option<FillDetails>,
+    pub rejection_reason: Option<String>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -39,6 +40,9 @@ pub enum AdapterError {
 
     #[error("execution adapter 执行失败: {0}")]
     Execution(String),
+
+    #[error("execution adapter 网络错误: {0}")]
+    Network(String),
 }
 
 #[async_trait]

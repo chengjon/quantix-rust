@@ -165,6 +165,7 @@ where
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
                 fill_details: None,
+                rejection_reason: None,
             });
         }
 
@@ -183,6 +184,7 @@ where
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
                 fill_details: None,
+                rejection_reason: None,
             });
         }
 
@@ -204,7 +206,80 @@ where
                 filled_quantity: Self::cumulative_filled_quantity(&state),
                 avg_fill_price: None,
                 fill_details: None,
+                rejection_reason: None,
             });
+        }
+
+        // Network timeout simulation - returns error after delay
+        if state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.as_deref())
+            == Some("network_timeout")
+        {
+            let delay_secs = state
+                .fault_injection
+                .as_ref()
+                .and_then(|f| f.timeout_seconds)
+                .unwrap_or(5);
+            tokio::time::sleep(tokio::time::Duration::from_secs(delay_secs as u64)).await;
+            state.fault_injection = None;
+            self.save_state(order_id, &state).await?;
+            return Err(AdapterError::Network("Simulated network timeout".to_string()));
+        }
+
+        // Network disconnect simulation - returns error immediately
+        if state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.as_deref())
+            == Some("network_disconnect")
+        {
+            state.fault_injection = None;
+            self.save_state(order_id, &state).await?;
+            return Err(AdapterError::Network("Simulated network disconnect".to_string()));
+        }
+
+        // Delayed response simulation - delays response but succeeds
+        if let Some(mode) = state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.as_deref())
+        {
+            if mode.starts_with("delayed_response:") {
+                let delay_secs: u64 = mode
+                    .strip_prefix("delayed_response:")
+                    .unwrap_or("2")
+                    .parse()
+                    .unwrap_or(2);
+                tokio::time::sleep(tokio::time::Duration::from_secs(delay_secs)).await;
+                // Clear fault after one delay
+                state.fault_injection = None;
+                self.save_state(order_id, &state).await?;
+            }
+        }
+
+        // Simulated rejection - returns rejected status
+        if let Some(mode) = state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.clone())
+        {
+            if mode.starts_with("simulated_rejection") {
+                let reason = mode
+                    .strip_prefix("simulated_rejection:")
+                    .unwrap_or("mock_rejection");
+                state.fault_injection = None;
+                self.save_state(order_id, &state).await?;
+                return Ok(OrderQueryResponse {
+                    adapter_order_id: order_id.to_string(),
+                    latest_status: OrderStatus::Rejected,
+                    filled_quantity: 0,
+                    avg_fill_price: None,
+                    fill_details: None,
+                    rejection_reason: Some(reason.to_string()),
+                });
+            }
         }
 
         if !Self::has_unapplied_fill(&state) && state.next_step_index < state.fill_plan.len() {
@@ -241,6 +316,7 @@ where
             filled_quantity: Self::cumulative_filled_quantity(&state),
             avg_fill_price: (state.next_step_index > 0).then_some(fill_price),
             fill_details,
+            rejection_reason: None,
         })
     }
 

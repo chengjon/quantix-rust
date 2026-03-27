@@ -273,6 +273,7 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
                     filled_quantity: response.filled_quantity,
                     avg_fill_price: avg_price,
                     fill_details,
+                    rejection_reason: None,
                 })
             }
             Err(e) => {

@@ -343,10 +343,29 @@ pub struct MockLiveFillStep {
     pub delay_secs: i64,
 }
 
+/// Fault injection modes for mock_live testing
+///
+/// Supported modes:
+/// - `unknown_once`: Return Unknown status once, then clear
+/// - `unknown_always`: Always return Unknown status
+/// - `network_timeout`: Simulate network timeout on query
+/// - `network_disconnect`: Simulate network disconnection
+/// - `delayed_response:<secs>`: Delay response by specified seconds
+/// - `simulated_rejection:<reason>`: Reject order with specified reason
+/// - `partial_timeout`: Return timeout on first query, then normal
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct MockLiveFaultInjection {
     #[serde(default)]
     pub mode: Option<String>,
+    /// For delayed_response mode: delay in seconds
+    #[serde(default)]
+    pub delay_seconds: Option<i64>,
+    /// For simulated_rejection mode: rejection reason
+    #[serde(default)]
+    pub rejection_reason: Option<String>,
+    /// For network_timeout mode: timeout duration in seconds
+    #[serde(default)]
+    pub timeout_seconds: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
