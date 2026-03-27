@@ -1,0 +1,56 @@
+# News Module Configuration
+# quantix-rust 新闻搜索模块配置
+
+[default]
+# 默认新闻提供商 (tavily | serpapi | bocha)
+default_provider = "tavily"
+
+# 时间范围（天数）
+default_days = 3
+
+# 最大结果数
+max_results = 20
+
+# 缓存 TTL（秒）
+cache_ttl_seconds = 3600
+
+# 是否启用缓存
+enable_cache = true
+
+# ============================================================
+# Tavily 配置 (推荐)
+# ============================================================
+[tavily]
+enabled = true
+priority = 1
+# API Key 从环境变量 TAVILY_API_KEY 读取
+base_url = "https://api.tavily.com"
+timeout_seconds = 30
+# 搜索深度 (basic | advanced)
+search_depth = "basic"
+# 是否包含答案
+include_answer = true
+# 是否包含原始内容
+include_raw_content = false
+
+# ============================================================
+# SerpAPI 配置 (Google 搜索)
+# ============================================================
+[serpapi]
+enabled = true
+priority = 2
+# API Key 从环境变量 SERPAPI_API_KEY 读取
+base_url = "https://serpapi.com"
+timeout_seconds = 30
+# 搜索引擎 (google | google_news)
+engine = "google_news"
+
+# ============================================================
+# 博查配置 (中文优化)
+# ============================================================
+[bocha]
+enabled = true
+priority = 3
+# API Key 从环境变量 BOCHA_API_KEY 读取
+base_url = "https://api.bocha.io"
+timeout_seconds = 30

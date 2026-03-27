@@ -99,6 +99,14 @@ pub enum Commands {
     #[command(subcommand)]
     News(NewsCommands),
 
+    /// 基本面数据命令
+    #[command(subcommand)]
+    Fundamental(FundamentalCommands),
+
+    /// 舆情分析命令
+    #[command(subcommand)]
+    Sentiment(SentimentCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -1789,6 +1797,95 @@ pub enum NewsCommands {
     Providers,
 }
 
+#[derive(Subcommand, Debug)]
+pub enum FundamentalCommands {
+    /// 显示基本面数据
+    Show {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+    },
+
+    /// 查看估值指标
+    Valuation {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+    },
+
+    /// 查看财报数据
+    Earnings {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 年数
+        #[arg(short, long, default_value = "3")]
+        years: u32,
+    },
+
+    /// 查看机构持仓
+    Institution {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+    },
+
+    /// 查看龙虎榜
+    DragonTiger {
+        /// 股票代码 (可选，不指定则显示今日龙虎榜)
+        #[arg(short, long)]
+        code: Option<String>,
+
+        /// 天数
+        #[arg(short, long, default_value = "5")]
+        days: u32,
+    },
+
+    /// 查看分红信息
+    Dividend {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 年数
+        #[arg(short, long, default_value = "5")]
+        years: u32,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SentimentCommands {
+    /// 显示舆情数据
+    Show {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+    },
+
+    /// 查看历史趋势
+    History {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 天数
+        #[arg(short, long, default_value = "7")]
+        days: u32,
+    },
+
+    /// 查看社交媒体提及
+    Mentions {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 最大数量
+        #[arg(short = 'n', long, default_value = "20")]
+        max: usize,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -1852,6 +1949,12 @@ impl Cli {
             }
             Commands::News(cmd) => {
                 handlers::run_news_command(cmd).await?;
+            }
+            Commands::Fundamental(cmd) => {
+                handlers::run_fundamental_command(cmd).await?;
+            }
+            Commands::Sentiment(cmd) => {
+                handlers::run_sentiment_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

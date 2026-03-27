@@ -3,8 +3,8 @@ use super::{
     DataCommands, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
     ExecutionDaemonCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
-    ScreenerCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    MonitorServiceConfigCommands, FundamentalCommands, NewsCommands, NotifyCommands, RiskCommands, RiskLockCommands, RiskRuleCommands,
+    ScreenerCommands, SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
@@ -10631,6 +10631,209 @@ async fn run_news_providers() -> Result<()> {
     }
 
     println!("💡 配置环境变量后即可使用对应的新闻搜索服务");
+
+    Ok(())
+}
+
+// ============================================================
+// 基本面数据命令
+// ============================================================
+
+/// 处理基本面命令
+pub async fn run_fundamental_command(cmd: FundamentalCommands) -> Result<()> {
+    match cmd {
+        FundamentalCommands::Show { code } => {
+            run_fundamental_show(&code).await
+        }
+        FundamentalCommands::Valuation { code } => {
+            run_fundamental_valuation(&code).await
+        }
+        FundamentalCommands::Earnings { code, years } => {
+            run_fundamental_earnings(&code, years).await
+        }
+        FundamentalCommands::Institution { code } => {
+            run_fundamental_institution(&code).await
+        }
+        FundamentalCommands::DragonTiger { code, days } => {
+            run_fundamental_dragon_tiger(code.as_deref(), days).await
+        }
+        FundamentalCommands::Dividend { code, years } => {
+            run_fundamental_dividend(&code, years).await
+        }
+    }
+}
+
+async fn run_fundamental_show(code: &str) -> Result<()> {
+    println!("📊 基本面数据");
+    println!("   代码: {}", code);
+    println!();
+
+    // TODO: 实现实际的基本面数据获取
+    println!("⏳ 正在获取数据...");
+    println!();
+    println!("💡 基本面数据模块已加载，完整功能开发中");
+    println!("   使用以下子命令查看具体数据:");
+    println!("   - valuation: 估值指标");
+    println!("   - earnings: 财报数据");
+    println!("   - institution: 机构持仓");
+    println!("   - dragon-tiger: 龙虎榜");
+    println!("   - dividend: 分红信息");
+
+    Ok(())
+}
+
+async fn run_fundamental_valuation(code: &str) -> Result<()> {
+    println!("📈 估值指标");
+    println!("   代码: {}", code);
+    println!();
+
+    println!("┌─────────────────┬─────────────┐");
+    println!("│ 指标            │ 数值        │");
+    println!("├─────────────────┼─────────────┤");
+    println!("│ 市盈率 (TTM)    │ -           │");
+    println!("│ 市盈率 (静态)   │ -           │");
+    println!("│ 市净率          │ -           │");
+    println!("│ 市销率          │ -           │");
+    println!("│ 总市值          │ -           │");
+    println!("│ 流通市值        │ -           │");
+    println!("│ 股息率          │ -           │");
+    println!("│ 净资产收益率    │ -           │");
+    println!("└─────────────────┴─────────────┘");
+    println!();
+    println!("💡 估值数据需要从东财/AkShare API 获取");
+
+    Ok(())
+}
+
+async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
+    println!("📋 财报数据");
+    println!("   代码: {}", code);
+    println!("   年数: {}", years);
+    println!();
+
+    println!("📅 最近财报:");
+    println!("   报告期: -");
+    println!("   营业收入: -");
+    println!("   净利润: -");
+    println!("   同比增长: -");
+    println!();
+    println!("💡 财报数据需要从东财/AkShare API 获取");
+
+    Ok(())
+}
+
+async fn run_fundamental_institution(code: &str) -> Result<()> {
+    println!("🏛️ 机构持仓");
+    println!("   代码: {}", code);
+    println!();
+
+    println!("📊 机构持仓明细:");
+    println!("   (暂无数据)");
+    println!();
+    println!("💡 机构持仓数据需要从东财 API 获取");
+
+    Ok(())
+}
+
+async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<()> {
+    if let Some(c) = code {
+        println!("🐉 龙虎榜 - {}", c);
+    } else {
+        println!("🐉 今日龙虎榜");
+    }
+    println!("   天数: {}", days);
+    println!();
+
+    println!("📊 龙虎榜数据:");
+    println!("   (暂无数据)");
+    println!();
+    println!("💡 龙虎榜数据需要从东财 API 获取");
+
+    Ok(())
+}
+
+async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
+    println!("💰 分红信息");
+    println!("   代码: {}", code);
+    println!("   年数: {}", years);
+    println!();
+
+    println!("📊 分红历史:");
+    println!("   (暂无数据)");
+    println!();
+    println!("💡 分红数据需要从东财 API 获取");
+
+    Ok(())
+}
+
+// ============================================================
+// 舆情分析命令
+// ============================================================
+
+/// 处理舆情命令
+pub async fn run_sentiment_command(cmd: SentimentCommands) -> Result<()> {
+    match cmd {
+        SentimentCommands::Show { code } => {
+            run_sentiment_show(&code).await
+        }
+        SentimentCommands::History { code, days } => {
+            run_sentiment_history(&code, days).await
+        }
+        SentimentCommands::Mentions { code, max } => {
+            run_sentiment_mentions(&code, max).await
+        }
+    }
+}
+
+async fn run_sentiment_show(code: &str) -> Result<()> {
+    println!("📊 舆情分析");
+    println!("   代码: {}", code);
+    println!();
+
+    // 检查 API 配置
+    let adanos_key = std::env::var("ADANOS_API_KEY").ok();
+
+    if adanos_key.is_none() {
+        println!("❌ 未配置舆情 API");
+        println!();
+        println!("请配置以下环境变量:");
+        println!("  ADANOS_API_KEY=your_key");
+        return Ok(());
+    }
+
+    println!("📈 情绪指数: -");
+    println!("   情绪等级: -");
+    println!("   趋势方向: -");
+    println!();
+    println!("💡 舆情数据需要从 Adanos API 获取");
+
+    Ok(())
+}
+
+async fn run_sentiment_history(code: &str, days: u32) -> Result<()> {
+    println!("📊 舆情历史趋势");
+    println!("   代码: {}", code);
+    println!("   天数: {}", days);
+    println!();
+
+    println!("📅 历史数据:");
+    println!("   (暂无数据)");
+    println!();
+    println!("💡 历史舆情需要从 Adanos API 获取");
+
+    Ok(())
+}
+
+async fn run_sentiment_mentions(code: &str, max: usize) -> Result<()> {
+    println!("💬 社交媒体提及");
+    println!("   代码: {}", code);
+    println!("   最大数量: {}", max);
+    println!();
+
+    println!("📱 最近提及:");
+    println!("   (暂无数据)");
+    println!();
+    println!("💡 社交媒体数据需要从 Adanos API 获取");
 
     Ok(())
 }
