@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use crate::monitoring::{AlertLevel, AlertType};
 
 /// 通知渠道类型
@@ -27,6 +27,20 @@ pub enum NotificationChannel {
     Log,
     /// 邮件（预留）
     Email,
+    /// Telegram Bot
+    Telegram,
+    /// 企业微信
+    WechatWork,
+    /// 飞书
+    Feishu,
+    /// Discord Webhook
+    Discord,
+    /// Slack Webhook
+    Slack,
+    /// 钉钉
+    Dingtalk,
+    /// PushPlus
+    Pushplus,
 }
 
 impl std::fmt::Display for NotificationChannel {
@@ -36,6 +50,13 @@ impl std::fmt::Display for NotificationChannel {
             Self::Webhook => write!(f, "webhook"),
             Self::Log => write!(f, "log"),
             Self::Email => write!(f, "email"),
+            Self::Telegram => write!(f, "telegram"),
+            Self::WechatWork => write!(f, "wechat_work"),
+            Self::Feishu => write!(f, "feishu"),
+            Self::Discord => write!(f, "discord"),
+            Self::Slack => write!(f, "slack"),
+            Self::Dingtalk => write!(f, "dingtalk"),
+            Self::Pushplus => write!(f, "pushplus"),
         }
     }
 }
@@ -55,6 +76,10 @@ pub struct NotificationConfig {
     pub quiet_hours: Option<QuietHours>,
     /// 通知模板
     pub templates: HashMap<String, String>,
+    /// 企业微信 Webhook URL
+    pub wechat_work_webhook: Option<String>,
+    /// 飞书 Webhook URL
+    pub feishu_webhook: Option<String>,
 }
 
 impl Default for NotificationConfig {
@@ -66,6 +91,8 @@ impl Default for NotificationConfig {
             min_level: AlertLevel::Warning,
             quiet_hours: None,
             templates: HashMap::new(),
+            wechat_work_webhook: None,
+            feishu_webhook: None,
         }
     }
 }
@@ -77,6 +104,34 @@ pub struct QuietHours {
     pub start: String,
     /// 结束时间（HH:MM 格式）
     pub end: String,
+}
+
+/// 企业微信配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WechatWorkConfig {
+    /// Webhook URL
+    pub webhook_url: String,
+    /// 消息类型（text/markdown）
+    #[serde(default = "default_wechat_msg_type")]
+    pub msg_type: String,
+}
+
+fn default_wechat_msg_type() -> String {
+    "markdown".to_string()
+}
+
+/// 飞书配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeishuConfig {
+    /// Webhook URL
+    pub webhook_url: String,
+    /// 消息类型（text/post/interactive）
+    #[serde(default = "default_feishu_msg_type")]
+    pub msg_type: String,
+}
+
+fn default_feishu_msg_type() -> String {
+    "post".to_string()
 }
 
 impl QuietHours {
@@ -427,6 +482,160 @@ impl NotificationSender for LogSender {
     }
 }
 
+/// 企业微信通知发送器
+pub struct WechatWorkSender {
+    webhook_url: String,
+    client: reqwest::Client,
+}
+
+impl WechatWorkSender {
+    pub fn new(webhook_url: String) -> Self {
+        Self {
+            webhook_url,
+            client: reqwest::Client::new(),
+        }
+    }
+
+    fn format_message(&self, notification: &Notification) -> String {
+        let level_emoji = match notification.level {
+            AlertLevel::Info => "ℹ️",
+            AlertLevel::Warning => "⚠️",
+            AlertLevel::Error => "❌",
+            AlertLevel::Critical => "🚨",
+        };
+        format!(
+            "### {} {}\n\n**{}**\n\n> {}",
+            level_emoji,
+            notification.title,
+            notification.created_at.format("%Y-%m-%d %H:%M:%S"),
+            notification.message
+        )
+    }
+}
+
+#[async_trait]
+impl NotificationSender for WechatWorkSender {
+    async fn send(&self, notification: &Notification) -> Result<()> {
+        let content = self.format_message(notification);
+
+        let payload = serde_json::json!({
+            "msgtype": "markdown",
+            "markdown": {
+                "content": content
+            }
+        });
+
+        let response = self.client
+            .post(&self.webhook_url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| QuantixError::Other(format!("企业微信请求失败: {}", e)))?;
+
+        let status = response.status();
+        if status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            if body.contains("\"errcode\":0") || body.contains("\"errcode\": 0") {
+                tracing::debug!("企业微信通知发送成功");
+                return Ok(());
+            }
+            tracing::warn!("企业微信返回错误: {}", body);
+        }
+
+        Err(QuantixError::Other(format!(
+            "企业微信发送失败: HTTP {}",
+            status
+        )))
+    }
+
+    fn channel(&self) -> NotificationChannel {
+        NotificationChannel::WechatWork
+    }
+
+    fn is_available(&self) -> bool {
+        !self.webhook_url.is_empty()
+    }
+}
+
+/// 飞书通知发送器
+pub struct FeishuSender {
+    webhook_url: String,
+    client: reqwest::Client,
+}
+
+impl FeishuSender {
+    pub fn new(webhook_url: String) -> Self {
+        Self {
+            webhook_url,
+            client: reqwest::Client::new(),
+        }
+    }
+
+    fn format_message(&self, notification: &Notification) -> serde_json::Value {
+        let level_color = match notification.level {
+            AlertLevel::Info => "blue",
+            AlertLevel::Warning => "yellow",
+            AlertLevel::Error => "red",
+            AlertLevel::Critical => "red",
+        };
+
+        serde_json::json!({
+            "msg_type": "post",
+            "content": {
+                "post": {
+                    "zh_cn": {
+                        "title": format!("【{}】{}", notification.level, notification.title),
+                        "content": [[
+                            {"tag": "text", "text": notification.message},
+                            {"tag": "text", "text": format!("\n\n时间: {}", notification.created_at.format("%Y-%m-%d %H:%M:%S"))}
+                        ]]
+                    }
+                },
+                "extra": {
+                    "single_chat": false
+                }
+            }
+        })
+    }
+}
+
+#[async_trait]
+impl NotificationSender for FeishuSender {
+    async fn send(&self, notification: &Notification) -> Result<()> {
+        let payload = self.format_message(notification);
+
+        let response = self.client
+            .post(&self.webhook_url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| QuantixError::Other(format!("飞书请求失败: {}", e)))?;
+
+        let status = response.status();
+        if status.is_success() {
+            let body: serde_json::Value = response.json().await.unwrap_or(serde_json::json!({}));
+            if body.get("code").and_then(|c| c.as_i64()).unwrap_or(-1) == 0 {
+                tracing::debug!("飞书通知发送成功");
+                return Ok(());
+            }
+            tracing::warn!("飞书返回错误: {}", body);
+        }
+
+        Err(QuantixError::Other(format!(
+            "飞书发送失败: HTTP {}",
+            status
+        )))
+    }
+
+    fn channel(&self) -> NotificationChannel {
+        NotificationChannel::Feishu
+    }
+
+    fn is_available(&self) -> bool {
+        !self.webhook_url.is_empty()
+    }
+}
+
 /// 通知服务
 pub struct NotificationService {
     config: NotificationConfig,
@@ -453,6 +662,23 @@ impl NotificationService {
                     senders.push(Box::new(LogSender::new(config.log_path.clone())));
                 }
                 NotificationChannel::Email => {
+                    // 预留，暂不实现
+                }
+                NotificationChannel::WechatWork => {
+                    if let Some(url) = &config.wechat_work_webhook {
+                        senders.push(Box::new(WechatWorkSender::new(url.clone())));
+                    }
+                }
+                NotificationChannel::Feishu => {
+                    if let Some(url) = &config.feishu_webhook {
+                        senders.push(Box::new(FeishuSender::new(url.clone())));
+                    }
+                }
+                NotificationChannel::Telegram
+                | NotificationChannel::Discord
+                | NotificationChannel::Slack
+                | NotificationChannel::Dingtalk
+                | NotificationChannel::Pushplus => {
                     // 预留，暂不实现
                 }
             }
