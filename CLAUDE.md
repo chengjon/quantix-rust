@@ -1,9 +1,11 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **quantix-rust** (2490 symbols, 6022 relationships, 209 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **quantix-rust** (4545 symbols, 11447 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> If any GitNexus tool warns the index is stale, run `gitnexus analyze` in terminal first.
+
+> If GitNexus behaves differently across machines or CI, run `gitnexus doctor --json` to inspect `native-runtime`, `language-support`, and host configuration checks.
 
 ## Always Do
 
@@ -74,16 +76,99 @@ Before completing any code modification task, verify:
 After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
 
 ```bash
-npx gitnexus analyze
+gitnexus analyze
 ```
+
+If you have modified the local GitNexus source code under `/opt/claude/GitNexus/gitnexus/src`, rebuild first so the CLI picks up the updated `dist` files:
+
+```bash
+cd /opt/claude/GitNexus/gitnexus
+npm run build
+gitnexus analyze
+```
+
+Use plain `gitnexus analyze` when you want the fastest refresh and exact symbol, file, or keyword search is enough.
+
+Graph tools, BM25/FTS search, impact analysis, and context lookups still work without embeddings.
+
+Use `gitnexus analyze --embeddings` when natural-language, concept, or fuzzy code search matters.
+
+This enables hybrid retrieval (`BM25 + semantic + RRF`) but takes longer and requires an embedding provider such as Ollama or Hugging Face.
+
+During `gitnexus analyze`, GitNexus automatically detects and stops local `gitnexus mcp` processes that are holding the target repo's `.gitnexus/kuzu` file open. This avoids the common KuzuDB lock conflict when you have multiple CLI or editor sessions open.
+
+Use `gitnexus doctor --json` when you need to verify whether optional grammars such as Kotlin / Swift are actually available in the current environment.
 
 If the index previously included embeddings, preserve them by adding `--embeddings`:
 
 ```bash
-npx gitnexus analyze --embeddings
+gitnexus analyze --embeddings
 ```
 
 To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
+
+If embedding generation is enabled, these environment variables control the provider and runtime behavior:
+
+```bash
+# Raise the CLI safety limit for large repos.
+# Start with 64 on a local Ollama GPU setup; use 32 as a conservative fallback.
+GITNEXUS_EMBEDDING_NODE_LIMIT=90000
+GITNEXUS_EMBEDDING_BATCH_SIZE=64
+
+# Use a Hugging Face mirror / custom endpoint
+HF_ENDPOINT=https://hf-mirror.com
+# or
+GITNEXUS_HF_REMOTE_HOST=https://hf-mirror.com
+
+# Persist downloaded model files
+GITNEXUS_HF_CACHE_DIR=/path/to/hf-cache
+
+# Use a predownloaded local Hugging Face model only
+GITNEXUS_HF_LOCAL_MODEL_PATH=/path/to/local-models
+GITNEXUS_HF_LOCAL_ONLY=1
+
+# Use Ollama instead of Hugging Face for both indexing and query embeddings
+GITNEXUS_EMBEDDING_PROVIDER=ollama
+GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434
+GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b
+```
+
+Recommended Ollama example:
+
+```bash
+GITNEXUS_EMBEDDING_PROVIDER=ollama \
+GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434 \
+GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b \
+GITNEXUS_EMBEDDING_NODE_LIMIT=90000 \
+GITNEXUS_EMBEDDING_BATCH_SIZE=64 \
+gitnexus analyze --embeddings
+```
+
+Use `--force` only for intentional full rebuilds or corrupted indexes.
+
+The same settings can also be stored in `~/.gitnexus/config.json`:
+
+```json
+{
+  "embeddings": {
+    "provider": "ollama",
+    "ollamaBaseUrl": "http://localhost:11434",
+    "ollamaModel": "qwen3-embedding:0.6b",
+    "nodeLimit": 90000,
+    "batchSize": 64
+  }
+}
+```
+
+Priority is: environment variables > `~/.gitnexus/config.json` > built-in defaults.
+
+You can inspect or update this without editing JSON manually:
+
+```bash
+gitnexus config embeddings show
+gitnexus config embeddings set --provider ollama --ollama-base-url http://localhost:11434 --ollama-model qwen3-embedding:0.6b --node-limit 90000 --batch-size 64
+gitnexus config embeddings clear
+```
 
 > Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
 
