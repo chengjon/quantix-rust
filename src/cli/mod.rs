@@ -107,6 +107,10 @@ pub enum Commands {
     #[command(subcommand)]
     Sentiment(SentimentCommands),
 
+    /// 智能导入命令
+    #[command(subcommand)]
+    Import(ImportCommands),
+
     /// 系统状态
     Status {
         /// 检查数据库连接
@@ -1886,6 +1890,44 @@ pub enum SentimentCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+pub enum ImportCommands {
+    /// 从图片识别股票代码 (需要 LLM Vision API)
+    FromImage {
+        /// 图片文件路径
+        #[arg(short, long)]
+        file: String,
+
+        /// 指定 Vision 模型 (deepseek | openai)
+        #[arg(short, long, default_value = "deepseek")]
+        model: String,
+    },
+
+    /// 从 CSV 文件导入股票列表
+    FromCsv {
+        /// CSV 文件路径
+        #[arg(short, long)]
+        file: String,
+    },
+
+    /// 从剪贴板文本导入
+    FromClipboard,
+
+    /// 从文本解析股票代码/名称
+    FromText {
+        /// 文本内容 (股票代码或名称，逗号/空格/换行分隔)
+        #[arg(short, long)]
+        text: String,
+    },
+
+    /// 解析股票名称/代码
+    Resolve {
+        /// 输入文本 (代码或名称)
+        #[arg(short, long)]
+        input: String,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<()> {
         match self.command {
@@ -1955,6 +1997,9 @@ impl Cli {
             }
             Commands::Sentiment(cmd) => {
                 handlers::run_sentiment_command(cmd).await?;
+            }
+            Commands::Import(cmd) => {
+                handlers::run_import_command(cmd).await?;
             }
             Commands::Status { health } => {
                 handlers::run_status(health).await?;

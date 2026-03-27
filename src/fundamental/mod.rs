@@ -8,9 +8,11 @@ pub mod valuation;
 pub mod earnings;
 pub mod institution;
 pub mod dragon_tiger;
+pub mod eastmoney;
 
 pub use types::{
     FundamentalData, ValuationMetrics, EarningsReport,
     InstitutionHolding, DragonTigerItem,
 };
 pub use provider::FundamentalProvider;
+pub use eastmoney::EastMoneyFundamentalProvider;
