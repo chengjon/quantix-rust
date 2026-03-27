@@ -381,7 +381,7 @@ quantix-rust/
 │   └── Cron 表达式 (cron)
 │       └── CronExpression - Cron解析
 │
-├── 🤖 AI决策层 (ai/) [📋 计划中 - Phase 2]
+├── 🤖 AI决策层 (ai/) [✅ Phase 2 已完成]
 │   ├── LLM适配器 (llm_adapter)
 │   │   └── OpenAI协议统一适配
 │   ├── 多模型支持 (providers)
@@ -399,7 +399,7 @@ quantix-rust/
 │   └── 技能注册 (skill_registry)
 │       └── 策略技能包管理
 │
-├── 📰 新闻搜索层 (news/) [📋 计划中 - Phase 3]
+├── 📰 新闻搜索层 (news/) [✅ Phase 3 已完成]
 │   ├── 新闻提供者 (provider)
 │   │   └── NewsProvider trait
 │   ├── 多源支持 (providers)
@@ -489,6 +489,14 @@ quantix
 │   │   └── reject          # 拒绝信号
 │   ├── request             # 执行请求
 │   │   ├── list            # 列出请求
+│   │   │   ├── --status    # 按状态过滤
+│   │   │   ├── --target-mode # 按执行模式过滤
+│   │   │   ├── --target-account # 按目标账户过滤
+│   │   │   ├── --stats     # 统计汇总视图
+│   │   │   └── --verbose   # 详细输出
+│   │   ├── show            # 查看请求详情
+│   │   │   ├── --request-id # 请求ID
+│   │   │   └── --verbose   # 故障排查信息
 │   │   ├── execute         # 执行请求
 │   │   └── cancel          # 取消请求
 │   └── service             # systemd 服务
@@ -596,7 +604,7 @@ quantix
 │       ├── remove-account  # 从组移除账户
 │       └── set-strategy    # 设置分配策略
 │
-├── ai                      # AI决策分析 [📋 计划中 - Phase 2]
+├── ai                      # AI决策分析 [✅ Phase 2 已完成]
 │   ├── ask                 # 对话式分析
 │   ├── decision            # 生成决策报告
 │   │   └── --code          # 指定股票代码
@@ -605,7 +613,7 @@ quantix
 │       ├── list-models     # 列出可用模型
 │       └── test            # 测试LLM连接
 │
-├── news                    # 新闻搜索 [📋 计划中 - Phase 3]
+├── news                    # 新闻搜索 [✅ Phase 3 已完成]
 │   ├── search              # 搜索股票新闻
 │   │   ├── --code         # 按股票代码
 │   │   ├── --keyword      # 按关键词

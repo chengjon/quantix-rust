@@ -38,6 +38,20 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
   - A股特有过滤器（ST、涨跌停、停牌、新股）
   - 特征提取：成交量回报、对数回报、EOM指标
+- **AI 决策模块**已完成基础实现 (Phase 2)：
+  - `LLMAdapter` - OpenAI 协议统一适配器
+  - 多模型支持：OpenAI、DeepSeek、Gemini、Anthropic、Ollama
+  - `DecisionEngine` - 决策仪表盘生成
+  - `ConversationManager` - 多轮对话上下文管理
+- **新闻搜索模块**已完成基础实现 (Phase 3)：
+  - `NewsProvider` trait - 新闻提供者接口
+  - 多源支持：Tavily、SerpAPI、博查搜索、Brave、SearXNG
+  - `NewsAggregator` - 多源 fallback 聚合
+  - `NewsCache` - 本地缓存存储
+- **P0.2 执行请求生命周期增强**已完成：
+  - `strategy request show` - 查看请求详情
+  - `strategy request list --stats` - 统计汇总视图
+  - 多维度过滤（状态、模式、账户）
 - **多账户管理系统**已完成设计与实现：
   - `AccountConfig` - 账户配置模型 (Paper/Live/MockLive)
   - `AccountGroup` - 账户组配置，支持资金分配策略

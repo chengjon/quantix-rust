@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented here.
 
+## 2026-03-27 (续3)
+
+### Added
+
+- **P0.2 执行请求生命周期增强** (`src/cli/mod.rs`, `src/cli/handlers.rs`)
+  - `strategy request show --request-id <ID>` - 查看单个请求详情
+  - `strategy request list --stats` - 显示请求统计摘要
+  - `strategy request list --status <STATUS>` - 按状态过滤
+  - `strategy request list --target-mode <MODE>` - 按执行模式过滤
+  - `strategy request list --target-account <ACCOUNT>` - 按目标账户过滤
+  - `--verbose` 标志用于详细输出
+- **AI 决策模块** (`src/ai/`) [Phase 2]
+  - `LLMAdapter` - OpenAI 协议统一适配器
+  - 多模型支持：OpenAI、DeepSeek、Gemini、Anthropic、Ollama
+  - `DecisionEngine` - 决策仪表盘生成
+  - `PromptTemplate` - Tera 模板引擎集成
+  - `ConversationManager` - 多轮对话上下文管理
+  - `SkillRegistry` - 策略技能包管理
+- **新闻搜索模块** (`src/news/`) [Phase 3]
+  - `NewsProvider` trait - 新闻提供者接口
+  - 多源支持：Tavily、SerpAPI、博查搜索、Brave、SearXNG
+  - `NewsAggregator` - 多源 fallback 聚合
+  - `NewsCache` - 本地缓存存储
+  - `NewsArticle`、`NewsSearchRequest`、`NewsSearchResult` 数据模型
+- **错误处理增强** (`src/core/error.rs`)
+  - 新增 `QuantixError::Network` 变体用于网络错误
+- **依赖更新** (`Cargo.toml`)
+  - 添加 `url = "2.5"` 用于 URL 解析
+  - 添加 `futures = "0.3"` 用于异步流处理
+
+### Changed
+
+- 更新 `README.md` 添加 P0.2、AI 模块、News 模块说明
+- 更新 `docs/FUNCTION_MAP.md` 增加新 CLI 命令和模块功能树
+
 ## 2026-03-27 (续2)
 
 ### Added
