@@ -19,7 +19,10 @@ async fn test_bridge_health() {
     let client = get_bridge_client();
 
     // Test capabilities endpoint
-    let caps = client.capabilities().await.expect("Failed to get capabilities");
+    let caps = client
+        .capabilities()
+        .await
+        .expect("Failed to get capabilities");
 
     println!("Bridge Capabilities:");
     println!("  TDX enabled: {}", caps.tdx.enabled);
@@ -35,7 +38,10 @@ async fn test_bridge_health() {
 async fn test_qmt_account_status() {
     let client = get_bridge_client();
 
-    let status = client.qmt_account_status().await.expect("Failed to get account status");
+    let status = client
+        .qmt_account_status()
+        .await
+        .expect("Failed to get account status");
 
     println!("QMT Account Status:");
     println!("  Adapter: {}", status.adapter);
@@ -51,7 +57,10 @@ async fn test_qmt_account_status() {
 async fn test_qmt_positions() {
     let client = get_bridge_client();
 
-    let positions = client.qmt_positions().await.expect("Failed to get positions");
+    let positions = client
+        .qmt_positions()
+        .await
+        .expect("Failed to get positions");
 
     println!("QMT Positions: {} positions", positions.len());
     for pos in positions.iter().take(5) {

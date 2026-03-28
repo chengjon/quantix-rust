@@ -76,7 +76,12 @@ async fn rebuild_buy_only_creates_cash_and_position() {
             "live-001",
             "buy.csv",
             &[
-                cash("cash-1", LiveImportCashBusinessType::Deposit, dec!(100000), ts(9, 0)),
+                cash(
+                    "cash-1",
+                    LiveImportCashBusinessType::Deposit,
+                    dec!(100000),
+                    ts(9, 0),
+                ),
                 buy("fill-1", dec!(15.20), 100),
             ],
             ts(11, 0),
@@ -106,7 +111,12 @@ async fn rebuild_buy_sell_and_cash_flows_updates_realized_pnl_and_cash() {
             "live-001",
             "ledger.csv",
             &[
-                cash("cash-1", LiveImportCashBusinessType::Deposit, dec!(100000), ts(9, 0)),
+                cash(
+                    "cash-1",
+                    LiveImportCashBusinessType::Deposit,
+                    dec!(100000),
+                    ts(9, 0),
+                ),
                 buy("fill-1", dec!(15.20), 100),
                 sell("fill-2", dec!(16.30), 40),
                 cash(
@@ -140,7 +150,12 @@ async fn oversell_fails_rebuild_and_preserves_last_successful_snapshot() {
             "live-001",
             "good.csv",
             &[
-                cash("cash-1", LiveImportCashBusinessType::Deposit, dec!(100000), ts(9, 0)),
+                cash(
+                    "cash-1",
+                    LiveImportCashBusinessType::Deposit,
+                    dec!(100000),
+                    ts(9, 0),
+                ),
                 buy("fill-1", dec!(15.20), 100),
             ],
             ts(11, 0),
@@ -168,7 +183,11 @@ async fn oversell_fails_rebuild_and_preserves_last_successful_snapshot() {
         .unwrap_err();
     assert!(err.to_string().contains("卖出数量超过当前持仓"));
 
-    let persisted = store.get_latest_mirror_account("live-001").await.unwrap().unwrap();
+    let persisted = store
+        .get_latest_mirror_account("live-001")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(persisted.positions[0].volume, 100);
 }
 
@@ -182,7 +201,12 @@ async fn rebuild_is_deterministic_for_same_import_set() {
             "live-001",
             "repeat.csv",
             &[
-                cash("cash-1", LiveImportCashBusinessType::Deposit, dec!(100000), ts(9, 0)),
+                cash(
+                    "cash-1",
+                    LiveImportCashBusinessType::Deposit,
+                    dec!(100000),
+                    ts(9, 0),
+                ),
                 buy("fill-1", dec!(15.20), 100),
                 sell("fill-2", dec!(16.30), 40),
             ],

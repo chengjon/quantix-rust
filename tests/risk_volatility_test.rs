@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::data::models::{AdjustType, Kline};
-use quantix_cli::risk::{ProjectedBuyImpact, RiskAccountSnapshot, RiskService, RiskState, RiskStore};
+use quantix_cli::risk::{
+    ProjectedBuyImpact, RiskAccountSnapshot, RiskService, RiskState, RiskStore,
+};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::sync::{Arc, Mutex};

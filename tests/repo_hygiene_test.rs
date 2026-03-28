@@ -249,9 +249,8 @@ fn user_manual_documents_phase26_trade_commands() {
 #[test]
 fn readme_and_user_manual_document_bridge_v1_commands() {
     let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
-    let manual =
-        fs::read_to_string(repo_root().join("docs").join("USER_MANUAL.md"))
-            .expect("expected USER_MANUAL.md");
+    let manual = fs::read_to_string(repo_root().join("docs").join("USER_MANUAL.md"))
+        .expect("expected USER_MANUAL.md");
 
     for expected in [
         "Windows Bridge v1",

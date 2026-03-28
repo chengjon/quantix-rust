@@ -12,9 +12,11 @@ use quantix_cli::stop::{
     StopHistoryEvent, StopHistoryFilter, StopHistoryTriggerKind, StopRule, StopRuleStore,
     StopTriggerKind,
 };
-use quantix_cli::trade::{FeeConfig, PaperTradeAccount, PaperTradeState, PaperTradeStore, TradePosition};
-use rust_decimal_macros::dec;
+use quantix_cli::trade::{
+    FeeConfig, PaperTradeAccount, PaperTradeState, PaperTradeStore, TradePosition,
+};
 use quantix_cli::watchlist::WatchlistListItem;
+use rust_decimal_macros::dec;
 use std::collections::BTreeMap;
 use tempfile::tempdir;
 
@@ -445,10 +447,10 @@ async fn monitor_runner_percent_stop_prefers_current_avg_cost_and_records_stop_h
 
     let history = stop_store.state.lock().unwrap().history.clone();
     assert_eq!(history.len(), 1);
-    assert_eq!(history[0].event_type, quantix_cli::stop::StopHistoryEventType::Trigger);
     assert_eq!(
-        history[0].trigger_kind,
-        Some(StopHistoryTriggerKind::Loss)
+        history[0].event_type,
+        quantix_cli::stop::StopHistoryEventType::Trigger
     );
+    assert_eq!(history[0].trigger_kind, Some(StopHistoryTriggerKind::Loss));
     assert_eq!(history[0].anchor_source.as_deref(), Some("position_cost"));
 }

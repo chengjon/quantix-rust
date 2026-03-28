@@ -56,7 +56,10 @@ impl StopRuleStore for FakeStopRuleStore {
         Ok(())
     }
 
-    async fn list_history(&self, filter: quantix_cli::stop::StopHistoryFilter) -> Result<Vec<StopHistoryEvent>> {
+    async fn list_history(
+        &self,
+        filter: quantix_cli::stop::StopHistoryFilter,
+    ) -> Result<Vec<StopHistoryEvent>> {
         let state = self.state.lock().unwrap();
         let mut history: Vec<StopHistoryEvent> = state
             .history
@@ -130,7 +133,16 @@ async fn set_rule_persists_fixed_loss_rule() {
     let service = StopService::new(FakeStopRuleStore::default());
 
     let rule = service
-        .set_rule("000001", Some(14.5), None, None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            Some(14.5),
+            None,
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap();
 
@@ -146,7 +158,16 @@ async fn set_rule_persists_fixed_profit_rule() {
     let service = StopService::new(FakeStopRuleStore::default());
 
     let rule = service
-        .set_rule("000001", None, Some(18.0), None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            Some(18.0),
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap();
 
@@ -160,7 +181,16 @@ async fn set_rule_persists_trailing_rule() {
     let service = StopService::new(FakeStopRuleStore::default());
 
     let rule = service
-        .set_rule("000001", None, None, None, None, Some(5.0), None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            None,
+            None,
+            None,
+            Some(5.0),
+            None,
+            sample_time(),
+        )
         .await
         .unwrap();
 
@@ -199,19 +229,46 @@ async fn set_rule_rejects_invalid_threshold_values() {
     let service = StopService::new(FakeStopRuleStore::default());
 
     let loss_err = service
-        .set_rule("000001", Some(0.0), None, None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            Some(0.0),
+            None,
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(loss_err.to_string().contains("--loss 必须是有限正数"));
 
     let profit_err = service
-        .set_rule("000001", None, Some(-1.0), None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            Some(-1.0),
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(profit_err.to_string().contains("--profit 必须是有限正数"));
 
     let trailing_err = service
-        .set_rule("000001", None, None, None, None, Some(150.0), None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            None,
+            None,
+            None,
+            Some(150.0),
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(
@@ -256,19 +313,46 @@ async fn set_rule_rejects_non_finite_threshold_values() {
     let service = StopService::new(FakeStopRuleStore::default());
 
     let loss_err = service
-        .set_rule("000001", Some(f64::NAN), None, None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            Some(f64::NAN),
+            None,
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(loss_err.to_string().contains("--loss 必须是有限正数"));
 
     let profit_err = service
-        .set_rule("000001", None, Some(f64::INFINITY), None, None, None, None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            Some(f64::INFINITY),
+            None,
+            None,
+            None,
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(profit_err.to_string().contains("--profit 必须是有限正数"));
 
     let trailing_err = service
-        .set_rule("000001", None, None, None, None, Some(f64::NEG_INFINITY), None, sample_time())
+        .set_rule(
+            "000001",
+            None,
+            None,
+            None,
+            None,
+            Some(f64::NEG_INFINITY),
+            None,
+            sample_time(),
+        )
         .await
         .unwrap_err();
     assert!(
@@ -349,24 +433,19 @@ async fn update_rule_patches_only_explicit_fields() {
 #[tokio::test]
 async fn update_rule_can_clear_thresholds_but_not_all_of_them() {
     let store = FakeStopRuleStore::default();
-    store
-        .state
-        .lock()
-        .unwrap()
-        .rules
-        .push(StopRule {
-            code: "000001".to_string(),
-            stop_loss_price: Some(14.5),
-            take_profit_price: Some(18.0),
-            stop_loss_pct: None,
-            take_profit_pct: None,
-            trailing_pct: None,
-            highest_price: None,
-            reference_price: None,
-            last_triggered_at: None,
-            created_at: sample_time(),
-            updated_at: sample_time(),
-        });
+    store.state.lock().unwrap().rules.push(StopRule {
+        code: "000001".to_string(),
+        stop_loss_price: Some(14.5),
+        take_profit_price: Some(18.0),
+        stop_loss_pct: None,
+        take_profit_pct: None,
+        trailing_pct: None,
+        highest_price: None,
+        reference_price: None,
+        last_triggered_at: None,
+        created_at: sample_time(),
+        updated_at: sample_time(),
+    });
     let service = StopService::new(store.clone());
 
     let updated = service
@@ -416,16 +495,7 @@ async fn set_update_and_remove_append_history_events() {
     let remove_time = set_time + chrono::Duration::minutes(2);
 
     service
-        .set_rule(
-            "000001",
-            Some(14.5),
-            None,
-            None,
-            None,
-            None,
-            None,
-            set_time,
-        )
+        .set_rule("000001", Some(14.5), None, None, None, None, None, set_time)
         .await
         .unwrap();
     service
@@ -590,7 +660,10 @@ fn status_rows_fall_back_to_reference_price_without_position() {
         sample_time(),
     );
 
-    assert_eq!(rows[0].anchor_source, Some(StopAnchorSource::ReferencePrice));
+    assert_eq!(
+        rows[0].anchor_source,
+        Some(StopAnchorSource::ReferencePrice)
+    );
     assert_eq!(rows[0].anchor_price, Some(15.2));
     assert_eq!(rows[0].loss_threshold, Some(14.44));
     assert_eq!(rows[0].eval_state, StopEvalState::Armed);

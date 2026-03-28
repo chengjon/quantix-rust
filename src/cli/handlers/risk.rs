@@ -453,7 +453,7 @@ fn format_position_row(row: &PositionRiskRow) -> String {
     )
 }
 
-fn create_risk_store() -> JsonRiskStore {
+pub(super) fn create_risk_store() -> JsonRiskStore {
     let runtime = CliRuntime::load();
     JsonRiskStore::new(runtime.risk_path)
 }
