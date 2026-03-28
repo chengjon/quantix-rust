@@ -25,6 +25,25 @@
 │   └── 特征工程
 ├── Phase 9: 东方财富数据源 ✅
 │   └── 基础行情数据接入
+├── Phase 2: AI 决策模块 ✅
+│   ├── src/ai/ LLM 多供应商适配
+│   └── OpenAI/DeepSeek/Gemini/Anthropic/Ollama 支持
+├── Phase 3: 新闻搜索模块 ✅
+│   ├── src/news/ 多源新闻搜索
+│   └── Tavily/SerpAPI/Bocha/Brave/SearXNG 支持
+├── P0.2: 执行请求生命周期 ✅
+│   ├── strategy request show/list 命令
+│   └── 多维过滤和统计汇总
+├── 算法交易 ✅
+│   ├── src/execution/algo/ TWAP/VWAP 执行器
+│   └── 状态机、切片计划、CLI 命令
+├── Phase 4: 基本面分析 🔨
+│   ├── src/fundamental/ 类型和提供商 trait
+│   ├── EastMoneyFundamentalProvider
+│   └── CLI handlers 已连线 (待: API 响应解析)
+├── 舆情分析 🔨
+│   ├── src/market/sentiment/ 类型和聚合器
+│   └── CLI handlers 已连线 (待: 真实数据提供商)
 └── Windows Bridge v1 ✅
     └── WSL2-Windows 桥接
 ```
