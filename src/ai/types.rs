@@ -3,7 +3,6 @@
 //! Unified types that work across all LLM providers (OpenAI, DeepSeek, Gemini, etc.)
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A single tool call requested by the LLM
 #[derive(Debug, Clone, Serialize, Deserialize)]

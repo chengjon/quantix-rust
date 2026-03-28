@@ -6,7 +6,7 @@ use crate::core::{QuantixError, Result};
 use crate::market::{
     BoardRankRow, BoardType, LeaderFilter, LeaderRow, MarketSentimentSnapshot, NorthFlowSnapshot,
 };
-use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use chrono::{DateTime, Utc};
 use clickhouse::Client;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;

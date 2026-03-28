@@ -3,7 +3,7 @@
 /// 从短线侠项目迁移，采集集合竞价时段（9:15-9:25）的股票数据
 use crate::core::Result;
 use crate::core::trading_calendar::TradingCalendar;
-use chrono::{Datelike, Local, Timelike, Weekday};
+use chrono::{Local, Timelike};
 use rustdx_complete::tcp::stock::SecurityQuotes;
 use rustdx_complete::tcp::{Tcp, Tdx};
 use serde::{Deserialize, Serialize};

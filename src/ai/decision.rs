@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::adapter::LlmAdapter;
 use super::prompt::PromptRegistry;
-use super::types::{LLMCallOptions, LLMResponse, Message};
+use super::types::{LLMCallOptions, Message};
 use crate::core::Result;
 
 /// Decision engine configuration

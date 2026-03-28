@@ -5,7 +5,7 @@
 use crate::core::Result;
 use crate::data::models::{Kline, StockInfo};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rustdx_complete::tcp::stock::SecurityQuotes;
 use rustdx_complete::tcp::{Tcp, Tdx};
 use std::sync::Arc;

@@ -1,10 +1,9 @@
 //! 舆情数据聚合器
 
-use std::sync::Arc;
 use chrono::Utc;
 use crate::core::Result;
 use super::provider::SentimentProvider;
-use super::types::{SentimentData, SentimentScore, SentimentLevel, SentimentTrend, SocialMention, SentimentHistoryPoint};
+use super::types::{SentimentData, SentimentLevel, SentimentTrend, SocialMention, SentimentHistoryPoint};
 
 /// 舆情聚合器
 pub struct SentimentAggregator {

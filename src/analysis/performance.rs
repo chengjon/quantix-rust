@@ -1,12 +1,11 @@
 /// 性能指标计算
 ///
 /// 从短线侠项目迁移 - 夏普比率、最大回撤、胜率等
-use chrono::{Datelike, NaiveDate};
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 /// 回测性能报告
 #[derive(Debug, Clone, Serialize, Deserialize)]

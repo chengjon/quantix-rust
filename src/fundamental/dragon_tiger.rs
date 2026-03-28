@@ -1,7 +1,7 @@
 //! 龙虎榜数据获取
 
 use crate::core::{QuantixError, Result};
-use super::types::{DragonTigerItem, BrokerActivity};
+use super::types::DragonTigerItem;
 
 /// 龙虎榜数据获取器
 pub struct DragonTigerFetcher {

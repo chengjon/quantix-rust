@@ -3,7 +3,7 @@
 //! 时间加权平均价格算法实现
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{Utc, Duration};
 use rand::Rng;
 use rust_decimal::Decimal;
 use std::collections::HashMap;

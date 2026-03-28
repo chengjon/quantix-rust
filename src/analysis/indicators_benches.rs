@@ -2,10 +2,7 @@
 //
 // 提供基准测试所需的公共函数
 
-use crate::data::models::Kline;
-use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 
 /// 计算简单移动平均
 pub fn calculate_sma(closes: &[Decimal], period: usize) -> Vec<Decimal> {

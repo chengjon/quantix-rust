@@ -34,7 +34,7 @@ impl ValuationFetcher {
 
         // TODO: 解析响应数据
         let date = chrono::Utc::now().date_naive();
-        let mut metrics = ValuationMetrics::new(code.to_string(), date);
+        let metrics = ValuationMetrics::new(code.to_string(), date);
 
         // 返回基础结构，实际数据需要解析 API 响应
         Ok(metrics)

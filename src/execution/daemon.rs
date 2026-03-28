@@ -6,7 +6,6 @@ use crate::core::{QuantixError, Result};
 use crate::execution::kernel::{
     ExecutionKernel, FillDeltaApplier, PreparedExecutionRequest, RiskDecision, RiskEvaluator,
 };
-use crate::bridge::client::BridgeHttpClient;
 use crate::execution::mock_live::{MockLiveExecutionAdapter, SystemMockLiveClock};
 use crate::execution::models::{
     ExecutionRequestRecord, ExecutionRequestStatus, FillDeltaContext, FillDeltaResult, OrderIntent,

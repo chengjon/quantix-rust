@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use crate::core::{QuantixError, Result};
 use super::provider::NewsProvider;
-use super::types::{NewsArticle, NewsProviderConfig, NewsSearchRequest, NewsSearchResult};
+use super::types::{NewsArticle, NewsSearchRequest, NewsSearchResult};
 use super::cache::NewsCache;
 
 /// 新闻聚合器

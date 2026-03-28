@@ -1,16 +1,11 @@
-/// K线聚合器
-///
-/// 从短线侠项目迁移，使用 tokio channels 替代 Redis Stream
-/// 实时聚合 Tick 数据为 1分钟/5分钟 K线
-use crate::core::Result;
 use crate::sources::tdx::StockQuote;
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 use tokio::time::{Duration, interval};
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// K线周期
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

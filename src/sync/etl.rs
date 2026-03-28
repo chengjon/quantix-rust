@@ -8,7 +8,7 @@ use crate::sources::kline_aggregator::KlineData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// 同步配置
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,8 +3,6 @@
 /// 实时追踪策略交易信号
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::time::Duration;

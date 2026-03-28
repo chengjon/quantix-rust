@@ -4,7 +4,6 @@
 use crate::core::{QuantixError, Result};
 use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

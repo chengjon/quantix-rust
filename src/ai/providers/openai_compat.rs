@@ -7,7 +7,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::ai::adapter::{LlmAdapter, LlmConfig, ProviderConfig};
+use crate::ai::adapter::{LlmAdapter, LlmConfig};
 use crate::ai::types::{LLMCallOptions, LLMProvider, LLMResponse, Message, TokenUsage, ToolCall, ToolDefinition};
 use crate::core::{QuantixError, Result};
 

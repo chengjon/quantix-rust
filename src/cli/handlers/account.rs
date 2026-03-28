@@ -4,10 +4,10 @@
 
 use super::super::{AccountCommands, AccountGroupCommands};
 use crate::account::{
-    AccountConfig, AccountGroup, AccountRegistry, AccountRouter, AccountType, AllocationStrategy,
+    AccountConfig, AccountRegistry, AccountRouter, AccountType, AllocationStrategy,
     JsonAccountRegistryStore, OrderSplitRequest, SplitTarget,
 };
-use crate::account::storage::{load_registry, save_registry, AccountRegistryStore};
+use crate::account::storage::{load_registry, save_registry};
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

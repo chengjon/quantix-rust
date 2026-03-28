@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use crate::analysis::indicators::atr;
 use crate::data::models::Kline;
 use crate::strategy::trait_def::{Signal, Strategy};
-use std::collections::HashMap;
 
 /// 网格交易配置
 #[derive(Debug, Clone)]

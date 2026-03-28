@@ -1,7 +1,7 @@
 /// 核心配置管理
 ///
 /// 从原 quantix 项目的 config/ 目录读取共享配置
-use config::{Config, Environment, File};
+use config::{Config, Environment};
 use serde::Deserialize;
 use std::path::Path;
 

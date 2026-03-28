@@ -100,7 +100,7 @@ impl BatchProgress {
             return 0.0;
         }
         let elapsed = self.elapsed_secs();
-        (elapsed * (100.0 - progress) / progress)
+        elapsed * (100.0 - progress) / progress
     }
 
     /// 获取处理速度（记录/秒）

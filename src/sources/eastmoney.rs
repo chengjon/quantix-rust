@@ -2,13 +2,13 @@
 ///
 /// 提供实时行情、财务数据等数据采集能力
 use crate::core::Result;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 /// 东方财富数据源
 pub struct EastMoneySource {

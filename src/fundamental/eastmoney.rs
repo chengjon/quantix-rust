@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use crate::core::{QuantixError, Result};
 use super::provider::FundamentalProvider;
 use super::types::{
-    FundamentalData, ValuationMetrics, EarningsReport,
+    ValuationMetrics, EarningsReport,
     InstitutionHolding, DragonTigerItem, DividendInfo, CapitalFlow,
 };
 use super::valuation::ValuationFetcher;

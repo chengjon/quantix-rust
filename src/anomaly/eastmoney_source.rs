@@ -8,7 +8,7 @@ use super::filter::StockInfo;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// East Money API data source for anomaly detection
 pub struct EastMoneyAnomalySource {

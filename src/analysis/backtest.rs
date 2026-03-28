@@ -4,19 +4,16 @@
 use crate::analysis::performance::{
     PerformanceCalculator, PerformanceReport, TradeRecord, TradeSide,
 };
-use crate::analysis::portfolio::{Portfolio, Position};
+use crate::analysis::portfolio::Portfolio;
 use crate::core::Result;
-use crate::data::models::{AdjustType, Kline};
+use crate::data::models::Kline;
 use crate::strategy::trait_def::Strategy;
-use async_trait::async_trait;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 /// 回测配置

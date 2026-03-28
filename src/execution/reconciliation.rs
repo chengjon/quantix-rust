@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::core::{QuantixError, Result};
+use crate::core::Result;
 use crate::execution::models::{OrderRecord, OrderStatus};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 
