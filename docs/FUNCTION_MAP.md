@@ -413,21 +413,20 @@ quantix-rust/
 │   └── 新闻缓存 (cache)
 │       └── 本地缓存存储
 │
-├── 📊 基本面分析 (fundamental/) [🔨 桩架已连线 - Phase 4]
+├── 📊 基本面分析 (fundamental/) [✅ API解析已实现 - Phase 4]
 │   ├── 基本面提供者 (provider)
 │   │   └── FundamentalProvider trait
-│   ├── 数据适配器
-│   │   ├── AkShare适配器
-│   │   └── 东方财富适配器
-│   ├── 估值指标 (valuation)
-│   │   └── PE/PB/PS计算
-│   ├── 财报数据 (earnings)
-│   │   └── 季度/年度财报
-│   ├── 机构持仓 (institution)
-│   │   └── 基金/机构持仓
+│   ├── EastMoney数据源 (eastmoney)
+│   │   └── EastMoneyFundamentalProvider
+│   ├── 估值指标 (valuation) ✅ EastMoney push2 API
+│   │   └── PE/PB/PS/市值/ROE/EPS
+│   ├── 财报数据 (earnings) ✅ EastMoney push2 API
+│   │   └── 营收/净利润/毛利率
+│   ├── 机构持仓 (institution) ✅ EastMoney stockholder API
+│   │   └── 基金/机构持仓 + 类型映射
 │   ├── 资金流向 (capital_flow)
 │   │   └── 主力资金追踪
-│   ├── 龙虎榜 (dragon_tiger)
+│   ├── 龙虎榜 (dragon_tiger) ✅ EastMoney DataCenter API
 │   │   └── 游资/机构买卖
 │   └── 分红信息 (dividend)
 │       └── 历史分红记录
@@ -621,13 +620,13 @@ quantix
 │   │   └── --days         # 时间范围
 │   └── trend               # 市场热点趋势
 │
-├── fundamental             # 基本面分析 [✅ 已连线 - Phase 4]
-│   ├── show                # 综合基本面
-│   ├── valuation           # 估值指标 PE/PB/PS
-│   ├── earnings            # 财报数据
-│   ├── institution         # 机构持仓
+├── fundamental             # 基本面分析 [✅ API解析已实现 - Phase 4]
+│   ├── show                # 综合基本面 (EastMoney数据源)
+│   ├── valuation           # 估值指标 PE/PB/PS/市值/ROE/EPS
+│   ├── earnings            # 财报数据 营收/净利润/毛利率
+│   ├── institution         # 机构持仓 + 类型映射 + 变动方向
 │   ├── capital-flow        # 资金流向
-│   ├── dragon-tiger        # 龙虎榜
+│   ├── dragon-tiger        # 龙虎榜 + PascalCase解析
 │   └── dividend            # 分红信息
 │       └── --years         # 历史年数
 │
