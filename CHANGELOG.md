@@ -20,6 +20,16 @@ All notable changes to this project are documented here.
   - CLI handlers 连线 sentiment show/history/mentions 格式化输出
 - **智能导入模块** (`src/import/code_resolver.rs`)
   - `CodeResolver` 股票代码/名称/拼音解析
+- **EastMoney API 响应解析** (`src/fundamental/`)
+  - `ValuationFetcher`: 解析 push2 API 估值数据 (PE/PB/市值/ROE/EPS)，含单位转换
+  - `EarningsFetcher`: 解析财报数据 (营收/净利润/毛利率)，含单位转换
+  - `InstitutionFetcher`: 解析机构持仓 API，含机构类型映射和变动方向判断
+  - `DragonTigerFetcher`: 解析龙虎榜 API，含 PascalCase 反序列化和日期解析
+  - 新增 14 个单元测试
+
+### Fixed
+- **deprecated chrono API**: `from_hms` → `from_hms_opt`, `from_timestamp_opt` → `DateTime::from_timestamp`
+- **unused imports**: 通过 `cargo fix` 自动修复 60+ 处未使用导入 (41 文件)
 
 ## 2026-03-27 (续3)
 
