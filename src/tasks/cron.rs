@@ -1,9 +1,8 @@
 /// Cron 表达式解析
 ///
 /// 从短线侠项目迁移 - 解析和验证 cron 表达式
-use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Weekday};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 /// Cron 表达式
 #[derive(Debug, Clone, Serialize, Deserialize)]

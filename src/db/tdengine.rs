@@ -114,9 +114,8 @@ impl TDengineClient {
             .data
             .into_iter()
             .map(|row| {
-                let ts = NaiveDateTime::from_timestamp_opt(row.ts, 0)
-                    .unwrap_or_else(|| NaiveDateTime::from_timestamp_millis(row.ts).unwrap())
-                    .and_utc();
+                let ts = chrono::DateTime::from_timestamp(row.ts, 0)
+                    .unwrap_or_else(|| chrono::DateTime::from_timestamp_millis(row.ts).unwrap());
                 MinuteKline {
                     ts,
                     code: row.code,

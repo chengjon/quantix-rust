@@ -2,7 +2,6 @@
 ///
 /// 处理 A股特有的交易时段、节假日等
 use chrono::{Datelike, NaiveDateTime, NaiveTime};
-use serde::{Deserialize, Serialize};
 
 /// A股交易时段
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,15 +13,15 @@ pub enum TradingSession {
 impl TradingSession {
     pub fn start_time(&self) -> NaiveTime {
         match self {
-            TradingSession::Morning => NaiveTime::from_hms(9, 30, 0),
-            TradingSession::Afternoon => NaiveTime::from_hms(13, 0, 0),
+            TradingSession::Morning => NaiveTime::from_hms_opt(9, 30, 0).unwrap(),
+            TradingSession::Afternoon => NaiveTime::from_hms_opt(13, 0, 0).unwrap(),
         }
     }
 
     pub fn end_time(&self) -> NaiveTime {
         match self {
-            TradingSession::Morning => NaiveTime::from_hms(11, 30, 0),
-            TradingSession::Afternoon => NaiveTime::from_hms(15, 0, 0),
+            TradingSession::Morning => NaiveTime::from_hms_opt(11, 30, 0).unwrap(),
+            TradingSession::Afternoon => NaiveTime::from_hms_opt(15, 0, 0).unwrap(),
         }
     }
 
