@@ -805,7 +805,7 @@ Quantix-Rust 围绕五个稳定中心设计：
 └── Windows Bridge v1
     ├── TDX bridge 数据源
     ├── QMT 预览
-    └── QMT 真实下单
+    └── QMT live 端点预留（当前产品仍为 preview-only）
 ```
 
 ### C.2 故意推迟的功能
@@ -840,5 +840,5 @@ Windows Bridge v1
         ├── /api/v1/data/tdx/kline/{symbol}
         ├── /api/v1/broker/qmt/account/status
         ├── /api/v1/broker/qmt/orders/preview
-        └── /api/v1/broker/qmt/orders/live
+        └── /api/v1/broker/qmt/orders/live   # Bridge API 端点/预留能力；不代表 quantix-rust 当前已开放真实下单
 ```

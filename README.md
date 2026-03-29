@@ -16,6 +16,15 @@ A 股量化交易 CLI 工具 - Rust 实现
 当前功能树见 [FUNCTION_MAP.md](docs/FUNCTION_MAP.md)。
 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
+## 开发前置检查
+
+开始修改代码前，先确认：
+
+- `cargo --version` 可用；若当前环境没有 Rust toolchain，只适合做结构/文档审阅，不适合宣称已完成构建验证。
+- 默认以 WSL/Linux 路径和 CLI 作为执行基线；Cursor 可以作为主编辑器，但不应是唯一执行路径。
+- 只在需要相关能力时再配置数据库、Bridge 或其他可选服务环境变量。
+- 与 `WSL + Cursor` 并存开发相关的最小 checklist 见 [docs/QUICKSTART.md](docs/QUICKSTART.md)。
+
 当前建议的推进顺序：
 
 1. 先补齐策略执行主线闭环，优先推进 Phase 29C 与 execution request 生命周期。
@@ -451,48 +460,6 @@ A 股量化交易 CLI 工具 - Rust 实现
   - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
   - `live` adapter 仍未实现
-
-#### Phase 29: 策略 Paper 执行骨架 ✅
-- **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
-  - `quantix strategy run -n ma_cross --mode paper --code 000001` - 运行 `ma_cross` 的单次 paper 执行
-- **Runtime 审计 SQLite** (`src/execution/runtime_store.rs`)
-  - 默认路径 `~/.quantix/strategy/runtime.db`
-  - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖
-- **P0 约束**
-  - 当前仅支持 `ma_cross`
-  - 当前仅支持单代码、单次执行
-  - 执行前请先运行 `quantix trade init`
-  - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
-  - `live 模式仍在开发中`
-  - daemon/service、部分成交、mock/live adapter 延后到后续 Phase
-
-#### Phase 29B: 策略信号守护进程 ✅
-- **策略守护进程配置** (`src/strategy/config.rs`)
-  - `quantix strategy config init`
-  - `quantix strategy config show`
-  - 默认路径 `~/.quantix/strategy/config.json`
-- **策略信号守护进程** (`src/strategy/daemon.rs`, `src/strategy/registry.rs`)
-  - `quantix strategy daemon run`
-  - `quantix strategy daemon run --once`
-  - 当前支持：单代码、多个策略实例、日线新 bar 触发
-- **Signal / Execution Request** (`src/execution/runtime_store.rs`)
-  - `quantix strategy signal list`
-  - `quantix strategy signal approve --signal-id <ID> --target-mode paper --target-account default`
-  - `quantix strategy signal reject --signal-id <ID> --reason <TEXT>`
-  - `quantix strategy request list`
-  - 批准 signal 只会创建 `execution_request`，不会自动交易
-- **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
-  - `quantix strategy service install`
-  - `quantix strategy service status`
-  - `quantix strategy service-config show`
-  - `quantix strategy service-config set --quantix-bin /abs/path/to/quantix --env-file /abs/path/to/service.env`
-  - 默认 service 配置路径 `~/.quantix/strategy/service.json`
-  - 可选环境文件 `~/.quantix/strategy/service.env`
-  - wrapper 路径 `~/.local/bin/quantix-strategy-run`
-- **当前边界**
-  - `strategy daemon` 不自动交易
-  - `strategy run --mode paper` 仍保留为直接执行路径
-  - 自动审批 / execution daemon / live adapter 延后到后续 Phase
 
 ### Windows Bridge v1
 - **TDX bridge source**
@@ -953,7 +920,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## 项目进度
 
-**✅ 全部 20 个阶段已完成！**
+**✅ 历史基础阶段 1-20 已完成**
+
+后续阶段按里程碑持续演进；当前 README 已补充 `Phase 29` / `29B` / `29C` / `30` 等执行主线与扩展能力说明。
 
 | Phase | 模块 | 状态 |
 |-------|------|------|

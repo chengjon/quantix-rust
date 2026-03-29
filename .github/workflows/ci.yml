@@ -7,6 +7,8 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
 
 # 环境变量
 env:
@@ -68,10 +70,11 @@ jobs:
             exit 1
           fi
 
-  # 单元测试
+  # 单元测试（PR 默认快路径；main/develop/schedule 启用完整路径）
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     services:
       postgres:
@@ -162,18 +165,7 @@ jobs:
       - name: Run doc tests
         run: cargo test --doc --all-features
 
-      - name: Generate coverage
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Lcov --output-dir ./coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-
-  # 安全审计
+  # 安全审计（PR 默认保留）
   security:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -194,6 +186,121 @@ jobs:
       - name: Run audit
         run: cargo audit
 
+  # 覆盖率（主干重路径）
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: quantix_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U test"]
+          interval: 10s
+          timeout: 5s
+          retries: 5
+
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 8123:8123
+        options: >-
+          --health-cmd "clickhouse-client --query 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            postgresql-client \
+            clickhouse-client \
+            wget
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U test; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Wait for ClickHouse
+        run: |
+          for i in {1..30}; do
+            if clickhouse-client --query "SELECT 1" 2>/dev/null; then
+              echo "ClickHouse is ready"
+              break
+            fi
+            echo "Waiting for ClickHouse... ($i/30)"
+            sleep 2
+          done
+
+      - name: Generate coverage
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Lcov --output-dir ./coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # 依赖过期检查（主干重路径）
+  dependency_outdated:
+    name: Dependency Outdated
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
       - name: Check for outdated dependencies
         run: |
           cargo install cargo-outdated
@@ -203,6 +310,7 @@ jobs:
   build:
     name: Build
     runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     strategy:
       matrix:
         include:
@@ -243,11 +351,11 @@ jobs:
           name: quantix-${{ matrix.os }}
           path: target/${{ matrix.target }}/release/quantix
 
-  # 基准测试
+  # 基准测试（主干/夜间重路径）
   bench:
     name: Benchmark
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'schedule'
 
     steps:
       - name: Checkout code
@@ -284,9 +392,10 @@ jobs:
           fail-on-alert: true
           alert-comment-cc-users: '@chengjon'
 
-  # 文档生成
+  # 文档生成（非 PR 重路径）
   docs:
     name: Documentation
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

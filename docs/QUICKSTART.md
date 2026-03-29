@@ -1,5 +1,46 @@
 # quantix-rust 快速开始指南
 
+## Cursor + WSL 最小前置检查
+
+在开始开发或验证前，先确认下面几项：
+
+### 1. Rust 工具链
+
+```bash
+cargo --version
+rustc --version
+```
+
+- 若以上命令不可用，当前环境只适合做代码阅读、文档审阅和结构一致性检查。
+- 要做构建、测试、clippy 或 CI 相关验证，必须先安装 Rust toolchain。
+
+### 2. 执行环境边界
+
+- 默认以 `WSL/Linux` 作为命令执行环境。
+- 默认以 Linux 路径作为文档和命令示例基线。
+- `Cursor` 可以作为主编辑器，但不能作为唯一执行路径；关键流程应能在纯 CLI 下完成。
+
+### 3. 可选服务和环境变量
+
+- PostgreSQL / ClickHouse / Bridge 都是按需启用，不是所有改动都必须启动。
+- 只在你要验证对应功能时再配置相关环境变量。
+- 当前常见入口包括：
+
+```bash
+export POSTGRES_URL="postgresql://localhost:5432/quantix"
+export CLICKHOUSE_URL="http://localhost:8123"
+export CLICKHOUSE_DB="quantix"
+export QUANTIX_BRIDGE_BASE_URL="http://127.0.0.1:8080"
+export QUANTIX_BRIDGE_API_KEY="your-api-key"
+```
+
+### 4. WSL + Cursor 并存约束
+
+- WSL 负责 `cargo`、脚本、测试、路径一致性。
+- Cursor 负责跨文件编辑、审阅和重构。
+- 不依赖 Windows 专有路径作为唯一数据路径。
+- 文档中的“必须”项应可在 WSL 独立完成。
+
 ## 🚀 5分钟上手
 
 ### 1. 环境准备
