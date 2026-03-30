@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **quantix-rust** (4701 symbols, 11749 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **quantix-rust** (5410 symbols, 13194 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `gitnexus analyze` in terminal first.
 
@@ -184,3 +184,77 @@ gitnexus config embeddings clear
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+# Project Coding Standards
+
+> Full reference: [`docs/RUST_CODING_STANDARDS.md`](docs/RUST_CODING_STANDARDS.md)
+
+## Mandatory Rules
+
+### File Size Limits
+
+| File Type | Warn | Force Split |
+|-----------|------|-------------|
+| `.rs` module file | > 500 lines | > 800 lines |
+| `lib.rs` / `main.rs` | > 100 lines | > 150 lines |
+| `handlers.rs` (CLI/routing) | > 800 lines | > 1200 lines |
+
+`mod.rs` must only contain `pub mod` declarations and `pub use` re-exports. No business logic.
+
+### Error Handling
+
+- **FORBIDDEN**: `.unwrap()`, `.expect()`, `panic!()` in production code
+- Use `?` operator or `.map_err(|e| QuantixError::Other(format!("context: {}", e)))`
+- Never swallow errors: `let _ = may_fail()` is forbidden; use `if let Err(e) = ... { tracing::warn!(...) }`
+
+### Logging
+
+- CLI output: `println!` / `eprintln!`
+- Library/internal: `tracing::info!` / `warn!` / `error!`
+- **FORBIDDEN**: `println!` in library modules (use tracing)
+
+### Types & Traits
+
+- Public structs/enums: `#[derive(Debug, Clone, Serialize, Deserialize)]`
+- Public API: explicit return type annotations required
+- Traits in dedicated files (`provider.rs`, `adapter.rs`)
+- Async traits: use `#[async_trait]`
+
+### Module Dependencies
+
+Direction: `cli -> service -> provider/adapter -> domain -> core`. No cycles. No bidirectional deps.
+
+### Commit Format
+
+```
+<type>(<scope>): <subject>
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+```
+
+Types: `feat` | `fix` | `refactor` | `test` | `docs` | `chore` | `perf`
+
+One commit = one semantic intent. No mixed changes.
+
+## Quality Gates
+
+```bash
+cargo fmt --check
+cargo clippy -- -D warnings
+cargo test
+cargo build --release
+```
+
+All must pass before merge.
+
+## Known Tech Debt
+
+> Identified during codebase audit (2026-03-28). Prioritize during refactoring sprints.
+
+| Priority | Issue | Location | Action |
+|----------|-------|----------|--------|
+| CRITICAL | `handlers.rs` at 11K+ lines (threshold: 1200) | `src/cli/handlers.rs` | Split into `src/cli/handlers/*.rs` module directory |
+| CRITICAL | `cli/mod.rs` at 2K+ lines (threshold: 800) | `src/cli/mod.rs` | Extract command enum definitions to separate files |
+| HIGH | 715 `.unwrap()` calls in production code | Multiple files | Replace with `?` / `map_err` |
+| HIGH | `println!` in library modules | `monitoring/`, `anomaly/` | Replace with `tracing` macros |
+| WARN | 12+ TODO comments without tracking | Multiple files | Add issue numbers or remove |

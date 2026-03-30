@@ -1,79 +1,61 @@
-# Graphiti Memory Skill
+---
+name: graphiti
+description: "Use when you need project memory in quantix-rust: prior design rationale, review conclusions, debug history, handoff context, or terminology decisions."
+---
 
-Interact with Graphiti semantic memory layer for design decisions, code reviews, debugging, handoffs, and documentation.
+# Graphiti Memory
 
-## Usage
+Use Graphiti semantic memory for project history and conclusion-oriented retrieval in `quantix-rust`.
 
-```
-/graphiti <action> [options]
-```
+## MCP Server
 
-## Actions
+- Server name: `graphiti-memory`
+- Endpoint: `http://192.168.123.104:8011/mcp`
 
-| Action | Description | Example |
-|--------|-------------|---------|
-| `write` / `add` / `save` | Write a memory entry | `/graphiti write 设计决策：采用事件驱动架构` |
-| `read` / `search` / `find` | Search memories | `/graphiti search 多账户管理` |
-| `list` | List recent memories | `/graphiti list --group main` |
-| `groups` | Show available groups | `/graphiti groups` |
-| `health` | Check service status | `/graphiti health` |
+## Primary Tools
+
+- `get_status`: verify the Graphiti MCP server is healthy
+- `search_nodes`: search project entities, norms, terminology, and summaries
+- `search_memory_facts`: search relationships, rationale, review conclusions, and debug findings
+- `get_episodes`: list recent memory entries for a group
+- `add_memory`: write a compact conclusion-oriented memory
+- `get_ingest_status`: confirm a write finished processing
 
 ## Group IDs
 
-| Group ID | Alias | Purpose |
-|----------|-------|---------|
-| `quantix_rust_main` | `main` | 主设计决策和架构记录 |
-| `quantix_rust_main_review` | `review` | 代码审查记录 |
-| `quantix_rust_main_debug` | `debug` | 调试会话记录 |
-| `quantix_rust_main_handoff` | `handoff` | 交接文档 |
-| `quantix_rust_main_docs` | `docs` | 技术文档 |
+- `quantix_rust_main`: architecture decisions and implementation conclusions
+- `quantix_rust_review`: review findings, acceptance or rejection rationale, residual risks
+- `quantix_rust_debug`: symptom, root cause, fix path, verification result
+- `quantix_rust_handoff`: pause points and handoff context
+- `quantix_rust_docs`: naming, terminology, and documentation rules
 
-## Options
+## Retrieval Patterns
 
-- `--group <name>` / `-g <name>`: Specify group (default: main)
-- `--date <YYYY-MM-DD>`: Filter by date
-- `--limit <n>`: Limit results (default: 10)
+Use these combinations by default:
 
-## Examples
+- Design intent: `search_memory_facts` on `quantix_rust_main`
+- Project norms or terminology: `search_nodes` on `quantix_rust_docs`, then `search_memory_facts` if needed
+- Review history: `search_memory_facts` on `quantix_rust_review`
+- Debug history: `search_memory_facts` on `quantix_rust_debug`
+- Handoff or resume: `get_episodes` and `search_memory_facts` on `quantix_rust_handoff`
 
-```bash
-# 写入设计决策
-/graphiti write 采用 AccountRouter 实现多账户智能路由，支持 Equal/Proportional/Weighted/PrimaryFirst 四种分配策略
+## Recommended Flow
 
-# 写入代码审查
-/graphiti write --group review 审查 notification.rs:623 修复了 borrow after move 错误
+1. `get_status`
+2. `search_nodes` or `search_memory_facts` with the right `group_ids`
+3. If writing a memory: `add_memory`
+4. Capture `episode_uuid`
+5. Poll `get_ingest_status` until status is `completed`
 
-# 搜索记忆
-/graphiti search 多账户
+## Example Queries
 
-# 查看调试记录
-/graphiti list --group debug
-
-# 检查服务状态
-/graphiti health
-```
-
-## Implementation
-
-When invoked, use the Graphiti MCP via SSE connection:
-
-**MCP Server**: `graphiti-memory`
-**SSE URL**: `http://192.168.123.104:8011/mcp`
-
-**Note**: Graphiti uses MCP protocol over SSE, not REST API. To use directly:
-
-1. Ensure Graphiti MCP is connected (check with `/mcp` command)
-2. Use MCP tools: `mcp__graphiti__add_memory`, `mcp__graphiti__search_memory`, etc.
-
-**Health Check**:
-```bash
-curl http://192.168.123.104:8011/health
-# Returns: {"status":"healthy","service":"graphiti-mcp"}
-```
+- "Why was this boundary chosen?" -> `search_memory_facts` in `quantix_rust_main`
+- "What did the last review conclude?" -> `search_memory_facts` in `quantix_rust_review`
+- "How was this bug diagnosed before?" -> `search_memory_facts` in `quantix_rust_debug`
+- "What naming rule do we follow here?" -> `search_nodes` in `quantix_rust_docs`
 
 ## Notes
 
-- The Graphiti MCP server runs on NAS (192.168.123.104:8011)
-- Memories are persisted in the Graphiti knowledge graph
-- Use semantic search to find related memories
-- Group IDs organize memories by purpose
+- Use Graphiti for historical rationale and condensed conclusions, not for current code truth.
+- Do not use legacy names such as `search_memory` or `search_facts`; the current tool is `search_memory_facts`.
+- After writes, do not assume the memory is searchable until `get_ingest_status` reports `completed`.
