@@ -17,6 +17,7 @@ pub use commands::{
     MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands,
     NewsCommands, NotifyCommands,
     RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands,
+    RiskSyncCommands,
     ScreenerCommands, SentimentCommands, StopCommands,
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
     StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,

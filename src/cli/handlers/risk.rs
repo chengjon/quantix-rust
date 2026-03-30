@@ -1,11 +1,29 @@
 use super::*;
-use crate::cli::{RiskImportCommands, RiskRebuildCommands};
-use crate::risk::{RiskRuleType, RuleValue};
+use crate::cli::{RiskImportCommands, RiskRebuildCommands, RiskSyncCommands};
+use crate::risk::{
+    IndustrySyncSummary, MySqlIndustrySyncSource, RiskRuleType, RuleValue,
+    sync_industry_reference_data_at,
+};
 use std::path::Path;
 
 pub async fn run_risk_command(cmd: RiskCommands) -> Result<()> {
-    let service = RiskService::new(create_risk_store());
-    let output = execute_risk_command_with_service_at(cmd, &service, Utc::now()).await?;
+    let runtime = CliRuntime::load();
+    let risk_path = runtime.risk_path.clone();
+    let service = RiskService::new(JsonRiskStore::new(risk_path.clone()));
+    let output = match &cmd {
+        RiskCommands::Sync(_) => {
+            let sync_source = MySqlIndustrySyncSource::new(runtime.upstream_mysql.clone());
+            execute_risk_command_with_service_and_sync_at(
+                cmd,
+                &service,
+                &risk_path,
+                &sync_source,
+                Utc::now(),
+            )
+            .await?
+        }
+        _ => execute_risk_command_with_service_at(cmd, &service, Utc::now()).await?,
+    };
     print_risk_command_output(&output);
     Ok(())
 }
@@ -17,6 +35,7 @@ pub(super) enum RiskCommandOutput {
     RuleToggled(RiskRule),
     ImportSummary(crate::risk::LiveImportBatchSummary),
     RebuildSummary(crate::risk::LiveImportMirrorAccount),
+    IndustrySync(IndustrySyncSummary),
     Log(Vec<RiskLogEvent>),
     LockReleased(BuyLockState),
     Status(RiskStatus),
@@ -94,6 +113,34 @@ where
             load_risk_status_for_source(service, source.as_deref(), account.as_deref(), now)
                 .await?,
         )),
+        RiskCommands::Sync(_) => Err(QuantixError::Unsupported(
+            "risk sync 需要通过显式同步入口执行".to_string(),
+        )),
+    }
+}
+
+async fn execute_risk_command_with_service_and_sync_at<Store, Source>(
+    cmd: RiskCommands,
+    service: &RiskService<Store>,
+    risk_state_path: &Path,
+    sync_source: &Source,
+    now: chrono::DateTime<Utc>,
+) -> Result<RiskCommandOutput>
+where
+    Store: crate::risk::RiskStore,
+    Source: crate::risk::IndustrySyncSource,
+{
+    match cmd {
+        RiskCommands::Sync(sync_cmd) => match sync_cmd {
+            RiskSyncCommands::Industry { standard } => {
+                let standard = crate::risk::ClassificationStandard::parse(&standard)?;
+                Ok(RiskCommandOutput::IndustrySync(
+                    sync_industry_reference_data_at(risk_state_path, standard, sync_source, now)
+                        .await?,
+                ))
+            }
+        },
+        other => execute_risk_command_with_service_at(other, service, now).await,
     }
 }
 
@@ -129,6 +176,16 @@ fn print_risk_command_output(output: &RiskCommandOutput) {
                 summary.cash_balance,
                 summary.positions.len(),
                 summary.realized_pnl
+            );
+        }
+        RiskCommandOutput::IndustrySync(summary) => {
+            println!(
+                "✅ 已同步 {} 行业引用表: current={} history={} sqlite={} at={}",
+                summary.standard.as_str(),
+                summary.current_rows,
+                summary.history_rows,
+                summary.store_path.display(),
+                summary.synced_at.to_rfc3339()
             );
         }
         RiskCommandOutput::Log(events) => print_risk_log(events),
@@ -453,11 +510,6 @@ fn format_position_row(row: &PositionRiskRow) -> String {
     )
 }
 
-pub(super) fn create_risk_store() -> JsonRiskStore {
-    let runtime = CliRuntime::load();
-    JsonRiskStore::new(runtime.risk_path)
-}
-
 async fn create_live_import_store() -> Result<crate::risk::SqliteLiveImportStore> {
     let runtime = CliRuntime::load();
     let live_import_path = runtime.risk_path.with_file_name("live_import.db");
@@ -487,7 +539,7 @@ where
                 .await?
                 .ok_or_else(|| QuantixError::Other(format!("live_import mirror 不存在: {account}")))?;
             let rules = service.list_rules().await?;
-            Ok(build_risk_status_from_live_import(&mirror, &rules))
+            Ok(build_risk_status_from_live_import(&mirror, &rules)?)
         }
     }
 }
@@ -509,7 +561,7 @@ async fn load_paper_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
 fn build_risk_status_from_live_import(
     mirror: &crate::risk::LiveImportMirrorAccount,
     rules: &[RiskRule],
-) -> RiskStatus {
+) -> Result<RiskStatus> {
     let positions: Vec<(String, rust_decimal::Decimal)> = mirror
         .positions
         .iter()
@@ -530,12 +582,10 @@ fn build_risk_status_from_live_import(
     let daily_loss_limit = rules
         .iter()
         .find(|rule| rule.enabled && rule.rule_type == RiskRuleType::DailyLossLimit);
-    let buy_locked = daily_loss_limit
-        .map(|rule| match rule.value {
-            RuleValue::Amount(limit) => daily_pnl <= -limit,
-            RuleValue::Percentage(limit_pct) => daily_pnl_pct <= -limit_pct,
-        })
-        .unwrap_or(false);
+    let buy_locked = match daily_loss_limit {
+        Some(rule) => evaluate_daily_loss_rule_triggered(rule, daily_pnl, daily_pnl_pct)?,
+        None => false,
+    };
     let lock_reason = if buy_locked {
         daily_loss_limit
             .map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
@@ -543,7 +593,7 @@ fn build_risk_status_from_live_import(
         None
     };
 
-    RiskStatus {
+    Ok(RiskStatus {
         account_id: mirror.account_id.clone(),
         trading_date: mirror.trading_date,
         starting_total_assets: mirror.starting_total_assets,
@@ -578,6 +628,20 @@ fn build_risk_status_from_live_import(
                 enabled: rule.enabled,
             })
             .collect(),
+    })
+}
+
+fn evaluate_daily_loss_rule_triggered(
+    rule: &RiskRule,
+    daily_pnl: rust_decimal::Decimal,
+    daily_pnl_pct: rust_decimal::Decimal,
+) -> Result<bool> {
+    match &rule.value {
+        RuleValue::Amount(limit) => Ok(daily_pnl <= -*limit),
+        RuleValue::Percentage(limit_pct) => Ok(daily_pnl_pct <= -*limit_pct),
+        RuleValue::TextList(_) => Err(QuantixError::Other(
+            "risk rule daily-loss-limit 配置无效".to_string(),
+        )),
     }
 }
 
@@ -644,4 +708,94 @@ fn build_position_rows(
             },
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use chrono::TimeZone;
+    use tempfile::tempdir;
+
+    use crate::risk::{
+        ClassificationStandard, IndustryClassificationLevel, IndustrySyncSource, JsonRiskStore,
+        ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow, SqliteIndustryStore,
+    };
+
+    fn fixed_ts() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 3, 25, 10, 0, 0).unwrap()
+    }
+
+    #[derive(Debug)]
+    struct FakeIndustrySyncSource {
+        current_rows: Vec<ShenwanCurrentSeedRow>,
+        historical_rows: Vec<ShenwanHistoricalSeedRow>,
+    }
+
+    #[async_trait]
+    impl IndustrySyncSource for FakeIndustrySyncSource {
+        async fn fetch_shenwan_current_rows(&self) -> Result<Vec<ShenwanCurrentSeedRow>> {
+            Ok(self.current_rows.clone())
+        }
+
+        async fn fetch_shenwan_history_rows(&self) -> Result<Vec<ShenwanHistoricalSeedRow>> {
+            Ok(self.historical_rows.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_risk_sync_industry_command_returns_summary_and_persists_rows() {
+        let dir = tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk").join("risk_state.json");
+        let service = RiskService::new(JsonRiskStore::new(&risk_state_path));
+        let source = FakeIndustrySyncSource {
+            current_rows: vec![ShenwanCurrentSeedRow {
+                security_code: "000001.SZ".to_string(),
+                industry_name: "银行".to_string(),
+                source: "fake_current_sync".to_string(),
+            }],
+            historical_rows: vec![ShenwanHistoricalSeedRow {
+                security_code: "000001".to_string(),
+                industry_name: "银行".to_string(),
+                effective_from: chrono::NaiveDate::from_ymd_opt(2014, 1, 1).unwrap(),
+                effective_to: None,
+                source: "fake_history_sync".to_string(),
+            }],
+        };
+
+        let output = execute_risk_command_with_service_and_sync_at(
+            RiskCommands::Sync(RiskSyncCommands::Industry {
+                standard: "shenwan".to_string(),
+            }),
+            &service,
+            &risk_state_path,
+            &source,
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            RiskCommandOutput::IndustrySync(summary) => {
+                assert_eq!(summary.standard, ClassificationStandard::Shenwan);
+                assert_eq!(summary.current_rows, 1);
+                assert_eq!(summary.history_rows, 1);
+            }
+            other => panic!("unexpected output: {other:?}"),
+        }
+
+        let store = SqliteIndustryStore::from_risk_state_path(&risk_state_path)
+            .await
+            .unwrap();
+        let current = store
+            .lookup_current(
+                ClassificationStandard::Shenwan,
+                IndustryClassificationLevel::FirstLevel,
+                "000001",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(current.industry_name, "银行");
+    }
 }

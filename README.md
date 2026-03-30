@@ -348,6 +348,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix risk rule set --type daily-loss-limit --value 50000` - 设置日亏损金额阈值
   - `quantix risk rule set --type daily-loss-limit --value 5%` - 设置日亏损比例阈值
   - `quantix risk rule set --type volatility-limit --value 4%` - 设置 ATR 波动率阈值
+  - `quantix risk sync industry --standard shenwan` - 从上游 MySQL 刷新本地申万行业引用表
+  - `quantix risk rule set --type industry-blocklist --value 银行,地产` - 设置行业黑名单买入拦截规则
   - `quantix risk import live-trades --account live-001 --input /tmp/live.csv` - 导入标准化实盘流水
   - `quantix risk rebuild live-account --account live-001` - 从导入流水全量重建实盘镜像账户
   - `quantix risk rule list` - 查看当前风控规则
@@ -364,12 +366,26 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **JSON 持久化** (`src/risk/storage.rs`)
   - 默认路径 `~/.quantix/risk/risk_state.json`
   - 可通过 `QUANTIX_RISK_PATH` 覆盖
+  - 行业引用 SQLite 默认为 `~/.quantix/risk/industry_reference.db`，与 `risk_state.json` 同目录
+  - 上游同步配置使用 `QUANTIX_UPSTREAM_MYSQL_URL`、`QUANTIX_UPSTREAM_MYSQL_DB`、`QUANTIX_UPSTREAM_MYSQL_USER`、`QUANTIX_UPSTREAM_MYSQL_PASSWORD`
 - **P0 约束**
   - `paper` 仍是默认数据源，`live_import` 需要显式 `--source live_import --account <ID>`
   - live_import 镜像账户与 paper_trade.json 严格隔离
   - `volatility-limit` 使用 `ATR(14) / latest_close * 100`
   - `volatility-limit` 缺少日线时会拒绝买单而不是静默跳过
   - `volatility-limit` 只拦截新的买单，不影响卖出
+  - `industry-blocklist` 现已成为受支持的风险规则
+  - Phase 27D v1 使用 `SW 一级行业` 作为运行时生效标准
+  - `security_class_2024` / CSRC 2024 仍保留在系统中作为并行分类标准，但不是该 v1 规则的运行时生效标准
+  - 运行时风控评估只读取本地 SQLite 参考/快照表
+  - MySQL 仅作为上游同步源，不是运行时查询依赖
+  - 最终运行时边界保持为 ClickHouse + SQLite；本规则不在运行时直接查询 MySQL
+  - 启用 `industry-blocklist` 前需要先执行 `quantix risk sync industry --standard shenwan`
+  - 如果本地 SQLite 行业引用表尚未同步完成，`industry-blocklist` 会 fail-closed 并拒绝买单
+  - 运行时行业解析顺序固定为：当前 SW 映射 -> 查询月份快照 -> 历史 SW 映射 -> 最新本地快照
+  - 月度快照会在该月第一次成功命中生效标准时冻结
+  - `industry-blocklist` 继续使用精确字符串匹配
+  - `industry-blocklist` 只拦截新的买单，不影响卖出路径
   - 实盘导入当前只支持项目标准化 CSV/JSON
   - failed rebuild 会保留上一次成功镜像状态
   - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交，`trade init/reset` 会清除当日买入锁但保留已配置规则
@@ -378,7 +394,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件，不记录每次买入拒单
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
-  - `行业规则 / 自动减仓` 延后到后续 Phase
+  - 行业白名单 / 自动减仓继续延后到后续 Phase
 
 #### Phase 29: 策略 Paper 执行骨架 ✅
 - **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)

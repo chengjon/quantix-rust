@@ -1,7 +1,9 @@
 use crate::core::config::{
     CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
     DEFAULT_CLICKHOUSE_DB, DEFAULT_CLICKHOUSE_PASSWORD, DEFAULT_CLICKHOUSE_URL,
-    DEFAULT_CLICKHOUSE_USER,
+    DEFAULT_CLICKHOUSE_USER, DEFAULT_UPSTREAM_MYSQL_DB, DEFAULT_UPSTREAM_MYSQL_PASSWORD,
+    DEFAULT_UPSTREAM_MYSQL_URL, DEFAULT_UPSTREAM_MYSQL_USER, UPSTREAM_MYSQL_DB_ENV,
+    UPSTREAM_MYSQL_PASSWORD_ENV, UPSTREAM_MYSQL_URL_ENV, UPSTREAM_MYSQL_USER_ENV,
 };
 use std::path::PathBuf;
 
@@ -41,9 +43,34 @@ impl ClickHouseSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpstreamMySqlSettings {
+    pub url: String,
+    pub database: String,
+    pub user: String,
+    pub password: String,
+}
+
+impl UpstreamMySqlSettings {
+    pub fn from_env() -> Self {
+        load_dotenv_if_present();
+        Self {
+            url: std::env::var(UPSTREAM_MYSQL_URL_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_URL.to_string()),
+            database: std::env::var(UPSTREAM_MYSQL_DB_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_DB.to_string()),
+            user: std::env::var(UPSTREAM_MYSQL_USER_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_USER.to_string()),
+            password: std::env::var(UPSTREAM_MYSQL_PASSWORD_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_PASSWORD.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
     pub bridge: BridgeRuntimeSettings,
+    pub upstream_mysql: UpstreamMySqlSettings,
     pub watchlist_path: PathBuf,
     pub trade_path: PathBuf,
     pub risk_path: PathBuf,
@@ -68,6 +95,7 @@ impl CliRuntime {
         Self {
             clickhouse: ClickHouseSettings::from_env(),
             bridge: BridgeRuntimeSettings::from_env(),
+            upstream_mysql: UpstreamMySqlSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
             trade_path: resolve_trade_path(),
             risk_path: resolve_risk_path(),

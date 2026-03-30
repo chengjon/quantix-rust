@@ -1,12 +1,15 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, TimeZone, Utc};
-use quantix_cli::core::Result;
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use quantix_cli::core::{QuantixError, Result};
+use quantix_cli::risk::service::RiskIndustryResolver;
 use quantix_cli::risk::{
-    ProjectedBuyImpact, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRuleType,
-    RiskService, RiskState, RiskStore, RuleValue,
+    ClassificationStandard, IndustryClassificationLevel, IndustrySourceTier, ProjectedBuyImpact,
+    ResolvedIndustry, RiskAccountSnapshot, RiskLockStateSource, RiskLogEventType, RiskRule,
+    RiskRuleType, RiskService, RiskState, RiskStore, RuleValue,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
@@ -17,6 +20,10 @@ struct FakeRiskStore {
 impl FakeRiskStore {
     fn snapshot(&self) -> Option<RiskState> {
         self.state.lock().unwrap().clone()
+    }
+
+    fn set_snapshot(&self, state: RiskState) {
+        *self.state.lock().unwrap() = Some(state);
     }
 }
 
@@ -32,6 +39,48 @@ impl RiskStore for FakeRiskStore {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+struct FakeIndustryResolver {
+    industries: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl FakeIndustryResolver {
+    fn with_rows(rows: &[(&str, &str)]) -> Self {
+        Self {
+            industries: Arc::new(Mutex::new(
+                rows.iter()
+                    .map(|(code, industry)| ((*code).to_string(), (*industry).to_string()))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+#[async_trait]
+impl RiskIndustryResolver for FakeIndustryResolver {
+    async fn resolve(
+        &self,
+        code: &str,
+        query_date: chrono::NaiveDate,
+        _captured_at: DateTime<Utc>,
+    ) -> Result<ResolvedIndustry> {
+        let industries = self.industries.lock().unwrap();
+        let industry_name = industries
+            .get(code)
+            .cloned()
+            .ok_or_else(|| quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}")))?;
+
+        Ok(ResolvedIndustry {
+            code: code.to_string(),
+            industry_name,
+            standard: ClassificationStandard::Shenwan,
+            level: IndustryClassificationLevel::FirstLevel,
+            source_tier: IndustrySourceTier::CurrentActive,
+            query_month: format!("{:04}-{:02}", query_date.year(), query_date.month()),
+        })
+    }
+}
+
 fn fixed_ts() -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 3, 11, 9, 35, 0).unwrap()
 }
@@ -39,6 +88,16 @@ fn fixed_ts() -> DateTime<Utc> {
 fn service() -> (RiskService<FakeRiskStore>, FakeRiskStore) {
     let store = FakeRiskStore::default();
     (RiskService::new(store.clone()), store)
+}
+
+fn service_with_industry_resolver(
+    resolver: FakeIndustryResolver,
+) -> (RiskService<FakeRiskStore>, FakeRiskStore) {
+    let store = FakeRiskStore::default();
+    (
+        RiskService::with_industry_resolver(store.clone(), resolver),
+        store,
+    )
 }
 
 fn snapshot(total_assets: Decimal, positions: &[(&str, Decimal)]) -> RiskAccountSnapshot {
@@ -122,6 +181,188 @@ async fn set_rule_upserts_volatility_limit_percentage_values() {
     assert_eq!(state.rules.len(), 1);
     assert_eq!(state.rules[0].rule_type, RiskRuleType::VolatilityLimit);
     assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
+}
+
+#[tokio::test]
+async fn set_rule_upserts_industry_blocklist_values() {
+    let (service, store) = service();
+
+    let rule = service
+        .set_rule("industry-blocklist", "银行,地产", fixed_ts())
+        .await
+        .unwrap();
+    assert_eq!(rule.rule_type, RiskRuleType::IndustryBlocklist);
+    assert_eq!(
+        rule.value,
+        RuleValue::TextList(vec!["银行".to_string(), "地产".to_string()])
+    );
+
+    let state = store.snapshot().unwrap();
+    assert_eq!(state.rules.len(), 1);
+    assert_eq!(state.rules[0].rule_type, RiskRuleType::IndustryBlocklist);
+    assert_eq!(
+        state.rules[0].value,
+        RuleValue::TextList(vec!["银行".to_string(), "地产".to_string()])
+    );
+}
+
+#[tokio::test]
+async fn set_rule_industry_blocklist_ignores_empty_segments() {
+    let cases = vec![
+        (
+            "银行, ,地产",
+            vec!["银行".to_string(), "地产".to_string()],
+        ),
+        ("银行,", vec!["银行".to_string()]),
+        (",地产", vec!["地产".to_string()]),
+        (
+            "银行,,地产",
+            vec!["银行".to_string(), "地产".to_string()],
+        ),
+    ];
+
+    for (raw, expected) in cases {
+        let (service, store) = service();
+
+        let rule = service
+            .set_rule("industry-blocklist", raw, fixed_ts())
+            .await
+            .unwrap();
+
+        assert_eq!(rule.rule_type, RiskRuleType::IndustryBlocklist);
+        assert_eq!(rule.value, RuleValue::TextList(expected.clone()));
+
+        let state = store.snapshot().unwrap();
+        assert_eq!(state.rules.len(), 1);
+        assert_eq!(state.rules[0].value, RuleValue::TextList(expected));
+    }
+}
+
+#[tokio::test]
+async fn set_rule_industry_blocklist_rejects_empty_names() {
+    let (service, _) = service();
+
+    let err = service
+        .set_rule("industry-blocklist", " , , ", fixed_ts())
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("industry-blocklist"));
+}
+
+#[tokio::test]
+async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_without_lock_or_log() {
+    let (service, store) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "银行")]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("industry-blocklist"));
+    assert!(err.to_string().contains("银行"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
+}
+
+#[tokio::test]
+async fn industry_blocklist_allows_buy_when_resolved_industry_is_not_blocked() {
+    let (service, _) = service_with_industry_resolver(FakeIndustryResolver::with_rows(&[(
+        "000001",
+        "有色金属",
+    )]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+
+    service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn industry_blocklist_returns_hard_check_failure_when_resolver_misses() {
+    let (service, store) = service_with_industry_resolver(FakeIndustryResolver::default());
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-blocklist", "银行,地产", now)
+        .await
+        .unwrap();
+    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, QuantixError::DataSource(_)));
+    assert!(err.to_string().contains("industry-blocklist"));
+    assert!(err.to_string().contains("检查失败"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
+}
+
+#[test]
+fn text_list_display_joins_values_with_commas() {
+    let value = RuleValue::TextList(vec![
+        "银行".to_string(),
+        "地产".to_string(),
+        "煤炭".to_string(),
+    ]);
+    assert_eq!(value.display(), "银行,地产,煤炭");
+}
+
+#[tokio::test]
+async fn status_rejects_invalid_daily_loss_rule_value_type() {
+    let (service, store) = service();
+    let now = fixed_ts();
+    let mut state = RiskState::default();
+    state.rules.push(RiskRule {
+        rule_type: RiskRuleType::DailyLossLimit,
+        value: RuleValue::TextList(vec!["银行".to_string()]),
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+    });
+    store.set_snapshot(state);
+
+    let err = service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("daily-loss-limit"));
+    assert!(err.to_string().contains("配置无效"));
 }
 
 #[tokio::test]

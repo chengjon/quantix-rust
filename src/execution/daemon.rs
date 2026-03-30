@@ -14,7 +14,8 @@ use crate::execution::models::{
 use crate::execution::paper::PaperExecutionAdapter;
 use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
 use crate::execution::runtime_store::StrategyRuntimeStore;
-use crate::risk::{RiskAccountSnapshot, RiskService, RiskStore};
+use crate::risk::{JsonRiskStore, RiskAccountSnapshot, RiskService, RiskStore};
+use crate::risk::service::RuntimeJsonRiskServices;
 use crate::trade::{PaperTradeAccount, PaperTradeStore, TradeOrderRequest, TradeService};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,25 +80,24 @@ where
 }
 
 #[derive(Debug, Clone)]
-struct RequestRiskBridge<TradeStore, RiskStoreImpl> {
+struct RequestRuntimeRiskBridge<TradeStore> {
     trade_store: TradeStore,
-    risk_service: RiskService<RiskStoreImpl>,
+    risk_services: RuntimeJsonRiskServices,
 }
 
-impl<TradeStore, RiskStoreImpl> RequestRiskBridge<TradeStore, RiskStoreImpl> {
-    fn new(trade_store: TradeStore, risk_service: RiskService<RiskStoreImpl>) -> Self {
+impl<TradeStore> RequestRuntimeRiskBridge<TradeStore> {
+    fn new(trade_store: TradeStore, risk_services: RuntimeJsonRiskServices) -> Self {
         Self {
             trade_store,
-            risk_service,
+            risk_services,
         }
     }
 }
 
 #[async_trait]
-impl<TradeStore, RiskStoreImpl> RiskEvaluator for RequestRiskBridge<TradeStore, RiskStoreImpl>
+impl<TradeStore> RiskEvaluator for RequestRuntimeRiskBridge<TradeStore>
 where
     TradeStore: PaperTradeStore,
-    RiskStoreImpl: RiskStore,
 {
     async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
         if intent.side == OrderSide::Sell {
@@ -113,9 +113,9 @@ where
         )
         .map_err(|err| remap_trade_request_error(err, "execution daemon"))?;
         let projected_buy = build_projected_buy_impact(&account, &request);
+        let risk_service = self.risk_services.buy_checks().await?;
 
-        match self
-            .risk_service
+        match risk_service
             .check_buy(&snapshot, &projected_buy, Utc::now())
             .await
         {
@@ -126,18 +126,17 @@ where
     }
 
     async fn sync_after_fill(&self) -> Result<()> {
-        sync_risk_from_trade_store(&self.trade_store, &self.risk_service).await
+        sync_risk_from_trade_store(&self.trade_store, self.risk_services.base()).await
     }
 }
 
-pub async fn consume_next_pending_request_with_components<TS, RS>(
+pub async fn consume_next_pending_request_with_components<TS>(
     store: &StrategyRuntimeStore,
     trade_store: TS,
-    risk_store: RS,
+    risk_store: JsonRiskStore,
 ) -> Result<ExecutionDaemonIterationSummary>
 where
     TS: PaperTradeStore + Clone,
-    RS: RiskStore + Clone,
 {
     let Some(request) = store.find_next_pending_execution_request().await? else {
         return Ok(ExecutionDaemonIterationSummary {
@@ -173,15 +172,14 @@ where
     }
 }
 
-pub async fn execute_request_by_id_with_components<TS, RS>(
+pub async fn execute_request_by_id_with_components<TS>(
     store: &StrategyRuntimeStore,
     request_id: &str,
     trade_store: TS,
-    risk_store: RS,
+    risk_store: JsonRiskStore,
 ) -> Result<ExecutionRequestRecord>
 where
     TS: PaperTradeStore + Clone,
-    RS: RiskStore + Clone,
 {
     let request = store
         .get_execution_request(request_id)
@@ -213,8 +211,10 @@ where
     }
 
     let prepared = build_prepared_request_from_execution_request(&request)?;
-    let risk_service = RiskService::new(risk_store.clone());
-    let risk = RequestRiskBridge::new(trade_store.clone(), risk_service);
+    let risk = RequestRuntimeRiskBridge::new(
+        trade_store.clone(),
+        RuntimeJsonRiskServices::new(risk_store),
+    );
 
     let execution_result = match request.target_mode.as_str() {
         "paper" => {

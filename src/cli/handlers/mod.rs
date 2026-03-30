@@ -1551,15 +1551,14 @@ async fn execute_strategy_request_execute(request_id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn execute_strategy_request_execute_with_components<TS, RS>(
+async fn execute_strategy_request_execute_with_components<TS>(
     store: &StrategyRuntimeStore,
     request_id: &str,
     trade_store: TS,
-    risk_store: RS,
+    risk_store: JsonRiskStore,
 ) -> Result<ExecutionRequestRecord>
 where
     TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore + Clone,
 {
     crate::execution::daemon::execute_request_by_id_with_components(
         store,
@@ -5480,4 +5479,3 @@ async fn run_export_menu() -> Result<()> {
 
     Ok(())
 }
-

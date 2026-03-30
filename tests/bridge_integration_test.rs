@@ -15,6 +15,7 @@ fn get_bridge_client() -> BridgeHttpClient {
 }
 
 #[tokio::test]
+#[ignore = "requires running Windows bridge service"]
 async fn test_bridge_health() {
     let client = get_bridge_client();
 
@@ -35,6 +36,7 @@ async fn test_bridge_health() {
 }
 
 #[tokio::test]
+#[ignore = "requires running Windows bridge service"]
 async fn test_qmt_account_status() {
     let client = get_bridge_client();
 
@@ -54,6 +56,7 @@ async fn test_qmt_account_status() {
 }
 
 #[tokio::test]
+#[ignore = "requires running Windows bridge service"]
 async fn test_qmt_positions() {
     let client = get_bridge_client();
 
@@ -69,6 +72,7 @@ async fn test_qmt_positions() {
 }
 
 #[tokio::test]
+#[ignore = "requires running Windows bridge service"]
 async fn test_qmt_asset() {
     let client = get_bridge_client();
 

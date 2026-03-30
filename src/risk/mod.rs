@@ -1,3 +1,6 @@
+pub mod industry;
+pub mod industry_sync;
+pub mod industry_store;
 pub mod models;
 pub mod import_store;
 pub mod importer;
@@ -6,6 +9,17 @@ pub mod service;
 pub mod storage;
 pub mod volatility;
 
+pub use industry::{
+    ACTIVE_CLASSIFICATION_STANDARD, ACTIVE_INDUSTRY_LEVEL, ClassificationStandard,
+    IndustryClassificationLevel, IndustryReferenceRecord, IndustryResolver,
+    IndustrySnapshotRecord, IndustrySourceTier, ResolvedIndustry, ShenwanCurrentSeedRow,
+    ShenwanHistoricalSeedRow,
+};
+pub use industry_sync::{
+    IndustrySyncSource, IndustrySyncSummary, MySqlIndustrySyncSource,
+    sync_industry_reference_data_at,
+};
+pub use industry_store::SqliteIndustryStore;
 pub use models::{
     BuyLockState, DEFAULT_RISK_ACCOUNT_ID, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact,
     LiveImportBatchSummary, LiveImportCashBusinessType, LiveImportConflict,

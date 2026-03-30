@@ -17,7 +17,10 @@ pub use info::{
 };
 pub use market::{MarketCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands};
 pub use monitor::{MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands};
-pub use risk::{RiskCommands, RiskImportCommands, RiskRebuildCommands, RiskLockCommands, RiskRuleCommands};
+pub use risk::{
+    RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands,
+    RiskSyncCommands,
+};
 pub use strategy::{StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands};
 pub use trade::{AlgoCommands, AnomalyCommands, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands, ExecutionDaemonCommands, TradeCommands};
 
