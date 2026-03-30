@@ -107,6 +107,12 @@ export QUANTIX_TRADE_PATH="$HOME/.quantix/trade/paper_trade.json"
 # 风控 JSON 路径（可选）
 export QUANTIX_RISK_PATH="$HOME/.quantix/risk/risk_state.json"
 
+# 上游行业同步 MySQL（可选；risk sync industry 使用）
+export QUANTIX_UPSTREAM_MYSQL_URL="mysql://192.168.123.104:3306"
+export QUANTIX_UPSTREAM_MYSQL_DB="mystocks"
+export QUANTIX_UPSTREAM_MYSQL_USER="root"
+export QUANTIX_UPSTREAM_MYSQL_PASSWORD="secret"
+
 # 策略运行时审计 SQLite 路径（可选）
 export QUANTIX_STRATEGY_RUNTIME_DB_PATH="$HOME/.quantix/strategy/runtime.db"
 
@@ -232,6 +238,7 @@ quantix trade cash
 # 基于纸面账户设置风控规则
 quantix risk rule set --type position-limit --value 20%
 quantix risk rule set --type daily-loss-limit --value 50000
+quantix risk sync industry --standard shenwan
 quantix risk rule set --type industry-blocklist --value 银行,地产
 
 # 查看规则和当前状态
@@ -1287,6 +1294,8 @@ quantix trade cash
 
 - 默认路径：`~/.quantix/risk/risk_state.json`
 - 可通过 `QUANTIX_RISK_PATH` 覆盖
+- 行业引用 SQLite 默认为 `~/.quantix/risk/industry_reference.db`
+- `risk sync industry` 使用 `QUANTIX_UPSTREAM_MYSQL_URL`、`QUANTIX_UPSTREAM_MYSQL_DB`、`QUANTIX_UPSTREAM_MYSQL_USER`、`QUANTIX_UPSTREAM_MYSQL_PASSWORD`
 
 #### P0 范围
 
@@ -1305,6 +1314,8 @@ quantix trade cash
 - 运行时风险评估只读取本地 SQLite reference/snapshot 表
 - MySQL 仅作为上游同步来源，不参与运行时查询
 - 最终运行时边界保持为 ClickHouse + SQLite；MySQL 仅负责上游同步
+- 启用 `industry-blocklist` 前，先运行 `quantix risk sync industry --standard shenwan`
+- 如果本地 SQLite 行业引用表为空或未同步完成，`industry-blocklist` 会 fail-closed 并拒绝买单
 - 运行时解析顺序：1. 当前 SW 映射 2. 查询月份快照 3. 历史 SW 映射 4. 最新本地快照
 - 月度快照会在该月第一次成功命中 `SW 一级行业` 时冻结
 - `industry-blocklist` 采用精确字符串匹配，不做模糊归一化
@@ -1320,6 +1331,7 @@ quantix trade cash
 #### 命令摘要
 
 ```bash
+quantix risk sync industry --standard shenwan
 quantix risk import live-trades --account <ID> --input <FILE>
 quantix risk rebuild live-account --account <ID>
 quantix risk rule set --type position-limit --value 20%
@@ -1345,6 +1357,8 @@ quantix risk lock release
 - `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
 - `industry-blocklist` 现已成为受支持的风险规则
 - `industry-blocklist` 的值按逗号分隔行业名称，例如 `银行,地产`
+- `risk sync industry --standard shenwan` 会刷新 `industry_reference_current` 和 `industry_reference_history`
+- `risk sync industry --standard shenwan` 目前只支持 `shenwan`
 - `risk status`、`risk pnl`、`risk position` 依赖已初始化的 paper-trade 账户；首次使用前请先执行 `quantix trade init`
 - `risk import live-trades` 当前只接受项目标准化 `CSV/JSON`
 - `risk rebuild live-account` 始终做全量 replay，不做增量重建

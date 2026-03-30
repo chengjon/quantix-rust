@@ -294,6 +294,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `quantix risk rule set --type daily-loss-limit --value 50000` - 设置日亏损金额阈值
   - `quantix risk rule set --type daily-loss-limit --value 5%` - 设置日亏损比例阈值
   - `quantix risk rule set --type volatility-limit --value 4%` - 设置 ATR 波动率阈值
+  - `quantix risk sync industry --standard shenwan` - 从上游 MySQL 刷新本地申万行业引用表
   - `quantix risk rule set --type industry-blocklist --value 银行,地产` - 设置行业黑名单买入拦截规则
   - `quantix risk import live-trades --account live-001 --input /tmp/live.csv` - 导入标准化实盘流水
   - `quantix risk rebuild live-account --account live-001` - 从导入流水全量重建实盘镜像账户
@@ -311,6 +312,8 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **JSON 持久化** (`src/risk/storage.rs`)
   - 默认路径 `~/.quantix/risk/risk_state.json`
   - 可通过 `QUANTIX_RISK_PATH` 覆盖
+  - 行业引用 SQLite 默认为 `~/.quantix/risk/industry_reference.db`，与 `risk_state.json` 同目录
+  - 上游同步配置使用 `QUANTIX_UPSTREAM_MYSQL_URL`、`QUANTIX_UPSTREAM_MYSQL_DB`、`QUANTIX_UPSTREAM_MYSQL_USER`、`QUANTIX_UPSTREAM_MYSQL_PASSWORD`
 - **P0 约束**
   - `paper` 仍是默认数据源，`live_import` 需要显式 `--source live_import --account <ID>`
   - live_import 镜像账户与 paper_trade.json 严格隔离
@@ -323,6 +326,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 运行时风控评估只读取本地 SQLite 参考/快照表
   - MySQL 仅作为上游同步源，不是运行时查询依赖
   - 最终运行时边界保持为 ClickHouse + SQLite；本规则不在运行时直接查询 MySQL
+  - 启用 `industry-blocklist` 前需要先执行 `quantix risk sync industry --standard shenwan`
+  - 如果本地 SQLite 行业引用表尚未同步完成，`industry-blocklist` 会 fail-closed 并拒绝买单
   - 运行时行业解析顺序固定为：当前 SW 映射 -> 查询月份快照 -> 历史 SW 映射 -> 最新本地快照
   - 月度快照会在该月第一次成功命中生效标准时冻结
   - `industry-blocklist` 继续使用精确字符串匹配

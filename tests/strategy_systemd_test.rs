@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use quantix_cli::core::{CliRuntime, ClickHouseSettings};
+use quantix_cli::core::{CliRuntime, ClickHouseSettings, UpstreamMySqlSettings};
 use quantix_cli::strategy::{
     JsonStrategyServiceConfigStore, StrategyServiceConfig,
     systemd::{StrategyServiceStatusSummary, StrategyUserServiceInstaller},
@@ -13,6 +13,12 @@ fn sample_runtime() -> CliRuntime {
             url: "http://localhost:8123".to_string(),
             database: "quantix".to_string(),
             user: "default".to_string(),
+            password: "".to_string(),
+        },
+        upstream_mysql: UpstreamMySqlSettings {
+            url: "mysql://127.0.0.1:3306".to_string(),
+            database: "mystocks".to_string(),
+            user: "root".to_string(),
             password: "".to_string(),
         },
         watchlist_path: PathBuf::from("/tmp/quantix/watchlist/watchlist.json"),

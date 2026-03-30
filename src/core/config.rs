@@ -13,6 +13,14 @@ pub const DEFAULT_CLICKHOUSE_URL: &str = "http://localhost:8123";
 pub const DEFAULT_CLICKHOUSE_DB: &str = "quantix";
 pub const DEFAULT_CLICKHOUSE_USER: &str = "default";
 pub const DEFAULT_CLICKHOUSE_PASSWORD: &str = "";
+pub const UPSTREAM_MYSQL_URL_ENV: &str = "QUANTIX_UPSTREAM_MYSQL_URL";
+pub const UPSTREAM_MYSQL_DB_ENV: &str = "QUANTIX_UPSTREAM_MYSQL_DB";
+pub const UPSTREAM_MYSQL_USER_ENV: &str = "QUANTIX_UPSTREAM_MYSQL_USER";
+pub const UPSTREAM_MYSQL_PASSWORD_ENV: &str = "QUANTIX_UPSTREAM_MYSQL_PASSWORD";
+pub const DEFAULT_UPSTREAM_MYSQL_URL: &str = "mysql://127.0.0.1:3306";
+pub const DEFAULT_UPSTREAM_MYSQL_DB: &str = "mystocks";
+pub const DEFAULT_UPSTREAM_MYSQL_USER: &str = "root";
+pub const DEFAULT_UPSTREAM_MYSQL_PASSWORD: &str = "";
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseConfig {

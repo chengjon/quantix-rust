@@ -1,7 +1,9 @@
 use crate::core::config::{
     CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
     DEFAULT_CLICKHOUSE_DB, DEFAULT_CLICKHOUSE_PASSWORD, DEFAULT_CLICKHOUSE_URL,
-    DEFAULT_CLICKHOUSE_USER,
+    DEFAULT_CLICKHOUSE_USER, DEFAULT_UPSTREAM_MYSQL_DB, DEFAULT_UPSTREAM_MYSQL_PASSWORD,
+    DEFAULT_UPSTREAM_MYSQL_URL, DEFAULT_UPSTREAM_MYSQL_USER, UPSTREAM_MYSQL_DB_ENV,
+    UPSTREAM_MYSQL_PASSWORD_ENV, UPSTREAM_MYSQL_URL_ENV, UPSTREAM_MYSQL_USER_ENV,
 };
 use std::path::PathBuf;
 
@@ -39,8 +41,33 @@ impl ClickHouseSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpstreamMySqlSettings {
+    pub url: String,
+    pub database: String,
+    pub user: String,
+    pub password: String,
+}
+
+impl UpstreamMySqlSettings {
+    pub fn from_env() -> Self {
+        load_dotenv_if_present();
+        Self {
+            url: std::env::var(UPSTREAM_MYSQL_URL_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_URL.to_string()),
+            database: std::env::var(UPSTREAM_MYSQL_DB_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_DB.to_string()),
+            user: std::env::var(UPSTREAM_MYSQL_USER_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_USER.to_string()),
+            password: std::env::var(UPSTREAM_MYSQL_PASSWORD_ENV)
+                .unwrap_or_else(|_| DEFAULT_UPSTREAM_MYSQL_PASSWORD.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
+    pub upstream_mysql: UpstreamMySqlSettings,
     pub watchlist_path: PathBuf,
     pub trade_path: PathBuf,
     pub risk_path: PathBuf,
@@ -56,6 +83,7 @@ impl CliRuntime {
         load_dotenv_if_present();
         Self {
             clickhouse: ClickHouseSettings::from_env(),
+            upstream_mysql: UpstreamMySqlSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
             trade_path: resolve_trade_path(),
             risk_path: resolve_risk_path(),
@@ -224,6 +252,10 @@ mod tests {
         database: Option<String>,
         user: Option<String>,
         password: Option<String>,
+        upstream_mysql_url: Option<String>,
+        upstream_mysql_database: Option<String>,
+        upstream_mysql_user: Option<String>,
+        upstream_mysql_password: Option<String>,
         watchlist_path: Option<String>,
         trade_path: Option<String>,
         risk_path: Option<String>,
@@ -242,6 +274,10 @@ mod tests {
                 database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
                 user: std::env::var(CLICKHOUSE_USER_ENV).ok(),
                 password: std::env::var(CLICKHOUSE_PASSWORD_ENV).ok(),
+                upstream_mysql_url: std::env::var(UPSTREAM_MYSQL_URL_ENV).ok(),
+                upstream_mysql_database: std::env::var(UPSTREAM_MYSQL_DB_ENV).ok(),
+                upstream_mysql_user: std::env::var(UPSTREAM_MYSQL_USER_ENV).ok(),
+                upstream_mysql_password: std::env::var(UPSTREAM_MYSQL_PASSWORD_ENV).ok(),
                 watchlist_path: std::env::var(WATCHLIST_PATH_ENV).ok(),
                 trade_path: std::env::var(TRADE_PATH_ENV).ok(),
                 risk_path: std::env::var(RISK_PATH_ENV).ok(),
@@ -275,6 +311,26 @@ mod tests {
             match &self.password {
                 Some(value) => unsafe { std::env::set_var(CLICKHOUSE_PASSWORD_ENV, value) },
                 None => unsafe { std::env::remove_var(CLICKHOUSE_PASSWORD_ENV) },
+            }
+
+            match &self.upstream_mysql_url {
+                Some(value) => unsafe { std::env::set_var(UPSTREAM_MYSQL_URL_ENV, value) },
+                None => unsafe { std::env::remove_var(UPSTREAM_MYSQL_URL_ENV) },
+            }
+
+            match &self.upstream_mysql_database {
+                Some(value) => unsafe { std::env::set_var(UPSTREAM_MYSQL_DB_ENV, value) },
+                None => unsafe { std::env::remove_var(UPSTREAM_MYSQL_DB_ENV) },
+            }
+
+            match &self.upstream_mysql_user {
+                Some(value) => unsafe { std::env::set_var(UPSTREAM_MYSQL_USER_ENV, value) },
+                None => unsafe { std::env::remove_var(UPSTREAM_MYSQL_USER_ENV) },
+            }
+
+            match &self.upstream_mysql_password {
+                Some(value) => unsafe { std::env::set_var(UPSTREAM_MYSQL_PASSWORD_ENV, value) },
+                None => unsafe { std::env::remove_var(UPSTREAM_MYSQL_PASSWORD_ENV) },
             }
 
             match &self.watchlist_path {
@@ -419,6 +475,25 @@ mod tests {
         assert_eq!(runtime.clickhouse.database, "runtime_db");
         assert_eq!(runtime.clickhouse.user, "cli_user");
         assert_eq!(runtime.clickhouse.password, "cli_password");
+    }
+
+    #[test]
+    fn test_cli_runtime_loads_upstream_mysql_settings() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(UPSTREAM_MYSQL_URL_ENV, "mysql://192.168.123.104:3306");
+            std::env::set_var(UPSTREAM_MYSQL_DB_ENV, "mystocks");
+            std::env::set_var(UPSTREAM_MYSQL_USER_ENV, "root");
+            std::env::set_var(UPSTREAM_MYSQL_PASSWORD_ENV, "secret");
+        }
+
+        let runtime = CliRuntime::load();
+
+        assert_eq!(runtime.upstream_mysql.url, "mysql://192.168.123.104:3306");
+        assert_eq!(runtime.upstream_mysql.database, "mystocks");
+        assert_eq!(runtime.upstream_mysql.user, "root");
+        assert_eq!(runtime.upstream_mysql.password, "secret");
     }
 
     #[test]

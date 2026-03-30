@@ -767,6 +767,10 @@ pub enum RiskCommands {
     #[command(subcommand)]
     Import(RiskImportCommands),
 
+    /// 同步行业分类引用表
+    #[command(subcommand)]
+    Sync(RiskSyncCommands),
+
     /// 重建实盘镜像账户
     #[command(subcommand)]
     Rebuild(RiskRebuildCommands),
@@ -837,6 +841,16 @@ pub enum RiskImportCommands {
         /// 输入文件
         #[arg(long)]
         input: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RiskSyncCommands {
+    /// 同步行业分类引用表
+    Industry {
+        /// 分类标准，目前仅支持 shenwan
+        #[arg(long)]
+        standard: String,
     },
 }
 

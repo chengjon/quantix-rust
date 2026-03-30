@@ -245,6 +245,22 @@ fn parses_risk() {
         other => panic!("unexpected command: {:?}", other),
     }
 
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "risk",
+        "sync",
+        "industry",
+        "--standard",
+        "shenwan",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Risk(RiskCommands::Sync(RiskSyncCommands::Industry { standard })) => {
+            assert_eq!(standard, "shenwan");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
     let cli = Cli::try_parse_from(["quantix", "risk", "log", "--limit", "5"]).unwrap();
     match cli.command {
         Commands::Risk(RiskCommands::Log {

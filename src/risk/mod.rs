@@ -1,4 +1,5 @@
 pub mod industry;
+pub mod industry_sync;
 pub mod industry_store;
 pub mod models;
 pub mod import_store;
@@ -13,6 +14,10 @@ pub use industry::{
     IndustryClassificationLevel, IndustryReferenceRecord, IndustryResolver,
     IndustrySnapshotRecord, IndustrySourceTier, ResolvedIndustry, ShenwanCurrentSeedRow,
     ShenwanHistoricalSeedRow,
+};
+pub use industry_sync::{
+    IndustrySyncSource, IndustrySyncSummary, MySqlIndustrySyncSource,
+    sync_industry_reference_data_at,
 };
 pub use industry_store::SqliteIndustryStore;
 pub use models::{
