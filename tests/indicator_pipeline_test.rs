@@ -77,6 +77,12 @@ fn config_instance_id_handles_delimiters_inside_string_values() {
 }
 
 #[test]
+fn config_instance_id_omits_suffix_for_empty_params() {
+    let spec = IndicatorSpec::new("sma", HashMap::new());
+    assert_eq!(spec.instance_id().0, "sma");
+}
+
+#[test]
 fn registry_reports_sma_metadata() {
     let registry = IndicatorRegistry::register_builtin();
     let spec = spec("sma", &[("period", 5)]);

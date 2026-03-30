@@ -1,4 +1,8 @@
-use crate::analysis::indicators::ma;
+use serde_json::Value;
+
+use crate::analysis::{
+    IndicatorInput, IndicatorInstanceId, IndicatorPipeline, IndicatorPipelineConfig, IndicatorSeries,
+};
 use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use crate::execution::models::SignalEnvelope;
@@ -29,20 +33,36 @@ impl StrategyRegistry {
     }
 }
 
-#[derive(Debug, Clone)]
 struct MaCrossEvaluator {
-    fast: usize,
-    slow: usize,
+    fast_id: IndicatorInstanceId,
+    slow_id: IndicatorInstanceId,
+    lookback: usize,
+    pipeline_config: IndicatorPipelineConfig,
 }
 
 impl MaCrossEvaluator {
     fn from_config(config: &ConfiguredStrategyInstance) -> Result<Self> {
-        let fast = config.params["fast"].as_u64().ok_or_else(|| {
-            QuantixError::Other(format!("strategy {} 缺少或无效的 fast 参数", config.id))
-        })? as usize;
-        let slow = config.params["slow"].as_u64().ok_or_else(|| {
-            QuantixError::Other(format!("strategy {} 缺少或无效的 slow 参数", config.id))
-        })? as usize;
+        let pipeline_config = IndicatorPipelineConfig::try_from(config)?;
+        let [fast_spec, slow_spec] = pipeline_config.indicators.as_slice() else {
+            return Err(QuantixError::Config(format!(
+                "strategy {} indicator pipeline expected two sma indicators",
+                config.id
+            )));
+        };
+
+        if fast_spec.name() != "sma" || slow_spec.name() != "sma" {
+            return Err(QuantixError::Config(format!(
+                "strategy {} indicator pipeline expected two sma indicators",
+                config.id
+            )));
+        }
+
+        let fast = read_period(fast_spec.params().get("period")).map_err(|err| {
+            QuantixError::Other(format!("strategy {} 缺少或无效的 fast 参数: {err}", config.id))
+        })?;
+        let slow = read_period(slow_spec.params().get("period")).map_err(|err| {
+            QuantixError::Other(format!("strategy {} 缺少或无效的 slow 参数: {err}", config.id))
+        })?;
 
         if fast == 0 || slow == 0 || fast >= slow {
             return Err(QuantixError::Other(format!(
@@ -51,29 +71,45 @@ impl MaCrossEvaluator {
             )));
         }
 
-        Ok(Self { fast, slow })
+        Ok(Self {
+            fast_id: fast_spec.instance_id().clone(),
+            slow_id: slow_spec.instance_id().clone(),
+            lookback: slow,
+            pipeline_config,
+        })
     }
 }
 
 impl ConfiguredStrategyEvaluator for MaCrossEvaluator {
     fn lookback_required(&self) -> usize {
-        self.slow
+        self.lookback
     }
 
     fn evaluate(&self, klines: &[Kline]) -> Result<SignalEnvelope> {
-        if klines.len() < self.slow {
+        if klines.len() < self.lookback {
             return Ok(SignalEnvelope::new(Signal::Hold));
         }
 
         let closes: Vec<_> = klines.iter().map(|bar| bar.close).collect();
-        let short_mas = ma(&closes, self.fast);
-        let long_mas = ma(&closes, self.slow);
+        let input = IndicatorInput::new(closes);
+        let mut pipeline = IndicatorPipeline::with_builtin_registry();
+        let output = pipeline.run(&self.pipeline_config, &input)?;
+        let short_mas = scalar_series(&output, &self.fast_id)?;
+        let long_mas = scalar_series(&output, &self.slow_id)?;
+
+        if short_mas.len() != long_mas.len() {
+            return Err(QuantixError::Other(format!(
+                "ma_cross indicator series length mismatch: short={}, long={}",
+                short_mas.len(),
+                long_mas.len()
+            )));
+        }
 
         let mut last_short = None;
         let mut last_long = None;
         let mut latest_signal = Signal::Hold;
 
-        for idx in 0..closes.len() {
+        for idx in 0..short_mas.len() {
             let Some(curr_short) = short_mas[idx] else {
                 continue;
             };
@@ -96,5 +132,35 @@ impl ConfiguredStrategyEvaluator for MaCrossEvaluator {
         }
 
         Ok(SignalEnvelope::new(latest_signal))
+    }
+}
+
+fn read_period(raw: Option<&Value>) -> std::result::Result<usize, &'static str> {
+    match raw {
+        Some(Value::Number(number)) if number.is_u64() => number
+            .as_u64()
+            .ok_or("period must be a non-negative integer")
+            .and_then(|value| {
+                usize::try_from(value).map_err(|_| "period is too large for this platform")
+            }),
+        Some(Value::Number(_)) => Err("period must be a non-negative integer"),
+        _ => Err("period must be an integer"),
+    }
+}
+
+fn scalar_series<'a>(
+    output: &'a std::collections::HashMap<IndicatorInstanceId, IndicatorSeries>,
+    id: &IndicatorInstanceId,
+) -> Result<&'a [Option<rust_decimal::Decimal>]> {
+    let series = output.get(id).ok_or_else(|| {
+        QuantixError::Other(format!("ma_cross indicator output missing `{}`", id.0))
+    })?;
+
+    match series {
+        IndicatorSeries::ScalarSeries(values) => Ok(values.as_slice()),
+        _ => Err(QuantixError::Other(format!(
+            "ma_cross indicator `{}` must produce a scalar series",
+            id.0
+        ))),
     }
 }

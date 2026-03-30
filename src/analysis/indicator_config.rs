@@ -47,6 +47,10 @@ pub struct IndicatorPipelineConfig {
 
 impl IndicatorInstanceId {
     pub fn from_parts(name: &str, params: &HashMap<String, Value>) -> Self {
+        if params.is_empty() {
+            return Self(name.to_string());
+        }
+
         let mut entries: Vec<(&String, &Value)> = params.iter().collect();
         entries.sort_by(|(left, _), (right, _)| left.cmp(right));
 
@@ -56,12 +60,7 @@ impl IndicatorInstanceId {
         }
 
         let suffix = Value::Object(canonical).to_string();
-
-        if suffix.is_empty() {
-            Self(name.to_string())
-        } else {
-            Self(format!("{name}:{suffix}"))
-        }
+        Self(format!("{name}:{suffix}"))
     }
 }
 
@@ -106,8 +105,18 @@ fn read_usize_param(
     match raw {
         Value::Number(n) => n
             .as_u64()
-            .map(|v| v as usize)
-            .ok_or_else(|| QuantixError::Config(format!("ma_cross param `{key}` must be >= 0"))),
+            .ok_or_else(|| {
+                QuantixError::Config(format!(
+                    "ma_cross param `{key}` must be a non-negative integer"
+                ))
+            })
+            .and_then(|value| {
+                usize::try_from(value).map_err(|_| {
+                    QuantixError::Config(format!(
+                        "ma_cross param `{key}` is too large for this platform"
+                    ))
+                })
+            }),
         _ => Err(QuantixError::Config(format!(
             "ma_cross param `{key}` must be an integer"
         ))),

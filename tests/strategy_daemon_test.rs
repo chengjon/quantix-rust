@@ -53,6 +53,15 @@ fn kline(day: u32, close: i64) -> Kline {
     }
 }
 
+fn configured_ma_cross(params: serde_json::Value) -> quantix_cli::strategy::ConfiguredStrategyInstance {
+    quantix_cli::strategy::ConfiguredStrategyInstance {
+        id: "ma_cross_test".to_string(),
+        name: "ma_cross".to_string(),
+        enabled: true,
+        params,
+    }
+}
+
 #[derive(Clone, Default)]
 struct FakeBarLoader {
     bars: Arc<Mutex<HashMap<String, Vec<Kline>>>>,
@@ -154,15 +163,34 @@ fn strategy_registry_resolves_multiple_ma_cross_instances_with_different_params(
 }
 
 #[test]
+fn strategy_registry_ma_cross_requires_object_params_via_pipeline_config() {
+    let registry = StrategyRegistry::new();
+
+    let err = match registry.build(&configured_ma_cross(serde_json::json!(null))) {
+        Ok(_) => panic!("expected ma_cross null params to fail"),
+        Err(err) => err,
+    };
+
+    assert!(err.to_string().contains("JSON object"));
+}
+
+#[test]
+fn strategy_registry_ma_cross_rejects_negative_periods_via_pipeline_config() {
+    let registry = StrategyRegistry::new();
+
+    let err = match registry.build(&configured_ma_cross(serde_json::json!({"fast": -2, "slow": 3}))) {
+        Ok(_) => panic!("expected negative ma_cross period to fail"),
+        Err(err) => err,
+    };
+
+    assert!(err.to_string().contains("must be a non-negative integer"));
+}
+
+#[test]
 fn strategy_registry_evaluator_returns_latest_signal_envelope() {
     let registry = StrategyRegistry::new();
     let evaluator = registry
-        .build(&quantix_cli::strategy::ConfiguredStrategyInstance {
-            id: "ma_fast_2_slow_3".to_string(),
-            name: "ma_cross".to_string(),
-            enabled: true,
-            params: serde_json::json!({"fast": 2, "slow": 3}),
-        })
+        .build(&configured_ma_cross(serde_json::json!({"fast": 2, "slow": 3})))
         .unwrap();
 
     let bars = vec![
