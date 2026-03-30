@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use quantix_cli::analysis::{
-    IndicatorInput, IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries,
-    IndicatorSeriesKind, IndicatorSpec,
+    IndicatorCache, IndicatorCacheKey, IndicatorInput, IndicatorInstanceId, IndicatorPipeline,
+    IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries, IndicatorSeriesKind, IndicatorSpec,
 };
 use rust_decimal::Decimal;
 use quantix_cli::strategy::ConfiguredStrategyInstance;
@@ -223,6 +224,140 @@ fn registry_rejects_rsi_period_one() {
     assert!(err.to_string().contains("requires `period` >= 2"));
 }
 
+#[test]
+fn cache_key_keeps_sma_instances_separate() {
+    let k1 = IndicatorCacheKey::new("000001:1d", IndicatorInstanceId("sma:{\"period\":5}".into()), (0, 20));
+    let k2 = IndicatorCacheKey::new(
+        "000001:1d",
+        IndicatorInstanceId("sma:{\"period\":20}".into()),
+        (0, 20),
+    );
+
+    assert_ne!(k1, k2);
+}
+
+#[test]
+fn cache_get_or_compute_reuses_cached_value() {
+    let mut cache = IndicatorCache::new();
+    let key = IndicatorCacheKey::new(
+        "000001:1d",
+        IndicatorInstanceId("sma:{\"period\":5}".into()),
+        (0, 5),
+    );
+    let calls = AtomicUsize::new(0);
+
+    let first = cache
+        .get_or_compute(key.clone(), || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok(IndicatorSeries::ScalarSeries(vec![None, Some(Decimal::from(3))]))
+        })
+        .unwrap();
+    let second = cache
+        .get_or_compute(key, || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Ok(IndicatorSeries::ScalarSeries(vec![None, Some(Decimal::from(9))]))
+        })
+        .unwrap();
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let IndicatorSeries::ScalarSeries(first_values) = first else {
+        panic!("expected scalar series");
+    };
+    let IndicatorSeries::ScalarSeries(second_values) = second else {
+        panic!("expected scalar series");
+    };
+    assert_eq!(first_values, vec![None, Some(Decimal::from(3))]);
+    assert_eq!(second_values, vec![None, Some(Decimal::from(3))]);
+}
+
+#[test]
+fn indicator_input_new_derives_distinct_dataset_fingerprints() {
+    let first = close_input(&[1, 2, 3]);
+    let second = close_input(&[1, 2, 4]);
+
+    assert_ne!(first.dataset_fingerprint(), second.dataset_fingerprint());
+}
+
+#[test]
+fn pipeline_returns_both_sma_instances_without_overwrite() {
+    let mut pipeline = IndicatorPipeline::with_builtin_registry();
+    let input = close_input_with_dataset(
+        "000001:1d",
+        &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    );
+    let config = pipeline_config(&[("sma", 5), ("sma", 20)]);
+
+    let output = pipeline.run(&config, &input).unwrap();
+
+    assert!(output.contains_key(&IndicatorInstanceId("sma:{\"period\":5}".into())));
+    assert!(output.contains_key(&IndicatorInstanceId("sma:{\"period\":20}".into())));
+}
+
+#[test]
+fn pipeline_preserves_warmup_none_values() {
+    let mut pipeline = IndicatorPipeline::with_builtin_registry();
+    let input = close_input_with_dataset(
+        "000001:1d",
+        &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    );
+    let config = pipeline_config(&[("sma", 20)]);
+
+    let output = pipeline.run(&config, &input).unwrap();
+    let slow = output
+        .get(&IndicatorInstanceId("sma:{\"period\":20}".into()))
+        .unwrap();
+    let IndicatorSeries::ScalarSeries(values) = slow else {
+        panic!("expected scalar series");
+    };
+
+    assert_eq!(values.len(), 20);
+    assert!(values.iter().take(19).all(Option::is_none));
+    assert_eq!(values[19], Some(Decimal::new(105, 1)));
+}
+
+#[test]
+fn pipeline_rejects_duplicate_instance_id() {
+    let mut pipeline = IndicatorPipeline::with_builtin_registry();
+    let input = close_input_with_dataset("000001:1d", &[1, 2, 3, 4, 5, 6]);
+    let config = IndicatorPipelineConfig {
+        indicators: vec![spec("sma", &[("period", 3)]), spec("sma", &[("period", 3)])],
+    };
+
+    let err = pipeline.run(&config, &input).unwrap_err();
+    assert!(err
+        .to_string()
+        .contains("duplicate indicator instance_id"));
+}
+
+#[test]
+fn pipeline_reuses_cached_entry_across_runs() {
+    let mut pipeline = IndicatorPipeline::with_builtin_registry();
+    let input = close_input_with_dataset("000001:1d", &[1, 2, 3, 4, 5, 6]);
+    let config = pipeline_config(&[("sma", 3)]);
+
+    pipeline.run(&config, &input).unwrap();
+    let cache_len_after_first = pipeline.cache_len();
+    pipeline.run(&config, &input).unwrap();
+    let cache_len_after_second = pipeline.cache_len();
+
+    assert_eq!(cache_len_after_first, 1);
+    assert_eq!(cache_len_after_second, 1);
+}
+
+#[test]
+fn pipeline_rejects_range_length_mismatch() {
+    let mut pipeline = IndicatorPipeline::with_builtin_registry();
+    let input = IndicatorInput::with_context(
+        "000001:1d",
+        (0, 5),
+        vec![Decimal::from(1), Decimal::from(2), Decimal::from(3)],
+    );
+    let config = pipeline_config(&[("sma", 3)]);
+
+    let err = pipeline.run(&config, &input).unwrap_err();
+    assert!(err.to_string().contains("does not match close length"));
+}
+
 fn spec(name: &str, params: &[(&str, i64)]) -> IndicatorSpec {
     let map = params
         .iter()
@@ -233,4 +368,20 @@ fn spec(name: &str, params: &[(&str, i64)]) -> IndicatorSpec {
 
 fn close_input(close: &[i64]) -> IndicatorInput {
     IndicatorInput::new(close.iter().copied().map(Decimal::from).collect())
+}
+
+fn close_input_with_dataset(dataset_fingerprint: &str, close: &[i64]) -> IndicatorInput {
+    IndicatorInput::with_dataset_fingerprint(
+        dataset_fingerprint,
+        close.iter().copied().map(Decimal::from).collect(),
+    )
+}
+
+fn pipeline_config(specs: &[(&str, i64)]) -> IndicatorPipelineConfig {
+    IndicatorPipelineConfig {
+        indicators: specs
+            .iter()
+            .map(|(name, period)| spec(name, &[("period", *period)]))
+            .collect(),
+    }
 }

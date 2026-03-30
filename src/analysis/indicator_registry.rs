@@ -39,17 +39,67 @@ pub struct IndicatorDescriptor {
 /// First slice input is close-only. Later slices may extend this shape for ATR/KDJ-style indicators.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndicatorInput {
+    dataset_fingerprint: String,
+    range: (usize, usize),
     close: Vec<Decimal>,
 }
 
 impl IndicatorInput {
     pub fn new(close: Vec<Decimal>) -> Self {
-        Self { close }
+        let len = close.len();
+        Self {
+            dataset_fingerprint: derive_dataset_fingerprint(&close),
+            range: (0, len),
+            close,
+        }
+    }
+
+    pub fn with_dataset_fingerprint(
+        dataset_fingerprint: impl Into<String>,
+        close: Vec<Decimal>,
+    ) -> Self {
+        let len = close.len();
+        Self {
+            dataset_fingerprint: dataset_fingerprint.into(),
+            range: (0, len),
+            close,
+        }
+    }
+
+    pub fn with_context(
+        dataset_fingerprint: impl Into<String>,
+        range: (usize, usize),
+        close: Vec<Decimal>,
+    ) -> Self {
+        Self {
+            dataset_fingerprint: dataset_fingerprint.into(),
+            range,
+            close,
+        }
     }
 
     pub fn close(&self) -> &[Decimal] {
         &self.close
     }
+
+    pub fn dataset_fingerprint(&self) -> &str {
+        &self.dataset_fingerprint
+    }
+
+    pub fn range(&self) -> (usize, usize) {
+        self.range
+    }
+}
+
+fn derive_dataset_fingerprint(close: &[Decimal]) -> String {
+    let mut fingerprint = String::from("close:");
+    for (idx, value) in close.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push(',');
+        }
+        fingerprint.push_str(&value.normalize().to_string());
+    }
+    fingerprint
 }
 
 type ComputeFn = fn(period: usize, input: &IndicatorInput) -> IndicatorSeries;
