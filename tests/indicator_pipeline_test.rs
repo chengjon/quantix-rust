@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use quantix_cli::analysis::{IndicatorPipelineConfig, IndicatorSpec};
+use quantix_cli::analysis::{
+    IndicatorInput, IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries,
+    IndicatorSeriesKind, IndicatorSpec,
+};
+use rust_decimal::Decimal;
 use quantix_cli::strategy::ConfiguredStrategyInstance;
 use serde_json::json;
 
@@ -69,4 +73,164 @@ fn config_instance_id_handles_delimiters_inside_string_values() {
     let spec = IndicatorSpec::new("sma", params);
 
     assert_eq!(spec.instance_id().0, "sma:{\"label\":\"a,b:c=d\"}");
+}
+
+#[test]
+fn registry_reports_sma_metadata() {
+    let registry = IndicatorRegistry::register_builtin();
+    let spec = spec("sma", &[("period", 5)]);
+
+    let descriptor = registry.descriptor(&spec).unwrap();
+    assert_eq!(descriptor.meta.lookback, 5);
+    assert_eq!(descriptor.meta.warmup_len, 4);
+    assert_eq!(descriptor.series_kind, IndicatorSeriesKind::Scalar);
+}
+
+#[test]
+fn registry_computes_scalar_series_for_sma() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let spec = spec("sma", &[("period", 3)]);
+
+    let output = registry.compute(&spec, &input).unwrap();
+    assert!(matches!(output, IndicatorSeries::ScalarSeries(_)));
+}
+
+#[test]
+fn registry_sma_scalar_series_has_expected_length_and_warmup_shape() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let spec = spec("sma", &[("period", 3)]);
+
+    let output = registry.compute(&spec, &input).unwrap();
+    let IndicatorSeries::ScalarSeries(values) = output else {
+        panic!("expected scalar series");
+    };
+
+    assert_eq!(values.len(), 5);
+    assert_eq!(values[0], None);
+    assert_eq!(values[1], None);
+    assert_eq!(values[2], Some(Decimal::from(2)));
+    assert_eq!(values[3], Some(Decimal::from(3)));
+    assert_eq!(values[4], Some(Decimal::from(4)));
+}
+
+#[test]
+fn registry_rejects_unsupported_indicator() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let spec = spec("wma", &[("period", 3)]);
+
+    let err = registry.compute(&spec, &input).unwrap_err();
+    assert!(err.to_string().contains("first slice only supports sma/ema/rsi"));
+}
+
+#[test]
+fn registry_routes_ema_to_ema_calculation() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 10, 1, 10]);
+    let spec = spec("ema", &[("period", 2)]);
+
+    let output = registry.compute(&spec, &input).unwrap();
+    let IndicatorSeries::ScalarSeries(values) = output else {
+        panic!("expected scalar series");
+    };
+
+    assert_eq!(values.len(), 4);
+    assert_eq!(values[0], None);
+    assert_eq!(values[1], Some(Decimal::new(55, 1))); // 5.5
+    assert_ne!(values[2], Some(Decimal::new(55, 1))); // prove not SMA-flat 5.5
+    assert_eq!(values[2].unwrap().round_dp(1), Decimal::new(25, 1)); // ~2.5
+    assert_eq!(values[3].unwrap().round_dp(1), Decimal::new(75, 1)); // ~7.5
+}
+
+#[test]
+fn registry_normalizes_indicator_name_case() {
+    let registry = IndicatorRegistry::new();
+    let input = close_input(&[1, 10, 1, 10]);
+    let spec = spec("EMA", &[("period", 2)]);
+
+    let output = registry.compute(&spec, &input).unwrap();
+    assert!(matches!(output, IndicatorSeries::ScalarSeries(_)));
+}
+
+#[test]
+fn registry_reports_rsi_metadata_and_routes_to_rsi_calculation() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 2, 3, 4]);
+    let spec = spec("rsi", &[("period", 3)]);
+
+    let descriptor = registry.descriptor(&spec).unwrap();
+    assert_eq!(descriptor.meta.lookback, 4);
+    assert_eq!(descriptor.meta.warmup_len, 3);
+    assert_eq!(descriptor.series_kind, IndicatorSeriesKind::Scalar);
+
+    let output = registry.compute(&spec, &input).unwrap();
+    let IndicatorSeries::ScalarSeries(values) = output else {
+        panic!("expected scalar series");
+    };
+
+    assert_eq!(values.len(), 6);
+    assert_eq!(values[0], None);
+    assert_eq!(values[1], None);
+    assert_eq!(values[2], None);
+    assert!(values[3].is_some());
+}
+
+#[test]
+fn registry_rejects_missing_period() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let spec = IndicatorSpec::new("sma", HashMap::new());
+
+    let err = registry.compute(&spec, &input).unwrap_err();
+    assert!(err.to_string().contains("`period` is required"));
+}
+
+#[test]
+fn registry_rejects_non_integer_period() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let mut params = HashMap::new();
+    params.insert("period".to_string(), json!("3"));
+    let spec = IndicatorSpec::new("sma", params);
+
+    let err = registry.compute(&spec, &input).unwrap_err();
+    assert!(err.to_string().contains("positive integer"));
+}
+
+#[test]
+fn registry_rejects_zero_period() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let mut params = HashMap::new();
+    params.insert("period".to_string(), json!(0));
+    let spec = IndicatorSpec::new("sma", params);
+
+    let err = registry.compute(&spec, &input).unwrap_err();
+    assert!(err.to_string().contains("greater than zero"));
+}
+
+#[test]
+fn registry_rejects_rsi_period_one() {
+    let registry = IndicatorRegistry::register_builtin();
+    let input = close_input(&[1, 2, 3, 4, 5]);
+    let mut params = HashMap::new();
+    params.insert("period".to_string(), json!(1));
+    let spec = IndicatorSpec::new("rsi", params);
+
+    let err = registry.compute(&spec, &input).unwrap_err();
+    assert!(err.to_string().contains("requires `period` >= 2"));
+}
+
+fn spec(name: &str, params: &[(&str, i64)]) -> IndicatorSpec {
+    let map = params
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), json!(*v)))
+        .collect::<HashMap<_, _>>();
+    IndicatorSpec::new(name, map)
+}
+
+fn close_input(close: &[i64]) -> IndicatorInput {
+    IndicatorInput::new(close.iter().copied().map(Decimal::from).collect())
 }
