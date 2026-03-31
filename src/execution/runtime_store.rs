@@ -3,18 +3,20 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use uuid::Uuid;
 
 use crate::core::{QuantixError, Result};
 use crate::execution::models::{
     ApprovalStatus, ExecutionRequestRecord, ExecutionRequestStatus, MockLiveOrderState,
-    OrderEventRecord, OrderRecord, OrderSide, OrderStatus, OrderType, RunnerCheckpointRecord,
-    SignalEventRecord, SignalStatus, StrategyDaemonCheckpointRecord, StrategyRunRecord,
-    StrategyRunStatus, StrategySignalRecord,
+    OrderEventRecord, OrderRecord, OrderStatus, RunnerCheckpointRecord, SignalEventRecord,
+    SignalStatus, StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus,
+    StrategySignalRecord,
 };
-use super::runtime_store_codec::{
-    build_execution_snapshot, parse_decimal, parse_timestamp,
+use super::runtime_store_codec::build_execution_snapshot;
+use super::runtime_store_rows::{
+    row_to_checkpoint, row_to_daemon_checkpoint, row_to_execution_request, row_to_order,
+    row_to_order_event, row_to_run, row_to_signal,
 };
 
 #[derive(Debug, Clone)]
@@ -127,7 +129,7 @@ WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ? AND bar_en
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_run).transpose()
+        row.map(row_to_run).transpose()
     }
 
     pub async fn insert_signal_event(&self, event: &SignalEventRecord) -> Result<()> {
@@ -303,7 +305,7 @@ WHERE client_order_id = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_order).transpose()
+        row.map(row_to_order).transpose()
     }
 
     pub async fn find_first_order_for_run(&self, run_id: &str) -> Result<Option<OrderRecord>> {
@@ -338,7 +340,7 @@ LIMIT 1
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_order).transpose()
+        row.map(row_to_order).transpose()
     }
 
     pub async fn update_run_status(
@@ -479,7 +481,7 @@ ORDER BY o.updated_at ASC, o.order_id ASC
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(Self::row_to_order).collect()
+        rows.into_iter().map(row_to_order).collect()
     }
 
     pub async fn update_mock_live_order_state(
@@ -612,7 +614,7 @@ WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_checkpoint).transpose()
+        row.map(row_to_checkpoint).transpose()
     }
 
     pub async fn list_order_events(&self, order_id: &str) -> Result<Vec<OrderEventRecord>> {
@@ -634,7 +636,7 @@ ORDER BY event_time ASC, event_id ASC
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(Self::row_to_order_event).collect()
+        rows.into_iter().map(row_to_order_event).collect()
     }
 
     pub async fn get_signal(&self, signal_id: &str) -> Result<Option<StrategySignalRecord>> {
@@ -662,7 +664,7 @@ WHERE signal_id = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_signal).transpose()
+        row.map(row_to_signal).transpose()
     }
 
     pub async fn list_signals(&self) -> Result<Vec<StrategySignalRecord>> {
@@ -689,7 +691,7 @@ ORDER BY created_at DESC, signal_id DESC
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(Self::row_to_signal).collect()
+        rows.into_iter().map(row_to_signal).collect()
     }
 
     pub async fn approve_signal_and_create_request(
@@ -731,7 +733,7 @@ WHERE signal_id = ? AND signal_status = ? AND approval_status = ?
         let Some(signal_row) = signal_row else {
             return Err(QuantixError::Other(format!("signal 不可审批: {signal_id}")));
         };
-        let signal = Self::row_to_signal(signal_row)?;
+        let signal = row_to_signal(signal_row)?;
 
         let update = sqlx::query(
             r#"
@@ -887,7 +889,7 @@ ORDER BY created_at ASC, request_id ASC
         };
 
         rows.into_iter()
-            .map(Self::row_to_execution_request)
+            .map(row_to_execution_request)
             .collect()
     }
 
@@ -915,7 +917,7 @@ WHERE signal_id = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_execution_request).transpose()
+        row.map(row_to_execution_request).transpose()
     }
 
     pub async fn get_execution_request(
@@ -942,7 +944,7 @@ WHERE request_id = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_execution_request).transpose()
+        row.map(row_to_execution_request).transpose()
     }
 
     pub async fn try_complete_execution_request(
@@ -1060,7 +1062,7 @@ LIMIT 1
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_execution_request).transpose()
+        row.map(row_to_execution_request).transpose()
     }
 
     pub async fn supersede_previous_signals_and_cancel_pending_requests(
@@ -1204,7 +1206,7 @@ WHERE strategy_instance_id = ? AND symbol = ? AND timeframe = ?
         .fetch_optional(&self.pool)
         .await?;
 
-        row.map(Self::row_to_daemon_checkpoint).transpose()
+        row.map(row_to_daemon_checkpoint).transpose()
     }
 
     pub async fn count_runs(&self) -> Result<i64> {
@@ -1402,174 +1404,6 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
             .await?)
     }
 
-    fn row_to_order(row: SqliteRow) -> Result<OrderRecord> {
-        let side: String = row.try_get("side")?;
-        let order_type: String = row.try_get("order_type")?;
-        let requested_price: String = row.try_get("requested_price")?;
-        let avg_fill_price: Option<String> = row.try_get("avg_fill_price")?;
-        let status: String = row.try_get("status")?;
-        let created_at: String = row.try_get("created_at")?;
-        let updated_at: String = row.try_get("updated_at")?;
-        let last_transition_at: String = row.try_get("last_transition_at")?;
-        let payload_json: String = row.try_get("payload_json")?;
-
-        Ok(OrderRecord {
-            order_id: row.try_get("order_id")?,
-            client_order_id: row.try_get("client_order_id")?,
-            run_id: row.try_get("run_id")?,
-            symbol: row.try_get("symbol")?,
-            side: OrderSide::from_str(&side)
-                .ok_or_else(|| QuantixError::DataParse(format!("invalid order side: {side}")))?,
-            order_type: OrderType::from_str(&order_type).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid order type: {order_type}"))
-            })?,
-            requested_quantity: row.try_get("requested_quantity")?,
-            requested_price: parse_decimal(&requested_price)?,
-            filled_quantity: row.try_get("filled_quantity")?,
-            remaining_quantity: row.try_get("remaining_quantity")?,
-            avg_fill_price: avg_fill_price.as_deref().map(parse_decimal).transpose()?,
-            status: OrderStatus::from_str(&status).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid order status: {status}"))
-            })?,
-            adapter: row.try_get("adapter")?,
-            created_at: parse_timestamp(&created_at)?,
-            updated_at: parse_timestamp(&updated_at)?,
-            last_transition_at: parse_timestamp(&last_transition_at)?,
-            version: row.try_get("version")?,
-            payload_json: serde_json::from_str(&payload_json)?,
-        })
-    }
-
-    fn row_to_run(row: SqliteRow) -> Result<StrategyRunRecord> {
-        let status: String = row.try_get("status")?;
-        let bar_end: String = row.try_get("bar_end")?;
-        let started_at: String = row.try_get("started_at")?;
-        let finished_at: Option<String> = row.try_get("finished_at")?;
-        let metadata_json: String = row.try_get("metadata_json")?;
-
-        Ok(StrategyRunRecord {
-            run_id: row.try_get("run_id")?,
-            strategy_name: row.try_get("strategy_name")?,
-            mode: row.try_get("mode")?,
-            trigger: row.try_get("trigger_type")?,
-            status: StrategyRunStatus::from_str(&status).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid strategy run status: {status}"))
-            })?,
-            symbol: row.try_get("symbol")?,
-            timeframe: row.try_get("timeframe")?,
-            bar_end: parse_timestamp(&bar_end)?,
-            started_at: parse_timestamp(&started_at)?,
-            finished_at: finished_at.as_deref().map(parse_timestamp).transpose()?,
-            metadata_json: serde_json::from_str(&metadata_json)?,
-        })
-    }
-
-    fn row_to_checkpoint(row: SqliteRow) -> Result<RunnerCheckpointRecord> {
-        let last_processed_bar: Option<String> = row.try_get("last_processed_bar")?;
-        let state_json: String = row.try_get("state_json")?;
-        let updated_at: String = row.try_get("updated_at")?;
-
-        Ok(RunnerCheckpointRecord {
-            checkpoint_id: row.try_get("checkpoint_id")?,
-            strategy_name: row.try_get("strategy_name")?,
-            mode: row.try_get("mode")?,
-            symbol: row.try_get("symbol")?,
-            timeframe: row.try_get("timeframe")?,
-            last_processed_bar: last_processed_bar
-                .as_deref()
-                .map(parse_timestamp)
-                .transpose()?,
-            last_run_id: row.try_get("last_run_id")?,
-            state_json: serde_json::from_str(&state_json)?,
-            updated_at: parse_timestamp(&updated_at)?,
-        })
-    }
-
-    fn row_to_order_event(row: SqliteRow) -> Result<OrderEventRecord> {
-        let event_time: String = row.try_get("event_time")?;
-        let details_json: String = row.try_get("details_json")?;
-
-        Ok(OrderEventRecord {
-            event_id: row.try_get("event_id")?,
-            order_id: row.try_get("order_id")?,
-            client_order_id: row.try_get("client_order_id")?,
-            event_type: row.try_get("event_type")?,
-            event_time: parse_timestamp(&event_time)?,
-            details_json: serde_json::from_str(&details_json)?,
-        })
-    }
-
-    fn row_to_signal(row: SqliteRow) -> Result<StrategySignalRecord> {
-        let bar_end: String = row.try_get("bar_end")?;
-        let signal_status: String = row.try_get("signal_status")?;
-        let approval_status: String = row.try_get("approval_status")?;
-        let metadata_json: String = row.try_get("metadata_json")?;
-        let created_at: String = row.try_get("created_at")?;
-        let updated_at: String = row.try_get("updated_at")?;
-
-        Ok(StrategySignalRecord {
-            signal_id: row.try_get("signal_id")?,
-            strategy_instance_id: row.try_get("strategy_instance_id")?,
-            strategy_name: row.try_get("strategy_name")?,
-            symbol: row.try_get("symbol")?,
-            timeframe: row.try_get("timeframe")?,
-            bar_end: parse_timestamp(&bar_end)?,
-            signal_value: row.try_get("signal_value")?,
-            signal_status: SignalStatus::from_str(&signal_status).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid signal status: {signal_status}"))
-            })?,
-            approval_status: ApprovalStatus::from_str(&approval_status).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid approval status: {approval_status}"))
-            })?,
-            run_id: row.try_get("run_id")?,
-            metadata_json: serde_json::from_str(&metadata_json)?,
-            created_at: parse_timestamp(&created_at)?,
-            updated_at: parse_timestamp(&updated_at)?,
-        })
-    }
-
-    fn row_to_execution_request(row: SqliteRow) -> Result<ExecutionRequestRecord> {
-        let request_status: String = row.try_get("request_status")?;
-        let created_at: String = row.try_get("created_at")?;
-        let updated_at: String = row.try_get("updated_at")?;
-        let payload_json: String = row.try_get("payload_json")?;
-
-        Ok(ExecutionRequestRecord {
-            request_id: row.try_get("request_id")?,
-            signal_id: row.try_get("signal_id")?,
-            target_mode: row.try_get("target_mode")?,
-            target_account: row.try_get("target_account")?,
-            request_status: ExecutionRequestStatus::from_str(&request_status).ok_or_else(|| {
-                QuantixError::DataParse(format!("invalid request status: {request_status}"))
-            })?,
-            approved_by: row.try_get("approved_by")?,
-            created_at: parse_timestamp(&created_at)?,
-            updated_at: parse_timestamp(&updated_at)?,
-            payload_json: serde_json::from_str(&payload_json)?,
-        })
-    }
-
-    fn row_to_daemon_checkpoint(row: SqliteRow) -> Result<StrategyDaemonCheckpointRecord> {
-        let last_processed_bar: Option<String> = row.try_get("last_processed_bar")?;
-        let state_json: String = row.try_get("state_json")?;
-        let updated_at: String = row.try_get("updated_at")?;
-
-        Ok(StrategyDaemonCheckpointRecord {
-            checkpoint_id: row.try_get("checkpoint_id")?,
-            strategy_instance_id: row.try_get("strategy_instance_id")?,
-            strategy_name: row.try_get("strategy_name")?,
-            symbol: row.try_get("symbol")?,
-            timeframe: row.try_get("timeframe")?,
-            last_processed_bar: last_processed_bar
-                .as_deref()
-                .map(parse_timestamp)
-                .transpose()?,
-            last_run_id: row.try_get("last_run_id")?,
-            state_json: serde_json::from_str(&state_json)?,
-            updated_at: parse_timestamp(&updated_at)?,
-        })
-    }
-
     /// List all open orders (orders not in terminal state)
     pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
         let rows = sqlx::query(
@@ -1603,7 +1437,7 @@ ORDER BY created_at DESC
 
         let mut orders = Vec::new();
         for row in rows {
-            orders.push(Self::row_to_order(row)?);
+            orders.push(row_to_order(row)?);
         }
         Ok(orders)
     }

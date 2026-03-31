@@ -276,6 +276,29 @@ async fn insert_order_round_trips_extended_lifecycle_fields() {
 }
 
 #[tokio::test]
+async fn list_open_orders_round_trips_extended_lifecycle_fields() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let order = sample_order(&run.run_id, "run_000001_open_list");
+    store.insert_order(&order).await.unwrap();
+
+    let rows = store.list_open_orders().await.unwrap();
+    let saved = rows
+        .into_iter()
+        .find(|row| row.client_order_id == "run_000001_open_list")
+        .unwrap();
+
+    assert_eq!(saved.remaining_quantity, 100);
+    assert_eq!(saved.last_transition_at, fixed_ts());
+    assert_eq!(saved.version, 0);
+    assert_eq!(saved.requested_price, dec!(12.34));
+}
+
+#[tokio::test]
 async fn mock_live_order_state_round_trips_through_store() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("runtime.db");
