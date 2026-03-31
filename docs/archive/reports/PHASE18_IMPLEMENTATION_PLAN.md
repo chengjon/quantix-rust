@@ -149,7 +149,7 @@ cargo bench -- --output-format bencher
 
 ### 文档产出
 
-1. **基准测试报告**: `docs/reports/PHASE18_BENCHMARK_REPORT.md`
+1. **基准测试报告**: `docs/archive/reports/PHASE18_BENCHMARK_REPORT.md`
 2. **优化指南**: `docs/guides/PERFORMANCE_OPTIMIZATION.md`
 3. **剖析工具使用**: `docs/guides/PROFILING_GUIDE.md`
 

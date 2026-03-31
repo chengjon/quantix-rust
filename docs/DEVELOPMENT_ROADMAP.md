@@ -1,5 +1,8 @@
 # Quantix Rust 开发路线图 (更新版 v3.0)
 
+> Legacy planning snapshot. The canonical active roadmap lives in `ROADMAP.md`.
+> Keep this file only as historical context and do not treat it as a parallel planning source.
+
 基于 `GAP_ANALYSIS.md` 分析结果、`MIGRATION_FROM_OPENSTOCK.md` 迁移计划以及实际完成进度，制定以下开发计划。
 
 > **重要说明**: 本文档已根据 `ROADMAP_REVIEW.md` 审核意见更新，反映了项目当前实际完成状态。

@@ -14,6 +14,8 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
 当前功能树见 [FUNCTION_MAP.md](docs/FUNCTION_MAP.md)。
+用户与 operator 侧入口见 [USER_MANUAL.md](docs/USER_MANUAL.md)。
+历史规划/报告归档入口见 [archive index](docs/archive/README.md)。
 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 开发前置检查
@@ -622,7 +624,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 多规模测试（100-1M 条记录）
   - 自动化基线对比和回归检测
   - ✅ 性能基线已建立
-- **性能基线数据** (`docs/reports/PHASE18_BENCHMARK_RESULTS.md`)
+- **性能基线数据** (`docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md`)
   - 技术指标: SMA 1.54ms, MACD 5.57ms (10K条)
   - 数据导出: CSV 679K 记录/秒, JSON 593K 记录/秒
   - 性能计算: 总收益率 18.8M 次/秒

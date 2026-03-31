@@ -181,8 +181,8 @@
 - 覆盖率：100%
 
 **相关文档**:
-- `docs/reports/CODE_RULE_AUDIT.md` - 审核报告
-- `docs/reports/CODE_RULE_SUMMARY.md` - 实施总结
+- `docs/archive/reports/CODE_RULE_AUDIT.md` - 审核报告
+- `docs/archive/reports/CODE_RULE_SUMMARY.md` - 实施总结
 - `docs/guides/QUICKSTART.md` - 快速开始
 
 ### 🚀 立即可用

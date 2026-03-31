@@ -267,9 +267,9 @@ Phase 15 已经完成了一个完整的量化交易策略系统：
 
 | 文档 | 路径 | 用途 |
 |------|------|------|
-| 实现报告 | `docs/reports/PHASE15_STRATEGY_IMPLEMENTATION_REPORT.md` | 策略设计说明 |
-| 测试报告 | `docs/reports/PHASE15_TEST_COMPLETION_REPORT.md` | 测试结果统计 |
-| 最终总结 | `docs/reports/PHASE15_FINAL_SUMMARY.md` | 本文档 |
+| 实现报告 | `docs/archive/reports/PHASE15_STRATEGY_IMPLEMENTATION_REPORT.md` | 策略设计说明 |
+| 测试报告 | `docs/archive/reports/PHASE15_TEST_COMPLETION_REPORT.md` | 测试结果统计 |
+| 最终总结 | `docs/archive/reports/PHASE15_FINAL_SUMMARY.md` | 本文档 |
 | 用户指南 | `README.md` | 快速开始 |
 
 ## ✅ 验收标准

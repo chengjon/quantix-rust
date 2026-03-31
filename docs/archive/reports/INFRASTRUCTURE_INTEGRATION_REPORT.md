@@ -216,7 +216,7 @@ sudo ./scripts/install-services.sh
 
 ## 📚 相关文档
 
-- **评估报告**: `docs/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md`
+- **评估报告**: `docs/archive/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md`
 - **开发规范**: `docs/standards/DEVELOPMENT_GUIDELINES.md`
 - **快速开始**: `docs/guides/QUICKSTART.md`
 

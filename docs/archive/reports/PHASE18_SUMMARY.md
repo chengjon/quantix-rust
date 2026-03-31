@@ -95,9 +95,9 @@ cargo bench --bench bench_main
 
 ## 📚 文档
 
-- ✅ 完成报告: `docs/reports/PHASE18_COMPLETION_REPORT.md`
+- ✅ 完成报告: `docs/archive/reports/PHASE18_COMPLETION_REPORT.md`
 - ✅ 优化指南: `docs/guides/PERFORMANCE_OPTIMIZATION.md`
-- ✅ 实施计划: `docs/reports/PHASE18_IMPLEMENTATION_PLAN.md`
+- ✅ 实施计划: `docs/archive/reports/PHASE18_IMPLEMENTATION_PLAN.md`
 - ✅ README 更新: Phase 18 功能概览
 
 ## ✅ 质量保证
@@ -167,7 +167,7 @@ cargo bench --bench bench_main
 | 最大回撤 | 102.22 µs | 9.78K 次/秒 |
 | 夏普比率 | 236.35 µs | 4.23K 次/秒 |
 
-详细结果见: `docs/reports/PHASE18_BENCHMARK_RESULTS.md`
+详细结果见: `docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md`
 
 ## 🏆 Phase 18 状态
 

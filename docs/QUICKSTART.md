@@ -86,7 +86,7 @@ cargo build --release
 
 - [开发规范指南](docs/standards/DEVELOPMENT_GUIDELINES.md) - **必读！**
 - [用户手册](docs/USER_MANUAL.md)
-- [代码规范总结](docs/reports/CODE_RULE_SUMMARY.md)
+- [代码规范总结](archive/reports/CODE_RULE_SUMMARY.md)
 
 ## 🎯 常用命令
 

@@ -106,8 +106,8 @@
 ## 📁 文件清单验证
 
 ### 新增文件
-- [x] `docs/reports/PHASE18_BENCHMARK_RESULTS.md` (新建)
-- [x] `docs/reports/PHASE18_FINAL_VERIFICATION.md` (本文件)
+- [x] `docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md` (新建)
+- [x] `docs/archive/reports/PHASE18_FINAL_VERIFICATION.md` (本文件)
 
 ### 修改文件
 - [x] `src/analysis/indicators_benches.rs` (修复)
@@ -119,8 +119,8 @@
 - [x] `Cargo.toml` (配置)
 - [x] `scripts/dev/run_benchmarks.sh` (新建)
 - [x] `docs/guides/PERFORMANCE_OPTIMIZATION.md` (新建)
-- [x] `docs/reports/PHASE18_SUMMARY.md` (更新)
-- [x] `docs/reports/PHASE18_COMPLETION_REPORT.md` (更新)
+- [x] `docs/archive/reports/PHASE18_SUMMARY.md` (更新)
+- [x] `docs/archive/reports/PHASE18_COMPLETION_REPORT.md` (更新)
 
 ## ✅ 质量保证
 

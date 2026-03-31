@@ -4,7 +4,7 @@
 **Status:** Approved in-session
 **Depends On:** Phase 26A green baseline (`phase26-trade`)
 
-> This document is the Phase 27A source of truth in this branch. It intentionally supersedes the broader ideas in `docs/plans/PHASE27_RISK_MANAGEMENT_DESIGN.md` where those ideas exceed the approved MVP boundary or do not fit the current repository structure.
+> This document is the Phase 27A source of truth in this branch. It intentionally supersedes the broader ideas in `docs/archive/plans/PHASE27_RISK_MANAGEMENT_DESIGN.md` where those ideas exceed the approved MVP boundary or do not fit the current repository structure.
 
 ---
 

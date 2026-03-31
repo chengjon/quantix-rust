@@ -99,9 +99,9 @@
 - [ ] 集成测试（待完善，需要回测引擎支持）
 
 ### 文档
-- [x] docs/reports/PHASE15_STRATEGY_IMPLEMENTATION_REPORT.md
-- [x] docs/reports/PHASE15_TEST_COMPLETION_REPORT.md
-- [x] docs/reports/PHASE15_FINAL_SUMMARY.md
+- [x] docs/archive/reports/PHASE15_STRATEGY_IMPLEMENTATION_REPORT.md
+- [x] docs/archive/reports/PHASE15_TEST_COMPLETION_REPORT.md
+- [x] docs/archive/reports/PHASE15_FINAL_SUMMARY.md
 - [x] README.md (Phase 15 功能更新)
 
 ## ⚠️ 待完善项

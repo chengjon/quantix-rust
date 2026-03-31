@@ -338,7 +338,7 @@ jobs:
 | `src/core/performance_utils.rs` | 220 | 性能优化工具集 |
 | `scripts/dev/run_benchmarks.sh` | 300 | 基准测试脚本 |
 | `docs/guides/PERFORMANCE_OPTIMIZATION.md` | 500+ | 性能优化指南 |
-| `docs/reports/PHASE18_IMPLEMENTATION_PLAN.md` | 300+ | 实施计划 |
+| `docs/archive/reports/PHASE18_IMPLEMENTATION_PLAN.md` | 300+ | 实施计划 |
 
 ### 修改文件
 

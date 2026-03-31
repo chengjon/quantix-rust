@@ -1,5 +1,8 @@
 # DEVELOPMENT_ROADMAP.md 审核报告
 
+> Legacy review snapshot. The canonical active roadmap lives in `ROADMAP.md`.
+> Keep this file only as historical context for the legacy `docs/DEVELOPMENT_ROADMAP.md`.
+
 > 审核日期: 2026-03-27  
 > 审核人: AI Assistant  
 > 文档版本: 1.0  

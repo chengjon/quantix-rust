@@ -170,13 +170,13 @@ process_uptime_seconds
   - 生产环境部署
   - 性能优化建议
 
-- ✅ `docs/reports/PHASE19_IMPLEMENTATION_PLAN.md` (500+行)
+- ✅ `docs/archive/reports/PHASE19_IMPLEMENTATION_PLAN.md` (500+行)
   - 完整实施计划
   - 技术栈选择
   - 风险评估和缓解
   - 成功标准定义
 
-- ✅ `docs/reports/PHASE19_PROGRESS_SUMMARY.md`
+- ✅ `docs/archive/reports/PHASE19_PROGRESS_SUMMARY.md`
   - 进度跟踪
   - 代码统计
   - 技术亮点总结

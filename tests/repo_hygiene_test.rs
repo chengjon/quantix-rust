@@ -50,6 +50,91 @@ fn readme_documents_foundation_p0_workspace_constraints() {
 }
 
 #[test]
+fn readme_links_canonical_repo_entrypoints() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "[ROADMAP.md](ROADMAP.md)",
+        "[FUNCTION_MAP.md](docs/FUNCTION_MAP.md)",
+        "[CHANGELOG.md](CHANGELOG.md)",
+        "[USER_MANUAL.md](docs/USER_MANUAL.md)",
+        "[archive index](docs/archive/README.md)",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to link canonical entrypoint {expected}"
+        );
+    }
+}
+
+#[test]
+fn duplicate_roadmap_docs_are_marked_legacy_and_redirect_back() {
+    for relative_path in ["docs/DEVELOPMENT_ROADMAP.md", "docs/ROADMAP_REVIEW.md"] {
+        let contents =
+            fs::read_to_string(repo_root().join(relative_path)).expect("expected legacy doc");
+
+        assert!(
+            contents.contains("Legacy"),
+            "expected {relative_path} to be marked as Legacy"
+        );
+        assert!(
+            contents.contains("ROADMAP.md"),
+            "expected {relative_path} to redirect readers to ROADMAP.md"
+        );
+    }
+}
+
+#[test]
+fn archive_index_describes_retention_buckets() {
+    let contents = fs::read_to_string(repo_root().join("docs").join("archive").join("README.md"))
+        .expect("expected docs/archive/README.md to exist");
+
+    for expected in ["docs/plans", "docs/reports", "historical", "canonical"] {
+        assert!(
+            contents.contains(expected),
+            "expected archive index to mention {expected}"
+        );
+    }
+}
+
+#[test]
+fn archive_bucket_indexes_exist() {
+    for relative_path in [
+        "docs/archive/plans/README.md",
+        "docs/archive/reports/README.md",
+        "docs/archive/ad-hoc/README.md",
+    ] {
+        assert!(
+            repo_root().join(relative_path).exists(),
+            "expected archive bucket index {relative_path} to exist"
+        );
+    }
+}
+
+#[test]
+fn historical_plans_and_reports_leave_the_primary_docs_surface() {
+    assert!(
+        !repo_root().join("docs").join("plans").exists(),
+        "expected docs/plans to be archived out of the primary docs surface"
+    );
+    assert!(
+        !repo_root().join("docs").join("reports").exists(),
+        "expected docs/reports to be archived out of the primary docs surface"
+    );
+
+    for relative_path in [
+        "docs/archive/plans/2026-03-10-phase21-watchlist-implementation.md",
+        "docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md",
+    ] {
+        assert!(
+            repo_root().join(relative_path).exists(),
+            "expected archived document {relative_path} to exist"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_phase24_monitor_boundary() {
     let readme_path = repo_root().join("README.md");
     let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");

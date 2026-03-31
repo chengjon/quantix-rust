@@ -115,7 +115,7 @@ services:
 |------|------|------|
 | Docker 部署指南 | `docs/guides/DOCKER_GUIDE.md` | 本地开发和部署 |
 | 生产部署指南 | `docs/guides/PRODUCTION_DEPLOYMENT.md` | 生产环境部署 |
-| 实施计划 | `docs/reports/PHASE19_IMPLEMENTATION_PLAN.md` | 详细实施计划 |
+| 实施计划 | `docs/archive/reports/PHASE19_IMPLEMENTATION_PLAN.md` | 详细实施计划 |
 
 ## 文件统计
 

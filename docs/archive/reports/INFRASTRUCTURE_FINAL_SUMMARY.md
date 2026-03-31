@@ -183,8 +183,8 @@ sudo ./scripts/runtime/install-services.sh
 ## 📚 相关文档
 
 1. **使用指南**: `docs/guides/INFRASTRUCTURE_TOOLS.md`
-2. **详细评估**: `docs/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md`
-3. **集成报告**: `docs/reports/INFRASTRUCTURE_INTEGRATION_REPORT.md`
+2. **详细评估**: `docs/archive/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md`
+3. **集成报告**: `docs/archive/reports/INFRASTRUCTURE_INTEGRATION_REPORT.md`
 
 ## ✅ 验证清单
 

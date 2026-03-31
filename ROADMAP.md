@@ -2,6 +2,10 @@
 
 更新日期：2026-03-22
 
+> Canonical roadmap entrypoint. Legacy planning notes such as `docs/DEVELOPMENT_ROADMAP.md`
+> and `docs/ROADMAP_REVIEW.md` should redirect back here instead of acting as parallel
+> roadmap sources.
+
 本文件把仓库中已经明确写出的“后续 Phase”能力、设计文档中的后续阶段、以及代码里的长期占坑，整理成一个可执行的优先级 backlog。
 
 当前仓库没有独立的 `.planning/` 规划结构；在引入正式规划系统前，本文件作为项目级路线图与 backlog 的统一入口。
