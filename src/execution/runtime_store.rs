@@ -4,13 +4,13 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
+
 use crate::core::Result;
 use crate::execution::models::{
     ExecutionRequestRecord, ExecutionRequestStatus, MockLiveOrderState, OrderEventRecord,
     OrderRecord, OrderStatus, RunnerCheckpointRecord, SignalEventRecord, SignalStatus,
     StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
 };
-use super::runtime_store_rows::{row_to_run, row_to_signal};
 
 #[derive(Debug, Clone)]
 pub struct StrategyRuntimeStore {
@@ -54,38 +54,7 @@ impl StrategyRuntimeStore {
     }
 
     pub async fn insert_run(&self, run: &StrategyRunRecord) -> Result<()> {
-        sqlx::query(
-            r#"
-INSERT INTO strategy_runs (
-    run_id,
-    strategy_name,
-    mode,
-    trigger_type,
-    status,
-    symbol,
-    timeframe,
-    bar_end,
-    started_at,
-    finished_at,
-    metadata_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-"#,
-        )
-        .bind(&run.run_id)
-        .bind(&run.strategy_name)
-        .bind(&run.mode)
-        .bind(&run.trigger)
-        .bind(run.status.as_str())
-        .bind(&run.symbol)
-        .bind(&run.timeframe)
-        .bind(run.bar_end.to_rfc3339())
-        .bind(run.started_at.to_rfc3339())
-        .bind(run.finished_at.map(|value| value.to_rfc3339()))
-        .bind(serde_json::to_string(&run.metadata_json)?)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        super::runtime_store_runs::insert_run(&self.pool, run).await
     }
 
     pub async fn find_run_by_dedupe_key(
@@ -96,99 +65,23 @@ INSERT INTO strategy_runs (
         timeframe: &str,
         bar_end: DateTime<Utc>,
     ) -> Result<Option<StrategyRunRecord>> {
-        let row = sqlx::query(
-            r#"
-SELECT
-    run_id,
-    strategy_name,
-    mode,
-    trigger_type,
-    status,
-    symbol,
-    timeframe,
-    bar_end,
-    started_at,
-    finished_at,
-    metadata_json
-FROM strategy_runs
-WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ? AND bar_end = ?
-"#,
+        super::runtime_store_runs::find_run_by_dedupe_key(
+            &self.pool,
+            strategy_name,
+            mode,
+            symbol,
+            timeframe,
+            bar_end,
         )
-        .bind(strategy_name)
-        .bind(mode)
-        .bind(symbol)
-        .bind(timeframe)
-        .bind(bar_end.to_rfc3339())
-        .fetch_optional(&self.pool)
-        .await?;
-
-        row.map(row_to_run).transpose()
+        .await
     }
 
     pub async fn insert_signal_event(&self, event: &SignalEventRecord) -> Result<()> {
-        sqlx::query(
-            r#"
-INSERT INTO signal_events (
-    event_id,
-    run_id,
-    strategy_name,
-    symbol,
-    signal,
-    ts,
-    payload_json
-) VALUES (?, ?, ?, ?, ?, ?, ?)
-"#,
-        )
-        .bind(&event.event_id)
-        .bind(&event.run_id)
-        .bind(&event.strategy_name)
-        .bind(&event.symbol)
-        .bind(&event.signal)
-        .bind(event.ts.to_rfc3339())
-        .bind(serde_json::to_string(&event.payload_json)?)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        super::runtime_store_signals::insert_signal_event(&self.pool, event).await
     }
 
     pub async fn insert_signal(&self, signal: &StrategySignalRecord) -> Result<()> {
-        sqlx::query(
-            r#"
-INSERT INTO signals (
-    signal_id,
-    strategy_instance_id,
-    strategy_name,
-    symbol,
-    timeframe,
-    bar_end,
-    signal_value,
-    signal_status,
-    approval_status,
-    run_id,
-    metadata_json,
-    created_at,
-    updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-"#,
-        )
-        .bind(&signal.signal_id)
-        .bind(&signal.strategy_instance_id)
-        .bind(&signal.strategy_name)
-        .bind(&signal.symbol)
-        .bind(&signal.timeframe)
-        .bind(signal.bar_end.to_rfc3339())
-        .bind(&signal.signal_value)
-        .bind(signal.signal_status.as_str())
-        .bind(signal.approval_status.as_str())
-        .bind(&signal.run_id)
-        .bind(serde_json::to_string(&signal.metadata_json)?)
-        .bind(signal.created_at.to_rfc3339())
-        .bind(signal.updated_at.to_rfc3339())
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        super::runtime_store_signals::insert_signal(&self.pool, signal).await
     }
 
     pub async fn insert_order(&self, order: &OrderRecord) -> Result<()> {
@@ -217,20 +110,7 @@ INSERT INTO signals (
         status: StrategyRunStatus,
         finished_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
-        sqlx::query(
-            r#"
-UPDATE strategy_runs
-SET status = ?, finished_at = ?
-WHERE run_id = ?
-"#,
-        )
-        .bind(status.as_str())
-        .bind(finished_at.map(|value| value.to_rfc3339()))
-        .bind(run_id)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+        super::runtime_store_runs::update_run_status(&self.pool, run_id, status, finished_at).await
     }
 
     pub async fn update_order(
@@ -342,58 +222,11 @@ WHERE run_id = ?
     }
 
     pub async fn get_signal(&self, signal_id: &str) -> Result<Option<StrategySignalRecord>> {
-        let row = sqlx::query(
-            r#"
-SELECT
-    signal_id,
-    strategy_instance_id,
-    strategy_name,
-    symbol,
-    timeframe,
-    bar_end,
-    signal_value,
-    signal_status,
-    approval_status,
-    run_id,
-    metadata_json,
-    created_at,
-    updated_at
-FROM signals
-WHERE signal_id = ?
-"#,
-        )
-        .bind(signal_id)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        row.map(row_to_signal).transpose()
+        super::runtime_store_signals::get_signal(&self.pool, signal_id).await
     }
 
     pub async fn list_signals(&self) -> Result<Vec<StrategySignalRecord>> {
-        let rows = sqlx::query(
-            r#"
-SELECT
-    signal_id,
-    strategy_instance_id,
-    strategy_name,
-    symbol,
-    timeframe,
-    bar_end,
-    signal_value,
-    signal_status,
-    approval_status,
-    run_id,
-    metadata_json,
-    created_at,
-    updated_at
-FROM signals
-ORDER BY created_at DESC, signal_id DESC
-"#,
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        rows.into_iter().map(row_to_signal).collect()
+        super::runtime_store_signals::list_signals(&self.pool).await
     }
 
     pub async fn approve_signal_and_create_request(
