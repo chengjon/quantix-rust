@@ -294,6 +294,90 @@ where
     }
 }
 
+pub(super) async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
+    let runtime = CliRuntime::load();
+    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
+    let loader = FallbackStrategyBarLoader::from_env_with_primary_source_id(
+        ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+        "clickhouse-storage",
+    );
+
+    if once {
+        match execute_strategy_daemon_run_once_with_components(
+            loader,
+            &config_store,
+            &runtime_store,
+        )
+        .await?
+        {
+            Some(signal) => println!("{}", format_strategy_signal_row(&signal)),
+            None => println!("strategy daemon 未生成新信号"),
+        }
+        return Ok(());
+    }
+
+    let mut daemon = StrategySignalDaemon::new(loader, runtime_store, config_store)?;
+    loop {
+        daemon.run_once().await?;
+        tokio::time::sleep(Duration::from_secs(daemon.check_interval_secs())).await;
+    }
+}
+
+pub(super) async fn execute_strategy_daemon_run_once_with_components<L>(
+    loader: L,
+    config_store: &JsonStrategyConfigStore,
+    runtime_store: &StrategyRuntimeStore,
+) -> Result<Option<StrategySignalRecord>>
+where
+    L: StrategyBarLoader + StrategyBarLoadTelemetry,
+{
+    let before_ids: Vec<String> = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .map(|row| row.signal_id)
+        .collect();
+    let mut daemon =
+        StrategySignalDaemon::new(loader, runtime_store.clone(), config_store.clone())?;
+    daemon.run_once().await?;
+
+    let latest = runtime_store
+        .list_signals()
+        .await?
+        .into_iter()
+        .find(|row| !before_ids.iter().any(|id| id == &row.signal_id));
+
+    Ok(latest)
+}
+
+pub(super) fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
+    let source_id = row
+        .metadata_json
+        .get("bar_source_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown");
+    let fallback = row
+        .metadata_json
+        .get("bar_source_fallback")
+        .and_then(|value| value.as_bool())
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    format!(
+        "{} {} {} {} {} {} bar_end={} source={} fallback={}",
+        row.signal_id,
+        row.strategy_instance_id,
+        row.symbol,
+        row.signal_value,
+        row.signal_status.as_str(),
+        row.approval_status.as_str(),
+        row.bar_end.format("%Y-%m-%dT%H:%M:%SZ"),
+        source_id,
+        fallback
+    )
+}
+
 pub(super) async fn execute_strategy_signal_list(
     approval_status: Option<&str>,
     signal_status: Option<&str>,
