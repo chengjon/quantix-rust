@@ -10,4 +10,5 @@ pub mod qmt_bridge;
 pub mod qmt_live_adapter;
 pub mod reconciliation;
 pub mod runtime_store;
+mod runtime_store_codec;
 mod runtime_store_schema;
