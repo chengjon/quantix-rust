@@ -1312,6 +1312,29 @@
         assert!(line.contains("fallback=false"));
     }
 
+    #[test]
+    fn test_build_strategy_run_summary_formats_order_status_message() {
+        let summary = build_strategy_run_summary(
+            "ma_cross",
+            "paper",
+            "000001",
+            KernelExecutionResult {
+                run_id: "run-1".to_string(),
+                signal: Signal::Buy,
+                order_status: Some(OrderStatus::Accepted),
+                client_order_id: Some("run-1_000001_1".to_string()),
+            },
+            Signal::Buy,
+        );
+
+        assert_eq!(summary.run_id, "run-1");
+        assert_eq!(summary.strategy_name, "ma_cross");
+        assert_eq!(summary.mode, "paper");
+        assert_eq!(summary.symbol, "000001");
+        assert_eq!(summary.order_status, Some(OrderStatus::Accepted));
+        assert_eq!(summary.message, "signal=buy order_status=accepted");
+    }
+
     #[tokio::test]
     async fn test_execute_screener_preset_list_returns_supported_presets() {
         let output = execute_screener_command_with_loader(

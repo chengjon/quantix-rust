@@ -29,6 +29,41 @@ pub(super) fn execute_strategy_config_show_from_store(
     store.load_or_create()
 }
 
+pub(super) fn build_strategy_run_summary(
+    strategy_name: &str,
+    mode: &str,
+    symbol: &str,
+    result: KernelExecutionResult,
+    signal: Signal,
+) -> StrategyRunSummary {
+    let message = match result.order_status {
+        Some(status) => format!(
+            "signal={} order_status={}",
+            strategy_signal_label(signal),
+            status.as_str()
+        ),
+        None => format!("signal={} no_order", strategy_signal_label(signal)),
+    };
+
+    StrategyRunSummary {
+        run_id: result.run_id,
+        strategy_name: strategy_name.to_string(),
+        mode: mode.to_string(),
+        symbol: symbol.to_string(),
+        signal,
+        order_status: result.order_status,
+        message,
+    }
+}
+
+fn strategy_signal_label(signal: Signal) -> &'static str {
+    match signal {
+        Signal::Buy => "buy",
+        Signal::Sell => "sell",
+        Signal::Hold => "hold",
+    }
+}
+
 pub(crate) async fn run_strategy_command_impl(cmd: StrategyCommands) -> Result<()> {
     match cmd {
         StrategyCommands::Run { name, mode, code } => {

@@ -127,11 +127,13 @@ pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
 pub use self::risk::run_risk_command;
 pub use self::sentiment::run_sentiment_command;
+use self::strategy::build_strategy_run_summary;
 #[cfg(test)]
 #[allow(unused_imports)]
 use self::strategy::{
     StrategyServiceInstallerOps, execute_strategy_config_init_to_store,
-    execute_strategy_config_show_from_store, execute_strategy_service_command_with_installer,
+    execute_strategy_config_show_from_store,
+    execute_strategy_service_command_with_installer,
     execute_strategy_daemon_run_once_with_components,
     execute_strategy_request_cancel_with_store, execute_strategy_request_execute_with_components,
     execute_strategy_request_list_with_store, execute_strategy_service_config_command_with_store,
@@ -631,40 +633,7 @@ where
         _ => unreachable!("validated strategy mode"),
     };
 
-    Ok(build_strategy_run_summary(
-        name,
-        mode,
-        &symbol,
-        result,
-        envelope.signal,
-    ))
-}
-
-fn build_strategy_run_summary(
-    strategy_name: &str,
-    mode: &str,
-    symbol: &str,
-    result: KernelExecutionResult,
-    signal: Signal,
-) -> StrategyRunSummary {
-    let message = match result.order_status {
-        Some(status) => format!(
-            "signal={} order_status={}",
-            signal_label(signal),
-            order_status_label(status)
-        ),
-        None => format!("signal={} no_order", signal_label(signal)),
-    };
-
-    StrategyRunSummary {
-        run_id: result.run_id,
-        strategy_name: strategy_name.to_string(),
-        mode: mode.to_string(),
-        symbol: symbol.to_string(),
-        signal,
-        order_status: result.order_status,
-        message,
-    }
+    Ok(build_strategy_run_summary(name, mode, &symbol, result, envelope.signal))
 }
 
 fn signal_label(signal: Signal) -> &'static str {
