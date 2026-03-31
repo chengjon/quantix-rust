@@ -276,6 +276,28 @@ async fn insert_order_round_trips_extended_lifecycle_fields() {
 }
 
 #[tokio::test]
+async fn find_first_order_for_run_returns_earliest_created_order() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let first = sample_order(&run.run_id, "run_000001_first");
+    let mut second = sample_order(&run.run_id, "run_000001_second");
+    second.created_at = fixed_ts() + chrono::Duration::minutes(1);
+    second.updated_at = second.created_at;
+    second.last_transition_at = second.created_at;
+
+    store.insert_order(&first).await.unwrap();
+    store.insert_order(&second).await.unwrap();
+
+    let saved = store.find_first_order_for_run(&run.run_id).await.unwrap().unwrap();
+
+    assert_eq!(saved.client_order_id, "run_000001_first");
+}
+
+#[tokio::test]
 async fn list_open_orders_round_trips_extended_lifecycle_fields() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("runtime.db");

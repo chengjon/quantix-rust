@@ -12,6 +12,7 @@ pub mod reconciliation;
 pub mod runtime_store;
 mod runtime_store_codec;
 mod runtime_store_checkpoints;
+mod runtime_store_orders;
 mod runtime_store_requests;
 mod runtime_store_rows;
 mod runtime_store_schema;
