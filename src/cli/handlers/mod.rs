@@ -127,15 +127,16 @@ pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
 pub use self::risk::run_risk_command;
 pub use self::sentiment::run_sentiment_command;
-use self::strategy::build_strategy_run_summary;
+use self::strategy::execute_strategy_run_with_components;
 #[cfg(test)]
 #[allow(unused_imports)]
 use self::strategy::{
-    StrategyServiceInstallerOps, execute_strategy_config_init_to_store,
+    StrategyServiceInstallerOps, build_strategy_run_summary, execute_strategy_config_init_to_store,
     execute_strategy_config_show_from_store,
     execute_strategy_service_command_with_installer,
     execute_strategy_daemon_run_once_with_components,
     execute_strategy_request_cancel_with_store, execute_strategy_request_execute_with_components,
+    execute_strategy_run_with_risk_service,
     execute_strategy_request_list_with_store, execute_strategy_service_config_command_with_store,
     execute_strategy_signal_approve_with_store, execute_strategy_signal_list_with_store,
     execute_strategy_signal_reject_with_store, format_strategy_approval_result,
@@ -400,240 +401,8 @@ struct StrategyRunSummary {
     message: String,
 }
 
-#[derive(Debug, Clone)]
-struct StrategyRiskBridge<TradeStore, RiskStore> {
-    trade_store: TradeStore,
-    risk_service: RiskService<RiskStore>,
-}
-
-impl<TradeStore, RiskStore> StrategyRiskBridge<TradeStore, RiskStore> {
-    fn new(trade_store: TradeStore, risk_service: RiskService<RiskStore>) -> Self {
-        Self {
-            trade_store,
-            risk_service,
-        }
-    }
-}
-
 pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
     execution::run_execution_command_impl(cmd).await
-}
-
-#[derive(Debug, Clone)]
-struct StrategyFillDeltaBridge<TradeStore> {
-    trade_service: TradeService<TradeStore>,
-}
-
-impl<TradeStore> StrategyFillDeltaBridge<TradeStore>
-where
-    TradeStore: PaperTradeStore,
-{
-    fn new(trade_store: TradeStore) -> Self {
-        Self {
-            trade_service: TradeService::new(trade_store),
-        }
-    }
-}
-
-#[async_trait]
-impl<TradeStore> FillDeltaApplier for StrategyFillDeltaBridge<TradeStore>
-where
-    TradeStore: PaperTradeStore,
-{
-    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
-        if ctx.new_filled_quantity <= ctx.old_filled_quantity {
-            return Ok(FillDeltaResult {
-                applied: false,
-                delta_quantity: 0,
-                trade_record_id: None,
-            });
-        }
-
-        let fill_details = ctx.fill_details.ok_or_else(|| {
-            QuantixError::Other(
-                "strategy run --mode mock_live 增量成交缺少 fill_details".to_string(),
-            )
-        })?;
-
-        let request = TradeOrderRequest::new(
-            ctx.symbol.clone(),
-            decimal_to_f64(fill_details.fill_price, "strategy run --mode mock_live")?,
-            fill_details.fill_quantity,
-        )
-        .map_err(|err| remap_trade_request_error(err, "strategy run --mode mock_live"))?;
-
-        let record = match ctx.side {
-            crate::execution::models::OrderSide::Buy => {
-                self.trade_service.buy(request, ctx.event_time).await?
-            }
-            crate::execution::models::OrderSide::Sell => {
-                self.trade_service.sell(request, ctx.event_time).await?
-            }
-        };
-
-        Ok(FillDeltaResult {
-            applied: true,
-            delta_quantity: fill_details.fill_quantity,
-            trade_record_id: Some(record.id),
-        })
-    }
-}
-
-#[async_trait]
-impl<TradeStore, RiskStore> RiskEvaluator for StrategyRiskBridge<TradeStore, RiskStore>
-where
-    TradeStore: PaperTradeStore,
-    RiskStore: crate::risk::RiskStore,
-{
-    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
-        if intent.side == crate::execution::models::OrderSide::Sell {
-            return Ok(RiskDecision::Allow);
-        }
-
-        let account = load_initialized_trade_account(&self.trade_store).await?;
-        let snapshot = build_risk_account_snapshot(&account);
-        let request = TradeOrderRequest::new(
-            intent.symbol.clone(),
-            decimal_to_f64(intent.requested_price, "strategy run --mode paper")?,
-            intent.requested_quantity,
-        )
-        .map_err(|err| remap_trade_request_error(err, "strategy run --mode paper"))?;
-        let projected_buy = build_projected_buy_impact(&account, &request);
-
-        match self
-            .risk_service
-            .check_buy(&snapshot, &projected_buy, Utc::now())
-            .await
-        {
-            Ok(()) => Ok(RiskDecision::Allow),
-            Err(QuantixError::Other(reason)) => Ok(RiskDecision::Reject { reason }),
-            Err(other) => Err(other),
-        }
-    }
-
-    async fn sync_after_fill(&self) -> Result<()> {
-        sync_risk_from_trade_store(&self.trade_store, &self.risk_service).await
-    }
-}
-
-async fn execute_strategy_run_with_components<L, TS, RS>(
-    name: &str,
-    mode: &str,
-    code: Option<String>,
-    loader: L,
-    trade_store: TS,
-    risk_store: RS,
-    runtime_store: &StrategyRuntimeStore,
-) -> Result<StrategyRunSummary>
-where
-    L: StrategyBarLoader,
-    TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore + Clone,
-{
-    let risk_service = RiskService::new(risk_store.clone());
-    execute_strategy_run_with_risk_service(
-        name,
-        mode,
-        code,
-        loader,
-        trade_store,
-        risk_service,
-        runtime_store,
-    )
-    .await
-}
-
-async fn execute_strategy_run_with_risk_service<L, TS, RS>(
-    name: &str,
-    mode: &str,
-    code: Option<String>,
-    loader: L,
-    trade_store: TS,
-    risk_service: RiskService<RS>,
-    runtime_store: &StrategyRuntimeStore,
-) -> Result<StrategyRunSummary>
-where
-    L: StrategyBarLoader,
-    TS: PaperTradeStore + Clone,
-    RS: crate::risk::RiskStore,
-{
-    match mode {
-        "live" => {
-            return Err(QuantixError::Unsupported(
-                "strategy live 模式尚未实现".to_string(),
-            ));
-        }
-        "paper" | "mock_live" => {}
-        other => {
-            return Err(QuantixError::Unsupported(format!(
-                "strategy {other} 模式尚未实现"
-            )));
-        }
-    }
-
-    if name != "ma_cross" {
-        return Err(QuantixError::Other(format!("未知策略: {name}")));
-    }
-
-    let symbol = code.ok_or_else(|| {
-        QuantixError::Other("strategy run --mode paper 需要显式指定 --code".to_string())
-    })?;
-
-    let account = load_initialized_trade_account(&trade_store).await?;
-    let held_volume = account
-        .positions
-        .get(&symbol)
-        .map(|position| position.volume);
-
-    let bars = loader.load_daily_bars(&symbol, 10_000).await?;
-    let latest_bar = bars.last().cloned().ok_or_else(|| {
-        QuantixError::Other(format!("strategy paper 未找到 {} 的日线数据", symbol))
-    })?;
-    let bar_end = DateTime::<Utc>::from_naive_utc_and_offset(
-        latest_bar.date.and_hms_opt(15, 0, 0).unwrap(),
-        Utc,
-    );
-
-    let runtime = StrategyRuntime::new(&loader);
-    let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;
-
-    let risk = StrategyRiskBridge::new(trade_store.clone(), risk_service);
-    let run_id = uuid::Uuid::new_v4().to_string();
-    let client_order_id = format!("{run_id}_{symbol}_1");
-    let run_request = ExecutionRunRequest {
-        run_id: run_id.clone(),
-        strategy_name: name.to_string(),
-        mode: mode.to_string(),
-        trigger: "once".to_string(),
-        symbol: symbol.clone(),
-        timeframe: "1d".to_string(),
-        bar_end,
-        market_price: latest_bar.close,
-        held_volume,
-        policy: ExecutionPolicy {
-            fixed_cash_per_buy: dec!(10000),
-            slippage_bps: 0,
-        },
-        client_order_id,
-    };
-    let result = match mode {
-        "paper" => {
-            let trade_service = TradeService::new(trade_store.clone());
-            let adapter = PaperExecutionAdapter::new(trade_service);
-            let kernel = ExecutionKernel::new(runtime_store.clone(), adapter, risk);
-            kernel.execute_once(run_request, envelope.clone()).await?
-        }
-        "mock_live" => {
-            let adapter = MockLiveExecutionAdapter::new(runtime_store.clone(), SystemMockLiveClock);
-            let fill_delta = StrategyFillDeltaBridge::new(trade_store.clone());
-            let kernel =
-                ExecutionKernel::with_fill_delta(runtime_store.clone(), adapter, fill_delta, risk);
-            kernel.execute_once(run_request, envelope.clone()).await?
-        }
-        _ => unreachable!("validated strategy mode"),
-    };
-
-    Ok(build_strategy_run_summary(name, mode, &symbol, result, envelope.signal))
 }
 
 fn signal_label(signal: Signal) -> &'static str {
