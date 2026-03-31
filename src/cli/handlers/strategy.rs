@@ -378,6 +378,95 @@ pub(super) fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
     )
 }
 
+pub(super) fn format_strategy_request_detail(
+    request: &ExecutionRequestRecord,
+    verbose: bool,
+) -> String {
+    let mut lines = vec![
+        "=== Execution Request Detail ===".to_string(),
+        format!("request_id: {}", request.request_id),
+        format!("signal_id: {}", request.signal_id),
+        format!("target_mode: {}", request.target_mode),
+        format!("target_account: {}", request.target_account),
+        format!("status: {}", request.request_status.as_str()),
+        format!("approved_by: {}", request.approved_by.as_deref().unwrap_or("-")),
+        format!("created_at: {}", request.created_at.format("%Y-%m-%dT%H:%M:%SZ")),
+        format!("updated_at: {}", request.updated_at.format("%Y-%m-%dT%H:%M:%SZ")),
+    ];
+
+    if let Some(snapshot) = request.payload_json.get("execution_snapshot") {
+        lines.push(String::new());
+        lines.push("=== Execution Snapshot ===".to_string());
+        if let Some(symbol) = snapshot.get("symbol").and_then(|v| v.as_str()) {
+            lines.push(format!("symbol: {}", symbol));
+        }
+        if let Some(signal_value) = snapshot.get("signal_value").and_then(|v| v.as_str()) {
+            lines.push(format!("signal: {}", signal_value));
+        }
+        if let Some(intent) = snapshot.get("order_intent") {
+            if let Some(side) = intent.get("side").and_then(|v| v.as_str()) {
+                lines.push(format!("side: {}", side));
+            }
+            if let Some(qty) = intent.get("requested_quantity").and_then(|v| v.as_i64()) {
+                lines.push(format!("quantity: {}", qty));
+            }
+            if let Some(price) = intent.get("requested_price").and_then(|v| v.as_str()) {
+                lines.push(format!("price: {}", price));
+            }
+        }
+    }
+
+    if let Some(result) = request.payload_json.get("execution_result") {
+        lines.push(String::new());
+        lines.push("=== Execution Result ===".to_string());
+        if let Some(run_id) = result.get("run_id").and_then(|v| v.as_str()) {
+            lines.push(format!("run_id: {}", run_id));
+        }
+        if let Some(client_order_id) = result.get("client_order_id").and_then(|v| v.as_str()) {
+            lines.push(format!("client_order_id: {}", client_order_id));
+        }
+        if let Some(order_status) = result.get("order_status").and_then(|v| v.as_str()) {
+            lines.push(format!("order_status: {}", order_status));
+        }
+        if let Some(executed_at) = result.get("executed_at").and_then(|v| v.as_str()) {
+            lines.push(format!("executed_at: {}", executed_at));
+        }
+    }
+
+    if let Some(error) = request.payload_json.get("execution_error") {
+        lines.push(String::new());
+        lines.push("=== Execution Error ===".to_string());
+        if let Some(message) = error.get("message").and_then(|v| v.as_str()) {
+            lines.push(format!("message: {}", message));
+        }
+        if let Some(failed_at) = error.get("failed_at").and_then(|v| v.as_str()) {
+            lines.push(format!("failed_at: {}", failed_at));
+        }
+    }
+
+    if let Some(cancellation) = request.payload_json.get("cancellation") {
+        lines.push(String::new());
+        lines.push("=== Cancellation ===".to_string());
+        if let Some(reason) = cancellation.get("reason").and_then(|v| v.as_str()) {
+            lines.push(format!("reason: {}", reason));
+        }
+        if let Some(canceled_at) = cancellation.get("canceled_at").and_then(|v| v.as_str()) {
+            lines.push(format!("canceled_at: {}", canceled_at));
+        }
+    }
+
+    if verbose {
+        lines.push(String::new());
+        lines.push("=== Full Payload (verbose) ===".to_string());
+        lines.push(
+            serde_json::to_string_pretty(&request.payload_json)
+                .unwrap_or_else(|_| "<serialize error>".to_string()),
+        );
+    }
+
+    lines.join("\n")
+}
+
 pub(super) async fn execute_strategy_signal_list(
     approval_status: Option<&str>,
     signal_status: Option<&str>,

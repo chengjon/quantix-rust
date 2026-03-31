@@ -1243,6 +1243,47 @@
     }
 
     #[test]
+    fn test_format_strategy_request_detail_includes_snapshot_and_result_sections() {
+        let row = crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-3".to_string(),
+            signal_id: "signal-3".to_string(),
+            target_mode: "paper".to_string(),
+            target_account: "default".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Completed,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({
+                "execution_snapshot": {
+                    "symbol": "000001",
+                    "signal_value": "buy",
+                    "order_intent": {
+                        "side": "buy",
+                        "requested_quantity": 800,
+                        "requested_price": "12.34"
+                    }
+                },
+                "execution_result": {
+                    "run_id": "run-3",
+                    "client_order_id": "req-3_000001_1",
+                    "order_status": "accepted",
+                    "executed_at": "2026-03-17T09:31:00Z"
+                }
+            }),
+        };
+
+        let detail = format_strategy_request_detail(&row, false);
+
+        assert!(detail.contains("=== Execution Snapshot ==="));
+        assert!(detail.contains("symbol: 000001"));
+        assert!(detail.contains("signal: buy"));
+        assert!(detail.contains("quantity: 800"));
+        assert!(detail.contains("=== Execution Result ==="));
+        assert!(detail.contains("run_id: run-3"));
+        assert!(detail.contains("order_status: accepted"));
+    }
+
+    #[test]
     fn test_format_strategy_signal_row_includes_source_metadata() {
         let row = crate::execution::models::StrategySignalRecord {
             signal_id: "signal-1".to_string(),
