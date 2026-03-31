@@ -127,7 +127,6 @@ pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
 pub use self::risk::run_risk_command;
 pub use self::sentiment::run_sentiment_command;
-use self::strategy::execute_strategy_run_with_components;
 #[cfg(test)]
 #[allow(unused_imports)]
 use self::strategy::{
@@ -136,6 +135,7 @@ use self::strategy::{
     execute_strategy_service_command_with_installer,
     execute_strategy_daemon_run_once_with_components,
     execute_strategy_request_cancel_with_store, execute_strategy_request_execute_with_components,
+    execute_strategy_run_with_components,
     execute_strategy_run_with_risk_service,
     execute_strategy_request_list_with_store, execute_strategy_service_config_command_with_store,
     execute_strategy_signal_approve_with_store, execute_strategy_signal_list_with_store,

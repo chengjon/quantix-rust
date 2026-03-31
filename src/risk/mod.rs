@@ -6,6 +6,7 @@ pub mod import_store;
 pub mod importer;
 pub mod rebuild;
 pub mod service;
+mod service_state;
 pub mod storage;
 pub mod volatility;
 
