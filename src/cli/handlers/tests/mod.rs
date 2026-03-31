@@ -8,7 +8,7 @@
     use crate::core::config::{
         CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
     };
-    use crate::core::runtime::EXECUTION_CONFIG_PATH_ENV;
+    use crate::core::runtime::{EXECUTION_CONFIG_PATH_ENV, STRATEGY_CONFIG_PATH_ENV};
     use crate::data::models::{AdjustType, Kline};
     use crate::market::{
         BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
@@ -68,6 +68,27 @@
         fn capture() -> Self {
             Self {
                 execution_config_path: std::env::var(EXECUTION_CONFIG_PATH_ENV).ok(),
+            }
+        }
+    }
+
+    struct StrategyConfigEnvGuard {
+        strategy_config_path: Option<String>,
+    }
+
+    impl StrategyConfigEnvGuard {
+        fn capture() -> Self {
+            Self {
+                strategy_config_path: std::env::var(STRATEGY_CONFIG_PATH_ENV).ok(),
+            }
+        }
+    }
+
+    impl Drop for StrategyConfigEnvGuard {
+        fn drop(&mut self) {
+            match &self.strategy_config_path {
+                Some(value) => unsafe { std::env::set_var(STRATEGY_CONFIG_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(STRATEGY_CONFIG_PATH_ENV) },
             }
         }
     }
@@ -139,6 +160,24 @@
         let saved = std::fs::read_to_string(&config_path).unwrap();
         assert!(saved.contains("\"poll_interval_secs\": 10"));
         assert!(saved.contains("\"mode\": \"manual\""));
+    }
+
+    #[tokio::test]
+    async fn test_run_strategy_command_config_init_creates_config_file() {
+        let _lock = env_lock();
+        let _guard = StrategyConfigEnvGuard::capture();
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("strategy-config.json");
+        unsafe {
+            std::env::set_var(STRATEGY_CONFIG_PATH_ENV, &config_path);
+        }
+
+        run_strategy_command(StrategyCommands::Config(StrategyConfigCommands::Init))
+            .await
+            .unwrap();
+
+        let saved = std::fs::read_to_string(&config_path).unwrap();
+        assert!(saved.contains("\"check_interval_secs\": 60"));
     }
 
     #[test]
