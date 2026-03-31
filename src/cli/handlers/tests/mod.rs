@@ -8,6 +8,7 @@
     use crate::core::config::{
         CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
     };
+    use crate::core::runtime::EXECUTION_CONFIG_PATH_ENV;
     use crate::data::models::{AdjustType, Kline};
     use crate::market::{
         BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
@@ -59,6 +60,27 @@
         }
     }
 
+    struct ExecutionConfigEnvGuard {
+        execution_config_path: Option<String>,
+    }
+
+    impl ExecutionConfigEnvGuard {
+        fn capture() -> Self {
+            Self {
+                execution_config_path: std::env::var(EXECUTION_CONFIG_PATH_ENV).ok(),
+            }
+        }
+    }
+
+    impl Drop for ExecutionConfigEnvGuard {
+        fn drop(&mut self) {
+            match &self.execution_config_path {
+                Some(value) => unsafe { std::env::set_var(EXECUTION_CONFIG_PATH_ENV, value) },
+                None => unsafe { std::env::remove_var(EXECUTION_CONFIG_PATH_ENV) },
+            }
+        }
+    }
+
     impl Drop for ClickHouseDbEnvGuard {
         fn drop(&mut self) {
             match &self.url {
@@ -98,6 +120,25 @@
         assert_eq!(client.database(), "quantix_runtime_test");
         assert_eq!(client.http_auth_for_test().0, "handler_user");
         assert_eq!(client.http_auth_for_test().1, "handler_password");
+    }
+
+    #[tokio::test]
+    async fn test_run_execution_command_config_init_creates_config_file() {
+        let _lock = env_lock();
+        let _guard = ExecutionConfigEnvGuard::capture();
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("execution-config.json");
+        unsafe {
+            std::env::set_var(EXECUTION_CONFIG_PATH_ENV, &config_path);
+        }
+
+        run_execution_command(ExecutionCommands::Config(ExecutionConfigCommands::Init))
+            .await
+            .unwrap();
+
+        let saved = std::fs::read_to_string(&config_path).unwrap();
+        assert!(saved.contains("\"poll_interval_secs\": 10"));
+        assert!(saved.contains("\"mode\": \"manual\""));
     }
 
     #[test]
