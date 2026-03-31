@@ -405,69 +405,6 @@ pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
     execution::run_execution_command_impl(cmd).await
 }
 
-fn signal_label(signal: Signal) -> &'static str {
-    match signal {
-        Signal::Buy => "buy",
-        Signal::Sell => "sell",
-        Signal::Hold => "hold",
-    }
-}
-
-fn order_status_label(status: OrderStatus) -> &'static str {
-    status.as_str()
-}
-
-fn print_strategy_run_summary(summary: &StrategyRunSummary) {
-    println!("🧾 运行 ID: {}", summary.run_id);
-    println!("  策略: {}", summary.strategy_name);
-    println!("  模式: {}", summary.mode);
-    println!("  代码: {}", summary.symbol);
-    println!("  信号: {}", signal_label(summary.signal));
-    if let Some(status) = summary.order_status {
-        println!("  订单状态: {}", order_status_label(status));
-    }
-    println!("  结果: {}", summary.message);
-}
-
-/// 运行策略
-async fn run_strategy(name: String, mode: String, code: Option<String>) -> Result<()> {
-    println!("🎯 运行策略: {} ({})", name, mode);
-    if let Some(c) = &code {
-        println!("📈 股票代码: {}", c);
-    }
-
-    match name.as_str() {
-        "ma_cross" => {
-            if mode == "backtest" {
-                run_ma_cross_backtest(code).await?;
-            } else if mode == "paper" || mode == "live" {
-                let runtime = CliRuntime::load();
-                let runtime_store =
-                    StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
-                let summary = execute_strategy_run_with_components(
-                    &name,
-                    &mode,
-                    code,
-                    ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
-                    create_trade_store(),
-                    create_risk_store(),
-                    &runtime_store,
-                )
-                .await?;
-                print_strategy_run_summary(&summary);
-            } else {
-                println!("⚠️  暂不支持该运行模式");
-            }
-        }
-        _ => {
-            println!("❌ 未知策略: {}", name);
-            println!("💡 可用策略: ma_cross");
-        }
-    }
-
-    Ok(())
-}
-
 /// 运行 MA 交叉策略回测
 async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
     let stock_code = code.unwrap_or_else(|| "000001".to_string());
@@ -563,38 +500,7 @@ async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
 
 /// 列出所有策略
 async fn list_strategies() -> Result<()> {
-    println!("📋 可用策略:");
-    println!();
-    println!("  1. ma_cross - 均线交叉策略");
-    println!("     描述: MA5 上穿 MA20 买入，下穿卖出");
-    println!("     运行: quantix strategy run --name ma_cross --mode backtest --code 000001");
-    println!();
-    println!("💡 更多策略开发中...");
-
-    Ok(())
-}
-
-/// 显示策略详情
-async fn show_strategy(name: String) -> Result<()> {
-    println!("📖 策略详情: {}", name);
-
-    match name.as_str() {
-        "ma_cross" => {
-            println!();
-            println!("  名称: 均线交叉策略");
-            println!("  原理: 当短期均线(MA5)上穿长期均线(MA20)时买入，反之卖出");
-            println!("  参数:");
-            println!("    - 短期周期: 5");
-            println!("    - 长期周期: 20");
-            println!("  适用场景: 趋势明显的市场");
-            println!("  风险: 震荡市场容易频繁交易");
-        }
-        _ => {
-            println!("❌ 未知策略: {}", name);
-        }
-    }
-
-    Ok(())
+    strategy::list_strategies().await
 }
 
 /// 任务命令

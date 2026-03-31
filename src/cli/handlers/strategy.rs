@@ -296,6 +296,126 @@ fn strategy_signal_label(signal: Signal) -> &'static str {
     }
 }
 
+fn strategy_order_status_label(status: OrderStatus) -> &'static str {
+    status.as_str()
+}
+
+pub(super) fn format_strategy_run_summary_lines(summary: &StrategyRunSummary) -> Vec<String> {
+    let mut lines = vec![
+        format!("🧾 运行 ID: {}", summary.run_id),
+        format!("  策略: {}", summary.strategy_name),
+        format!("  模式: {}", summary.mode),
+        format!("  代码: {}", summary.symbol),
+        format!("  信号: {}", strategy_signal_label(summary.signal)),
+    ];
+    if let Some(status) = summary.order_status {
+        lines.push(format!(
+            "  订单状态: {}",
+            strategy_order_status_label(status)
+        ));
+    }
+    lines.push(format!("  结果: {}", summary.message));
+    lines
+}
+
+fn format_strategy_run_intro_lines(name: &str, mode: &str, code: Option<&str>) -> Vec<String> {
+    let mut lines = vec![format!("🎯 运行策略: {} ({})", name, mode)];
+    if let Some(code) = code {
+        lines.push(format!("📈 股票代码: {}", code));
+    }
+    lines
+}
+
+pub(super) fn format_strategy_catalog_lines() -> Vec<String> {
+    vec![
+        "📋 可用策略:".to_string(),
+        String::new(),
+        "  1. ma_cross - 均线交叉策略".to_string(),
+        "     描述: MA5 上穿 MA20 买入，下穿卖出".to_string(),
+        "     运行: quantix strategy run --name ma_cross --mode backtest --code 000001"
+            .to_string(),
+        String::new(),
+        "💡 更多策略开发中...".to_string(),
+    ]
+}
+
+pub(super) fn format_strategy_detail_lines(name: &str) -> Vec<String> {
+    let mut lines = vec![format!("📖 策略详情: {}", name)];
+    match name {
+        "ma_cross" => {
+            lines.extend([
+                String::new(),
+                "  名称: 均线交叉策略".to_string(),
+                "  原理: 当短期均线(MA5)上穿长期均线(MA20)时买入，反之卖出".to_string(),
+                "  参数:".to_string(),
+                "    - 短期周期: 5".to_string(),
+                "    - 长期周期: 20".to_string(),
+                "  适用场景: 趋势明显的市场".to_string(),
+                "  风险: 震荡市场容易频繁交易".to_string(),
+            ]);
+        }
+        _ => lines.push(format!("❌ 未知策略: {}", name)),
+    }
+    lines
+}
+
+pub(super) fn print_strategy_run_summary(summary: &StrategyRunSummary) {
+    for line in format_strategy_run_summary_lines(summary) {
+        println!("{}", line);
+    }
+}
+
+pub(super) async fn run_strategy(name: String, mode: String, code: Option<String>) -> Result<()> {
+    for line in format_strategy_run_intro_lines(&name, &mode, code.as_deref()) {
+        println!("{}", line);
+    }
+
+    match name.as_str() {
+        "ma_cross" => {
+            if mode == "backtest" {
+                run_ma_cross_backtest(code).await?;
+            } else if mode == "paper" || mode == "live" {
+                let runtime = CliRuntime::load();
+                let runtime_store =
+                    StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+                let summary = execute_strategy_run_with_components(
+                    &name,
+                    &mode,
+                    code,
+                    ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+                    create_trade_store(),
+                    create_risk_store(),
+                    &runtime_store,
+                )
+                .await?;
+                print_strategy_run_summary(&summary);
+            } else {
+                println!("⚠️  暂不支持该运行模式");
+            }
+        }
+        _ => {
+            println!("❌ 未知策略: {}", name);
+            println!("💡 可用策略: ma_cross");
+        }
+    }
+
+    Ok(())
+}
+
+pub(super) async fn list_strategies() -> Result<()> {
+    for line in format_strategy_catalog_lines() {
+        println!("{}", line);
+    }
+    Ok(())
+}
+
+pub(super) async fn show_strategy(name: String) -> Result<()> {
+    for line in format_strategy_detail_lines(&name) {
+        println!("{}", line);
+    }
+    Ok(())
+}
+
 pub(crate) async fn run_strategy_command_impl(cmd: StrategyCommands) -> Result<()> {
     match cmd {
         StrategyCommands::Run { name, mode, code } => {
@@ -1100,4 +1220,71 @@ fn merge_execution_request_payload(
     };
     payload[key] = value;
     payload
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::StrategyRunSummary;
+
+    #[test]
+    fn format_strategy_catalog_lines_matches_current_contract() {
+        assert_eq!(
+            format_strategy_catalog_lines(),
+            vec![
+                "📋 可用策略:".to_string(),
+                String::new(),
+                "  1. ma_cross - 均线交叉策略".to_string(),
+                "     描述: MA5 上穿 MA20 买入，下穿卖出".to_string(),
+                "     运行: quantix strategy run --name ma_cross --mode backtest --code 000001"
+                    .to_string(),
+                String::new(),
+                "💡 更多策略开发中...".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn format_strategy_detail_lines_for_known_strategy_matches_current_contract() {
+        assert_eq!(
+            format_strategy_detail_lines("ma_cross"),
+            vec![
+                "📖 策略详情: ma_cross".to_string(),
+                String::new(),
+                "  名称: 均线交叉策略".to_string(),
+                "  原理: 当短期均线(MA5)上穿长期均线(MA20)时买入，反之卖出".to_string(),
+                "  参数:".to_string(),
+                "    - 短期周期: 5".to_string(),
+                "    - 长期周期: 20".to_string(),
+                "  适用场景: 趋势明显的市场".to_string(),
+                "  风险: 震荡市场容易频繁交易".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn format_strategy_run_summary_lines_include_optional_order_status() {
+        let summary = StrategyRunSummary {
+            run_id: "run-1".to_string(),
+            strategy_name: "ma_cross".to_string(),
+            mode: "paper".to_string(),
+            symbol: "000001".to_string(),
+            signal: Signal::Buy,
+            order_status: Some(OrderStatus::Filled),
+            message: "signal=buy order_status=filled".to_string(),
+        };
+
+        assert_eq!(
+            format_strategy_run_summary_lines(&summary),
+            vec![
+                "🧾 运行 ID: run-1".to_string(),
+                "  策略: ma_cross".to_string(),
+                "  模式: paper".to_string(),
+                "  代码: 000001".to_string(),
+                "  信号: buy".to_string(),
+                "  订单状态: filled".to_string(),
+                "  结果: signal=buy order_status=filled".to_string(),
+            ]
+        );
+    }
 }
