@@ -8,6 +8,8 @@ use quantix_cli::execution::models::{
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use rust_decimal_macros::dec;
 use serde_json::json;
+use sqlx::Row;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tempfile::tempdir;
 use uuid::Uuid;
 
@@ -122,6 +124,31 @@ async fn bootstrap_creates_phase29a_schema() {
             .unwrap()
     );
     assert!(store.has_table("mock_live_orders").await.unwrap());
+}
+
+#[tokio::test]
+async fn bootstrap_creates_extended_order_columns() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+
+    let _store = StrategyRuntimeStore::new(&path).await.unwrap();
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(SqliteConnectOptions::new().filename(&path))
+        .await
+        .unwrap();
+    let columns = sqlx::query("PRAGMA table_info(orders)")
+        .fetch_all(&pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| row.try_get::<String, _>("name").unwrap())
+        .collect::<Vec<_>>();
+
+    assert!(columns.iter().any(|name| name == "remaining_quantity"));
+    assert!(columns.iter().any(|name| name == "last_transition_at"));
+    assert!(columns.iter().any(|name| name == "version"));
 }
 
 #[tokio::test]
