@@ -257,15 +257,8 @@ impl TdxGbbqRecord {
     /// preclose: 原前收盘价
     /// flag: 是否为除权日
     /// 返回: [新前收盘, 收盘价, 涨跌幅]
-    pub fn compute_pre_pct(&self, close: f32, mut preclose: f64, flag: bool) -> [f64; 3] {
-        if flag {
-            // 除权计算公式: (preclose * 10 - 分红 + 配股 * 配股价) / (10 + 配股 + 送股)
-            preclose = (preclose * 10.0 - self.fh_qltp as f64
-                + self.pg_hzgb as f64 * self.pgj_qzgb as f64)
-                / (10.0 + self.pg_hzgb as f64 + self.sg_hltp as f64);
-        }
-        let close = close as f64;
-        [preclose, close, close / preclose]
+    pub fn compute_pre_pct(&self, close: f32, preclose: f64, flag: bool) -> [f64; 3] {
+        super::tdx_file_gbbq_support::compute_pre_pct(self, close, preclose, flag)
     }
 }
 
@@ -299,26 +292,14 @@ impl TdxGbbqFile {
 
     /// 过滤出 A 股除权除息记录 (category = 1)
     pub fn filter_a_stock_dividend(records: &[TdxGbbqRecord]) -> Vec<TdxGbbqRecord> {
-        records
-            .iter()
-            .filter(|r| {
-                // A股代码: 6xxx, 0xxx, 3xxx
-                let first_char = r.code.chars().next();
-                let is_a_stock = matches!(first_char, Some('6') | Some('0') | Some('3'));
-                is_a_stock && r.category == 1
-            })
-            .cloned()
-            .collect()
+        super::tdx_file_gbbq_support::filter_a_stock_dividend(records)
     }
 
     /// 按股票代码分组
-    pub fn group_by_code(records: Vec<TdxGbbqRecord>) -> HashMap<String, Vec<TdxGbbqRecord>> {
-        let mut map: HashMap<String, Vec<TdxGbbqRecord>> = HashMap::new();
-        for record in records {
-            let code = record.code.clone();
-            map.entry(code).or_default().push(record);
-        }
-        map
+    pub fn group_by_code(
+        records: Vec<TdxGbbqRecord>,
+    ) -> std::collections::HashMap<String, Vec<TdxGbbqRecord>> {
+        super::tdx_file_gbbq_support::group_by_code(records)
     }
 }
 
