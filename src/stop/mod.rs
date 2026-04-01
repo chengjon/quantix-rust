@@ -1,6 +1,7 @@
 pub mod models;
 pub mod service;
 pub mod storage;
+mod service_eval;
 
 pub use models::{
     StopAnchorSource, StopEvaluationResult, StopEvalState, StopHistoryEvent,
