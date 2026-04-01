@@ -5,6 +5,7 @@ pub mod indicator_cache;
 pub mod indicator_config;
 pub mod indicator_registry;
 pub mod pipeline;
+mod pipeline_support;
 /// 分析模块
 ///
 /// 技术指标计算、回测引擎、竞价分析、投资组合管理、性能计算

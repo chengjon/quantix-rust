@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::analysis::{
-    IndicatorCache, IndicatorCacheKey, IndicatorInstanceId, IndicatorInput, IndicatorPipelineConfig,
-    IndicatorRegistry, IndicatorSeries,
+    IndicatorCache, IndicatorInstanceId, IndicatorInput, IndicatorPipelineConfig, IndicatorRegistry,
+    IndicatorSeries,
 };
-use crate::core::{QuantixError, Result};
+use crate::core::Result;
 
 pub type IndicatorOutputMap = HashMap<IndicatorInstanceId, IndicatorSeries>;
 
@@ -26,40 +26,21 @@ impl IndicatorPipeline {
         config: &IndicatorPipelineConfig,
         input: &IndicatorInput,
     ) -> Result<IndicatorOutputMap> {
-        let (start, end) = input.range();
-        if end < start || end - start != input.close().len() {
-            return Err(QuantixError::Config(format!(
-                "indicator input range {:?} does not match close length {}",
-                input.range(),
-                input.close().len()
-            )));
-        }
+        super::pipeline_support::validate_input_range(input)?;
 
         let mut output = HashMap::new();
 
         for spec in &config.indicators {
-            if output.contains_key(spec.instance_id()) {
-                return Err(QuantixError::Config(format!(
-                    "duplicate indicator instance_id `{}` in pipeline config",
-                    spec.instance_id().0
-                )));
-            }
+            super::pipeline_support::ensure_unique_instance_id(&output, spec)?;
 
             let descriptor = self.registry.descriptor(spec)?;
-            if input.close().len() < descriptor.meta.lookback {
-                return Err(QuantixError::Config(format!(
-                    "indicator `{}` requires at least {} bars, got {}",
-                    spec.name(),
-                    descriptor.meta.lookback,
-                    input.close().len()
-                )));
-            }
+            super::pipeline_support::ensure_minimum_lookback(
+                spec,
+                descriptor.meta.lookback,
+                input.close().len(),
+            )?;
 
-            let key = IndicatorCacheKey::new(
-                input.dataset_fingerprint(),
-                spec.instance_id().clone(),
-                input.range(),
-            );
+            let key = super::pipeline_support::build_cache_key(input, spec);
             let series = self
                 .cache
                 .get_or_compute(key, || self.registry.compute(spec, input))?;
