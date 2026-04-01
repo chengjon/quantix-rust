@@ -15,6 +15,7 @@ mod quote_collector_support;
 pub mod tdx;
 mod tdx_support;
 pub mod tdx_file;
+mod tdx_file_fuquan_support;
 pub mod websocket;
 mod websocket_support;
 

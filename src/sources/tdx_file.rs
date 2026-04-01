@@ -424,34 +424,17 @@ impl FuquanCalculator {
 
     /// 获取最新的复权因子状态（用于增量更新）
     pub fn get_latest_factor(factors: &[FuquanFactor]) -> Option<(f64, f64)> {
-        factors.last().map(|f| (f.close, f.factor))
+        super::tdx_file_fuquan_support::get_latest_factor(factors)
     }
 
     /// 应用前复权
     pub fn apply_qfq(kline: &Kline, factor: f64, latest_factor: f64) -> Kline {
-        let adj_factor = latest_factor / factor;
-        let adj_dec = Decimal::from_f64(adj_factor).unwrap_or(Decimal::ONE);
-        Kline {
-            open: (kline.open * adj_dec).round_dp(2),
-            high: (kline.high * adj_dec).round_dp(2),
-            low: (kline.low * adj_dec).round_dp(2),
-            close: (kline.close * adj_dec).round_dp(2),
-            adjust_type: AdjustType::QFQ,
-            ..kline.clone()
-        }
+        super::tdx_file_fuquan_support::apply_qfq(kline, factor, latest_factor)
     }
 
     /// 应用后复权
     pub fn apply_hfq(kline: &Kline, factor: f64) -> Kline {
-        let adj_dec = Decimal::from_f64(factor).unwrap_or(Decimal::ONE);
-        Kline {
-            open: (kline.open * adj_dec).round_dp(2),
-            high: (kline.high * adj_dec).round_dp(2),
-            low: (kline.low * adj_dec).round_dp(2),
-            close: (kline.close * adj_dec).round_dp(2),
-            adjust_type: AdjustType::HFQ,
-            ..kline.clone()
-        }
+        super::tdx_file_fuquan_support::apply_hfq(kline, factor)
     }
 }
 
