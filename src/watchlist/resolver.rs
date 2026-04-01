@@ -3,11 +3,10 @@ use crate::db::PostgresClient;
 use crate::bridge::client::BridgeHttpClient;
 use crate::watchlist::WatchlistListItem;
 use async_trait::async_trait;
-use futures_util::future::join_all;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::time::{Duration, timeout};
+use tokio::time::Duration;
 
 const NAME_LOOKUP_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -61,49 +60,14 @@ impl WatchlistResolver {
         items: &[WatchlistListItem],
         with_price: bool,
     ) -> Vec<WatchlistDisplayRow> {
-        let quote_map = if with_price {
-            let codes: Vec<String> = items.iter().map(|item| item.code.clone()).collect();
-            self.quote_lookup
-                .lookup_quotes(&codes)
-                .await
-                .unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
-        let name_map: HashMap<String, Option<String>> = join_all(items.iter().map(|item| {
-            let code = item.code.clone();
-            let name_lookup = Arc::clone(&self.name_lookup);
-
-            async move {
-                let name = match timeout(NAME_LOOKUP_TIMEOUT, name_lookup.lookup_name(&code)).await
-                {
-                    Ok(Ok(name)) => name,
-                    Ok(Err(_)) | Err(_) => None,
-                };
-
-                (code, name)
-            }
-        }))
+        super::resolver_rows::resolve_display_rows(
+            items,
+            with_price,
+            Arc::clone(&self.name_lookup),
+            Arc::clone(&self.quote_lookup),
+            NAME_LOOKUP_TIMEOUT,
+        )
         .await
-        .into_iter()
-        .collect();
-
-        let mut rows = Vec::with_capacity(items.len());
-        for item in items {
-            let name = name_map.get(&item.code).cloned().flatten();
-            let quote = quote_map.get(&item.code);
-
-            rows.push(WatchlistDisplayRow {
-                code: item.code.clone(),
-                name,
-                group: item.group.clone(),
-                tags: item.tags.clone(),
-                latest_price: quote.map(|snapshot| snapshot.latest_price),
-                price_change_pct: quote.and_then(|snapshot| snapshot.price_change_pct),
-            });
-        }
-
-        rows
     }
 }
 

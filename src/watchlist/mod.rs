@@ -1,5 +1,6 @@
 pub mod models;
 pub mod resolver;
+mod resolver_rows;
 pub mod service;
 pub mod storage;
 
