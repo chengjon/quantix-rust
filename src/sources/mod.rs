@@ -5,6 +5,7 @@ mod bridge_tdx_support;
 pub mod eastmoney;
 pub mod kline_aggregator;
 pub mod quote_collector;
+mod quote_collector_support;
 /// 数据源适配器
 ///
 /// 统一数据源接口，支持多数据源切换

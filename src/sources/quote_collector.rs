@@ -66,14 +66,11 @@ impl QuoteCollector {
         debug!("开始采集 {} 只股票的实时行情", stocks.len());
 
         // 将股票代码转换为 TDX 格式
-        let stock_codes: Vec<(u16, String)> = stocks
-            .iter()
-            .map(|s| (s.market as u16, s.code.clone()))
-            .collect();
+        let stock_codes = super::quote_collector_support::build_tdx_stock_codes(stocks);
 
         // 转换为引用用于 TDX 调用
-        let stock_codes_ref: Vec<(u16, &str)> =
-            stock_codes.iter().map(|(m, c)| (*m, c.as_str())).collect();
+        let stock_codes_ref =
+            super::quote_collector_support::build_tdx_stock_code_refs(&stock_codes);
 
         // 使用超时包装整个操作
         let result = timeout(
@@ -112,7 +109,7 @@ impl QuoteCollector {
         info!("开始分批采集全市场 {} 只股票的实时行情", stocks.len());
 
         // 将股票分批
-        let batches: Vec<&[StockInfo]> = stocks.chunks(self.batch_size).collect();
+        let batches = super::quote_collector_support::stock_batches(stocks, self.batch_size);
         let total_batches = batches.len();
         let mut all_quotes = Vec::new();
 
