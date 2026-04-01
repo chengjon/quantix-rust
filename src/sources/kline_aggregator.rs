@@ -228,60 +228,12 @@ impl KlineAggregator {
 
     /// 生成窗口Key
     fn make_window_key(code: &str, period: KlinePeriod, time: &DateTime<Utc>) -> String {
-        let date_str = time.format("%Y-%m-%d").to_string();
-        format!("{}:{}:{}", code, period.as_str(), date_str)
+        super::kline_aggregator_support::make_window_key(code, period, time)
     }
 
     /// 计算窗口开始时间
     fn calculate_window_start(time: DateTime<Utc>, period: KlinePeriod) -> DateTime<Utc> {
-        match period {
-            KlinePeriod::OneMinute => {
-                // 1分钟窗口：对齐到分钟
-                time.with_second(0)
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-            KlinePeriod::FiveMinutes => {
-                // 5分钟窗口：对齐到5分钟
-                let window_min = (time.minute() / 5) * 5;
-                time.with_minute(window_min)
-                    .and_then(|t| t.with_second(0))
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-            KlinePeriod::FifteenMinutes => {
-                // 15分钟窗口：对齐到15分钟
-                let window_min = (time.minute() / 15) * 15;
-                time.with_minute(window_min)
-                    .and_then(|t| t.with_second(0))
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-            KlinePeriod::ThirtyMinutes => {
-                // 30分钟窗口：对齐到30分钟
-                let window_min = (time.minute() / 30) * 30;
-                time.with_minute(window_min)
-                    .and_then(|t| t.with_second(0))
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-            KlinePeriod::OneHour => {
-                // 60分钟窗口：对齐到小时
-                let window_min = (time.minute() / 60) * 60;
-                time.with_minute(window_min)
-                    .and_then(|t| t.with_second(0))
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-            KlinePeriod::Daily => {
-                // 日线窗口：对齐到日期
-                time.with_hour(9)
-                    .and_then(|t| t.with_minute(30))
-                    .and_then(|t| t.with_second(0))
-                    .and_then(|t| t.with_nanosecond(0))
-                    .unwrap_or(time)
-            }
-        }
+        super::kline_aggregator_support::calculate_window_start(time, period)
     }
 
     /// 处理单条行情数据
@@ -356,10 +308,10 @@ impl KlineAggregator {
 
         // 清理超过2小时未更新的窗口
         windows.retain(|_key, window| {
-            let elapsed = current_time
-                .signed_duration_since(window.last_update)
-                .num_seconds();
-            elapsed < 7200 // 2小时 = 7200秒
+            super::kline_aggregator_support::should_retain_window(
+                current_time,
+                window.last_update,
+            )
         });
 
         let removed_count = initial_count - windows.len();

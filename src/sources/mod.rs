@@ -6,6 +6,7 @@ mod bridge_tdx_support;
 pub mod eastmoney;
 mod eastmoney_support;
 pub mod kline_aggregator;
+mod kline_aggregator_support;
 pub mod quote_collector;
 mod quote_collector_support;
 /// 数据源适配器
