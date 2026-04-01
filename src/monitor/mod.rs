@@ -3,6 +3,7 @@ pub mod models;
 pub mod runner;
 pub mod service;
 pub mod service_config;
+mod service_snapshot;
 pub mod storage;
 pub mod systemd;
 
