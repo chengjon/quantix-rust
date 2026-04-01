@@ -2,6 +2,7 @@ pub mod evaluator;
 pub mod models;
 pub mod parser;
 pub mod service;
+mod service_support;
 
 pub use evaluator::{evaluate_preset, required_lookback};
 pub use models::{
