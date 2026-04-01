@@ -16,6 +16,7 @@ pub mod tdx;
 mod tdx_support;
 pub mod tdx_file;
 pub mod websocket;
+mod websocket_support;
 
 pub use akshare::AkShareSource;
 pub use auction_collector::{AuctionCollector, AuctionQuote, WatchlistStock};

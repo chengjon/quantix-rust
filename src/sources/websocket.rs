@@ -324,18 +324,12 @@ impl WebSocketClient {
             tokio_tungstenite::WebSocketStream<
                 tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
             >,
-            Message,
+        Message,
         >,
         codes: &[String],
     ) -> Result<()> {
-        // 构建订阅消息 (东方财富格式)
-        let subscribe_msg = serde_json::json!({
-            "cmd": "sub",
-            "data": codes
-        });
-
         ws_sender
-            .send(Message::Text(subscribe_msg.to_string()))
+            .send(super::websocket_support::build_subscribe_message(codes))
             .await
             .map_err(|e| QuantixError::Other(format!("发送订阅消息失败: {}", e)))?;
 
@@ -345,37 +339,7 @@ impl WebSocketClient {
 
     /// 解析行情消息
     fn parse_message(text: &str) -> Option<RealtimeQuote> {
-        // 简化实现，实际需要根据具体数据源格式解析
-        if let Ok(data) = serde_json::from_str::<serde_json::Value>(text) {
-            if let Some(obj) = data.as_object() {
-                // 东方财富格式示例
-                if let Some(code) = obj.get("code").and_then(|v| v.as_str()) {
-                    return Some(RealtimeQuote {
-                        code: code.to_string(),
-                        name: obj
-                            .get("name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        price: obj.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        preclose: obj.get("preclose").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        open: obj.get("open").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        high: obj.get("high").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        low: obj.get("low").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        volume: obj.get("volume").and_then(|v| v.as_i64()).unwrap_or(0),
-                        amount: obj.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        change_percent: obj
-                            .get("change_percent")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0),
-                        bid1: obj.get("bid1").and_then(|v| v.as_f64()),
-                        ask1: obj.get("ask1").and_then(|v| v.as_f64()),
-                        timestamp: chrono::Utc::now().timestamp(),
-                    });
-                }
-            }
-        }
-        None
+        super::websocket_support::parse_realtime_quote_message(text)
     }
 }
 
