@@ -177,8 +177,7 @@ impl TdxSource {
         debug!("开始采集 {} 只股票的实时行情", codes.len());
 
         // 转换为 Owned String 以避免生命周期问题
-        let codes_owned: Vec<(u16, String)> =
-            codes.iter().map(|(m, c)| (*m, c.to_string())).collect();
+        let codes_owned = super::tdx_support::build_owned_codes(codes);
 
         // 从连接池获取连接
         let tcp = self.get_connection();
@@ -187,8 +186,7 @@ impl TdxSource {
         let handle: JoinHandle<Result<Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)>>> =
             tokio::task::spawn_blocking(move || {
                 // 转换为引用
-                let codes_ref: Vec<(u16, &str)> =
-                    codes_owned.iter().map(|(m, c)| (*m, c.as_str())).collect();
+                let codes_ref = super::tdx_support::build_code_refs(&codes_owned);
 
                 let mut tcp_guard = tcp.lock().map_err(|e| {
                     crate::core::QuantixError::DataSource(format!("无法获取 TCP 锁: {}", e))
@@ -230,18 +228,7 @@ impl TdxSource {
             .map_err(|e| crate::core::QuantixError::DataSource(format!("任务执行失败: {}", e)))??;
 
         // 转换为 StockQuote
-        let quotes: Vec<StockQuote> = timeout_result
-            .into_iter()
-            .map(
-                |(code, name, price, preclose, open, high, low, volume, amount)| {
-                    // 判断市场：6开头是上海，其他是深圳
-                    let market = if code.starts_with('6') { 1 } else { 0 };
-                    StockQuote::from_tdx(
-                        code, name, price, preclose, open, high, low, volume, amount, market,
-                    )
-                },
-            )
-            .collect();
+        let quotes = super::tdx_support::map_raw_quotes(timeout_result);
 
         debug!("成功采集 {} 只股票的实时行情", quotes.len());
         Ok(quotes)

@@ -13,6 +13,7 @@ mod quote_collector_support;
 ///
 /// 统一数据源接口，支持多数据源切换
 pub mod tdx;
+mod tdx_support;
 pub mod tdx_file;
 pub mod websocket;
 
