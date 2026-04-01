@@ -5,6 +5,7 @@
 pub mod types;
 pub mod provider;
 pub mod aggregator;
+mod aggregator_support;
 
 pub use types::{SentimentData, SentimentScore, SocialMention};
 pub use provider::SentimentProvider;
