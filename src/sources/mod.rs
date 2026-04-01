@@ -4,6 +4,7 @@ mod auction_collector_support;
 pub mod bridge_tdx;
 mod bridge_tdx_support;
 pub mod eastmoney;
+mod eastmoney_support;
 pub mod kline_aggregator;
 pub mod quote_collector;
 mod quote_collector_support;
