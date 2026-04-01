@@ -154,40 +154,12 @@ impl AuctionCollector {
         hour == 9 && minute >= 15 && minute < 25
     }
 
-    /// 计算封单金额
-    fn calculate_sealed_amount(
-        buy1_price: f64,
-        buy1_volume: u64,
-        sell1_price: f64,
-        sell1_volume: u64,
-    ) -> (f64, f64) {
-        let sealed_buy = buy1_price * buy1_volume as f64;
-        let sealed_sell = sell1_price * sell1_volume as f64;
-        (sealed_buy, sealed_sell)
-    }
-
     /// 计算抢筹强度评分（0-100分）
     ///
     /// 评分算法：
     /// - 涨幅权重 40%
     /// - 买盘占比权重 30%
     /// - 成交量权重 30%
-    fn calculate_strength_score(&self, quote: &AuctionQuote) -> f32 {
-        let price_rise = quote.change_percent.max(0.0) as f32;
-
-        let buy_ratio = if quote.buy1_volume + quote.sell1_volume > 0 {
-            (quote.buy1_volume as f32) / ((quote.buy1_volume + quote.sell1_volume) as f32)
-        } else {
-            0.5
-        };
-
-        let volume_ratio = (quote.volume as f32 / 1_000_000.0).min(1.0);
-
-        let score = (price_rise * 40.0) + (buy_ratio * 30.0) + (volume_ratio * 30.0);
-
-        score.min(100.0).max(0.0)
-    }
-
     /// 采集单只股票的竞价数据
     pub fn fetch_auction_quote(&mut self, stock: &WatchlistStock) -> Result<AuctionQuote> {
         let mut quotes = SecurityQuotes::new(vec![(stock.market, &stock.code)]);
@@ -197,40 +169,18 @@ impl AuctionCollector {
         })?;
 
         if let Some(quote) = quotes.result().first() {
-            let (sealed_buy, sealed_sell) = Self::calculate_sealed_amount(
+            Ok(super::auction_collector_support::build_auction_quote(
+                stock,
+                Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                quote.price,
+                quote.preclose,
+                quote.vol as u64,
+                quote.amount,
                 quote.bid1,
                 quote.bid1_vol as u64,
                 quote.ask1,
                 quote.ask1_vol as u64,
-            );
-
-            let change_percent = if quote.preclose > 0.0 {
-                ((quote.price - quote.preclose) / quote.preclose) * 100.0
-            } else {
-                0.0
-            };
-
-            let mut auction_quote = AuctionQuote {
-                code: stock.code.clone(),
-                name: stock.name.clone(),
-                time: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                price: quote.price,
-                pre_close: quote.preclose,
-                volume: quote.vol as u64,
-                amount: quote.amount,
-                buy1_price: quote.bid1,
-                buy1_volume: quote.bid1_vol as u64,
-                sell1_price: quote.ask1,
-                sell1_volume: quote.ask1_vol as u64,
-                change_percent,
-                sealed_amount_buy: sealed_buy,
-                sealed_amount_sell: sealed_sell,
-                strength_score: 0.0, // 稍后计算
-            };
-
-            auction_quote.strength_score = self.calculate_strength_score(&auction_quote);
-
-            Ok(auction_quote)
+            ))
         } else {
             Err(crate::core::QuantixError::DataSource(format!(
                 "获取竞价数据失败: {}",
@@ -310,7 +260,8 @@ mod tests {
 
     #[test]
     fn test_calculate_sealed_amount() {
-        let (buy, sell) = AuctionCollector::calculate_sealed_amount(10.0, 1000, 10.5, 500);
+        let (buy, sell) =
+            super::super::auction_collector_support::calculate_sealed_amount(10.0, 1000, 10.5, 500);
         assert_eq!(buy, 10000.0);
         assert_eq!(sell, 5250.0);
     }

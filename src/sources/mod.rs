@@ -1,5 +1,6 @@
 pub mod akshare;
 pub mod auction_collector;
+mod auction_collector_support;
 pub mod bridge_tdx;
 mod bridge_tdx_support;
 pub mod eastmoney;
