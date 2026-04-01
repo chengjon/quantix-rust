@@ -2,6 +2,7 @@ pub mod fees;
 pub mod models;
 pub mod reporting;
 pub mod service;
+mod service_state;
 pub mod storage;
 
 pub use fees::calculate_fee_breakdown;

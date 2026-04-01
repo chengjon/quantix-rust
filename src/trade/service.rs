@@ -2,14 +2,13 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
-use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::core::{QuantixError, Result};
 use crate::trade::fees::calculate_fee_breakdown;
 use crate::trade::models::{
-    CashSnapshot, DEFAULT_ACCOUNT_ID, InitAccountRequest, PaperTradeAccount, PaperTradeState,
-    TradeOrderRequest, TradePosition, TradeRecord, TradeSide,
+    CashSnapshot, InitAccountRequest, PaperTradeAccount, PaperTradeState, TradeOrderRequest,
+    TradePosition, TradeRecord, TradeSide,
 };
 
 #[async_trait]
@@ -37,19 +36,8 @@ where
         request: InitAccountRequest,
         now: DateTime<Utc>,
     ) -> Result<PaperTradeAccount> {
-        let state = self.store.load_state().await?;
-        if state.and_then(|state| state.account).is_some() {
-            return Err(QuantixError::Other(
-                "trade account 已初始化，请使用 trade reset".to_string(),
-            ));
-        }
-
-        let account = build_account(request, now);
-        let state = PaperTradeState {
-            account: Some(account.clone()),
-            ..PaperTradeState::default()
-        };
-
+        let (account, state) =
+            super::service_state::init_account_state(self.store.load_state().await?, request, now)?;
         self.store.save_state(&state).await?;
         Ok(account)
     }
@@ -59,12 +47,7 @@ where
         request: InitAccountRequest,
         now: DateTime<Utc>,
     ) -> Result<PaperTradeAccount> {
-        let account = build_account(request, now);
-        let state = PaperTradeState {
-            account: Some(account.clone()),
-            ..PaperTradeState::default()
-        };
-
+        let (account, state) = super::service_state::reset_account_state(request, now);
         self.store.save_state(&state).await?;
         Ok(account)
     }
@@ -160,31 +143,13 @@ where
     }
 
     pub async fn positions(&self) -> Result<Vec<TradePosition>> {
-        let state = self.load_initialized_state().await?;
-        Ok(state
-            .account
-            .expect("initialized account")
-            .positions
-            .into_values()
-            .collect())
+        Ok(super::service_state::positions_from_state(
+            self.load_initialized_state().await?,
+        ))
     }
 
     pub async fn cash_snapshot(&self) -> Result<CashSnapshot> {
-        let state = self.load_initialized_state().await?;
-        let account = state.account.expect("initialized account");
-        let estimated_position_value = account.positions.values().try_fold(
-            Decimal::ZERO,
-            |acc, position| -> Result<Decimal> {
-                Ok(acc + decimal_volume(position.volume)? * position.last_trade_price)
-            },
-        )?;
-
-        Ok(CashSnapshot {
-            initial_capital: account.initial_capital,
-            available_cash: account.available_cash,
-            estimated_position_value,
-            estimated_total_assets: account.available_cash + estimated_position_value,
-        })
+        super::service_state::cash_snapshot_from_state(self.load_initialized_state().await?)
     }
 
     pub async fn state_snapshot(&self) -> Result<PaperTradeState> {
@@ -192,26 +157,7 @@ where
     }
 
     async fn load_initialized_state(&self) -> Result<PaperTradeState> {
-        let state = self.store.load_state().await?.unwrap_or_default();
-        if state.account.is_none() {
-            return Err(QuantixError::Other(
-                "trade account 尚未初始化，请先运行 trade init".to_string(),
-            ));
-        }
-
-        Ok(state)
-    }
-}
-
-fn build_account(request: InitAccountRequest, now: DateTime<Utc>) -> PaperTradeAccount {
-    PaperTradeAccount {
-        account_id: DEFAULT_ACCOUNT_ID.to_string(),
-        initial_capital: request.capital,
-        available_cash: request.capital,
-        fee_config: request.fee_config,
-        positions: BTreeMap::new(),
-        created_at: now,
-        updated_at: now,
+        super::service_state::ensure_initialized_state(self.store.load_state().await?)
     }
 }
 
