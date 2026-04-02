@@ -161,7 +161,7 @@ impl KlineWindow {
 
         // 更新最后更新时间（从 u64 timestamp 转换为 DateTime<Utc>）
         self.last_update =
-            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(|| Utc::now());
+            super::kline_aggregator_support::quote_timestamp_or(quote.timestamp, Utc::now());
     }
 
     /// 判断窗口是否应该关闭（时间窗口结束）
@@ -262,7 +262,7 @@ impl KlineAggregator {
     async fn update_window(&self, quote: &StockQuote, period: KlinePeriod) -> Option<KlineData> {
         // 从 u64 timestamp 转换为 DateTime<Utc>
         let current_time =
-            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(|| Utc::now());
+            super::kline_aggregator_support::quote_timestamp_or(quote.timestamp, Utc::now());
         let window_key = Self::make_window_key(&quote.code, period, &current_time);
 
         let mut windows = self.windows.lock().await;

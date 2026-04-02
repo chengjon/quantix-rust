@@ -2,6 +2,13 @@ use chrono::{DateTime, Timelike, Utc};
 
 use super::kline_aggregator::KlinePeriod;
 
+pub(super) fn quote_timestamp_or(timestamp: u64, fallback: DateTime<Utc>) -> DateTime<Utc> {
+    i64::try_from(timestamp)
+        .ok()
+        .and_then(|seconds| DateTime::from_timestamp(seconds, 0))
+        .unwrap_or(fallback)
+}
+
 pub(super) fn make_window_key(
     code: &str,
     period: KlinePeriod,
@@ -63,4 +70,23 @@ pub(super) fn should_retain_window(
 ) -> bool {
     let elapsed = current_time.signed_duration_since(last_update).num_seconds();
     elapsed < 7200
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quote_timestamp_or_uses_parsed_time_or_fallback() {
+        let fallback = DateTime::parse_from_rfc3339("2026-01-02T10:30:45Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let valid_timestamp = u64::try_from(fallback.timestamp()).unwrap();
+
+        let valid = quote_timestamp_or(valid_timestamp, fallback);
+        let invalid = quote_timestamp_or(u64::MAX, fallback);
+
+        assert_eq!(valid, fallback);
+        assert_eq!(invalid, fallback);
+    }
 }
