@@ -176,18 +176,16 @@ impl KlineWindow {
     /// 转换为KlineData
     pub fn to_kline_data(&self, source: &str) -> Option<KlineData> {
         let open = self.open?;
+        let (high, low) =
+            super::kline_aggregator_support::resolved_high_low(open, self.high, self.low);
         Some(KlineData {
             timestamp: self.start_time,
             code: self.code.clone(),
             name: self.name.clone(),
             period: self.period,
             open,
-            high: if self.high > f64::MIN {
-                self.high
-            } else {
-                open
-            },
-            low: if self.low < f64::MAX { self.low } else { open },
+            high,
+            low,
             close: self.close,
             volume: self.volume,
             amount: self.amount,

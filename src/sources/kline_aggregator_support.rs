@@ -9,6 +9,12 @@ pub(super) fn quote_timestamp_or(timestamp: u64, fallback: DateTime<Utc>) -> Dat
         .unwrap_or(fallback)
 }
 
+pub(super) fn resolved_high_low(open: f64, high: f64, low: f64) -> (f64, f64) {
+    let resolved_high = if high > f64::MIN { high } else { open };
+    let resolved_low = if low < f64::MAX { low } else { open };
+    (resolved_high, resolved_low)
+}
+
 pub(super) fn make_window_key(
     code: &str,
     period: KlinePeriod,
@@ -88,5 +94,11 @@ mod tests {
 
         assert_eq!(valid, fallback);
         assert_eq!(invalid, fallback);
+    }
+
+    #[test]
+    fn resolved_high_low_falls_back_to_open_for_uninitialized_bounds() {
+        assert_eq!(resolved_high_low(10.5, f64::MIN, f64::MAX), (10.5, 10.5));
+        assert_eq!(resolved_high_low(10.5, 11.2, 9.8), (11.2, 9.8));
     }
 }
