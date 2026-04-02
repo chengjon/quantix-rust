@@ -9,7 +9,7 @@ use chrono::Utc;
 use rustdx_complete::tcp::stock::SecurityQuotes;
 use rustdx_complete::tcp::{Tcp, Tdx};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use tokio::task::JoinHandle;
 use tracing::{debug, info};
 
@@ -127,10 +127,8 @@ impl TdxSource {
 
     /// 从连接池获取连接（轮询方式）
     fn get_connection(&self) -> Arc<std::sync::Mutex<Tcp>> {
-        let index = self
-            .connection_index
-            .fetch_add(1, Ordering::Relaxed)
-            .wrapping_rem(self.tcp_pool.len());
+        let index =
+            super::tdx_support::next_pool_index(self.connection_index.as_ref(), self.tcp_pool.len());
 
         self.tcp_pool[index].clone()
     }

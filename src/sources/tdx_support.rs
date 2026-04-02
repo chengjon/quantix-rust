@@ -1,6 +1,7 @@
 use crate::core::Result;
 use crate::sources::tdx::StockQuote;
 use rustdx_complete::tcp::Tcp;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{debug, warn};
@@ -48,6 +49,10 @@ pub(super) fn build_code_refs(owned_codes: &OwnedCodes) -> Vec<(u16, &str)> {
         .iter()
         .map(|(market, code)| (*market, code.as_str()))
         .collect()
+}
+
+pub(super) fn next_pool_index(counter: &AtomicUsize, pool_len: usize) -> usize {
+    counter.fetch_add(1, Ordering::Relaxed).wrapping_rem(pool_len)
 }
 
 pub(super) fn map_raw_quotes(rows: Vec<RawQuoteTuple>) -> Vec<StockQuote> {
@@ -182,5 +187,28 @@ mod tests {
         let error = await_quote_batch(handle, 1).await.unwrap_err();
 
         assert!(matches!(error, QuantixError::DataSource(_)));
+    }
+
+    #[test]
+    fn next_pool_index_round_robins_across_pool_length() {
+        let counter = AtomicUsize::new(0);
+
+        let indexes = [
+            next_pool_index(&counter, 3),
+            next_pool_index(&counter, 3),
+            next_pool_index(&counter, 3),
+            next_pool_index(&counter, 3),
+        ];
+
+        assert_eq!(indexes, [0, 1, 2, 0]);
+    }
+
+    #[test]
+    fn next_pool_index_preserves_wrapping_behavior_from_existing_counter_state() {
+        let counter = AtomicUsize::new(usize::MAX);
+
+        let index = next_pool_index(&counter, 4);
+
+        assert_eq!(index, 3);
     }
 }
