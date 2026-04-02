@@ -5,7 +5,7 @@ use crate::core::Result;
 use crate::sources::tdx::{StockQuote, TdxSource};
 use std::sync::Arc;
 use tokio::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// 股票基本信息（用于采集）
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -98,38 +98,12 @@ impl QuoteCollector {
 
         // 将股票分批
         let batches = super::quote_collector_support::stock_batches(stocks, self.batch_size);
-        let total_batches = batches.len();
-        let mut all_quotes = Vec::new();
-
-        for (i, batch) in batches.iter().enumerate() {
-            info!(
-                "正在采集第 {}/{} 批（{} 只股票）",
-                i + 1,
-                total_batches,
-                batch.len()
-            );
-
-            match self.collect_batch(batch).await {
-                Ok(quotes) => {
-                    all_quotes.extend(quotes);
-                    debug!("第 {}/{} 批采集完成", i + 1, total_batches);
-                }
-                Err(e) => {
-                    warn!(
-                        "第 {}/{} 批采集失败: {}, 跳过该批次",
-                        i + 1,
-                        total_batches,
-                        e
-                    );
-                    // 继续采集下一批，不中断整个流程
-                }
-            }
-
-            // 避免请求过快被封 IP
-            if i < total_batches - 1 {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
+        let all_quotes = super::quote_collector_support::collect_batches(
+            batches,
+            Duration::from_millis(100),
+            |batch| self.collect_batch(batch),
+        )
+        .await;
 
         info!(
             "全市场行情采集完成：共获取 {} 只股票的行情数据",

@@ -3,7 +3,7 @@ use crate::core::Result;
 use crate::sources::tdx::StockQuote;
 use std::future::Future;
 use tokio::time::{Duration, timeout};
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 pub(super) fn build_tdx_stock_codes(stocks: &[StockInfo]) -> Vec<(u16, String)> {
     stocks
@@ -45,6 +45,49 @@ where
             warn!("采集行情失败: {}", error);
             error
         })
+}
+
+pub(super) async fn collect_batches<'a, F, Fut>(
+    batches: Vec<&'a [StockInfo]>,
+    inter_batch_delay: Duration,
+    mut collect_batch: F,
+) -> Vec<StockQuote>
+where
+    F: FnMut(&'a [StockInfo]) -> Fut,
+    Fut: Future<Output = Result<Vec<StockQuote>>>,
+{
+    let total_batches = batches.len();
+    let mut all_quotes = Vec::new();
+
+    for (index, batch) in batches.into_iter().enumerate() {
+        info!(
+            "正在采集第 {}/{} 批（{} 只股票）",
+            index + 1,
+            total_batches,
+            batch.len()
+        );
+
+        match collect_batch(batch).await {
+            Ok(quotes) => {
+                all_quotes.extend(quotes);
+                debug!("第 {}/{} 批采集完成", index + 1, total_batches);
+            }
+            Err(error) => {
+                warn!(
+                    "第 {}/{} 批采集失败: {}, 跳过该批次",
+                    index + 1,
+                    total_batches,
+                    error
+                );
+            }
+        }
+
+        if index + 1 < total_batches {
+            tokio::time::sleep(inter_batch_delay).await;
+        }
+    }
+
+    all_quotes
 }
 
 #[cfg(test)]
@@ -97,6 +140,15 @@ mod tests {
             config.amount,
             config.market,
         )
+    }
+
+    fn build_quote_for_stock(stock: &StockInfo) -> StockQuote {
+        build_quote(&QuoteFixtureConfig {
+            code: stock.code.as_str(),
+            name: stock.name.as_str(),
+            market: stock.market,
+            ..QuoteFixtureConfig::default()
+        })
     }
 
     fn stock(code: &str, market: u8) -> StockInfo {
@@ -154,5 +206,52 @@ mod tests {
         let error = await_collect_quotes(future, 0).await.unwrap_err();
 
         assert!(matches!(error, crate::core::QuantixError::Timeout(_)));
+    }
+
+    #[tokio::test]
+    async fn collect_batches_merges_quotes_from_successful_batches() {
+        let stocks = vec![
+            stock("000001", 0),
+            stock("000002", 0),
+            stock("600000", 1),
+        ];
+        let batches = stock_batches(&stocks, 2);
+
+        let quotes = collect_batches(batches, Duration::from_millis(0), |batch| async move {
+            Ok::<Vec<StockQuote>, crate::core::QuantixError>(
+                batch.iter().map(build_quote_for_stock).collect(),
+            )
+        })
+        .await;
+
+        assert_eq!(quotes.len(), 3);
+        assert_eq!(quotes[0].code, "000001");
+        assert_eq!(quotes[2].code, "600000");
+    }
+
+    #[tokio::test]
+    async fn collect_batches_skips_failed_batches_and_continues() {
+        let stocks = vec![
+            stock("000001", 0),
+            stock("000002", 0),
+            stock("600000", 1),
+        ];
+        let batches = stock_batches(&stocks, 1);
+
+        let quotes = collect_batches(batches, Duration::from_millis(0), |batch| async move {
+            if batch[0].code == "000002" {
+                return Err(crate::core::QuantixError::DataSource(
+                    "expected test failure".to_string(),
+                ));
+            }
+
+            Ok::<Vec<StockQuote>, crate::core::QuantixError>(
+                batch.iter().map(build_quote_for_stock).collect(),
+            )
+        })
+        .await;
+
+        let codes: Vec<_> = quotes.iter().map(|quote| quote.code.as_str()).collect();
+        assert_eq!(codes, vec!["000001", "600000"]);
     }
 }
