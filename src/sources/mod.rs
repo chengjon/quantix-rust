@@ -18,6 +18,7 @@ pub mod tdx_file;
 mod tdx_file_daydata_support;
 mod tdx_file_gbbq_support;
 mod tdx_file_fuquan_support;
+mod tdx_file_import_support;
 pub mod websocket;
 mod websocket_support;
 

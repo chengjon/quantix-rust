@@ -486,20 +486,7 @@ impl TdxDataImporter {
         code: &str,
         gbbqs: Option<&[TdxGbbqRecord]>,
     ) -> Result<Vec<TdxDayData>> {
-        let code_num = code.parse::<u32>().map_err(|_| {
-            crate::core::QuantixError::DataParse(format!("无效的股票代码: {}", code))
-        })?;
-
-        let day_path = format!("{}/{}.day", self.data_dir, code);
-        let records = TdxDayFile::from_file(code_num, &day_path)?;
-
-        let factors = FuquanCalculator::calculate(&records, gbbqs)?;
-
-        Ok(records
-            .iter()
-            .zip(factors.iter())
-            .map(|(r, f)| TdxDayData::from_record(r, f))
-            .collect())
+        super::tdx_file_import_support::import_stock_day(&self.data_dir, code, gbbqs)
     }
 
     /// 批量导入多只股票
@@ -508,23 +495,7 @@ impl TdxDataImporter {
         codes: &[String],
         gbbq_map: &HashMap<String, Vec<TdxGbbqRecord>>,
     ) -> Result<HashMap<String, Vec<TdxDayData>>> {
-        let mut result = HashMap::new();
-
-        for code in codes {
-            let gbbqs = gbbq_map.get(code).map(|v| v.as_slice());
-            match self.import_stock_day(code, gbbqs) {
-                Ok(data) => {
-                    if !data.is_empty() {
-                        result.insert(code.clone(), data);
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("导入 {} 失败: {}", code, e);
-                }
-            }
-        }
-
-        Ok(result)
+        super::tdx_file_import_support::import_batch(&self.data_dir, codes, gbbq_map)
     }
 }
 
