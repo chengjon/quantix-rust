@@ -58,65 +58,124 @@ mod tests {
 
     use super::*;
 
-    fn write_day_file(
-        dir: &Path,
-        code: &str,
-        rows: &[(u32, u32, u32, u32, u32, f32, u32)],
-    ) {
-        let mut bytes = Vec::with_capacity(rows.len() * 32);
-        for (date, open, high, low, close, amount, volume) in rows {
-            bytes.extend_from_slice(&date.to_le_bytes());
-            bytes.extend_from_slice(&open.to_le_bytes());
-            bytes.extend_from_slice(&high.to_le_bytes());
-            bytes.extend_from_slice(&low.to_le_bytes());
-            bytes.extend_from_slice(&close.to_le_bytes());
-            bytes.extend_from_slice(&amount.to_le_bytes());
-            bytes.extend_from_slice(&volume.to_le_bytes());
+    #[derive(Clone, Copy)]
+    struct DayRowFixtureConfig {
+        date: u32,
+        open: u32,
+        high: u32,
+        low: u32,
+        close: u32,
+        amount: f32,
+        volume: u32,
+    }
+
+    impl Default for DayRowFixtureConfig {
+        fn default() -> Self {
+            Self {
+                date: 20210801,
+                open: 1000,
+                high: 1050,
+                low: 990,
+                close: 1040,
+                amount: 1_000_000.0,
+                volume: 10_000,
+            }
+        }
+    }
+
+    struct DayFileFixtureConfig<'a> {
+        code: &'a str,
+        rows: Vec<DayRowFixtureConfig>,
+    }
+
+    impl Default for DayFileFixtureConfig<'static> {
+        fn default() -> Self {
+            Self {
+                code: "600000",
+                rows: vec![DayRowFixtureConfig::default()],
+            }
+        }
+    }
+
+    fn close_decimal(close: u32) -> Decimal {
+        Decimal::from_f64(close as f64 / 100.0)
+            .unwrap()
+            .round_dp(2)
+    }
+
+    fn factor_decimal(rows: &[DayRowFixtureConfig], target_index: usize) -> Decimal {
+        let mut factor = 1.0;
+        let mut preclose = rows[0].close as f64 / 100.0;
+
+        for row in rows.iter().take(target_index + 1) {
+            let close = row.close as f64 / 100.0;
+            factor *= close / preclose;
+            preclose = close;
+        }
+
+        Decimal::from_f64(factor).unwrap().round_dp(6)
+    }
+
+    fn write_day_file(dir: &Path, fixture: &DayFileFixtureConfig<'_>) {
+        let mut bytes = Vec::with_capacity(fixture.rows.len() * 32);
+        for row in &fixture.rows {
+            bytes.extend_from_slice(&row.date.to_le_bytes());
+            bytes.extend_from_slice(&row.open.to_le_bytes());
+            bytes.extend_from_slice(&row.high.to_le_bytes());
+            bytes.extend_from_slice(&row.low.to_le_bytes());
+            bytes.extend_from_slice(&row.close.to_le_bytes());
+            bytes.extend_from_slice(&row.amount.to_le_bytes());
+            bytes.extend_from_slice(&row.volume.to_le_bytes());
             bytes.extend_from_slice(&0u32.to_le_bytes());
         }
 
-        fs::write(dir.join(format!("{code}.day")), bytes).unwrap();
+        fs::write(dir.join(format!("{}.day", fixture.code)), bytes).unwrap();
     }
 
     #[test]
     fn import_stock_day_reads_day_file_and_builds_day_data() {
         let dir = tempdir().unwrap();
-        write_day_file(
-            dir.path(),
-            "600000",
-            &[
-                (20210801, 1000, 1050, 990, 1040, 1000000.0, 10000),
-                (20210802, 1045, 1080, 1030, 1070, 1000000.0, 10000),
-            ],
-        );
+        let first_row = DayRowFixtureConfig::default();
+        let second_row = DayRowFixtureConfig {
+            date: 20210802,
+            open: 1045,
+            high: 1080,
+            low: 1030,
+            close: 1070,
+            ..DayRowFixtureConfig::default()
+        };
+        let file_fixture = DayFileFixtureConfig {
+            rows: vec![first_row, second_row],
+            ..DayFileFixtureConfig::default()
+        };
+        write_day_file(dir.path(), &file_fixture);
 
-        let imported = import_stock_day(dir.path().to_str().unwrap(), "600000", None).unwrap();
+        let imported =
+            import_stock_day(dir.path().to_str().unwrap(), file_fixture.code, None).unwrap();
 
         assert_eq!(imported.len(), 2);
-        assert_eq!(imported[0].code, "600000");
-        assert_eq!(imported[0].close, Decimal::from_f64(10.4).unwrap());
-        assert_eq!(imported[1].close, Decimal::from_f64(10.7).unwrap());
-        assert!(imported[1].factor > Decimal::from_f64(1.02).unwrap());
+        assert_eq!(imported[0].code, file_fixture.code);
+        assert_eq!(imported[0].close, close_decimal(first_row.close));
+        assert_eq!(imported[1].close, close_decimal(second_row.close));
+        assert_eq!(imported[1].factor, factor_decimal(&file_fixture.rows, 1));
     }
 
     #[test]
     fn import_batch_skips_codes_that_fail_to_import() {
         let dir = tempdir().unwrap();
-        write_day_file(
-            dir.path(),
-            "600000",
-            &[(20210801, 1000, 1050, 990, 1040, 1000000.0, 10000)],
-        );
+        let primary_fixture = DayFileFixtureConfig::default();
+        let missing_code = "000001".to_string();
+        write_day_file(dir.path(), &primary_fixture);
 
         let imported = import_batch(
             dir.path().to_str().unwrap(),
-            &["600000".to_string(), "000001".to_string()],
+            &[primary_fixture.code.to_string(), missing_code.clone()],
             &HashMap::new(),
         )
         .unwrap();
 
         assert_eq!(imported.len(), 1);
-        assert!(imported.contains_key("600000"));
-        assert!(!imported.contains_key("000001"));
+        assert!(imported.contains_key(primary_fixture.code));
+        assert!(!imported.contains_key(&missing_code));
     }
 }

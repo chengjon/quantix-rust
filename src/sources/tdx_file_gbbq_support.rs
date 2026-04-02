@@ -43,36 +43,79 @@ pub(super) fn group_by_code(records: Vec<TdxGbbqRecord>) -> HashMap<String, Vec<
 mod tests {
     use super::*;
 
-    fn sample_record(code: &str, category: u8) -> TdxGbbqRecord {
+    struct GbbqRecordFixtureConfig<'a> {
+        code: &'a str,
+        category: u8,
+        market: u8,
+        date: u32,
+        fh_qltp: f32,
+        pgj_qzgb: f32,
+        sg_hltp: f32,
+        pg_hzgb: f32,
+    }
+
+    impl Default for GbbqRecordFixtureConfig<'_> {
+        fn default() -> Self {
+            Self {
+                code: "000001",
+                category: 1,
+                market: 0,
+                date: 20240101,
+                fh_qltp: 1.0,
+                pgj_qzgb: 2.0,
+                sg_hltp: 1.0,
+                pg_hzgb: 1.0,
+            }
+        }
+    }
+
+    fn build_record(config: &GbbqRecordFixtureConfig<'_>) -> TdxGbbqRecord {
         TdxGbbqRecord {
-            market: 0,
-            code: code.to_string(),
-            date: 20240101,
-            category,
-            fh_qltp: 1.0,
-            pgj_qzgb: 2.0,
-            sg_hltp: 1.0,
-            pg_hzgb: 1.0,
+            market: config.market,
+            code: config.code.to_string(),
+            date: config.date,
+            category: config.category,
+            fh_qltp: config.fh_qltp,
+            pgj_qzgb: config.pgj_qzgb,
+            sg_hltp: config.sg_hltp,
+            pg_hzgb: config.pg_hzgb,
         }
     }
 
     #[test]
     fn compute_pre_pct_applies_adjustment_formula_on_xdxr_day() {
-        let record = sample_record("000001", 1);
-        let [adjusted_preclose, close, pct] = compute_pre_pct(&record, 11.0, 12.0, true);
+        let config = GbbqRecordFixtureConfig::default();
+        let record = build_record(&config);
+        let close = 11.0;
+        let preclose = 12.0;
+        let expected_preclose = (preclose * 10.0 - config.fh_qltp as f64
+            + config.pg_hzgb as f64 * config.pgj_qzgb as f64)
+            / (10.0 + config.pg_hzgb as f64 + config.sg_hltp as f64);
+        let [adjusted_preclose, adjusted_close, pct] =
+            compute_pre_pct(&record, close, preclose, true);
 
-        assert!((adjusted_preclose - (121.0 / 12.0)).abs() < 1e-9);
-        assert_eq!(close, 11.0);
-        assert!((pct - (11.0 / (121.0 / 12.0))).abs() < 1e-9);
+        assert!((adjusted_preclose - expected_preclose).abs() < 1e-9);
+        assert_eq!(adjusted_close, close as f64);
+        assert!((pct - (close as f64 / expected_preclose)).abs() < 1e-9);
     }
 
     #[test]
     fn filter_a_stock_dividend_keeps_only_a_share_dividend_records() {
         let records = vec![
-            sample_record("600000", 1),
-            sample_record("000001", 1),
-            sample_record("300001", 2),
-            sample_record("200001", 1),
+            build_record(&GbbqRecordFixtureConfig {
+                code: "600000",
+                ..Default::default()
+            }),
+            build_record(&GbbqRecordFixtureConfig::default()),
+            build_record(&GbbqRecordFixtureConfig {
+                code: "300001",
+                category: 2,
+                ..Default::default()
+            }),
+            build_record(&GbbqRecordFixtureConfig {
+                code: "200001",
+                ..Default::default()
+            }),
         ];
 
         let filtered = filter_a_stock_dividend(&records);
@@ -84,9 +127,15 @@ mod tests {
     #[test]
     fn group_by_code_collects_records_under_the_same_stock_code() {
         let grouped = group_by_code(vec![
-            sample_record("000001", 1),
-            sample_record("600000", 1),
-            sample_record("000001", 2),
+            build_record(&GbbqRecordFixtureConfig::default()),
+            build_record(&GbbqRecordFixtureConfig {
+                code: "600000",
+                ..Default::default()
+            }),
+            build_record(&GbbqRecordFixtureConfig {
+                category: 2,
+                ..Default::default()
+            }),
         ]);
 
         assert_eq!(grouped["000001"].len(), 2);
