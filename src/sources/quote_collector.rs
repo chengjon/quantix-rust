@@ -4,7 +4,7 @@
 use crate::core::Result;
 use crate::sources::tdx::{StockQuote, TdxSource};
 use std::sync::Arc;
-use tokio::time::{Duration, timeout};
+use tokio::time::Duration;
 use tracing::{debug, info, warn};
 
 /// 股票基本信息（用于采集）
@@ -72,23 +72,11 @@ impl QuoteCollector {
         let stock_codes_ref =
             super::quote_collector_support::build_tdx_stock_code_refs(&stock_codes);
 
-        // 使用超时包装整个操作
-        let result = timeout(
-            Duration::from_secs(self.collect_timeout),
+        let result = super::quote_collector_support::await_collect_quotes(
             self.tdx_source.fetch_quotes_batch(&stock_codes_ref),
+            self.collect_timeout,
         )
-        .await
-        .map_err(|_| {
-            warn!("采集行情超时（超过 {} 秒）", self.collect_timeout);
-            crate::core::QuantixError::Timeout(format!(
-                "采集超时（超过 {} 秒）",
-                self.collect_timeout
-            ))
-        })?
-        .map_err(|e| {
-            warn!("采集行情失败: {}", e);
-            e
-        })?;
+        .await?;
 
         debug!("成功采集 {} 只股票的实时行情", result.len());
         Ok(result)
