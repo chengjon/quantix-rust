@@ -135,18 +135,10 @@ impl TdxDayRecord {
             date: self
                 .naive_date()
                 .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
-            open: Decimal::from_f32(self.open)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            high: Decimal::from_f32(self.high)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            low: Decimal::from_f32(self.low)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            close: Decimal::from_f32(self.close)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
+            open: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.open),
+            high: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.high),
+            low: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.low),
+            close: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.close),
             volume: self.volume as i64,
             amount: Decimal::from_f32(self.amount).map(|d| d.round_dp(2)),
             adjust_type,

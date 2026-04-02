@@ -5,6 +5,12 @@ use rust_decimal::prelude::FromPrimitive;
 use crate::data::models::{AdjustType, Kline};
 use crate::sources::tdx_file::{FuquanFactor, TdxDayData, TdxDayRecord};
 
+pub(super) fn rounded_decimal_or_zero(value: f32) -> Decimal {
+    Decimal::from_f32(value)
+        .map(|value| value.round_dp(2))
+        .unwrap_or(Decimal::ZERO)
+}
+
 pub(super) fn from_record(record: &TdxDayRecord, factor: &FuquanFactor) -> TdxDayData {
     let change_pct = if factor.preclose > 0.0 {
         Decimal::from_f64((factor.close - factor.preclose) / factor.preclose * 100.0)
@@ -62,6 +68,15 @@ pub(super) fn to_kline(day_data: &TdxDayData, adjust_type: AdjustType) -> Kline 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rounded_decimal_or_zero_rounds_and_falls_back_for_invalid_values() {
+        assert_eq!(
+            rounded_decimal_or_zero(10.123),
+            Decimal::from_f64(10.123).unwrap().round_dp(2)
+        );
+        assert_eq!(rounded_decimal_or_zero(f32::NAN), Decimal::ZERO);
+    }
 
     struct DayRecordFixtureConfig {
         code: u32,
