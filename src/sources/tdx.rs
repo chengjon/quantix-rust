@@ -10,7 +10,6 @@ use rustdx_complete::tcp::stock::SecurityQuotes;
 use rustdx_complete::tcp::{Tcp, Tdx};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{debug, info};
 
@@ -158,7 +157,7 @@ impl TdxSource {
         let tcp = self.get_connection();
 
         // 使用 spawn_blocking 执行阻塞的 TDX I/O
-        let handle: JoinHandle<Result<Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)>>> =
+        let handle: JoinHandle<Result<Vec<super::tdx_support::RawQuoteTuple>>> =
             tokio::task::spawn_blocking(move || {
                 // 转换为引用
                 let codes_ref = super::tdx_support::build_code_refs(&codes_owned);
@@ -172,8 +171,7 @@ impl TdxSource {
                     crate::core::QuantixError::DataSource(format!("TDX 接收失败: {}", e))
                 })?;
 
-                // 提取行情数据
-                let result: Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)> = quotes
+                let rows: Vec<super::tdx_support::RawQuoteTuple> = quotes
                     .result()
                     .iter()
                     .map(|q| {
@@ -191,19 +189,10 @@ impl TdxSource {
                     })
                     .collect();
 
-                Ok(result)
+                Ok(rows)
             });
 
-        // 等待任务完成，带超时
-        let timeout_result = tokio::time::timeout(Duration::from_secs(self.timeout), handle)
-            .await
-            .map_err(|_| {
-                crate::core::QuantixError::Timeout(format!("采集超时（超过 {} 秒）", self.timeout))
-            })?
-            .map_err(|e| crate::core::QuantixError::DataSource(format!("任务执行失败: {}", e)))??;
-
-        // 转换为 StockQuote
-        let quotes = super::tdx_support::map_raw_quotes(timeout_result);
+        let quotes = super::tdx_support::await_quote_batch(handle, self.timeout).await?;
 
         debug!("成功采集 {} 只股票的实时行情", quotes.len());
         Ok(quotes)

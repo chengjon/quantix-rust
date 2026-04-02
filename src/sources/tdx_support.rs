@@ -2,6 +2,7 @@ use crate::core::Result;
 use crate::sources::tdx::StockQuote;
 use rustdx_complete::tcp::Tcp;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tracing::{debug, warn};
 
 pub(super) type OwnedCodes = Vec<(u16, String)>;
@@ -62,8 +63,26 @@ pub(super) fn map_raw_quotes(rows: Vec<RawQuoteTuple>) -> Vec<StockQuote> {
         .collect()
 }
 
+pub(super) async fn await_quote_batch(
+    handle: tokio::task::JoinHandle<Result<Vec<RawQuoteTuple>>>,
+    timeout_secs: u64,
+) -> Result<Vec<StockQuote>> {
+    let rows = tokio::time::timeout(Duration::from_secs(timeout_secs), handle)
+        .await
+        .map_err(|_| {
+            crate::core::QuantixError::Timeout(format!("采集超时（超过 {} 秒）", timeout_secs))
+        })?
+        .map_err(|error| {
+            crate::core::QuantixError::DataSource(format!("任务执行失败: {}", error))
+        })??;
+
+    Ok(map_raw_quotes(rows))
+}
+
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::core::QuantixError;
 
@@ -116,5 +135,52 @@ mod tests {
         let quotes = map_raw_quotes(rows);
         assert_eq!(quotes[0].market, 1);
         assert_eq!(quotes[1].market, 0);
+    }
+
+    #[tokio::test]
+    async fn await_quote_batch_maps_rows_after_join_completion() {
+        let rows = vec![(
+            "600000".to_string(),
+            "浦发银行".to_string(),
+            10.5,
+            10.0,
+            10.2,
+            10.6,
+            10.1,
+            1000.0,
+            10500.0,
+        )];
+        let handle = tokio::spawn(async move { Ok(rows) });
+
+        let quotes = await_quote_batch(handle, 1).await.unwrap();
+
+        assert_eq!(quotes.len(), 1);
+        assert_eq!(quotes[0].code, "600000");
+        assert_eq!(quotes[0].market, 1);
+    }
+
+    #[tokio::test]
+    async fn await_quote_batch_returns_timeout_error_when_task_exceeds_limit() {
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok::<Vec<RawQuoteTuple>, crate::core::QuantixError>(Vec::new())
+        });
+
+        let error = await_quote_batch(handle, 0).await.unwrap_err();
+
+        assert!(matches!(error, QuantixError::Timeout(_)));
+    }
+
+    #[tokio::test]
+    async fn await_quote_batch_wraps_join_failure_as_data_source_error() {
+        let handle = tokio::spawn(async move {
+            panic!("join failure");
+            #[allow(unreachable_code)]
+            Ok::<Vec<RawQuoteTuple>, crate::core::QuantixError>(Vec::new())
+        });
+
+        let error = await_quote_batch(handle, 1).await.unwrap_err();
+
+        assert!(matches!(error, QuantixError::DataSource(_)));
     }
 }
