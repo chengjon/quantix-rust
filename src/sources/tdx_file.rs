@@ -453,58 +453,12 @@ pub struct TdxDayData {
 impl TdxDayData {
     /// 从 day 记录和复权因子创建
     pub fn from_record(record: &TdxDayRecord, factor: &FuquanFactor) -> Self {
-        let change_pct = if factor.preclose > 0.0 {
-            Decimal::from_f64((factor.close - factor.preclose) / factor.preclose * 100.0)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO)
-        } else {
-            Decimal::ZERO
-        };
-
-        Self {
-            code: record.code_string(),
-            date: record
-                .naive_date()
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
-            open: Decimal::from_f32(record.open)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            high: Decimal::from_f32(record.high)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            low: Decimal::from_f32(record.low)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            close: Decimal::from_f32(record.close)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            volume: record.volume as i64,
-            amount: Decimal::from_f32(record.amount)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            preclose: Decimal::from_f64(factor.preclose)
-                .map(|d| d.round_dp(2))
-                .unwrap_or(Decimal::ZERO),
-            factor: Decimal::from_f64(factor.factor)
-                .map(|d| d.round_dp(6))
-                .unwrap_or(Decimal::ONE),
-            change_pct,
-        }
+        super::tdx_file_daydata_support::from_record(record, factor)
     }
 
     /// 转换为 Kline
     pub fn to_kline(&self, adjust_type: AdjustType) -> Kline {
-        Kline {
-            code: self.code.clone(),
-            date: self.date,
-            open: self.open,
-            high: self.high,
-            low: self.low,
-            close: self.close,
-            volume: self.volume,
-            amount: Some(self.amount),
-            adjust_type,
-        }
+        super::tdx_file_daydata_support::to_kline(self, adjust_type)
     }
 }
 
