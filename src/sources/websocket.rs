@@ -130,24 +130,14 @@ impl WebSocketClient {
 
     /// 获取订阅列表
     pub async fn subscriptions(&self) -> Vec<String> {
-        self.subscriptions.read().await.keys().cloned().collect()
+        let subscriptions = self.subscriptions.read().await;
+        super::websocket_support::list_subscription_codes(&subscriptions)
     }
 
     /// 订阅股票
     pub async fn subscribe(&self, codes: &[String]) -> Result<()> {
         let mut subs = self.subscriptions.write().await;
-        let now = Utc::now();
-
-        for code in codes {
-            subs.insert(
-                code.clone(),
-                Subscription {
-                    code: code.clone(),
-                    confirmed: false,
-                    subscribed_at: now,
-                },
-            );
-        }
+        super::websocket_support::add_subscriptions(&mut subs, codes, Utc::now());
 
         info!("订阅股票: {:?}", codes);
         Ok(())
@@ -156,10 +146,7 @@ impl WebSocketClient {
     /// 取消订阅
     pub async fn unsubscribe(&self, codes: &[String]) -> Result<()> {
         let mut subs = self.subscriptions.write().await;
-
-        for code in codes {
-            subs.remove(code);
-        }
+        super::websocket_support::remove_subscriptions(&mut subs, codes);
 
         info!("取消订阅: {:?}", codes);
         Ok(())

@@ -1,7 +1,9 @@
-use chrono::Utc;
+use std::collections::HashMap;
+
+use chrono::{DateTime, Utc};
 use tokio_tungstenite::tungstenite::protocol::Message;
 
-use crate::sources::websocket::RealtimeQuote;
+use crate::sources::websocket::{RealtimeQuote, Subscription};
 
 pub(super) fn build_subscribe_message(codes: &[String]) -> Message {
     let subscribe_msg = serde_json::json!({
@@ -47,8 +49,44 @@ pub(super) fn parse_realtime_quote_message(text: &str) -> Option<RealtimeQuote> 
     })
 }
 
+pub(super) fn list_subscription_codes(
+    subscriptions: &HashMap<String, Subscription>,
+) -> Vec<String> {
+    subscriptions.keys().cloned().collect()
+}
+
+pub(super) fn add_subscriptions(
+    subscriptions: &mut HashMap<String, Subscription>,
+    codes: &[String],
+    subscribed_at: DateTime<Utc>,
+) {
+    for code in codes {
+        subscriptions.insert(
+            code.clone(),
+            Subscription {
+                code: code.clone(),
+                confirmed: false,
+                subscribed_at,
+            },
+        );
+    }
+}
+
+pub(super) fn remove_subscriptions(
+    subscriptions: &mut HashMap<String, Subscription>,
+    codes: &[String],
+) {
+    for code in codes {
+        subscriptions.remove(code);
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use chrono::TimeZone;
+
     use super::*;
 
     struct SubscribeFixtureConfig<'a> {
@@ -148,5 +186,65 @@ mod tests {
         assert_eq!(quote.price, config.price);
         assert_eq!(quote.bid1, Some(config.bid1));
         assert_eq!(quote.ask1, Some(config.ask1));
+    }
+
+    #[test]
+    fn add_subscriptions_inserts_unconfirmed_entries_for_all_codes() {
+        let config = SubscribeFixtureConfig::default();
+        let codes = build_codes(&config);
+        let subscribed_at = Utc
+            .with_ymd_and_hms(2024, 1, 2, 3, 4, 5)
+            .single()
+            .expect("valid timestamp");
+        let mut subscriptions = HashMap::new();
+
+        add_subscriptions(&mut subscriptions, &codes, subscribed_at);
+
+        assert_eq!(subscriptions.len(), codes.len());
+        assert_eq!(subscriptions[config.primary_code].code, config.primary_code);
+        assert!(!subscriptions[config.primary_code].confirmed);
+        assert_eq!(
+            subscriptions[config.primary_code].subscribed_at,
+            subscribed_at
+        );
+    }
+
+    #[test]
+    fn remove_subscriptions_drops_only_requested_codes() {
+        let config = SubscribeFixtureConfig::default();
+        let codes = build_codes(&config);
+        let subscribed_at = Utc
+            .with_ymd_and_hms(2024, 1, 2, 3, 4, 5)
+            .single()
+            .expect("valid timestamp");
+        let mut subscriptions = HashMap::new();
+        add_subscriptions(&mut subscriptions, &codes, subscribed_at);
+
+        remove_subscriptions(
+            &mut subscriptions,
+            &[config.primary_code.to_string()],
+        );
+
+        assert!(!subscriptions.contains_key(config.primary_code));
+        assert!(subscriptions.contains_key(config.secondary_code));
+    }
+
+    #[test]
+    fn list_subscription_codes_returns_current_subscription_keys() {
+        let config = SubscribeFixtureConfig::default();
+        let mut subscriptions = HashMap::new();
+        let subscribed_at = Utc
+            .with_ymd_and_hms(2024, 1, 2, 3, 4, 5)
+            .single()
+            .expect("valid timestamp");
+        add_subscriptions(&mut subscriptions, &build_codes(&config), subscribed_at);
+
+        let mut listed = list_subscription_codes(&subscriptions);
+        listed.sort();
+
+        let mut expected = build_codes(&config);
+        expected.sort();
+
+        assert_eq!(listed, expected);
     }
 }
