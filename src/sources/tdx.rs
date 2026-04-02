@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::data::fetcher::Fetcher;
 
@@ -108,32 +108,7 @@ impl TdxSource {
     /// - `port`: TDX 端口（默认 7709）
     /// - `timeout`: 超时时间（秒）
     pub fn new(pool_size: usize, hosts: Vec<String>, port: u16, timeout: u64) -> Result<Self> {
-        let mut tcp_pool = Vec::new();
-
-        for i in 0..pool_size {
-            match Tcp::new() {
-                Ok(tcp) => {
-                    tcp_pool.push(Arc::new(std::sync::Mutex::new(tcp)));
-                    debug!("TDX TCP 连接 #{} 创建成功", i);
-                }
-                Err(e) => {
-                    warn!("TDX TCP 连接 #{} 创建失败: {}", i, e);
-                    // 至少需要一个连接
-                    if tcp_pool.is_empty() {
-                        return Err(crate::core::QuantixError::DataSource(format!(
-                            "无法创建任何 TCP 连接: {}",
-                            e
-                        )));
-                    }
-                }
-            }
-        }
-
-        if tcp_pool.is_empty() {
-            return Err(crate::core::QuantixError::DataSource(
-                "无法创建任何 TCP 连接".to_string(),
-            ));
-        }
+        let tcp_pool = super::tdx_support::build_tcp_pool(pool_size)?;
 
         info!("TDX 数据源初始化成功：{} 个 TCP 连接", tcp_pool.len());
 
