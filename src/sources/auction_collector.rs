@@ -151,7 +151,7 @@ impl AuctionCollector {
         let minute = now.minute();
 
         // 竞价时段：9:15-9:25
-        hour == 9 && minute >= 15 && minute < 25
+        super::auction_collector_support::is_within_auction_window(hour, minute)
     }
 
     /// 计算抢筹强度评分（0-100分）

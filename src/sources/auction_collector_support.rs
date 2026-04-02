@@ -1,5 +1,9 @@
 use super::auction_collector::{AuctionQuote, WatchlistStock};
 
+pub(super) fn is_within_auction_window(hour: u32, minute: u32) -> bool {
+    hour == 9 && minute >= 15 && minute < 25
+}
+
 pub(super) fn calculate_sealed_amount(
     buy1_price: f64,
     buy1_volume: u64,
@@ -108,5 +112,15 @@ mod tests {
         assert_eq!(quote.code, "000001");
         assert!((quote.change_percent - 5.0).abs() < f64::EPSILON);
         assert!(quote.strength_score > 0.0);
+    }
+
+    #[test]
+    fn is_within_auction_window_checks_inclusive_and_exclusive_bounds() {
+        assert!(is_within_auction_window(9, 15));
+        assert!(is_within_auction_window(9, 24));
+        assert!(!is_within_auction_window(9, 14));
+        assert!(!is_within_auction_window(9, 25));
+        assert!(!is_within_auction_window(8, 59));
+        assert!(!is_within_auction_window(10, 0));
     }
 }
