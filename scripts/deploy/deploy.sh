@@ -14,8 +14,8 @@ HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
 DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}"
 PRODUCTION_DEPLOY_MODE="${PRODUCTION_DEPLOY_MODE:-auto}"
 PRODUCTION_COMPOSE_FILE="${PRODUCTION_COMPOSE_FILE:-docker-compose.prod.yml}"
-PRODUCTION_K8S_DIR="${PRODUCTION_K8S_DIR:-$PROJECT_ROOT/k8s/overlays/production}"
-STAGING_COMPOSE_FILE="${STAGING_COMPOSE_FILE:-docker-compose.test.yml}"
+PRODUCTION_K8S_DIR="${PRODUCTION_K8S_DIR:-}"
+STAGING_COMPOSE_FILE="${STAGING_COMPOSE_FILE:-}"
 
 if [[ "$HEALTH_URL" == */health ]]; then
     DEFAULT_LOCAL_ACCESS_URL="${HEALTH_URL%/health}"
@@ -31,7 +31,7 @@ resolve_production_deploy_mode() {
         auto)
             if [ -f "$PROJECT_ROOT/$PRODUCTION_COMPOSE_FILE" ]; then
                 printf 'compose\n'
-            elif [ -d "$PRODUCTION_K8S_DIR" ]; then
+            elif [ -n "$PRODUCTION_K8S_DIR" ] && [ -d "$PRODUCTION_K8S_DIR" ]; then
                 printf 'k8s\n'
             else
                 return 1
@@ -58,8 +58,28 @@ run_production_compose() {
 require_compose_file() {
     local compose_file="$1"
 
+    if [ -z "$compose_file" ]; then
+        log_error "缺少 Compose 配置，请设置对应的 *_COMPOSE_FILE"
+        exit 1
+    fi
+
     if [ ! -f "$PROJECT_ROOT/$compose_file" ]; then
         log_error "未找到 Compose 配置: $compose_file"
+        exit 1
+    fi
+}
+
+require_directory() {
+    local dir_path="$1"
+    local var_name="$2"
+
+    if [ -z "$dir_path" ]; then
+        log_error "缺少目录配置，请设置 $var_name"
+        exit 1
+    fi
+
+    if [ ! -d "$dir_path" ]; then
+        log_error "未找到目录: $dir_path"
         exit 1
     fi
 }
@@ -156,10 +176,13 @@ EXAMPLES:
     # 模拟部署（测试环境需显式提供覆盖文件）
     STAGING_COMPOSE_FILE=docker-compose.prod.yml $(basename "$0") --environment staging --dry-run
 
+    # 显式使用 Kubernetes 生产部署
+    PRODUCTION_DEPLOY_MODE=k8s PRODUCTION_K8S_DIR=/path/to/k8s/overlays/production $(basename "$0") --environment production --dry-run
+
 ENVIRONMENTS:
     dev         开发环境（本地）
     staging     测试环境（需要 STAGING_COMPOSE_FILE）
-    production  生产环境
+    production  生产环境（k8s 模式需要 PRODUCTION_K8S_DIR）
 EOF
 }
 
@@ -268,6 +291,7 @@ case "$ENVIRONMENT" in
         if [ "$production_mode" = "compose" ]; then
             run_production_compose
         elif [ "$DRY_RUN" = false ]; then
+            require_directory "$PRODUCTION_K8S_DIR" "PRODUCTION_K8S_DIR"
             # 检查连接
             if ! kubectl cluster-info &> /dev/null; then
                 log_error "无法连接到 Kubernetes 集群"
@@ -286,6 +310,7 @@ case "$ENVIRONMENT" in
             # 显示状态
             kubectl get pods -l app=quantix
         else
+            require_directory "$PRODUCTION_K8S_DIR" "PRODUCTION_K8S_DIR"
             log_info "[DRY RUN] kubectl apply -k $PRODUCTION_K8S_DIR"
             log_info "[DRY RUN] kubectl rollout status deployment/quantix"
         fi
