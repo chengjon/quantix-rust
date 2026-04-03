@@ -15,6 +15,7 @@ DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}"
 PRODUCTION_DEPLOY_MODE="${PRODUCTION_DEPLOY_MODE:-auto}"
 PRODUCTION_COMPOSE_FILE="${PRODUCTION_COMPOSE_FILE:-docker-compose.prod.yml}"
 PRODUCTION_K8S_DIR="${PRODUCTION_K8S_DIR:-$PROJECT_ROOT/k8s/overlays/production}"
+STAGING_COMPOSE_FILE="${STAGING_COMPOSE_FILE:-docker-compose.test.yml}"
 
 if [[ "$HEALTH_URL" == */health ]]; then
     DEFAULT_LOCAL_ACCESS_URL="${HEALTH_URL%/health}"
@@ -51,6 +52,15 @@ run_production_compose() {
         IMAGE_NAME="$IMAGE_NAME" VERSION="$IMAGE_TAG" docker-compose "${compose_args[@]}" ps
     else
         log_info "[DRY RUN] IMAGE_NAME=$IMAGE_NAME VERSION=$IMAGE_TAG docker-compose ${compose_args[*]} up -d --force-recreate quantix"
+    fi
+}
+
+require_compose_file() {
+    local compose_file="$1"
+
+    if [ ! -f "$PROJECT_ROOT/$compose_file" ]; then
+        log_error "未找到 Compose 配置: $compose_file"
+        exit 1
     fi
 }
 
@@ -236,14 +246,15 @@ case "$ENVIRONMENT" in
 
     staging)
         log_info "部署到测试环境..."
+        require_compose_file "$STAGING_COMPOSE_FILE"
         if [ "$DRY_RUN" = false ]; then
             cd "$PROJECT_ROOT"
             # 使用测试环境配置
-            docker-compose -f docker-compose.yml -f docker-compose.test.yml \
+            docker-compose -f docker-compose.yml -f "$STAGING_COMPOSE_FILE" \
                 up -d --force-recreate quantix
             docker-compose ps
         else
-            log_info "[DRY RUN] docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d"
+            log_info "[DRY RUN] docker-compose -f docker-compose.yml -f $STAGING_COMPOSE_FILE up -d"
         fi
         ;;
 
