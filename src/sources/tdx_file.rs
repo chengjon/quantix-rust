@@ -331,6 +331,26 @@ pub enum FuquanType {
 pub struct FuquanCalculator;
 
 impl FuquanCalculator {
+    /// 跳过当前交易日前的除权记录，返回当前可用的除权记录。
+    fn next_applicable_xdxr<'a, I>(
+        gbbq_iter: &mut std::iter::Peekable<I>,
+        day_date: u32,
+    ) -> Option<&'a TdxGbbqRecord>
+    where
+        I: Iterator<Item = &'a TdxGbbqRecord>,
+    {
+        while let Some(xdxr_record) = gbbq_iter.peek().copied() {
+            if day_date > xdxr_record.date {
+                gbbq_iter.next();
+                continue;
+            }
+
+            return Some(xdxr_record);
+        }
+
+        None
+    }
+
     /// 计算复权因子（使用涨跌幅算法）
     ///
     /// 算法说明:
@@ -351,29 +371,25 @@ impl FuquanCalculator {
 
         let mut gbbq_iter = gbbqs.map(|g| g.iter()).unwrap_or([].iter()).peekable();
 
-        let mut current_xdxr = gbbq_iter.peek().copied();
-
-        for (i, day) in days.iter().enumerate() {
+        for day in days {
             let close = day.close as f64;
 
             // 检查是否有除权事件
             let mut xdxr = false;
-            if let Some(xdxr_record) = current_xdxr {
-                if day.date == xdxr_record.date {
-                    // 除权日
-                    let [new_preclose, _, _] =
-                        xdxr_record.compute_pre_pct(day.close, preclose, true);
-                    preclose = new_preclose;
-                    xdxr = true;
+            let has_current_xdxr = matches!(
+                Self::next_applicable_xdxr(&mut gbbq_iter, day.date),
+                Some(xdxr_record) if day.date == xdxr_record.date
+            );
 
-                    // 移动到下一个除权记录
-                    gbbq_iter.next();
-                    current_xdxr = gbbq_iter.peek().copied();
-                } else if day.date > xdxr_record.date {
-                    // 跳过已经过的除权日（非交易日）
-                    gbbq_iter.next();
-                    current_xdxr = gbbq_iter.peek().copied();
-                }
+            if has_current_xdxr {
+                let xdxr_record = gbbq_iter
+                    .next()
+                    .expect("peeked ex-right record should still be available");
+
+                // 除权日
+                let [new_preclose, _, _] = xdxr_record.compute_pre_pct(day.close, preclose, true);
+                preclose = new_preclose;
+                xdxr = true;
             }
 
             // 计算复权因子
@@ -495,6 +511,38 @@ impl TdxDataImporter {
 mod tests {
     use super::*;
 
+    fn build_day_record(date: u32, close: f32) -> TdxDayRecord {
+        TdxDayRecord {
+            code: 600000,
+            date,
+            open: close,
+            high: close,
+            low: close,
+            close,
+            amount: 1000000.0,
+            volume: 10000,
+        }
+    }
+
+    fn build_gbbq_record(
+        date: u32,
+        fh_qltp: f32,
+        pgj_qzgb: f32,
+        sg_hltp: f32,
+        pg_hzgb: f32,
+    ) -> TdxGbbqRecord {
+        TdxGbbqRecord {
+            market: 1,
+            code: "600000".to_string(),
+            date,
+            category: 1,
+            fh_qltp,
+            pgj_qzgb,
+            sg_hltp,
+            pg_hzgb,
+        }
+    }
+
     #[test]
     fn test_tdx_day_record_size() {
         // TdxDayRecord 应该是 32 字节 (与原始 day 文件记录大小一致)
@@ -510,14 +558,11 @@ mod tests {
     #[test]
     fn test_code_string_conversion() {
         let record = TdxDayRecord {
-            code: 600000,
-            date: 20210801,
             open: 100.0,
             high: 110.0,
             low: 95.0,
             close: 105.0,
-            amount: 1000000.0,
-            volume: 10000,
+            ..build_day_record(20210801, 105.0)
         };
         assert_eq!(record.code_string(), "600000");
     }
@@ -533,24 +578,18 @@ mod tests {
     fn test_fuquan_calculator_no_gbbq() {
         let days = vec![
             TdxDayRecord {
-                code: 600000,
-                date: 20210801,
                 open: 100.0,
                 high: 105.0,
                 low: 99.0,
                 close: 104.0,
-                amount: 1000000.0,
-                volume: 10000,
+                ..build_day_record(20210801, 104.0)
             },
             TdxDayRecord {
-                code: 600000,
-                date: 20210802,
                 open: 104.5,
                 high: 108.0,
                 low: 103.0,
                 close: 107.0,
-                amount: 1000000.0,
-                volume: 10000,
+                ..build_day_record(20210802, 107.0)
             },
         ];
 
@@ -562,5 +601,23 @@ mod tests {
 
         // 第二天因子应该约为 1.0 * (107/104) ≈ 1.029
         assert!((result[1].factor - 1.029).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fuquan_calculator_skips_stale_gbbq_and_applies_same_day_record() {
+        let days = vec![build_day_record(20210801, 104.0)];
+        let stale_record = build_gbbq_record(20210731, 0.0, 0.0, 0.0, 0.0);
+        let matching_record = build_gbbq_record(20210801, 1.0, 2.0, 1.0, 1.0);
+        let [expected_preclose, _, expected_factor] =
+            matching_record.compute_pre_pct(days[0].close, days[0].close as f64, true);
+
+        let result =
+            FuquanCalculator::calculate(&days, Some(&[stale_record, matching_record])).unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert!(result[0].xdxr);
+        assert!((result[0].factor - expected_factor).abs() < 1e-9);
+        assert!((result[0].preclose - days[0].close as f64).abs() < 1e-9);
+        assert!((expected_preclose - days[0].close as f64).abs() > 1.0);
     }
 }
