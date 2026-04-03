@@ -1,7 +1,20 @@
 use std::collections::HashMap;
 
 use crate::core::Result;
-use crate::sources::tdx_file::{FuquanCalculator, TdxDayData, TdxDayFile, TdxGbbqRecord};
+use crate::sources::tdx_file::{
+    FuquanCalculator, FuquanFactor, TdxDayData, TdxDayFile, TdxDayRecord, TdxGbbqRecord,
+};
+
+pub(super) fn day_data_from_records(
+    records: &[TdxDayRecord],
+    factors: &[FuquanFactor],
+) -> Vec<TdxDayData> {
+    records
+        .iter()
+        .zip(factors.iter())
+        .map(|(record, factor)| TdxDayData::from_record(record, factor))
+        .collect()
+}
 
 pub(super) fn import_stock_day(
     data_dir: &str,
@@ -16,11 +29,7 @@ pub(super) fn import_stock_day(
     let records = TdxDayFile::from_file(code_num, &day_path)?;
     let factors = FuquanCalculator::calculate(&records, gbbqs)?;
 
-    Ok(records
-        .iter()
-        .zip(factors.iter())
-        .map(|(record, factor)| TdxDayData::from_record(record, factor))
-        .collect())
+    Ok(day_data_from_records(&records, &factors))
 }
 
 pub(super) fn import_batch(
@@ -116,6 +125,30 @@ mod tests {
         Decimal::from_f64(factor).unwrap().round_dp(6)
     }
 
+    fn build_day_record(code: u32, row: DayRowFixtureConfig) -> TdxDayRecord {
+        TdxDayRecord {
+            code,
+            date: row.date,
+            open: row.open as f32 / 100.0,
+            high: row.high as f32 / 100.0,
+            low: row.low as f32 / 100.0,
+            close: row.close as f32 / 100.0,
+            amount: row.amount,
+            volume: row.volume,
+        }
+    }
+
+    fn build_factor(record: &TdxDayRecord, factor: f64) -> FuquanFactor {
+        FuquanFactor {
+            date: record.naive_date().unwrap(),
+            factor,
+            preclose: record.close as f64,
+            close: record.close as f64,
+            trading: true,
+            xdxr: false,
+        }
+    }
+
     fn write_day_file(dir: &Path, fixture: &DayFileFixtureConfig<'_>) {
         let mut bytes = Vec::with_capacity(fixture.rows.len() * 32);
         for row in &fixture.rows {
@@ -130,6 +163,32 @@ mod tests {
         }
 
         fs::write(dir.join(format!("{}.day", fixture.code)), bytes).unwrap();
+    }
+
+    #[test]
+    fn day_data_from_records_uses_matching_record_factor_pairs() {
+        let first_row = DayRowFixtureConfig::default();
+        let second_row = DayRowFixtureConfig {
+            date: 20210802,
+            close: 1070,
+            ..DayRowFixtureConfig::default()
+        };
+        let records = vec![
+            build_day_record(600000, first_row),
+            build_day_record(600000, second_row),
+        ];
+        let factors = vec![build_factor(&records[0], 1.0), build_factor(&records[1], 1.029)];
+
+        let day_data = day_data_from_records(&records, &factors);
+
+        assert_eq!(day_data.len(), 2);
+        assert_eq!(day_data[0].code, "600000");
+        assert_eq!(day_data[0].close, close_decimal(first_row.close));
+        assert_eq!(day_data[1].close, close_decimal(second_row.close));
+        assert_eq!(
+            day_data[1].factor,
+            Decimal::from_f64(factors[1].factor).unwrap().round_dp(6)
+        );
     }
 
     #[test]
