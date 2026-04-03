@@ -25,13 +25,15 @@ pub(super) fn compute_pre_pct(
 pub(super) fn filter_a_stock_dividend(records: &[TdxGbbqRecord]) -> Vec<TdxGbbqRecord> {
     records
         .iter()
-        .filter(|record| {
-            let first_char = record.code.chars().next();
-            let is_a_stock = matches!(first_char, Some('6') | Some('0') | Some('3'));
-            is_a_stock && record.category == 1
-        })
+        .filter(|record| is_a_stock_dividend_record(record))
         .cloned()
         .collect()
+}
+
+pub(super) fn is_a_stock_dividend_record(record: &TdxGbbqRecord) -> bool {
+    let first_char = record.code.chars().next();
+    let is_a_stock = matches!(first_char, Some('6') | Some('0') | Some('3'));
+    is_a_stock && record.category == 1
 }
 
 pub(super) fn group_by_code(records: Vec<TdxGbbqRecord>) -> HashMap<String, Vec<TdxGbbqRecord>> {
@@ -84,6 +86,25 @@ mod tests {
             sg_hltp: config.sg_hltp,
             pg_hzgb: config.pg_hzgb,
         }
+    }
+
+    #[test]
+    fn is_a_stock_dividend_record_matches_a_share_dividend_entries() {
+        assert!(is_a_stock_dividend_record(&build_record(
+            &GbbqRecordFixtureConfig::default()
+        )));
+        assert!(!is_a_stock_dividend_record(&build_record(
+            &GbbqRecordFixtureConfig {
+                code: "200001",
+                ..Default::default()
+            }
+        )));
+        assert!(!is_a_stock_dividend_record(&build_record(
+            &GbbqRecordFixtureConfig {
+                category: 2,
+                ..Default::default()
+            }
+        )));
     }
 
     #[test]
