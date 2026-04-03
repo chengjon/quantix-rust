@@ -404,8 +404,11 @@ docker-compose -f docker-compose.yml up -d
 ### 测试环境
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d
+STAGING_COMPOSE_FILE=docker-compose.prod.yml
+docker-compose -f docker-compose.yml -f "$STAGING_COMPOSE_FILE" up -d
 ```
+
+仓库当前不自带默认的 `docker-compose.test.yml`，测试环境需要显式提供覆盖文件。
 
 ### 生产环境
 

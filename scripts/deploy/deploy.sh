@@ -153,12 +153,12 @@ EXAMPLES:
     # 部署特定版本
     $(basename "$0") --environment production --tag v1.0.0
 
-    # 模拟部署
-    $(basename "$0") --environment staging --dry-run
+    # 模拟部署（测试环境需显式提供覆盖文件）
+    STAGING_COMPOSE_FILE=docker-compose.prod.yml $(basename "$0") --environment staging --dry-run
 
 ENVIRONMENTS:
     dev         开发环境（本地）
-    staging     测试环境
+    staging     测试环境（需要 STAGING_COMPOSE_FILE）
     production  生产环境
 EOF
 }
