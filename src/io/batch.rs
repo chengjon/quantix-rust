@@ -144,19 +144,7 @@ impl BatchProcessor {
         let batch_size = self.config.batch_size;
         let mut progress = BatchProgress::new(total_records, batch_size);
 
-        let progress_bar = if self.config.enable_progress {
-            Some(Arc::new(ProgressBar::new(total_records as u64)))
-        } else {
-            None
-        };
-
-        if let Some(bar) = &progress_bar {
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap(),
-            );
-        }
+        let progress_bar = create_progress_bar(self.config.enable_progress, total_records);
 
         // 分批处理
         for chunk in data.chunks(batch_size) {
@@ -204,19 +192,7 @@ impl BatchProcessor {
         let total_sources = data_sources.len();
         let mut progress = BatchProgress::new(total_sources, 1);
 
-        let progress_bar = if self.config.enable_progress {
-            Some(Arc::new(ProgressBar::new(total_sources as u64)))
-        } else {
-            None
-        };
-
-        if let Some(bar) = &progress_bar {
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap(),
-            );
-        }
+        let progress_bar = create_progress_bar(self.config.enable_progress, total_sources);
 
         // 使用信号量限制并发
         let semaphore = Arc::new(Semaphore::new(self.config.max_concurrent_tasks));
@@ -321,6 +297,22 @@ impl BatchProcessor {
     }
 }
 
+fn create_progress_bar(enabled: bool, total: usize) -> Option<Arc<ProgressBar>> {
+    if !enabled {
+        return None;
+    }
+
+    let bar = Arc::new(ProgressBar::new(total as u64));
+    bar.set_style(default_progress_style());
+    Some(bar)
+}
+
+fn default_progress_style() -> ProgressStyle {
+    ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+        .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,5 +389,13 @@ mod tests {
         let remaining = progress.estimated_remaining_secs();
         // 25% done, remaining should be roughly 3x elapsed
         assert!(remaining > 0.0);
+    }
+
+    #[test]
+    fn test_create_progress_bar_respects_enable_flag() {
+        assert!(create_progress_bar(false, 10).is_none());
+
+        let bar = create_progress_bar(true, 10).expect("progress bar should be created");
+        assert_eq!(bar.length(), Some(10));
     }
 }
