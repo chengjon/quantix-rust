@@ -64,6 +64,9 @@ POSTGRES_PASSWORD=your_secure_password
 CLICKHOUSE_PASSWORD=your_secure_password
 GRAFANA_ADMIN_PASSWORD=your_secure_password
 ACME_EMAIL=your-email@example.com
+QUANTIX_PUBLIC_HOST=quantix.your-domain.com
+GRAFANA_PUBLIC_HOST=grafana.your-domain.com
+TRAEFIK_PUBLIC_HOST=traefik.your-domain.com
 ```
 
 ### 3. 启动服务
@@ -330,7 +333,7 @@ docker image prune -a
 
 ### Grafana 仪表板
 
-访问 `https://grafana.example.com`。
+访问 `https://$GRAFANA_PUBLIC_HOST`。
 
 **预配置仪表板**:
 - Quantix 应用监控
