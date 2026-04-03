@@ -137,27 +137,12 @@ impl DataExporter {
             wtr.write_record(&[
                 &kline.code,
                 &kline.date.to_string(),
-                &format!(
-                    "{:.prec$}",
-                    kline.open,
-                    prec = self.config.decimal_precision
-                ),
-                &format!(
-                    "{:.prec$}",
-                    kline.high,
-                    prec = self.config.decimal_precision
-                ),
-                &format!("{:.prec$}", kline.low, prec = self.config.decimal_precision),
-                &format!(
-                    "{:.prec$}",
-                    kline.close,
-                    prec = self.config.decimal_precision
-                ),
+                &format_decimal(kline.open, self.config.decimal_precision),
+                &format_decimal(kline.high, self.config.decimal_precision),
+                &format_decimal(kline.low, self.config.decimal_precision),
+                &format_decimal(kline.close, self.config.decimal_precision),
                 &kline.volume.to_string(),
-                &kline
-                    .amount
-                    .map(|a| a.to_string())
-                    .unwrap_or_else(|| "0".to_string()),
+                &format_amount_or_zero(kline.amount),
                 &format!("{:?}", kline.adjust_type),
             ])
             .map_err(|e| crate::core::QuantixError::Other(format!("写入 CSV 数据失败: {}", e)))?;
@@ -283,6 +268,16 @@ impl DataExporter {
     }
 }
 
+fn format_decimal(value: Decimal, precision: usize) -> String {
+    format!("{:.prec$}", value, prec = precision)
+}
+
+fn format_amount_or_zero(value: Option<Decimal>) -> String {
+    value
+        .map(|amount| amount.to_string())
+        .unwrap_or_else(|| "0".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -384,5 +379,11 @@ mod tests {
         assert!(result.file_size > 0);
         // Duration might be 0ms for very fast operations
         assert!(result.duration_ms >= 0);
+    }
+
+    #[test]
+    fn test_format_decimal_respects_precision() {
+        assert_eq!(format_decimal(dec!(10.567), 2), "10.56");
+        assert_eq!(format_decimal(dec!(10.567), 1), "10.5");
     }
 }
