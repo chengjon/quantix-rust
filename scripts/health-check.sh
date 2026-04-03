@@ -9,6 +9,10 @@ HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
 # 超时时间（秒）
 TIMEOUT="${HEALTH_CHECK_TIMEOUT:-10}"
 
+is_healthy_response() {
+    grep -q '"status":"ok"\|"healthy":true'
+}
+
 # 执行健康检查
 if command -v curl >/dev/null 2>&1; then
     # 使用 curl
@@ -20,7 +24,7 @@ if command -v curl >/dev/null 2>&1; then
     fi
 
     # 检查响应
-    if echo "$response" | grep -q '"status":"ok"' || echo "$response" | grep -q '"healthy":true'; then
+    if printf '%s\n' "$response" | is_healthy_response; then
         echo "Health check passed"
         exit 0
     else
@@ -30,7 +34,7 @@ if command -v curl >/dev/null 2>&1; then
     fi
 elif command -v wget >/dev/null 2>&1; then
     # 使用 wget 作为后备
-    if wget -q --timeout="$TIMEOUT" -O - "$HEALTH_URL" | grep -q '"status":"ok"\|"healthy":true'; then
+    if wget -q --timeout="$TIMEOUT" -O - "$HEALTH_URL" | is_healthy_response; then
         echo "Health check passed"
         exit 0
     else
