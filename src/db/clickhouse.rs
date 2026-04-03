@@ -914,24 +914,18 @@ impl SectorDailyCH {
 
     pub fn try_into_leader(self, filter: LeaderFilter) -> Result<Option<LeaderRow>> {
         let board_type = parse_board_type(&self.sector_type)?;
-        let leader_code = match self.leader_code {
-            Some(code) if !code.trim().is_empty() => code,
-            _ => return Ok(None),
+        let leader_code = match take_non_empty_text(self.leader_code) {
+            Some(code) => code,
+            None => return Ok(None),
         };
-        let leader_name = match self.leader_name {
-            Some(name) if !name.trim().is_empty() => name,
-            _ => return Ok(None),
+        let leader_name = match take_non_empty_text(self.leader_name) {
+            Some(name) => name,
+            None => return Ok(None),
         };
         let change_pct = self.leader_change.unwrap_or_default();
 
-        let (sector_name, concept_name) = match filter {
-            LeaderFilter::Sector(name) => (Some(name), None),
-            LeaderFilter::Concept(name) => (None, Some(name)),
-            LeaderFilter::All => match board_type {
-                BoardType::Sector => (Some(self.sector_name), None),
-                BoardType::Concept => (None, Some(self.sector_name)),
-            },
-        };
+        let (sector_name, concept_name) =
+            leader_names_for_filter(filter, board_type, self.sector_name);
 
         Ok(Some(LeaderRow::new(
             leader_code,
@@ -940,6 +934,25 @@ impl SectorDailyCH {
             concept_name,
             change_pct,
         )))
+    }
+}
+
+fn take_non_empty_text(value: Option<String>) -> Option<String> {
+    value.filter(|value| !value.trim().is_empty())
+}
+
+fn leader_names_for_filter(
+    filter: LeaderFilter,
+    board_type: BoardType,
+    sector_name: String,
+) -> (Option<String>, Option<String>) {
+    match filter {
+        LeaderFilter::Sector(name) => (Some(name), None),
+        LeaderFilter::Concept(name) => (None, Some(name)),
+        LeaderFilter::All => match board_type {
+            BoardType::Sector => (Some(sector_name), None),
+            BoardType::Concept => (None, Some(sector_name)),
+        },
     }
 }
 
@@ -1151,6 +1164,27 @@ mod tests {
         assert_eq!(leader.code, "600000");
         assert_eq!(leader.sector_name.as_deref(), Some("银行"));
         assert_eq!(leader.concept_name, None);
+    }
+
+    #[test]
+    fn test_market_sector_row_maps_all_filter_concept_to_concept_name() {
+        let row = SectorDailyCH {
+            sector_code: "GN001".to_string(),
+            sector_name: "AI应用".to_string(),
+            sector_type: "concept".to_string(),
+            trade_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+            change_pct: 3.21,
+            rank: 2,
+            leader_code: Some("300001".to_string()),
+            leader_name: Some("特锐德".to_string()),
+            leader_change: Some(6.18),
+            updated_at: "2026-03-10 15:00:00".to_string(),
+        };
+
+        let leader = row.try_into_leader(LeaderFilter::All).unwrap().unwrap();
+
+        assert_eq!(leader.sector_name, None);
+        assert_eq!(leader.concept_name.as_deref(), Some("AI应用"));
     }
 
     #[test]
