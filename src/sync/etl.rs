@@ -109,19 +109,11 @@ impl DataSync {
         let records_synced = self.write_klines_to_clickhouse(&daily_data).await?;
 
         let end_time = Utc::now();
-        let elapsed = end_time.signed_duration_since(start_time).num_seconds();
-
-        let stats = SyncStats {
-            start_time,
-            end_time,
-            records_synced,
-            records_failed: 0,
-            elapsed_seconds: elapsed,
-        };
+        let stats = build_sync_stats(start_time, end_time, records_synced);
 
         info!(
             "日线数据同步完成：{} 条记录，耗时 {} 秒",
-            records_synced, elapsed
+            records_synced, stats.elapsed_seconds
         );
 
         Ok(stats)
@@ -143,19 +135,11 @@ impl DataSync {
         let records_synced = self.write_klines_to_clickhouse(&minute_data).await?;
 
         let end = Utc::now();
-        let elapsed = end.signed_duration_since(start).num_seconds();
-
-        let stats = SyncStats {
-            start_time: start,
-            end_time: end,
-            records_synced,
-            records_failed: 0,
-            elapsed_seconds: elapsed,
-        };
+        let stats = build_sync_stats(start, end, records_synced);
 
         info!(
             "分钟线数据同步完成：{} 条记录，耗时 {} 秒",
-            records_synced, elapsed
+            records_synced, stats.elapsed_seconds
         );
 
         Ok(stats)
@@ -261,6 +245,20 @@ impl DataSync {
     }
 }
 
+fn build_sync_stats(
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+    records_synced: usize,
+) -> SyncStats {
+    SyncStats {
+        start_time,
+        end_time,
+        records_synced,
+        records_failed: 0,
+        elapsed_seconds: end_time.signed_duration_since(start_time).num_seconds(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,5 +356,21 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_build_sync_stats_sets_elapsed_and_zero_failures() {
+        let start_time = DateTime::parse_from_rfc3339("2026-04-03T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let end_time = DateTime::parse_from_rfc3339("2026-04-03T12:05:30Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let stats = build_sync_stats(start_time, end_time, 12);
+
+        assert_eq!(stats.records_synced, 12);
+        assert_eq!(stats.records_failed, 0);
+        assert_eq!(stats.elapsed_seconds, 330);
     }
 }
