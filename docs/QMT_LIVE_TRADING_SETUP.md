@@ -331,7 +331,7 @@ match request.target_mode.as_str() {
 
 ```bash
 # WSL2
-cd /opt/claude/quantix-rust
+cd /path/to/quantix-rust
 export QUANTIX_BRIDGE_BASE_URL=http://127.0.0.1:17580
 cargo test --test bridge_integration_test -- --nocapture
 ```
