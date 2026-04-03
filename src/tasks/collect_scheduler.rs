@@ -208,13 +208,13 @@ impl CollectScheduler {
         let minute = beijing_time.minute() as u64;
         let time_in_minutes = hour * 60 + minute;
 
-        // 早上 9:00-9:30 为盘前
+        // 早上 9:00 起，持续配置的盘前窗口
         let pre_market_start = 9 * 60; // 9:00
-        let pre_market_end = 9 * 60 + 30; // 9:30
+        let pre_market_end = pre_market_start + self.config.pre_market_minutes;
 
-        // 下午 15:00-15:30 为盘后
+        // 下午 15:00 起，持续配置的盘后窗口
         let post_market_start = 15 * 60; // 15:00
-        let post_market_end = 15 * 60 + 30; // 15:30
+        let post_market_end = post_market_start + self.config.post_market_minutes;
 
         if time_in_minutes >= pre_market_start && time_in_minutes < pre_market_end {
             info!("盘前时段检测");
@@ -320,6 +320,7 @@ impl CollectScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[tokio::test]
     async fn test_scheduler_config_default() {
@@ -339,5 +340,44 @@ mod tests {
         let collector = QuoteCollector::with_default_config().unwrap();
         let scheduler = CollectScheduler::new(collector).await;
         assert!(scheduler.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_determine_market_state_uses_configured_pre_market_window() {
+        let collector = QuoteCollector::with_default_config().unwrap();
+        let scheduler = CollectScheduler::with_config(
+            collector,
+            SchedulerConfig {
+                pre_market_minutes: 45,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let now = Utc.with_ymd_and_hms(2024, 1, 2, 1, 40, 0).unwrap();
+
+        assert_eq!(scheduler.determine_market_state(&now), SchedulerState::PreMarket);
+    }
+
+    #[tokio::test]
+    async fn test_determine_market_state_uses_configured_post_market_window() {
+        let collector = QuoteCollector::with_default_config().unwrap();
+        let scheduler = CollectScheduler::with_config(
+            collector,
+            SchedulerConfig {
+                post_market_minutes: 45,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let now = Utc.with_ymd_and_hms(2024, 1, 2, 7, 40, 0).unwrap();
+
+        assert_eq!(
+            scheduler.determine_market_state(&now),
+            SchedulerState::PostMarket
+        );
     }
 }
