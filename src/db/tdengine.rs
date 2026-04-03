@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 /// TDengine REST API 客户端
 ///
 /// 通过 REST API 连接原 quantix 项目的 TDengine 数据库
@@ -113,21 +113,59 @@ impl TDengineClient {
         let klines = resp
             .data
             .into_iter()
-            .map(|row| {
-                let ts = chrono::DateTime::from_timestamp(row.ts, 0)
-                    .unwrap_or_else(|| chrono::DateTime::from_timestamp_millis(row.ts).unwrap());
-                MinuteKline {
-                    ts,
-                    code: row.code,
-                    open: row.open.unwrap_or(0.0),
-                    high: row.high.unwrap_or(0.0),
-                    low: row.low.unwrap_or(0.0),
-                    close: row.close.unwrap_or(0.0),
-                    volume: row.volume.unwrap_or(0),
-                }
-            })
+            .map(minute_kline_from_row)
             .collect();
 
         Ok(klines)
+    }
+}
+
+fn minute_kline_from_row(row: TdengineRow) -> MinuteKline {
+    let ts = chrono::DateTime::from_timestamp(row.ts, 0)
+        .unwrap_or_else(|| chrono::DateTime::from_timestamp_millis(row.ts).unwrap());
+    MinuteKline {
+        ts,
+        code: row.code,
+        open: row.open.unwrap_or(0.0),
+        high: row.high.unwrap_or(0.0),
+        low: row.low.unwrap_or(0.0),
+        close: row.close.unwrap_or(0.0),
+        volume: row.volume.unwrap_or(0),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_row(ts: i64) -> TdengineRow {
+        TdengineRow {
+            ts,
+            code: "IF2406".to_string(),
+            open: Some(10.0),
+            high: Some(11.0),
+            low: Some(9.5),
+            close: Some(10.5),
+            volume: Some(42),
+        }
+    }
+
+    #[test]
+    fn minute_kline_from_row_uses_second_precision_timestamp_when_available() {
+        let ts = 1_710_000_000;
+        let kline = minute_kline_from_row(sample_row(ts));
+
+        assert_eq!(kline.ts.timestamp(), ts);
+        assert_eq!(kline.code, "IF2406");
+        assert_eq!(kline.open, 10.0);
+        assert_eq!(kline.volume, 42);
+    }
+
+    #[test]
+    fn minute_kline_from_row_falls_back_to_millisecond_precision_timestamp() {
+        let ts = 9_000_000_000_000;
+        let kline = minute_kline_from_row(sample_row(ts));
+
+        assert_eq!(kline.ts.timestamp_millis(), ts);
     }
 }
