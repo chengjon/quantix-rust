@@ -78,8 +78,8 @@ impl PostgresClient {
             LIMIT $4
         "#;
 
-        let start_date = start.and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
-        let end_date = end.and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
+        let start_date = parse_compact_date(start);
+        let end_date = parse_compact_date(end);
 
         let rows = sqlx::query_as::<_, KlineDaily>(query)
             .bind(code)
@@ -126,5 +126,28 @@ impl PostgresClient {
             .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
 
         Ok(rows)
+    }
+}
+
+fn parse_compact_date(value: Option<&str>) -> Option<NaiveDate> {
+    value.and_then(|value| NaiveDate::parse_from_str(value, "%Y%m%d").ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_compact_date_returns_date_for_valid_compact_input() {
+        assert_eq!(
+            parse_compact_date(Some("20260403")),
+            Some(NaiveDate::from_ymd_opt(2026, 4, 3).unwrap())
+        );
+    }
+
+    #[test]
+    fn parse_compact_date_returns_none_for_invalid_or_missing_input() {
+        assert_eq!(parse_compact_date(Some("2026-04-03")), None);
+        assert_eq!(parse_compact_date(None), None);
     }
 }
