@@ -6,7 +6,6 @@ use crate::core::Result;
 use crate::data::models::{AdjustType, Kline};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -140,7 +139,7 @@ impl TdxDayRecord {
             low: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.low),
             close: super::tdx_file_daydata_support::rounded_decimal_or_zero(self.close),
             volume: self.volume as i64,
-            amount: Decimal::from_f32(self.amount).map(|d| d.round_dp(2)),
+            amount: super::tdx_file_daydata_support::rounded_optional_decimal(self.amount),
             adjust_type,
         }
     }

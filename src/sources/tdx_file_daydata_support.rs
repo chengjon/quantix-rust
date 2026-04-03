@@ -11,6 +11,10 @@ pub(super) fn rounded_decimal_or_zero(value: f32) -> Decimal {
         .unwrap_or(Decimal::ZERO)
 }
 
+pub(super) fn rounded_optional_decimal(value: f32) -> Option<Decimal> {
+    Decimal::from_f32(value).map(|value| value.round_dp(2))
+}
+
 pub(super) fn change_pct_or_zero(preclose: f64, close: f64) -> Decimal {
     if preclose > 0.0 {
         Decimal::from_f64((close - preclose) / preclose * 100.0)
@@ -86,6 +90,15 @@ mod tests {
             Decimal::from_f64(10.123).unwrap().round_dp(2)
         );
         assert_eq!(rounded_decimal_or_zero(f32::NAN), Decimal::ZERO);
+    }
+
+    #[test]
+    fn rounded_optional_decimal_preserves_none_for_invalid_values() {
+        assert_eq!(
+            rounded_optional_decimal(10.123),
+            Some(Decimal::from_f64(10.123).unwrap().round_dp(2))
+        );
+        assert_eq!(rounded_optional_decimal(f32::NAN), None);
     }
 
     struct DayRecordFixtureConfig {
