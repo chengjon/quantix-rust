@@ -12,12 +12,47 @@ IMAGE_TAG="${IMAGE_TAG:-latest}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
 DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}"
+PRODUCTION_DEPLOY_MODE="${PRODUCTION_DEPLOY_MODE:-auto}"
+PRODUCTION_COMPOSE_FILE="${PRODUCTION_COMPOSE_FILE:-docker-compose.prod.yml}"
+PRODUCTION_K8S_DIR="${PRODUCTION_K8S_DIR:-$PROJECT_ROOT/k8s/overlays/production}"
 
 if [[ "$HEALTH_URL" == */health ]]; then
     DEFAULT_LOCAL_ACCESS_URL="${HEALTH_URL%/health}"
 else
     DEFAULT_LOCAL_ACCESS_URL="$HEALTH_URL"
 fi
+
+resolve_production_deploy_mode() {
+    case "$PRODUCTION_DEPLOY_MODE" in
+        compose|k8s)
+            printf '%s\n' "$PRODUCTION_DEPLOY_MODE"
+            ;;
+        auto)
+            if [ -f "$PROJECT_ROOT/$PRODUCTION_COMPOSE_FILE" ]; then
+                printf 'compose\n'
+            elif [ -d "$PRODUCTION_K8S_DIR" ]; then
+                printf 'k8s\n'
+            else
+                return 1
+            fi
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+run_production_compose() {
+    local compose_args=(-f docker-compose.yml -f "$PRODUCTION_COMPOSE_FILE")
+
+    if [ "$DRY_RUN" = false ]; then
+        cd "$PROJECT_ROOT"
+        IMAGE_NAME="$IMAGE_NAME" VERSION="$IMAGE_TAG" docker-compose "${compose_args[@]}" up -d --force-recreate quantix
+        IMAGE_NAME="$IMAGE_NAME" VERSION="$IMAGE_TAG" docker-compose "${compose_args[@]}" ps
+    else
+        log_info "[DRY RUN] IMAGE_NAME=$IMAGE_NAME VERSION=$IMAGE_TAG docker-compose ${compose_args[*]} up -d --force-recreate quantix"
+    fi
+}
 
 # 颜色输出
 RED='\033[0;31m'
@@ -170,8 +205,8 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# 检查 kubectl（如果是生产环境）
-if [ "$ENVIRONMENT" = "production" ]; then
+# 检查 kubectl（仅当生产环境实际执行 Kubernetes 部署）
+if [ "$ENVIRONMENT" = "production" ] && [ "$DRY_RUN" = false ] && [ "$(resolve_production_deploy_mode)" = "k8s" ]; then
     if ! command -v kubectl &> /dev/null; then
         log_error "kubectl 未安装（生产环境需要）"
         exit 1
@@ -214,7 +249,14 @@ case "$ENVIRONMENT" in
 
     production)
         log_info "部署到生产环境..."
-        if [ "$DRY_RUN" = false ]; then
+        production_mode="$(resolve_production_deploy_mode)" || {
+            log_error "无法确定生产部署方式，请设置 PRODUCTION_DEPLOY_MODE=compose|k8s"
+            exit 1
+        }
+
+        if [ "$production_mode" = "compose" ]; then
+            run_production_compose
+        elif [ "$DRY_RUN" = false ]; then
             # 检查连接
             if ! kubectl cluster-info &> /dev/null; then
                 log_error "无法连接到 Kubernetes 集群"
@@ -222,7 +264,7 @@ case "$ENVIRONMENT" in
             fi
 
             # 部署到 Kubernetes
-            cd "$PROJECT_ROOT/k8s/overlays/production"
+            cd "$PRODUCTION_K8S_DIR"
 
             # 应用配置
             kubectl apply -k .
@@ -233,7 +275,7 @@ case "$ENVIRONMENT" in
             # 显示状态
             kubectl get pods -l app=quantix
         else
-            log_info "[DRY RUN] kubectl apply -k k8s/overlays/production"
+            log_info "[DRY RUN] kubectl apply -k $PRODUCTION_K8S_DIR"
             log_info "[DRY RUN] kubectl rollout status deployment/quantix"
         fi
         ;;

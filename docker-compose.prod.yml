@@ -7,7 +7,7 @@ version: '3.8'
 
 services:
   quantix:
-    image: ghcr.io/chengjon/quantix-rust/quantix:${VERSION:-latest}
+    image: ${IMAGE_NAME:-ghcr.io/chengjon/quantix-rust/quantix}:${VERSION:-latest}
     restart: always
     environment:
       - RUST_LOG=info
