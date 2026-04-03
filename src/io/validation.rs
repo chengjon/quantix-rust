@@ -220,7 +220,7 @@ impl DataValidator {
     /// 验证价格逻辑
     fn validate_price_logic(&self, kline: &Kline) -> Option<ValidationError> {
         // high >= low
-        if kline.high < kline.low {
+        if is_high_below_low(kline) {
             return Some(ValidationError::new(
                 "LOGIC_ERROR".to_string(),
                 "price_relation".to_string(),
@@ -229,7 +229,7 @@ impl DataValidator {
         }
 
         // close 应该在 high 和 low 之间
-        if kline.close > kline.high {
+        if is_close_above_high(kline) {
             return Some(ValidationError::new(
                 "LOGIC_ERROR".to_string(),
                 "close_vs_high".to_string(),
@@ -237,7 +237,7 @@ impl DataValidator {
             ));
         }
 
-        if kline.close < kline.low {
+        if is_close_below_low(kline) {
             return Some(ValidationError::new(
                 "LOGIC_ERROR".to_string(),
                 "close_vs_low".to_string(),
@@ -321,7 +321,7 @@ impl DataValidator {
             }
 
             // 检查异常价格
-            if kline.high < kline.low || kline.close < kline.low || kline.close > kline.high {
+            if has_invalid_price_relation(kline) {
                 report.invalid_price_relation += 1;
             }
 
@@ -333,6 +333,22 @@ impl DataValidator {
 
         report
     }
+}
+
+fn has_invalid_price_relation(kline: &Kline) -> bool {
+    is_high_below_low(kline) || is_close_below_low(kline) || is_close_above_high(kline)
+}
+
+fn is_high_below_low(kline: &Kline) -> bool {
+    kline.high < kline.low
+}
+
+fn is_close_below_low(kline: &Kline) -> bool {
+    kline.close < kline.low
+}
+
+fn is_close_above_high(kline: &Kline) -> bool {
+    kline.close > kline.high
 }
 
 /// 数据质量报告
@@ -471,5 +487,16 @@ mod tests {
         assert_eq!(report.total_records, 1);
         assert_eq!(report.missing_amount, 1);
         assert_eq!(report.quality_score, 80); // 扣20分
+    }
+
+    #[test]
+    fn test_quality_report_counts_invalid_price_relation() {
+        let validator = DataValidator::with_defaults();
+        let mut klines = vec![create_test_kline()];
+        klines[0].close = dec!(11.5);
+
+        let report = validator.quality_report(&klines);
+
+        assert_eq!(report.invalid_price_relation, 1);
     }
 }
