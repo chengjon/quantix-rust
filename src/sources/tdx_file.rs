@@ -351,6 +351,30 @@ impl FuquanCalculator {
         None
     }
 
+    fn consume_same_day_xdxr<'a, I>(
+        gbbq_iter: &mut std::iter::Peekable<I>,
+        day: &TdxDayRecord,
+        preclose: f64,
+    ) -> (f64, bool)
+    where
+        I: Iterator<Item = &'a TdxGbbqRecord>,
+    {
+        let has_current_xdxr = matches!(
+            Self::next_applicable_xdxr(gbbq_iter, day.date),
+            Some(xdxr_record) if day.date == xdxr_record.date
+        );
+
+        if !has_current_xdxr {
+            return (preclose, false);
+        }
+
+        let xdxr_record = gbbq_iter
+            .next()
+            .expect("peeked ex-right record should still be available");
+        let [new_preclose, _, _] = xdxr_record.compute_pre_pct(day.close, preclose, true);
+        (new_preclose, true)
+    }
+
     /// 计算复权因子（使用涨跌幅算法）
     ///
     /// 算法说明:
@@ -373,24 +397,9 @@ impl FuquanCalculator {
 
         for day in days {
             let close = day.close as f64;
-
-            // 检查是否有除权事件
-            let mut xdxr = false;
-            let has_current_xdxr = matches!(
-                Self::next_applicable_xdxr(&mut gbbq_iter, day.date),
-                Some(xdxr_record) if day.date == xdxr_record.date
-            );
-
-            if has_current_xdxr {
-                let xdxr_record = gbbq_iter
-                    .next()
-                    .expect("peeked ex-right record should still be available");
-
-                // 除权日
-                let [new_preclose, _, _] = xdxr_record.compute_pre_pct(day.close, preclose, true);
-                preclose = new_preclose;
-                xdxr = true;
-            }
+            let (current_preclose, xdxr) =
+                Self::consume_same_day_xdxr(&mut gbbq_iter, day, preclose);
+            preclose = current_preclose;
 
             // 计算复权因子
             factor *= close / preclose;
@@ -619,5 +628,26 @@ mod tests {
         assert!((result[0].factor - expected_factor).abs() < 1e-9);
         assert!((result[0].preclose - days[0].close as f64).abs() < 1e-9);
         assert!((expected_preclose - days[0].close as f64).abs() > 1.0);
+    }
+
+    #[test]
+    fn test_consume_same_day_xdxr_skips_stale_record_and_consumes_matching_one() {
+        let day = build_day_record(20210801, 104.0);
+        let stale_record = build_gbbq_record(20210731, 0.0, 0.0, 0.0, 0.0);
+        let matching_record = build_gbbq_record(20210801, 1.0, 2.0, 1.0, 1.0);
+        let [expected_preclose, _, _] =
+            matching_record.compute_pre_pct(day.close, day.close as f64, true);
+        let records = [stale_record, matching_record];
+        let mut iter = records.iter().peekable();
+
+        let (preclose, xdxr) = FuquanCalculator::consume_same_day_xdxr(
+            &mut iter,
+            &day,
+            day.close as f64,
+        );
+
+        assert!(xdxr);
+        assert!((preclose - expected_preclose).abs() < 1e-9);
+        assert!(iter.next().is_none());
     }
 }
