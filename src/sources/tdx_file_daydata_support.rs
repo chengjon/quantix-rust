@@ -11,14 +11,18 @@ pub(super) fn rounded_decimal_or_zero(value: f32) -> Decimal {
         .unwrap_or(Decimal::ZERO)
 }
 
-pub(super) fn from_record(record: &TdxDayRecord, factor: &FuquanFactor) -> TdxDayData {
-    let change_pct = if factor.preclose > 0.0 {
-        Decimal::from_f64((factor.close - factor.preclose) / factor.preclose * 100.0)
+pub(super) fn change_pct_or_zero(preclose: f64, close: f64) -> Decimal {
+    if preclose > 0.0 {
+        Decimal::from_f64((close - preclose) / preclose * 100.0)
             .map(|value| value.round_dp(2))
             .unwrap_or(Decimal::ZERO)
     } else {
         Decimal::ZERO
-    };
+    }
+}
+
+pub(super) fn from_record(record: &TdxDayRecord, factor: &FuquanFactor) -> TdxDayData {
+    let change_pct = change_pct_or_zero(factor.preclose, factor.close);
 
     TdxDayData {
         code: record.code_string(),
@@ -68,6 +72,22 @@ pub(super) fn to_kline(day_data: &TdxDayData, adjust_type: AdjustType) -> Kline 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn change_pct_or_zero_rounds_percentage_change() {
+        assert_eq!(
+            change_pct_or_zero(10.0, 10.987),
+            Decimal::from_f64((10.987 - 10.0) / 10.0 * 100.0)
+                .unwrap()
+                .round_dp(2)
+        );
+    }
+
+    #[test]
+    fn change_pct_or_zero_returns_zero_for_non_positive_preclose() {
+        assert_eq!(change_pct_or_zero(0.0, 10.0), Decimal::ZERO);
+        assert_eq!(change_pct_or_zero(-1.0, 10.0), Decimal::ZERO);
+    }
 
     #[test]
     fn rounded_decimal_or_zero_rounds_and_falls_back_for_invalid_values() {
