@@ -29,22 +29,12 @@ pub(super) fn from_record(record: &TdxDayRecord, factor: &FuquanFactor) -> TdxDa
         date: record
             .naive_date()
             .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
-        open: Decimal::from_f32(record.open)
-            .map(|value| value.round_dp(2))
-            .unwrap_or(Decimal::ZERO),
-        high: Decimal::from_f32(record.high)
-            .map(|value| value.round_dp(2))
-            .unwrap_or(Decimal::ZERO),
-        low: Decimal::from_f32(record.low)
-            .map(|value| value.round_dp(2))
-            .unwrap_or(Decimal::ZERO),
-        close: Decimal::from_f32(record.close)
-            .map(|value| value.round_dp(2))
-            .unwrap_or(Decimal::ZERO),
+        open: rounded_decimal_or_zero(record.open),
+        high: rounded_decimal_or_zero(record.high),
+        low: rounded_decimal_or_zero(record.low),
+        close: rounded_decimal_or_zero(record.close),
         volume: record.volume as i64,
-        amount: Decimal::from_f32(record.amount)
-            .map(|value| value.round_dp(2))
-            .unwrap_or(Decimal::ZERO),
+        amount: rounded_decimal_or_zero(record.amount),
         preclose: Decimal::from_f64(factor.preclose)
             .map(|value| value.round_dp(2))
             .unwrap_or(Decimal::ZERO),
