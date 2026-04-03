@@ -8,7 +8,6 @@ set -euo pipefail
 # 配置
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-IMAGE_NAME="${IMAGE_NAME:-ghcr.io/chengjon/quantix-rust/quantix}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 
@@ -29,6 +28,56 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+resolve_repo_slug() {
+    if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+        printf '%s\n' "$GITHUB_REPOSITORY"
+        return 0
+    fi
+
+    local remote_url
+    remote_url="$(git -C "$PROJECT_ROOT" config --get remote.origin.url 2>/dev/null || true)"
+
+    if [ -z "$remote_url" ]; then
+        return 1
+    fi
+
+    remote_url="${remote_url#ssh://}"
+    remote_url="${remote_url#https://}"
+    remote_url="${remote_url#http://}"
+    remote_url="${remote_url#git@}"
+    remote_url="${remote_url#*@}"
+    remote_url="${remote_url/:/\/}"
+
+    if [[ "$remote_url" != github.com/* ]]; then
+        return 1
+    fi
+
+    remote_url="${remote_url#github.com/}"
+    remote_url="${remote_url%.git}"
+
+    if [[ "$remote_url" != */* ]]; then
+        return 1
+    fi
+
+    printf '%s\n' "$remote_url"
+}
+
+resolve_image_name() {
+    if [ -n "${IMAGE_NAME:-}" ]; then
+        printf '%s\n' "$IMAGE_NAME"
+        return 0
+    fi
+
+    local repo_slug
+    repo_slug="$(resolve_repo_slug)" || return 1
+    printf 'ghcr.io/%s/quantix\n' "$repo_slug"
+}
+
+IMAGE_NAME="$(resolve_image_name)" || {
+    log_error "无法推导默认镜像名称，请设置 IMAGE_NAME 或 GITHUB_REPOSITORY"
+    exit 1
 }
 
 # 显示帮助信息
