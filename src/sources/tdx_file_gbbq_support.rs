@@ -2,6 +2,12 @@ use std::collections::HashMap;
 
 use crate::sources::tdx_file::TdxGbbqRecord;
 
+pub(super) fn adjusted_preclose(record: &TdxGbbqRecord, preclose: f64) -> f64 {
+    (preclose * 10.0 - record.fh_qltp as f64
+        + record.pg_hzgb as f64 * record.pgj_qzgb as f64)
+        / (10.0 + record.pg_hzgb as f64 + record.sg_hltp as f64)
+}
+
 pub(super) fn compute_pre_pct(
     record: &TdxGbbqRecord,
     close: f32,
@@ -10,9 +16,7 @@ pub(super) fn compute_pre_pct(
 ) -> [f64; 3] {
     if flag {
         // 除权计算公式: (preclose * 10 - 分红 + 配股 * 配股价) / (10 + 配股 + 送股)
-        preclose = (preclose * 10.0 - record.fh_qltp as f64
-            + record.pg_hzgb as f64 * record.pgj_qzgb as f64)
-            / (10.0 + record.pg_hzgb as f64 + record.sg_hltp as f64);
+        preclose = adjusted_preclose(record, preclose);
     }
     let close = close as f64;
     [preclose, close, close / preclose]
@@ -80,6 +84,20 @@ mod tests {
             sg_hltp: config.sg_hltp,
             pg_hzgb: config.pg_hzgb,
         }
+    }
+
+    #[test]
+    fn adjusted_preclose_applies_dividend_formula() {
+        let config = GbbqRecordFixtureConfig::default();
+        let record = build_record(&config);
+        let preclose = 12.0;
+        let expected = (preclose * 10.0 - config.fh_qltp as f64
+            + config.pg_hzgb as f64 * config.pgj_qzgb as f64)
+            / (10.0 + config.pg_hzgb as f64 + config.sg_hltp as f64);
+
+        let adjusted_preclose = adjusted_preclose(&record, preclose);
+
+        assert!((adjusted_preclose - expected).abs() < 1e-9);
     }
 
     #[test]
