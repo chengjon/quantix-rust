@@ -4,6 +4,10 @@ use rust_decimal::Decimal;
 use crate::data::models::{AdjustType, Kline};
 use crate::sources::tdx_file::FuquanFactor;
 
+pub(super) fn decimal_factor_or_one(value: f64) -> Decimal {
+    Decimal::from_f64(value).unwrap_or(Decimal::ONE)
+}
+
 pub(super) fn scaled_price_kline(
     kline: &Kline,
     factor: Decimal,
@@ -29,12 +33,12 @@ pub(super) fn apply_qfq(
     latest_factor: f64,
 ) -> Kline {
     let adj_factor = latest_factor / factor;
-    let adj_dec = Decimal::from_f64(adj_factor).unwrap_or(Decimal::ONE);
+    let adj_dec = decimal_factor_or_one(adj_factor);
     scaled_price_kline(kline, adj_dec, AdjustType::QFQ)
 }
 
 pub(super) fn apply_hfq(kline: &Kline, factor: f64) -> Kline {
-    let adj_dec = Decimal::from_f64(factor).unwrap_or(Decimal::ONE);
+    let adj_dec = decimal_factor_or_one(factor);
     scaled_price_kline(kline, adj_dec, AdjustType::HFQ)
 }
 
@@ -43,6 +47,15 @@ mod tests {
     use chrono::NaiveDate;
 
     use super::*;
+
+    #[test]
+    fn decimal_factor_or_one_falls_back_for_invalid_values() {
+        assert_eq!(decimal_factor_or_one(f64::NAN), Decimal::ONE);
+        assert_eq!(
+            decimal_factor_or_one(1.5),
+            Decimal::from_f64(1.5).unwrap()
+        );
+    }
 
     fn sample_kline() -> Kline {
         Kline {
