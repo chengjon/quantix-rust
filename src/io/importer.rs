@@ -263,10 +263,7 @@ impl DataImporter {
 
     /// CSV 行转 Kline
     fn csv_row_to_kline(&self, row: &CsvKlineRow) -> Result<Kline> {
-        let date =
-            NaiveDate::parse_from_str(&row.date, &self.config.date_format).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date))
-            })?;
+        let date = parse_date(&row.date, &self.config.date_format)?;
 
         Ok(Kline {
             code: row.code.clone(),
@@ -301,9 +298,7 @@ impl DataImporter {
 
     /// JSON 行转 Kline
     fn json_row_to_kline(&self, row: &JsonKlineRow) -> Result<Kline> {
-        let date = NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").map_err(|_| {
-            crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date))
-        })?;
+        let date = parse_date(&row.date, "%Y-%m-%d")?;
 
         Ok(Kline {
             code: row.code.clone(),
@@ -329,6 +324,11 @@ impl DataImporter {
             adjust_type: AdjustType::None,
         })
     }
+}
+
+fn parse_date(value: &str, format: &str) -> Result<NaiveDate> {
+    NaiveDate::parse_from_str(value, format)
+        .map_err(|_| crate::core::QuantixError::Other(format!("无效的日期格式: {}", value)))
 }
 
 /// CSV K线行格式
@@ -426,5 +426,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.record_count, 1);
+    }
+
+    #[test]
+    fn test_parse_date_rejects_invalid_format() {
+        let err = parse_date("2024/01/01", "%Y-%m-%d").unwrap_err();
+        assert!(err.to_string().contains("无效的日期格式"));
     }
 }
