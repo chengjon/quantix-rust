@@ -73,8 +73,7 @@ impl TaskScheduler {
     /// 添加任务
     pub async fn add_task(&self, task: ScheduledTask) -> Result<(), String> {
         // 验证 cron 表达式
-        let _cron = CronExpression::new(&task.cron_expr)
-            .map_err(|e| format!("无效的 cron 表达式: {}", e))?;
+        let _cron = parse_cron_expr(&task.cron_expr)?;
 
         info!("添加任务: {} ({})", task.name, task.cron_expr);
 
@@ -94,9 +93,7 @@ impl TaskScheduler {
 
         // 如果调度器正在运行，立即添加到调度器
         if *self.running.read().await {
-            // 重新获取 cron 用于调度
-            let cron = CronExpression::new(&tasks[&task_name].cron_expr).unwrap();
-            self.schedule_task(&task_name, &cron).await?;
+            self.schedule_task(&task_name).await?;
         }
 
         Ok(())
@@ -152,8 +149,8 @@ impl TaskScheduler {
         let tasks = self.tasks.read().await;
         for (name, task) in tasks.iter() {
             if task.enabled {
-                if let Ok(cron) = CronExpression::new(&task.cron_expr) {
-                    if let Err(e) = self.schedule_task(name, &cron).await {
+                if parse_cron_expr(&task.cron_expr).is_ok() {
+                    if let Err(e) = self.schedule_task(name).await {
                         warn!("添加任务 {} 到调度器失败: {}", name, e);
                     }
                 }
@@ -165,7 +162,7 @@ impl TaskScheduler {
     }
 
     /// 将任务添加到调度器
-    async fn schedule_task(&self, name: &str, _cron: &CronExpression) -> Result<(), String> {
+    async fn schedule_task(&self, name: &str) -> Result<(), String> {
         let tasks = self.tasks.read().await;
         let task = tasks
             .get(name)
@@ -276,13 +273,8 @@ impl TaskScheduler {
         let tasks = self.tasks.read().await;
         let task = tasks.get(name)?;
 
-        if let Ok(_cron) = CronExpression::new(&task.cron_expr) {
-            // 使用我们自己的 CronExpression 来计算下次执行时间
-            let cron = CronExpression::new(&task.cron_expr).ok()?;
-            Some(cron.next_run_after(Utc::now().naive_utc()))
-        } else {
-            None
-        }
+        let cron = parse_cron_expr(&task.cron_expr).ok()?;
+        Some(cron.next_run_after(Utc::now().naive_utc()))
     }
 
     /// 获取任务统计
@@ -322,6 +314,10 @@ impl Default for TaskScheduler {
             running: Arc::new(RwLock::new(false)),
         }
     }
+}
+
+fn parse_cron_expr(expr: &str) -> Result<CronExpression, String> {
+    CronExpression::new(expr).map_err(|e| format!("无效的 cron 表达式: {}", e))
 }
 
 /// 预定义的任务模板
@@ -432,5 +428,23 @@ mod tests {
 
         scheduler.execute_registered_callback("demo").await.unwrap();
         assert!(hit.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn test_next_run_time_returns_none_for_invalid_cron() {
+        let scheduler = TaskScheduler::default();
+        let task = ScheduledTask::new(
+            "bad_task".to_string(),
+            "invalid cron".to_string(),
+            "测试任务".to_string(),
+        );
+
+        scheduler
+            .tasks
+            .write()
+            .await
+            .insert(task.name.clone(), task);
+
+        assert!(scheduler.next_run_time("bad_task").await.is_none());
     }
 }
