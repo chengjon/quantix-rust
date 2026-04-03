@@ -128,35 +128,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            postgresql-client \
-            clickhouse-client \
-            wget
-
-      - name: Wait for PostgreSQL
-        run: |
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U test; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... ($i/30)"
-            sleep 2
-          done
-
-      - name: Wait for ClickHouse
-        run: |
-          for i in {1..30}; do
-            if clickhouse-client --query "SELECT 1" 2>/dev/null; then
-              echo "ClickHouse is ready"
-              break
-            fi
-            echo "Waiting for ClickHouse... ($i/30)"
-            sleep 2
-          done
+      - name: Prepare database test environment
+        run: bash scripts/ci/prepare-db-test-env.sh
 
       - name: Run unit tests
         run: |
@@ -244,35 +217,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            postgresql-client \
-            clickhouse-client \
-            wget
-
-      - name: Wait for PostgreSQL
-        run: |
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U test; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... ($i/30)"
-            sleep 2
-          done
-
-      - name: Wait for ClickHouse
-        run: |
-          for i in {1..30}; do
-            if clickhouse-client --query "SELECT 1" 2>/dev/null; then
-              echo "ClickHouse is ready"
-              break
-            fi
-            echo "Waiting for ClickHouse... ($i/30)"
-            sleep 2
-          done
+      - name: Prepare database test environment
+        run: bash scripts/ci/prepare-db-test-env.sh
 
       - name: Generate coverage
         run: |
