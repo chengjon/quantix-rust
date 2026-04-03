@@ -142,42 +142,40 @@ impl CronExpression {
 
     /// 检查给定时间是否匹配 cron 表达式
     pub fn should_run(&self, dt: &NaiveDateTime) -> bool {
-        self.matches_field(&self.minutes, dt.minute(), 0, 59)
-            && self.matches_field(&self.hours, dt.hour(), 0, 23)
-            && self.matches_field(&self.days, dt.day() as u32, 1, 31)
-            && self.matches_field(&self.months, dt.month() as u32, 1, 12)
-            && self.matches_field(&self.weekdays, dt.weekday().num_days_from_sunday(), 0, 6)
+        self.matches_field(&self.minutes, dt.minute())
+            && self.matches_field(&self.hours, dt.hour())
+            && self.matches_field(&self.days, dt.day() as u32)
+            && self.matches_field(&self.months, dt.month() as u32)
+            && self.matches_field(&self.weekdays, dt.weekday().num_days_from_sunday())
     }
 
     /// 检查字段是否匹配
-    fn matches_field(&self, field: &CronField, value: u32, _min: u32, _max: u32) -> bool {
+    fn matches_field(&self, field: &CronField, value: u32) -> bool {
         match field {
             CronField::All => true,
             CronField::Specific(values) => values.contains(&value),
             CronField::Range(start, end) => value >= *start && value <= *end,
-            CronField::Step { base, step } => {
-                match base.as_ref() {
-                    CronField::All => value % step == 0,
-                    CronField::Range(start, end) => {
-                        if value >= *start && value <= *end {
-                            (value - start) % step == 0
-                        } else {
-                            false
-                        }
-                    }
-                    CronField::Specific(values) => {
-                        // 对于特定值列表，检查是否有值匹配步长模式
-                        values.iter().any(|&v| {
-                            if v >= value && (v - value) % step == 0 {
-                                true
-                            } else {
-                                false
-                            }
-                        })
-                    }
-                    CronField::Step { .. } => false, // 不支持嵌套步长
+            CronField::Step { base, step } => self.matches_step_field(base.as_ref(), value, *step),
+        }
+    }
+
+    fn matches_step_field(&self, base: &CronField, value: u32, step: u32) -> bool {
+        match base {
+            CronField::All => value % step == 0,
+            CronField::Range(start, end) => {
+                if value >= *start && value <= *end {
+                    (value - start) % step == 0
+                } else {
+                    false
                 }
             }
+            CronField::Specific(values) => {
+                // 对于特定值列表，检查是否有值匹配步长模式
+                values
+                    .iter()
+                    .any(|&v| v >= value && (v - value) % step == 0)
+            }
+            CronField::Step { .. } => false, // 不支持嵌套步长
         }
     }
 
@@ -329,5 +327,24 @@ mod tests {
             NaiveTime::from_hms_opt(12, 13, 0).unwrap(),
         );
         assert!(!cron.should_run(&should_not_match));
+    }
+
+    #[test]
+    fn test_next_run_after_finds_next_matching_minute() {
+        let cron = CronExpression::new("*/5 * * * *").unwrap();
+        let after = NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            NaiveTime::from_hms_opt(12, 13, 0).unwrap(),
+        );
+
+        let next = cron.next_run_after(after);
+
+        assert_eq!(
+            next,
+            NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                NaiveTime::from_hms_opt(12, 15, 0).unwrap(),
+            )
+        );
     }
 }
