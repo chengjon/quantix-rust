@@ -412,8 +412,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
   - 同一个 mock-live 订单在 partial fill 场景下可能写出多笔 `TradeRecord`
   - 这些增量成交会直接体现在 `trade history`、`trade fees`、`trade overview` 的本地视图里
-  - `live 模式仍在开发中`
-  - `execution daemon`、自动审批、real live adapter 延后到后续 Phase
+  - 通用 `target_mode=live` 仍在开发中
+  - `execution daemon` 与基础自动审批已在下文 Phase 29C 补齐；当前真实下单只开放受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 #### Phase 29B: 策略信号守护进程 ✅
 - **策略守护进程配置** (`src/strategy/config.rs`)
@@ -452,7 +452,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `strategy daemon` 不自动交易
   - `strategy run --mode paper` 仍保留为直接执行路径
   - `strategy daemon run --once` 首次启动只 bootstrap 到最新 bar，可能输出 `strategy daemon 未生成新信号`
-  - 自动审批 / execution daemon / live adapter 延后到后续 Phase
+  - 在 Phase 29B 本身，这些能力延后到后续 Phase；当前已由下文 Phase 29C 补齐 execution daemon 与基础自动审批，并补齐受 `qmt.mode=live` 保护的 `qmt_live` 实盘路径；通用 `target_mode=live` 仍未实现
 
 #### Phase 29C: 执行自动化收口 ✅
 - **执行自动化命令** (`src/execution/config.rs`, `src/execution/daemon.rs`, `src/cli/handlers.rs`)
@@ -475,7 +475,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `execution daemon` 当前是单 worker、串行消费
   - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
-  - `live` adapter 仍未实现
+  - 通用 `target_mode=live` 仍未实现；当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 ### Windows Bridge v1
 - **TDX bridge source**
@@ -484,6 +484,8 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **QMT preview-only**
   - 当前只支持 frozen execution request 的 broker payload 预览
   - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
+  - 真实 QMT 提交只会在 bridge 明确回报 `qmt.mode=live` 时放行
+  - 真实 `qmt-live` 提交会把对应 `execution_request` 写回为 `completed` 或 `failed`
 
 #### Windows 侧目录
 - `/mnt/d/mystocks/quantix/quantix_bridge`
@@ -495,9 +497,11 @@ A 股量化交易 CLI 工具 - Rust 实现
 #### Bridge CLI
 - `quantix execution bridge status`
 - `quantix execution bridge qmt-preview --request-id <ID>`
+- `quantix execution bridge qmt-live --request-id <ID> [--yes]`
+- 如需真实 QMT 提交，Windows bridge 必须先进入 `qmt.mode=live`
 
 #### 当前边界
-- 真实 `QMT live` adapter 延后到后续 phase
+- 通用 `target_mode=live` 仍延后到后续 phase；真实 QMT 提交仅支持受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 #### Phase 30: 股票异常检测 ✅
 - **异常检测模块** (`src/anomaly/*`)

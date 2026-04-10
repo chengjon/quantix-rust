@@ -556,7 +556,7 @@ quantix strategy service status
 - `request execute` 会手动消费一个 `pending execution_request`
 - 不会自动交易，不会修改 paper 账户
 - `strategy run --mode paper` 仍保留为直接执行路径
-- `execution daemon`、自动审批、live adapter 延后到后续 Phase
+- 在 Phase 29B 本身，这些能力延后到后续 Phase；当前已由下文 Phase 29C 补齐 execution daemon 与基础自动审批，并补齐受 `qmt.mode=live` 保护的 `qmt_live` 实盘路径；通用 `target_mode=live` 仍未实现
 
 当前输出语义：
 
@@ -604,7 +604,7 @@ quantix execution daemon run --once
 - `execution daemon` 当前是单 worker、串行消费
 - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
 - `mock_live` request 即使返回 `accepted` 也会被标记为 `completed`
-- `live` adapter 仍未实现
+- 通用 `target_mode=live` 仍未实现；当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 #### 当前输出语义
 
@@ -618,6 +618,8 @@ quantix execution daemon run --once
 - `TDX bridge source` 通过 Windows `quantix-bridge` 提供远端行情与 K 线读取
 - `QMT preview-only` 只消费 frozen execution request 的快照做 broker payload 预览
 - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
+- 真实 QMT 提交只会在 bridge 明确回报 `qmt.mode=live` 时放行
+- 真实 `qmt-live` 提交会把对应 `execution_request` 写回为 `completed` 或 `failed`
 
 ##### Windows 侧目录
 
@@ -633,7 +635,10 @@ quantix execution daemon run --once
 ```bash
 quantix execution bridge status
 quantix execution bridge qmt-preview --request-id <ID>
+quantix execution bridge qmt-live --request-id <ID> [--yes]
 ```
+
+- 如需真实 QMT 提交，Windows bridge 必须先进入 `qmt.mode=live`
 
 ---
 

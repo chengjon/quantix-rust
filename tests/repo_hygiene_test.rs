@@ -259,7 +259,31 @@ fn readme_and_user_manual_document_bridge_v1_commands() {
         "quantix execution bridge status",
         "quantix execution bridge qmt-preview --request-id <ID>",
         "QMT preview-only",
+        "qmt.mode=live",
+        "execution_request",
         "TDX bridge source",
+    ] {
+        assert!(
+            readme.contains(expected),
+            "expected README to contain {expected}"
+        );
+        assert!(
+            manual.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn readme_and_user_manual_document_qmt_live_boundary() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let manual = fs::read_to_string(repo_root().join("docs").join("USER_MANUAL.md"))
+        .expect("expected USER_MANUAL.md");
+
+    for expected in [
+        "quantix execution bridge qmt-live --request-id <ID>",
+        "target_mode=live",
+        "qmt_live",
     ] {
         assert!(
             readme.contains(expected),
