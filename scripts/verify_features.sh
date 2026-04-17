@@ -24,17 +24,63 @@ fi
 PASS=0
 WARN=0
 FAIL=0
+LOCAL_PASS=0
+LOCAL_WARN=0
+LOCAL_FAIL=0
+EXTERNAL_PASS=0
+EXTERNAL_WARN=0
+EXTERNAL_FAIL=0
+QUANTIX_BIN="$ROOT_DIR/target/debug/quantix"
+
+record_result() {
+  local category="$1"
+  local outcome="$2"
+
+  case "$outcome" in
+    pass)
+      PASS=$((PASS + 1))
+      ;;
+    warn)
+      WARN=$((WARN + 1))
+      ;;
+    fail)
+      FAIL=$((FAIL + 1))
+      ;;
+  esac
+
+  case "$category:$outcome" in
+    local:pass)
+      LOCAL_PASS=$((LOCAL_PASS + 1))
+      ;;
+    local:warn)
+      LOCAL_WARN=$((LOCAL_WARN + 1))
+      ;;
+    local:fail)
+      LOCAL_FAIL=$((LOCAL_FAIL + 1))
+      ;;
+    external:pass)
+      EXTERNAL_PASS=$((EXTERNAL_PASS + 1))
+      ;;
+    external:warn)
+      EXTERNAL_WARN=$((EXTERNAL_WARN + 1))
+      ;;
+    external:fail)
+      EXTERNAL_FAIL=$((EXTERNAL_FAIL + 1))
+      ;;
+  esac
+}
 
 run_expect_pass() {
   local name="$1"
   local cmd="$2"
+  local category="${3:-local}"
   echo "\n[CHECK] $name"
   if bash -lc "$cmd"; then
     echo "[PASS] $name"
-    PASS=$((PASS + 1))
+    record_result "$category" pass
   else
     echo "[FAIL] $name"
-    FAIL=$((FAIL + 1))
+    record_result "$category" fail
   fi
 }
 
@@ -42,6 +88,7 @@ run_expect_warn() {
   local name="$1"
   local cmd="$2"
   local hint="$3"
+  local category="${4:-local}"
   echo "\n[CHECK] $name"
   set +e
   local output
@@ -52,48 +99,57 @@ run_expect_warn() {
   echo "$output"
   if echo "$output" | grep -Eiq "$hint"; then
     echo "[WARN-EXPECTED] $name"
-    WARN=$((WARN + 1))
+    record_result "$category" warn
   elif [[ $code -eq 0 ]]; then
     echo "[PASS] $name (feature may be implemented now)"
-    PASS=$((PASS + 1))
+    record_result "$category" pass
   else
     echo "[FAIL] $name"
-    FAIL=$((FAIL + 1))
+    record_result "$category" fail
   fi
 }
 
 # 1) Basic health
 run_expect_pass "Cargo version" "cargo --version"
 run_expect_pass "Compile check" "cargo check -q"
+run_expect_pass "Build quantix binary" "cargo build -q --bin quantix"
 
 # 2) Command tree reachability
-run_expect_pass "CLI help" "cargo run -- --help"
-run_expect_pass "Strategy help" "cargo run -- strategy --help"
-run_expect_pass "Execution help" "cargo run -- execution --help"
-run_expect_pass "Risk help" "cargo run -- risk --help"
-run_expect_pass "Fundamental help" "cargo run -- fundamental --help"
+run_expect_pass "CLI help" "\"$QUANTIX_BIN\" --help"
+run_expect_pass "Strategy help" "\"$QUANTIX_BIN\" strategy --help"
+run_expect_pass "Execution help" "\"$QUANTIX_BIN\" execution --help"
+run_expect_pass "Risk help" "\"$QUANTIX_BIN\" risk --help"
+run_expect_pass "Fundamental help" "\"$QUANTIX_BIN\" fundamental --help"
 
-# 3) Core smoke checks
-run_expect_pass "Strategy list" "cargo run -- strategy list"
-run_expect_pass "Signal list" "cargo run -- strategy signal list"
-run_expect_pass "Request list stats" "cargo run -- strategy request list --stats"
-run_expect_pass "Execution config show" "cargo run -- execution config show"
-run_expect_pass "Execution daemon run once" "cargo run -- execution daemon run --once"
-run_expect_warn "Execution bridge status (external dependency)" "cargo run -- execution bridge status" "Connection refused|bridge request failed|timeout|timed out"
-run_expect_pass "Fundamental valuation" "cargo run -- fundamental valuation --code 600519"
-run_expect_pass "Fundamental earnings" "cargo run -- fundamental earnings --code 600519 --years 1"
-run_expect_pass "Fundamental institution" "cargo run -- fundamental institution --code 600519"
+# 3) Local binary smoke checks
+run_expect_pass "Strategy list" "\"$QUANTIX_BIN\" strategy list"
+run_expect_pass "Signal list" "\"$QUANTIX_BIN\" strategy signal list"
+run_expect_pass "Request list stats" "\"$QUANTIX_BIN\" strategy request list --stats"
+run_expect_pass "Execution config show" "\"$QUANTIX_BIN\" execution config show"
+run_expect_pass "Execution daemon run once" "\"$QUANTIX_BIN\" execution daemon run --once"
 
-# 4) Expected-limited features
-run_expect_warn "TUI placeholder" "cargo run -- menu --tui" "开发中|提示|todo|暂未"
-run_expect_warn "Parquet export placeholder" "cargo run -- data export --code 000001 --format parquet --output ./tmp" "暂未实现|未实现|unsupported|未找到数据|无数据|empty|no data|not found"
-run_expect_warn "Dividend placeholder" "cargo run -- fundamental dividend --code 600519 --years 3" "开发中|敬请期待|未实现"
-run_expect_warn "Task add P0 limitation" "cargo run -- task add --name demo --cron '0 9 * * *' --command 'echo hi'" "P0|暂不支持|unsupported"
+# 4) External dependency smoke checks
+run_expect_warn "Execution bridge status (external dependency)" "\"$QUANTIX_BIN\" execution bridge status" "Connection refused|bridge request failed|timeout|timed out" external
+run_expect_pass "Fundamental valuation" "\"$QUANTIX_BIN\" fundamental valuation --code 600519" external
+run_expect_pass "Fundamental earnings" "\"$QUANTIX_BIN\" fundamental earnings --code 600519 --years 1" external
+run_expect_pass "Fundamental institution" "\"$QUANTIX_BIN\" fundamental institution --code 600519" external
+
+# 5) Expected-limited features
+run_expect_warn "TUI placeholder" "\"$QUANTIX_BIN\" menu --tui" "开发中|提示|todo|暂未"
+run_expect_warn "Parquet export placeholder" "\"$QUANTIX_BIN\" data export --code 000001 --format parquet --output ./tmp" "暂未实现|未实现|unsupported|未找到数据|无数据|empty|no data|not found"
+run_expect_warn "Dividend placeholder" "\"$QUANTIX_BIN\" fundamental dividend --code 600519 --years 3" "开发中|敬请期待|未实现"
+run_expect_warn "Task add P0 limitation" "\"$QUANTIX_BIN\" task add --name demo --cron '0 9 * * *' --command 'echo hi'" "P0|暂不支持|unsupported"
 
 echo "\n================ SUMMARY ================"
 echo "PASS : $PASS"
 echo "WARN : $WARN"
 echo "FAIL : $FAIL"
+echo "LOCAL PASS : $LOCAL_PASS"
+echo "LOCAL WARN : $LOCAL_WARN"
+echo "LOCAL FAIL : $LOCAL_FAIL"
+echo "EXTERNAL PASS : $EXTERNAL_PASS"
+echo "EXTERNAL WARN : $EXTERNAL_WARN"
+echo "EXTERNAL FAIL : $EXTERNAL_FAIL"
 
 if [[ $FAIL -gt 0 ]]; then
   exit 1

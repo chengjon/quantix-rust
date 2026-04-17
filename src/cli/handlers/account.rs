@@ -3,14 +3,13 @@
 //! 多账户管理 CLI 命令处理器
 
 use super::super::{AccountCommands, AccountGroupCommands};
+use crate::account::storage::{load_registry, save_registry};
 use crate::account::{
     AccountConfig, AccountRegistry, AccountRouter, AccountType, AllocationStrategy,
     JsonAccountRegistryStore, OrderSplitRequest, SplitTarget,
 };
-use crate::account::storage::{load_registry, save_registry};
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 
 /// 运行账户命令
 pub async fn run_account_command(cmd: AccountCommands) -> Result<()> {
@@ -90,7 +89,7 @@ async fn run_account_register(
         }
     };
 
-    let mut config = AccountConfig::new(id.clone(), acc_type, Decimal::from_f64_retain(capital).unwrap_or(dec!(1000000)));
+    let mut config = AccountConfig::new(id.clone(), acc_type, parse_positive_capital(capital)?);
     config.adapter_name = adapter;
 
     registry.register_account(config).await?;
@@ -176,8 +175,14 @@ async fn run_account_show(id: String) -> Result<()> {
     println!("  初始资金: {:.2}", account.initial_capital);
     println!("  适配器: {}", account.adapter_name);
     println!("  状态: {}", if account.enabled { "启用" } else { "禁用" });
-    println!("  创建时间: {}", account.created_at.format("%Y-%m-%d %H:%M:%S"));
-    println!("  更新时间: {}", account.updated_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  创建时间: {}",
+        account.created_at.format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "  更新时间: {}",
+        account.updated_at.format("%Y-%m-%d %H:%M:%S")
+    );
 
     // 显示所属组
     let groups = registry.get_account_groups(&id).await;
@@ -218,7 +223,7 @@ async fn run_account_update(
         account.enabled = false;
     }
     if let Some(c) = capital {
-        account.initial_capital = Decimal::from_f64_retain(c).unwrap_or(account.initial_capital);
+        account.initial_capital = parse_positive_capital(c)?;
     }
     if let Some(a) = adapter {
         account.adapter_name = a;
@@ -230,6 +235,19 @@ async fn run_account_update(
 
     println!("✅ 账户更新成功: {}", id);
     Ok(())
+}
+
+fn parse_positive_capital(capital: f64) -> Result<Decimal> {
+    let decimal = Decimal::from_f64_retain(capital)
+        .ok_or_else(|| QuantixError::Other(format!("账户初始资金无法解析: {capital}")))?;
+
+    if decimal <= Decimal::ZERO {
+        return Err(QuantixError::Other(format!(
+            "账户初始资金必须大于 0: {capital}"
+        )));
+    }
+
+    Ok(decimal)
 }
 
 /// 删除账户
@@ -390,8 +408,14 @@ async fn run_group_show(id: String) -> Result<()> {
             );
         }
     }
-    println!("  创建时间: {}", group.created_at.format("%Y-%m-%d %H:%M:%S"));
-    println!("  更新时间: {}", group.updated_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  创建时间: {}",
+        group.created_at.format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "  更新时间: {}",
+        group.updated_at.format("%Y-%m-%d %H:%M:%S")
+    );
 
     Ok(())
 }
@@ -489,9 +513,18 @@ async fn run_account_summary() -> Result<()> {
     println!("  总账户数: {}", accounts.len());
     println!("  总资金: {:.2}", total_capital);
     println!("{}", "─".repeat(50));
-    let paper_count = accounts.iter().filter(|a| a.account_type == AccountType::Paper).count();
-    let live_count = accounts.iter().filter(|a| a.account_type == AccountType::Live).count();
-    let mock_count = accounts.iter().filter(|a| a.account_type == AccountType::MockLive).count();
+    let paper_count = accounts
+        .iter()
+        .filter(|a| a.account_type == AccountType::Paper)
+        .count();
+    let live_count = accounts
+        .iter()
+        .filter(|a| a.account_type == AccountType::Live)
+        .count();
+    let mock_count = accounts
+        .iter()
+        .filter(|a| a.account_type == AccountType::MockLive)
+        .count();
     println!("  模拟账户资金: {:.2} ({})", paper_capital, paper_count);
     println!("  实盘账户资金: {:.2} ({})", live_capital, live_count);
     println!("  模拟实盘资金: {:.2} ({})", mock_live_capital, mock_count);
@@ -572,7 +605,10 @@ async fn run_account_split(
 
     let mut total_split = 0i64;
     for split in &result.splits {
-        let price_str = split.price.map(|p| format!("{:.2}", p)).unwrap_or_else(|| "市价".to_string());
+        let price_str = split
+            .price
+            .map(|p| format!("{:.2}", p))
+            .unwrap_or_else(|| "市价".to_string());
         println!(
             "    账户 {:<15}: {} 股 @ {}",
             split.account_id, split.quantity, price_str
@@ -581,7 +617,11 @@ async fn run_account_split(
     }
 
     println!("{}", "─".repeat(60));
-    println!("  拆分后总量: {} (差额: {})", total_split, quantity - total_split);
+    println!(
+        "  拆分后总量: {} (差额: {})",
+        total_split,
+        quantity - total_split
+    );
 
     Ok(())
 }

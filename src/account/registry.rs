@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::{QuantixError, Result};
 use super::models::{AccountConfig, AccountGroup, AccountType, AllocationStrategy};
+use crate::core::{QuantixError, Result};
 
 /// 账户注册表
 #[derive(Debug, Clone)]
@@ -50,6 +50,7 @@ impl AccountRegistry {
 
     /// 注册账户
     pub async fn register_account(&self, config: AccountConfig) -> Result<()> {
+        validate_account_config(&config)?;
         let mut inner = self.inner.write().await;
 
         if inner.accounts.contains_key(&config.account_id) {
@@ -65,6 +66,7 @@ impl AccountRegistry {
 
     /// 更新账户
     pub async fn update_account(&self, config: AccountConfig) -> Result<()> {
+        validate_account_config(&config)?;
         let mut inner = self.inner.write().await;
 
         if !inner.accounts.contains_key(&config.account_id) {
@@ -105,10 +107,7 @@ impl AccountRegistry {
         let mut inner = self.inner.write().await;
 
         if !inner.accounts.contains_key(account_id) {
-            return Err(QuantixError::Other(format!(
-                "账户不存在: {}",
-                account_id
-            )));
+            return Err(QuantixError::Other(format!("账户不存在: {}", account_id)));
         }
 
         inner.default_account_id = account_id.to_string();
@@ -156,16 +155,12 @@ impl AccountRegistry {
         let mut inner = self.inner.write().await;
 
         if inner.groups.contains_key(&group_id) {
-            return Err(QuantixError::Other(format!(
-                "账户组已存在: {}",
-                group_id
-            )));
+            return Err(QuantixError::Other(format!("账户组已存在: {}", group_id)));
         }
 
-        inner.groups.insert(
-            group_id.clone(),
-            AccountGroup::new(group_id, group_name),
-        );
+        inner
+            .groups
+            .insert(group_id.clone(), AccountGroup::new(group_id, group_name));
         Ok(())
     }
 
@@ -186,19 +181,12 @@ impl AccountRegistry {
     }
 
     /// 向账户组添加账户
-    pub async fn add_account_to_group(
-        &self,
-        group_id: &str,
-        account_id: String,
-    ) -> Result<()> {
+    pub async fn add_account_to_group(&self, group_id: &str, account_id: String) -> Result<()> {
         let inner = self.inner.read().await;
 
         // 检查账户是否存在
         if !inner.accounts.contains_key(&account_id) {
-            return Err(QuantixError::Other(format!(
-                "账户不存在: {}",
-                account_id
-            )));
+            return Err(QuantixError::Other(format!("账户不存在: {}", account_id)));
         }
         drop(inner);
 
@@ -213,11 +201,7 @@ impl AccountRegistry {
     }
 
     /// 从账户组移除账户
-    pub async fn remove_account_from_group(
-        &self,
-        group_id: &str,
-        account_id: &str,
-    ) -> Result<()> {
+    pub async fn remove_account_from_group(&self, group_id: &str, account_id: &str) -> Result<()> {
         let mut inner = self.inner.write().await;
         let group = inner
             .groups
@@ -283,6 +267,17 @@ impl AccountRegistry {
     }
 }
 
+fn validate_account_config(config: &AccountConfig) -> Result<()> {
+    if config.initial_capital <= rust_decimal::Decimal::ZERO {
+        return Err(QuantixError::Other(format!(
+            "账户初始资金必须大于 0: {} = {}",
+            config.account_id, config.initial_capital
+        )));
+    }
+
+    Ok(())
+}
+
 impl Default for AccountRegistry {
     fn default() -> Self {
         Self::new()
@@ -297,11 +292,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_and_get_account() {
         let registry = AccountRegistry::new();
-        let config = AccountConfig::new(
-            "test-001".to_string(),
-            AccountType::Paper,
-            dec!(100000),
-        );
+        let config = AccountConfig::new("test-001".to_string(), AccountType::Paper, dec!(100000));
 
         registry.register_account(config.clone()).await.unwrap();
         let retrieved = registry.get_account("test-001").await;
@@ -312,11 +303,7 @@ mod tests {
     #[tokio::test]
     async fn test_duplicate_account() {
         let registry = AccountRegistry::new();
-        let config = AccountConfig::new(
-            "test-001".to_string(),
-            AccountType::Paper,
-            dec!(100000),
-        );
+        let config = AccountConfig::new("test-001".to_string(), AccountType::Paper, dec!(100000));
 
         registry.register_account(config.clone()).await.unwrap();
         let result = registry.register_account(config).await;
@@ -356,11 +343,7 @@ mod tests {
     #[tokio::test]
     async fn test_default_account() {
         let registry = AccountRegistry::new();
-        let config = AccountConfig::new(
-            "default".to_string(),
-            AccountType::Paper,
-            dec!(100000),
-        );
+        let config = AccountConfig::new("default".to_string(), AccountType::Paper, dec!(100000));
 
         registry.register_account(config).await.unwrap();
         registry.set_default_account("default").await.unwrap();
@@ -368,5 +351,49 @@ mod tests {
         let default = registry.get_default_account().await;
         assert!(default.is_some());
         assert_eq!(default.unwrap().account_id, "default");
+    }
+
+    #[tokio::test]
+    async fn test_register_rejects_non_positive_capital() {
+        let registry = AccountRegistry::new();
+
+        let zero_result = registry
+            .register_account(AccountConfig::new(
+                "zero".to_string(),
+                AccountType::Paper,
+                dec!(0),
+            ))
+            .await;
+        assert!(zero_result.is_err());
+        assert!(zero_result.unwrap_err().to_string().contains("必须大于 0"));
+
+        let negative_result = registry
+            .register_account(AccountConfig::new(
+                "negative".to_string(),
+                AccountType::Paper,
+                dec!(-1),
+            ))
+            .await;
+        assert!(negative_result.is_err());
+        assert!(
+            negative_result
+                .unwrap_err()
+                .to_string()
+                .contains("必须大于 0")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_update_rejects_non_positive_capital() {
+        let registry = AccountRegistry::new();
+        let mut config =
+            AccountConfig::new("test-001".to_string(), AccountType::Paper, dec!(100000));
+
+        registry.register_account(config.clone()).await.unwrap();
+
+        config.initial_capital = dec!(0);
+        let result = registry.update_account(config).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("必须大于 0"));
     }
 }

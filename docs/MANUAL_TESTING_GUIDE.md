@@ -14,7 +14,20 @@ cargo build
 
 > `cargo build` 只写入 `target/` 目录，不影响项目源码结构。`target/` 已在 `.gitignore` 中。
 
-下文统一用 `quantix` 代指 `./target/debug/quantix`（或 `cargo run --`）。
+下文统一用 `quantix` 代指 `./target/debug/quantix`。
+
+### 1.1 命令验证约定
+
+- 先执行一次 `cargo build`，再用 `./target/debug/quantix` 做命令行为验证。
+- 不要把 `timeout 5 cargo run -- ...` 作为命令逻辑验证依据。`cargo run` 可能把时间耗在 cargo 锁等待、依赖编译或 crate 编译上。
+- `cargo` 适合验证“是否可编译”；`./target/debug/quantix` 适合验证“命令是否按预期执行并产生副作用”。
+- 运行 `scripts/verify_features.sh` 时，脚本已经遵循这个约定：先构建二进制，再执行 smoke checks。
+
+### 1.2 Smoke 检查分层
+
+- 纯本地 smoke：只依赖已构建的 `quantix` 二进制和本地文件状态，例如 help、strategy list、execution config show、risk status。
+- 外部依赖 smoke：依赖桥接服务、数据库、上游 API 或网络环境，例如 `execution bridge status`、`fundamental valuation`。
+- 记录结果时应区分“本地 CLI 回归”和“外部依赖不可用”，避免把环境故障误判成命令实现缺陷。
 
 ### 2. 初始化
 

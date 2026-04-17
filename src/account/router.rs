@@ -5,11 +5,11 @@
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 
-use crate::core::{QuantixError, Result};
 use super::models::{
     AccountConfig, AllocationStrategy, OrderSplitRequest, OrderSplitResult, SplitOrder, SplitTarget,
 };
 use super::registry::AccountRegistry;
+use crate::core::{QuantixError, Result};
 
 /// 账户路由器
 ///
@@ -71,11 +71,10 @@ impl AccountRouter {
             }
             SplitTarget::Group(group_id) => {
                 // 账户组，按策略拆分
-                let group = self
-                    .registry
-                    .get_group(group_id)
-                    .await
-                    .ok_or_else(|| QuantixError::Other(format!("账户组不存在: {}", group_id)))?;
+                let group =
+                    self.registry.get_group(group_id).await.ok_or_else(|| {
+                        QuantixError::Other(format!("账户组不存在: {}", group_id))
+                    })?;
 
                 self.split_order_to_group(request, &group).await
             }
@@ -109,9 +108,12 @@ impl AccountRouter {
             AllocationStrategy::Weighted(weights) => {
                 self.split_weighted(&enabled_accounts, weights, total_quantity, price)
             }
-            AllocationStrategy::PrimaryFirst { primary_account_id } => {
-                self.split_primary_first(&enabled_accounts, primary_account_id, total_quantity, price)
-            }
+            AllocationStrategy::PrimaryFirst { primary_account_id } => self.split_primary_first(
+                &enabled_accounts,
+                primary_account_id,
+                total_quantity,
+                price,
+            ),
         };
 
         Ok(OrderSplitResult {
@@ -126,7 +128,7 @@ impl AccountRouter {
         let mut accounts = Vec::new();
         for account_id in account_ids {
             if let Some(account) = self.registry.get_account(account_id).await {
-                if account.enabled {
+                if account.enabled && account.initial_capital > Decimal::ZERO {
                     accounts.push(account);
                 }
             }
@@ -226,7 +228,10 @@ impl AccountRouter {
         let mut allocated: i64 = 0;
 
         for account in accounts {
-            let weight = weights.get(&account.account_id).copied().unwrap_or(Decimal::ZERO);
+            let weight = weights
+                .get(&account.account_id)
+                .copied()
+                .unwrap_or(Decimal::ZERO);
             if weight <= Decimal::ZERO {
                 continue;
             }
@@ -294,6 +299,13 @@ impl AccountRouter {
             return Err(QuantixError::Other(format!("账户已禁用: {}", account_id)));
         }
 
+        if account.initial_capital <= Decimal::ZERO {
+            return Err(QuantixError::Other(format!(
+                "账户初始资金必须大于 0: {} = {}",
+                account_id, account.initial_capital
+            )));
+        }
+
         Ok(())
     }
 
@@ -312,14 +324,27 @@ impl AccountRouter {
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+    use std::collections::HashMap;
 
     async fn create_test_registry() -> AccountRegistry {
         let registry = AccountRegistry::new();
 
         // 创建测试账户
-        let account1 = AccountConfig::new("acc-1".to_string(), super::super::models::AccountType::Paper, dec!(100000));
-        let account2 = AccountConfig::new("acc-2".to_string(), super::super::models::AccountType::Paper, dec!(200000));
-        let account3 = AccountConfig::new("acc-3".to_string(), super::super::models::AccountType::Paper, dec!(300000));
+        let account1 = AccountConfig::new(
+            "acc-1".to_string(),
+            super::super::models::AccountType::Paper,
+            dec!(100000),
+        );
+        let account2 = AccountConfig::new(
+            "acc-2".to_string(),
+            super::super::models::AccountType::Paper,
+            dec!(200000),
+        );
+        let account3 = AccountConfig::new(
+            "acc-3".to_string(),
+            super::super::models::AccountType::Paper,
+            dec!(300000),
+        );
 
         registry.register_account(account1).await.unwrap();
         registry.register_account(account2).await.unwrap();
@@ -400,5 +425,95 @@ mod tests {
 
         let result = router.split_order(request).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_split_order_rejects_single_account_with_non_positive_capital() {
+        let registry = AccountRegistry::new();
+        registry
+            .register_account(AccountConfig::new(
+                "acc-1".to_string(),
+                super::super::models::AccountType::Paper,
+                dec!(0),
+            ))
+            .await
+            .unwrap_err();
+
+        let registry = AccountRegistry::with_accounts(
+            HashMap::from([(
+                "acc-1".to_string(),
+                AccountConfig::new(
+                    "acc-1".to_string(),
+                    super::super::models::AccountType::Paper,
+                    dec!(0),
+                ),
+            )]),
+            "acc-1".to_string(),
+        );
+        let router = AccountRouter::new(registry);
+
+        let request = OrderSplitRequest {
+            symbol: "600519.SH".to_string(),
+            side: "buy".to_string(),
+            total_quantity: 1000,
+            price: Some(dec!(100)),
+            target: SplitTarget::Single("acc-1".to_string()),
+        };
+
+        let result = router.split_order(request).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("必须大于 0"));
+    }
+
+    #[tokio::test]
+    async fn test_split_order_group_skips_non_positive_capital_accounts() {
+        let registry = AccountRegistry::with_accounts(
+            HashMap::from([
+                (
+                    "acc-1".to_string(),
+                    AccountConfig::new(
+                        "acc-1".to_string(),
+                        super::super::models::AccountType::Paper,
+                        dec!(0),
+                    ),
+                ),
+                (
+                    "acc-2".to_string(),
+                    AccountConfig::new(
+                        "acc-2".to_string(),
+                        super::super::models::AccountType::Paper,
+                        dec!(200000),
+                    ),
+                ),
+            ]),
+            "acc-2".to_string(),
+        );
+
+        registry
+            .create_group("group-1".to_string(), "Test Group".to_string())
+            .await
+            .unwrap();
+        registry
+            .add_account_to_group("group-1", "acc-1".to_string())
+            .await
+            .unwrap();
+        registry
+            .add_account_to_group("group-1", "acc-2".to_string())
+            .await
+            .unwrap();
+
+        let router = AccountRouter::new(registry);
+        let request = OrderSplitRequest {
+            symbol: "600519.SH".to_string(),
+            side: "buy".to_string(),
+            total_quantity: 1000,
+            price: Some(dec!(100)),
+            target: SplitTarget::Group("group-1".to_string()),
+        };
+
+        let result = router.split_order(request).await.unwrap();
+        assert_eq!(result.splits.len(), 1);
+        assert_eq!(result.splits[0].account_id, "acc-2");
+        assert_eq!(result.splits[0].quantity, 1000);
     }
 }
