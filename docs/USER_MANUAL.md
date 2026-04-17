@@ -130,6 +130,12 @@ cargo test
 cargo test --package quantix-cli --lib analysis::backtest::tests
 ```
 
+### 手工 smoke 验证约定
+
+- 先执行 `cargo build` 或 `cargo build --release`，再使用构建出的 `quantix` 二进制做命令行为验证。
+- 避免把 `timeout 5 cargo run -- ...` 的超时直接视为命令逻辑缺陷；这类超时可能发生在 cargo 锁等待或构建阶段。
+- `scripts/verify_features.sh` 已按这个约定实现：先构建二进制，再区分纯本地 smoke 与外部依赖 smoke。
+
 ---
 
 ## 快速开始
