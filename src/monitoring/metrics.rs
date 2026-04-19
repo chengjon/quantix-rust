@@ -4,6 +4,7 @@
 //! - Prometheus format export
 //! - JSON format export
 //! - Custom metric registration
+#![allow(clippy::collapsible_if)]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -372,7 +373,11 @@ mod tests {
     #[test]
     fn test_histogram_operations() {
         let collector = MetricsCollector::with_default_prefix();
-        let name = collector.register_histogram("request_duration", "Request duration in seconds", HashMap::new());
+        let name = collector.register_histogram(
+            "request_duration",
+            "Request duration in seconds",
+            HashMap::new(),
+        );
 
         collector.observe_histogram(&name, 0.1);
         collector.observe_histogram(&name, 0.5);

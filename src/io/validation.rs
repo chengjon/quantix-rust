@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use crate::data::models::Kline;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;

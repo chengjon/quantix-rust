@@ -1,47 +1,17 @@
-use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
-use std::collections::HashMap;
-use uuid::Uuid;
+#![allow(clippy::too_many_arguments, clippy::collapsible_if)]
 
 use crate::core::{QuantixError, Result};
 use crate::monitor::MonitorQuoteRow;
 use crate::stop::models::{
-    StopAnchorSource, StopEvaluationResult, StopEvalState, StopHistoryEvent,
-    StopHistoryEventType, StopHistoryFilter, StopRule, StopRuleUpdate, StopStatusRow,
-    StopTriggerKind, TriggeredStop,
+    StopAnchorSource, StopEvalState, StopEvaluationResult, StopHistoryEvent, StopHistoryEventType,
+    StopHistoryFilter, StopRule, StopRuleUpdate, StopStatusRow, StopTriggerKind, TriggeredStop,
 };
-
-#[async_trait]
-pub trait StopRuleStore: Send + Sync {
-    async fn upsert_rule(&self, rule: StopRule) -> Result<StopRule>;
-
-    async fn list_rules(&self) -> Result<Vec<StopRule>>;
-
-    async fn get_rule(&self, code: &str) -> Result<Option<StopRule>>;
-
-    async fn append_history(&self, event: StopHistoryEvent) -> Result<()>;
-
-    async fn list_history(&self, filter: StopHistoryFilter) -> Result<Vec<StopHistoryEvent>>;
-
-    async fn remove_rule(&self, code: &str) -> Result<bool>;
-}
-
-#[derive(Debug, Clone)]
-pub struct StopService<RS> {
-    store: RS,
-}
-
-#[derive(Debug, Clone)]
-struct EvaluatedRuleState {
-    updated_rule: StopRule,
-    triggered_stop: Option<TriggeredStop>,
-    anchor_price: Option<f64>,
-    anchor_source: Option<StopAnchorSource>,
-    loss_threshold: Option<f64>,
-    profit_threshold: Option<f64>,
-    eval_state: StopEvalState,
-}
-
+use chrono::{DateTime, NaiveDate, Utc};
+use std::collections::HashMap;
+use uuid::Uuid;
+mod types;
+use types::EvaluatedRuleState;
+pub use types::{StopRuleStore, StopService};
 impl<RS> StopService<RS>
 where
     RS: StopRuleStore,
@@ -86,11 +56,7 @@ where
             })
             .await?;
         self.store
-            .append_history(build_history_event(
-                &rule,
-                StopHistoryEventType::Set,
-                now,
-            )?)
+            .append_history(build_history_event(&rule, StopHistoryEventType::Set, now)?)
             .await?;
         Ok(rule)
     }
@@ -187,7 +153,11 @@ where
         rules
             .iter()
             .map(|rule| {
-                self.evaluate_rule(rule, quote_map.get(rule.code.as_str()).copied().flatten(), observed_at)
+                self.evaluate_rule(
+                    rule,
+                    quote_map.get(rule.code.as_str()).copied().flatten(),
+                    observed_at,
+                )
             })
             .collect()
     }
@@ -443,16 +413,12 @@ fn merge_stop_rule_patch(
 ) -> Result<StopRule> {
     let merged = StopRule {
         code: existing.code,
-        stop_loss_price: patch
-            .stop_loss_price
-            .unwrap_or(existing.stop_loss_price),
+        stop_loss_price: patch.stop_loss_price.unwrap_or(existing.stop_loss_price),
         take_profit_price: patch
             .take_profit_price
             .unwrap_or(existing.take_profit_price),
         stop_loss_pct: patch.stop_loss_pct.unwrap_or(existing.stop_loss_pct),
-        take_profit_pct: patch
-            .take_profit_pct
-            .unwrap_or(existing.take_profit_pct),
+        take_profit_pct: patch.take_profit_pct.unwrap_or(existing.take_profit_pct),
         trailing_pct: patch.trailing_pct.unwrap_or(existing.trailing_pct),
         highest_price: existing.highest_price,
         reference_price: patch.reference_price.unwrap_or(existing.reference_price),
@@ -484,9 +450,7 @@ fn build_history_event(
         trigger_kind: None,
         trigger_price: None,
         anchor_price: rule.reference_price,
-        anchor_source: rule
-            .reference_price
-            .map(|_| "reference_price".to_string()),
+        anchor_source: rule.reference_price.map(|_| "reference_price".to_string()),
         snapshot_json: serde_json::to_value(rule)?,
         created_at: now,
     })

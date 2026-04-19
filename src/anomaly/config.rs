@@ -19,6 +19,7 @@ pub struct AnomalyConfig {
     pub output: OutputConfig,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for AnomalyConfig {
     fn default() -> Self {
         Self {
@@ -204,8 +205,7 @@ impl AnomalyConfig {
         let content = toml::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
-        std::fs::write(path, content)
-            .map_err(|e| format!("Failed to write config file: {}", e))
+        std::fs::write(path, content).map_err(|e| format!("Failed to write config file: {}", e))
     }
 }
 

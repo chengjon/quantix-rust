@@ -1,7 +1,7 @@
 /// Cron 表达式解析
 ///
 /// 从短线侠项目迁移 - 解析和验证 cron 表达式
-use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{Datelike, NaiveDateTime, Timelike};
 use serde::{Deserialize, Serialize};
 
 /// Cron 表达式
@@ -144,8 +144,8 @@ impl CronExpression {
     pub fn should_run(&self, dt: &NaiveDateTime) -> bool {
         self.matches_field(&self.minutes, dt.minute(), 0, 59)
             && self.matches_field(&self.hours, dt.hour(), 0, 23)
-            && self.matches_field(&self.days, dt.day() as u32, 1, 31)
-            && self.matches_field(&self.months, dt.month() as u32, 1, 12)
+            && self.matches_field(&self.days, dt.day(), 1, 31)
+            && self.matches_field(&self.months, dt.month(), 1, 12)
             && self.matches_field(&self.weekdays, dt.weekday().num_days_from_sunday(), 0, 6)
     }
 
@@ -157,23 +157,19 @@ impl CronExpression {
             CronField::Range(start, end) => value >= *start && value <= *end,
             CronField::Step { base, step } => {
                 match base.as_ref() {
-                    CronField::All => value % step == 0,
+                    CronField::All => value.is_multiple_of(*step),
                     CronField::Range(start, end) => {
                         if value >= *start && value <= *end {
-                            (value - start) % step == 0
+                            (value - start).is_multiple_of(*step)
                         } else {
                             false
                         }
                     }
                     CronField::Specific(values) => {
                         // 对于特定值列表，检查是否有值匹配步长模式
-                        values.iter().any(|&v| {
-                            if v >= value && (v - value) % step == 0 {
-                                true
-                            } else {
-                                false
-                            }
-                        })
+                        values
+                            .iter()
+                            .any(|&v| v >= value && (v - value).is_multiple_of(*step))
                     }
                     CronField::Step { .. } => false, // 不支持嵌套步长
                 }
@@ -195,7 +191,7 @@ impl CronExpression {
             if self.should_run(&current) {
                 return current;
             }
-            current = current + chrono::Duration::minutes(1);
+            current += chrono::Duration::minutes(1);
         }
 
         // 如果找不到，返回一年后
@@ -250,6 +246,7 @@ impl CronExpression {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{NaiveDate, NaiveTime};
 
     #[test]
     fn test_cron_every_minute() {

@@ -2,25 +2,24 @@ use super::*;
 
 /// 处理 AI 命令
 pub async fn run_ai_command(cmd: AiCommands) -> Result<()> {
-
-
-
     match cmd {
-        AiCommands::Analyze { code, model, with_news } => {
-            run_ai_analyze(&code, Some(model), with_news).await
-        }
-        AiCommands::Decide { code, position, risk } => {
-            run_ai_decide(&code, position, &risk).await
-        }
-        AiCommands::Ask { question, code, model } => {
-            run_ai_ask(&question, code.as_deref(), Some(model)).await
-        }
-        AiCommands::Market { date } => {
-            run_ai_market(date.as_deref()).await
-        }
-        AiCommands::Config { show, test } => {
-            run_ai_config(show, test).await
-        }
+        AiCommands::Analyze {
+            code,
+            model,
+            with_news,
+        } => run_ai_analyze(&code, Some(model), with_news).await,
+        AiCommands::Decide {
+            code,
+            position,
+            risk,
+        } => run_ai_decide(&code, position, &risk).await,
+        AiCommands::Ask {
+            question,
+            code,
+            model,
+        } => run_ai_ask(&question, code.as_deref(), Some(model)).await,
+        AiCommands::Market { date } => run_ai_market(date.as_deref()).await,
+        AiCommands::Config { show, test } => run_ai_config(show, test).await,
     }
 }
 
@@ -66,16 +65,21 @@ async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> R
     let price_data = "近期价格数据 (模拟)";
     let indicators = "技术指标数据 (模拟)";
 
-    match engine.analyze_stock(code, code, price_data, indicators, None).await {
+    match engine
+        .analyze_stock(code, code, price_data, indicators, None)
+        .await
+    {
         Ok(result) => {
             println!("📊 分析结果:");
             println!();
             println!("{}", result.analysis);
             println!();
-            println!("📈 Token 使用: {} (提示) + {} (完成) = {} (总计)",
+            println!(
+                "📈 Token 使用: {} (提示) + {} (完成) = {} (总计)",
                 result.usage.prompt_tokens,
                 result.usage.completion_tokens,
-                result.usage.total_tokens);
+                result.usage.total_tokens
+            );
             println!("🤖 模型: {}", result.model);
             Ok(())
         }
@@ -113,7 +117,10 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
     let position_str = format!("{} 股", position.unwrap_or(0));
     let analysis = "技术面分析结果 (模拟)";
 
-    match engine.make_decision(code, &position_str, analysis, risk).await {
+    match engine
+        .make_decision(code, &position_str, analysis, risk)
+        .await
+    {
         Ok(decision) => {
             println!("📋 交易决策:");
             println!();
@@ -131,7 +138,7 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
     }
 }
 
-async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -> Result<()> {
+async fn run_ai_ask(question: &str, code: Option<&str>, _model: Option<String>) -> Result<()> {
     println!("💬 AI 问答");
     println!("   问题: {}", question);
     if let Some(c) = code {
@@ -156,7 +163,9 @@ async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -
 
     let engine = DecisionEngine::new(adapter);
 
-    let system = Some("你是一个专业的A股投资顾问，请基于你的知识回答用户的问题。注意：不构成投资建议，仅供参考。");
+    let system = Some(
+        "你是一个专业的A股投资顾问，请基于你的知识回答用户的问题。注意：不构成投资建议，仅供参考。",
+    );
 
     match engine.chat(question, system).await {
         Ok(response) => {
@@ -228,8 +237,15 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
         println!("   已配置提供商:");
         for (name, provider_config) in &config.providers {
             let has_key = provider_config.api_key.is_some();
-            let key_status = if has_key { "✅ 已配置" } else { "❌ 未配置" };
-            println!("     - {}: {} (模型: {:?})", name, key_status, provider_config.models);
+            let key_status = if has_key {
+                "✅ 已配置"
+            } else {
+                "❌ 未配置"
+            };
+            println!(
+                "     - {}: {} (模型: {:?})",
+                name, key_status, provider_config.models
+            );
         }
     }
 
@@ -238,7 +254,7 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
         println!("🔄 测试 LLM 连通性...");
         println!();
 
-        for (name, _provider_config) in &config.providers {
+        for name in config.providers.keys() {
             print!("   测试 {}... ", name);
             // In real implementation, would make a test API call
             println!("✅ 可用");

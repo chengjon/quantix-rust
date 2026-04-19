@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use crate::core::{QuantixError, Result};
 use crate::watchlist::models::{
     WatchlistAction, WatchlistEntry, WatchlistHistoryEvent, WatchlistListItem, WatchlistStore,

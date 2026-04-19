@@ -234,3 +234,11 @@ Graphiti backfill required
 - NEVER add `graphiti-api` or `graphiti-mcp` as a runtime dependency of this repository's application code.
 - NEVER treat `add_memory` success as proof that the memory is already searchable.
 - NEVER dump raw long logs, full transcripts, or full diffs into Graphiti as-is; write compact conclusion-oriented summaries instead.
+
+## Closure-Stage Gatekeeping
+
+- **MUST switch to gate-closure priority once a task is in closure stage.** Closure stage means the main implementation is done and the remaining work is primarily validation, runtime gates, acceptance checks, docs alignment, or release-readiness checks.
+- **MUST prioritize runtime gate closure over further cleanup.** Finish the task-relevant `cargo test`, `cargo clippy`, `cargo fmt --check`, integration checks, repo hygiene checks, manual verification, or equivalent gates before any additional cleanup work.
+- **MUST NOT expand closure-stage work into cosmetic drift.** Do not continue with incidental renames, comment polish, output wording tweaks, mechanical warning cleanup, or opportunistic refactors before the gate loop is closed.
+- **Any post-closure-stage code change must justify its gate relation.** The agent should be able to state which failing gate, blocked verification step, or acceptance gap the change is needed for.
+- **If the gate loop is closed, stop expanding the change surface.** Any remaining cosmetic or opportunistic cleanup must be treated as a separate follow-up task, not part of the current task.

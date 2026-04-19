@@ -1,7 +1,9 @@
+#![allow(clippy::collapsible_if)]
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlx::{QueryBuilder, Row, Sqlite};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
+use sqlx::{QueryBuilder, Row, Sqlite};
 use std::path::Path;
 
 use crate::core::{QuantixError, Result};
@@ -279,9 +281,7 @@ FROM stop_history
             if has_where {
                 builder.push(" AND ");
             }
-            builder
-                .push("event_type = ")
-                .push_bind(event_type.as_str());
+            builder.push("event_type = ").push_bind(event_type.as_str());
         }
         builder.push(" ORDER BY created_at DESC");
         if let Some(limit) = filter.limit {

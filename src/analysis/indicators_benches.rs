@@ -20,9 +20,8 @@ pub fn calculate_ema(closes: &[Decimal], period: usize) -> Vec<Decimal> {
     let multiplier = Decimal::from(2) / (Decimal::from(period as i64) + Decimal::from(1));
     let mut ema = vec![closes[0]];
 
-    for i in 1..closes.len() {
+    for current in closes.iter().skip(1) {
         let prev_ema = ema.last().unwrap();
-        let current = closes[i];
         let new_ema = (current - prev_ema) * multiplier + prev_ema;
         ema.push(new_ema);
     }

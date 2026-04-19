@@ -54,7 +54,7 @@ pub struct BatchProgress {
 impl BatchProgress {
     /// 创建新的进度追踪器
     pub fn new(total_records: usize, batch_size: usize) -> Self {
-        let total_batches = (total_records + batch_size - 1) / batch_size;
+        let total_batches = total_records.div_ceil(batch_size);
         Self {
             total_records,
             processed_records: 0,
@@ -71,8 +71,9 @@ impl BatchProgress {
         self.processed_records += success + errors;
         self.success_count += success;
         self.error_count += errors;
-        self.current_batch = self.processed_records
-            / ((self.total_records + self.total_batches - 1) / self.total_batches);
+        self.current_batch = self
+            .processed_records
+            / self.total_records.div_ceil(self.total_batches);
     }
 
     /// 是否完成

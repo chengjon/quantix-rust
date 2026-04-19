@@ -1,10 +1,13 @@
+#![allow(clippy::too_many_arguments)]
+
 //! Algorithmic Trading CLI Handler
 //!
 //! 处理 TWAP/VWAP 算法交易命令
 
 use crate::core::{QuantixError, Result};
 use crate::execution::algo::{
-    AlgoContext, AlgoParams, AlgoStatus, AlgoType, AlgorithmExecutor, SlicePlan, TwapExecutor, VwapExecutor,
+    AlgoContext, AlgoParams, AlgoStatus, AlgoType, AlgorithmExecutor, SlicePlan, TwapExecutor,
+    VwapExecutor,
 };
 use chrono::{Duration, Utc};
 use rust_decimal::Decimal;
@@ -14,7 +17,7 @@ use tokio::sync::RwLock;
 
 use super::AlgoCommands;
 
-/// 全局算法管理器 (简化版，单进程内存存储)
+// 全局算法管理器 (简化版，单进程内存存储)
 lazy_static::lazy_static! {
     static ref ALGO_STORE: Arc<RwLock<AlgoStore>> = Arc::new(RwLock::new(AlgoStore::new()));
 }
@@ -54,7 +57,20 @@ pub async fn run_algo_command(cmd: AlgoCommands) -> Result<()> {
             slices,
             interval,
             no_randomize,
-        } => run_algo_create(code, side, quantity, algo_type, duration, price, slices, interval, no_randomize).await,
+        } => {
+            run_algo_create(
+                code,
+                side,
+                quantity,
+                algo_type,
+                duration,
+                price,
+                slices,
+                interval,
+                no_randomize,
+            )
+            .await
+        }
         AlgoCommands::Start { algo_id } => run_algo_start(algo_id).await,
         AlgoCommands::Pause { algo_id } => run_algo_pause(algo_id).await,
         AlgoCommands::Resume { algo_id } => run_algo_resume(algo_id).await,
@@ -70,7 +86,12 @@ pub async fn run_algo_command(cmd: AlgoCommands) -> Result<()> {
             slices,
             interval,
             output,
-        } => run_algo_plan(code, side, quantity, algo_type, duration, slices, interval, output).await,
+        } => {
+            run_algo_plan(
+                code, side, quantity, algo_type, duration, slices, interval, output,
+            )
+            .await
+        }
     }
 }
 
@@ -89,17 +110,25 @@ async fn run_algo_create(
     let algo_type_enum = match algo_type.to_lowercase().as_str() {
         "twap" => AlgoType::TWAP,
         "vwap" => AlgoType::VWAP,
-        _ => return Err(QuantixError::Other(format!("不支持的算法类型: {}", algo_type))),
+        _ => {
+            return Err(QuantixError::Other(format!(
+                "不支持的算法类型: {}",
+                algo_type
+            )));
+        }
     };
 
     // 验证方向
     if side != "buy" && side != "sell" {
-        return Err(QuantixError::Other(format!("方向必须是 buy 或 sell: {}", side)));
+        return Err(QuantixError::Other(format!(
+            "方向必须是 buy 或 sell: {}",
+            side
+        )));
     }
 
     // 构建参数
     let now = Utc::now();
-    let end_time = now + Duration::minutes(duration as i64);
+    let _end_time = now + Duration::minutes(duration as i64);
 
     let mut params = match algo_type_enum {
         AlgoType::TWAP => AlgoParams::twap(code.clone(), side.clone(), quantity, duration),
@@ -109,7 +138,9 @@ async fn run_algo_create(
 
     // 设置可选参数
     if let Some(p) = price {
-        params = params.with_price_limit(Decimal::try_from(p).map_err(|e| QuantixError::Other(e.to_string()))?);
+        params = params.with_price_limit(
+            Decimal::try_from(p).map_err(|e| QuantixError::Other(e.to_string()))?,
+        );
     }
     if let Some(s) = slices {
         params = params.with_slice_count(s);
@@ -154,7 +185,9 @@ async fn run_algo_create(
 async fn run_algo_start(algo_id: String) -> Result<()> {
     let mut store = ALGO_STORE.write().await;
 
-    let algo_type = store.algo_types.get(&algo_id)
+    let algo_type = store
+        .algo_types
+        .get(&algo_id)
         .ok_or_else(|| QuantixError::Other(format!("算法不存在: {}", algo_id)))?;
 
     match *algo_type {
@@ -181,7 +214,9 @@ async fn run_algo_start(algo_id: String) -> Result<()> {
 async fn run_algo_pause(algo_id: String) -> Result<()> {
     let mut store = ALGO_STORE.write().await;
 
-    let algo_type = store.algo_types.get(&algo_id)
+    let algo_type = store
+        .algo_types
+        .get(&algo_id)
         .ok_or_else(|| QuantixError::Other(format!("算法不存在: {}", algo_id)))?;
 
     match *algo_type {
@@ -203,7 +238,9 @@ async fn run_algo_pause(algo_id: String) -> Result<()> {
 async fn run_algo_resume(algo_id: String) -> Result<()> {
     let mut store = ALGO_STORE.write().await;
 
-    let algo_type = store.algo_types.get(&algo_id)
+    let algo_type = store
+        .algo_types
+        .get(&algo_id)
         .ok_or_else(|| QuantixError::Other(format!("算法不存在: {}", algo_id)))?;
 
     match *algo_type {
@@ -224,7 +261,9 @@ async fn run_algo_resume(algo_id: String) -> Result<()> {
 async fn run_algo_cancel(algo_id: String) -> Result<()> {
     let mut store = ALGO_STORE.write().await;
 
-    let algo_type = store.algo_types.get(&algo_id)
+    let algo_type = store
+        .algo_types
+        .get(&algo_id)
         .ok_or_else(|| QuantixError::Other(format!("算法不存在: {}", algo_id)))?;
 
     match *algo_type {
@@ -246,10 +285,14 @@ async fn run_algo_cancel(algo_id: String) -> Result<()> {
 async fn run_algo_status(algo_id: String) -> Result<()> {
     let store = ALGO_STORE.read().await;
 
-    let context = store.contexts.get(&algo_id)
+    let context = store
+        .contexts
+        .get(&algo_id)
         .ok_or_else(|| QuantixError::Other(format!("算法不存在: {}", algo_id)))?;
 
-    let algo_type = store.algo_types.get(&algo_id)
+    let algo_type = store
+        .algo_types
+        .get(&algo_id)
         .map(|t| t.to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
@@ -274,7 +317,10 @@ async fn run_algo_status(algo_id: String) -> Result<()> {
     println!();
     println!("时间信息");
     println!("─────────────────────────────────────");
-    println!("  创建时间:    {}", state.created_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  创建时间:    {}",
+        state.created_at.format("%Y-%m-%d %H:%M:%S")
+    );
     if let Some(started) = state.started_at {
         println!("  开始时间:    {}", started.format("%Y-%m-%d %H:%M:%S"));
     }
@@ -310,27 +356,44 @@ async fn run_algo_list() -> Result<()> {
     if store.contexts.is_empty() {
         println!("当前没有算法任务");
         println!();
-        println!("创建算法: quantix algo create --code 600519.SH --side buy --quantity 10000 --algo-type twap");
+        println!(
+            "创建算法: quantix algo create --code 600519.SH --side buy --quantity 10000 --algo-type twap"
+        );
         return Ok(());
     }
 
-    println!("{:<22} {:<6} {:<12} {:<6} {:<12} {:<8}",
-        "算法 ID", "类型", "股票", "方向", "状态", "进度");
+    println!(
+        "{:<22} {:<6} {:<12} {:<6} {:<12} {:<8}",
+        "算法 ID", "类型", "股票", "方向", "状态", "进度"
+    );
     println!("{}", "-".repeat(76));
 
     for (id, ctx) in store.contexts.iter() {
-        let algo_type = store.algo_types.get(id)
+        let algo_type = store
+            .algo_types
+            .get(id)
             .map(|t| t.to_string())
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let short_id = if id.len() > 20 { &id[..20] } else { id.as_str() };
+        let short_id = if id.len() > 20 {
+            &id[..20]
+        } else {
+            id.as_str()
+        };
 
-        println!("{:<22} {:<6} {:<12} {:<6} {:<12} {:.1}%",
+        println!(
+            "{:<22} {:<6} {:<12} {:<6} {:<12} {:.1}%",
             short_id,
             algo_type,
             ctx.state.symbol,
             ctx.state.side,
-            format_status(ctx.state.status).replace("⏳ ", "").replace("🟢 ", "").replace("⏸️ ", "").replace("✅ ", "").replace("❌ ", "").replace("⚠️ ", ""),
+            format_status(ctx.state.status)
+                .replace("⏳ ", "")
+                .replace("🟢 ", "")
+                .replace("⏸️ ", "")
+                .replace("✅ ", "")
+                .replace("❌ ", "")
+                .replace("⚠️ ", ""),
             ctx.state.completion_percent()
         );
     }
@@ -352,7 +415,12 @@ async fn run_algo_plan(
     let algo_type_enum = match algo_type.to_lowercase().as_str() {
         "twap" => AlgoType::TWAP,
         "vwap" => AlgoType::VWAP,
-        _ => return Err(QuantixError::Other(format!("不支持的算法类型: {}", algo_type))),
+        _ => {
+            return Err(QuantixError::Other(format!(
+                "不支持的算法类型: {}",
+                algo_type
+            )));
+        }
     };
 
     // 构建参数
@@ -392,25 +460,38 @@ fn output_plan_table(plan: &SlicePlan, code: &str, side: &str, algo_type: &str) 
     println!();
     println!("  算法类型:    {}", algo_type.to_uppercase());
     println!("  股票代码:    {}", code);
-    println!("  买卖方向:    {}", if side == "buy" { "买入" } else { "卖出" });
+    println!(
+        "  买卖方向:    {}",
+        if side == "buy" { "买入" } else { "卖出" }
+    );
     println!("  总数量:      {} 股", plan.total_quantity);
     println!("  切片数量:    {}", plan.slices.len());
-    println!("  开始时间:    {}", plan.start_time.format("%Y-%m-%d %H:%M:%S"));
-    println!("  结束时间:    {}", plan.end_time.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  开始时间:    {}",
+        plan.start_time.format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "  结束时间:    {}",
+        plan.end_time.format("%Y-%m-%d %H:%M:%S")
+    );
     println!();
 
-    println!("{:<6} {:<12} {:<10} {:<10} {:<8}",
-        "#", "计划时间", "数量", "累计", "权重");
+    println!(
+        "{:<6} {:<12} {:<10} {:<10} {:<8}",
+        "#", "计划时间", "数量", "累计", "权重"
+    );
     println!("{}", "-".repeat(56));
 
     let mut cumulative: i64 = 0;
     for s in &plan.slices {
         cumulative += s.quantity;
-        let weight = s.volume_weight
+        let weight = s
+            .volume_weight
             .map(|w| format!("{:.1}", w))
             .unwrap_or_else(|| "-".to_string());
 
-        println!("{:<6} {:<12} {:<10} {:<10} {:<8}",
+        println!(
+            "{:<6} {:<12} {:<10} {:<10} {:<8}",
             s.index + 1,
             s.scheduled_time.format("%H:%M:%S"),
             s.quantity,
@@ -423,14 +504,18 @@ fn output_plan_table(plan: &SlicePlan, code: &str, side: &str, algo_type: &str) 
 }
 
 fn output_plan_json(plan: &SlicePlan, code: &str, side: &str, algo_type: &str) -> Result<()> {
-    let slices: Vec<serde_json::Value> = plan.slices.iter()
-        .map(|s| serde_json::json!({
-            "index": s.index,
-            "scheduled_time": s.scheduled_time.to_rfc3339(),
-            "quantity": s.quantity,
-            "price": s.price,
-            "volume_weight": s.volume_weight,
-        }))
+    let slices: Vec<serde_json::Value> = plan
+        .slices
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "index": s.index,
+                "scheduled_time": s.scheduled_time.to_rfc3339(),
+                "quantity": s.quantity,
+                "price": s.price,
+                "volume_weight": s.volume_weight,
+            })
+        })
         .collect();
 
     let json = serde_json::json!({

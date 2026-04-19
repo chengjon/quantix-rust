@@ -17,7 +17,7 @@ impl AkShareSource {
     pub fn new(base_url: String) -> Result<Self> {
         let client = reqwest::Client::builder()
             .build()
-            .map_err(|e| crate::core::error::QuantixError::Http(e))?;
+            .map_err(crate::core::error::QuantixError::Http)?;
         Ok(Self { base_url, client })
     }
 }
@@ -43,10 +43,10 @@ impl Fetcher for AkShareSource {
 
     async fn check_connection(&self) -> Result<()> {
         self.client
-            .get(&format!("{}/health", self.base_url))
+            .get(format!("{}/health", self.base_url))
             .send()
             .await
-            .map_err(|e| crate::core::error::QuantixError::Http(e))?;
+            .map_err(crate::core::error::QuantixError::Http)?;
         Ok(())
     }
 }

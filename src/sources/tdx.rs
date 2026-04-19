@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
 /// TDX (通达信) 数据源
 ///
 /// 从短线侠项目迁移，使用 rustdx-complete 连接通达信服务器
@@ -94,8 +96,8 @@ pub struct TdxSource {
     /// 连接池索引（轮询选择）
     connection_index: Arc<AtomicUsize>,
     /// 配置参数
-    hosts: Vec<String>,
-    port: u16,
+    _hosts: Vec<String>,
+    _port: u16,
     timeout: u64,
 }
 
@@ -140,8 +142,8 @@ impl TdxSource {
         Ok(Self {
             tcp_pool,
             connection_index: Arc::new(AtomicUsize::new(0)),
-            hosts,
-            port,
+            _hosts: hosts,
+            _port: port,
             timeout,
         })
     }
@@ -165,7 +167,7 @@ impl TdxSource {
     ///
     /// ## 参数
     /// - `codes`: 股票代码列表，格式：[(market, code), ...]
-    ///            market: 0=深圳, 1=上海
+    ///   market: 0=深圳, 1=上海
     ///
     /// ## 返回
     /// 返回采集到的行情数据列表
@@ -195,7 +197,7 @@ impl TdxSource {
                 })?;
 
                 let mut quotes = SecurityQuotes::new(codes_ref);
-                quotes.recv_parsed(&mut *tcp_guard).map_err(|e| {
+                quotes.recv_parsed(&mut tcp_guard).map_err(|e| {
                     crate::core::QuantixError::DataSource(format!("TDX 接收失败: {}", e))
                 })?;
 
@@ -212,7 +214,7 @@ impl TdxSource {
                             q.open,
                             q.high,
                             q.low,
-                            q.vol as f64,
+                            q.vol,
                             q.amount,
                         )
                     })

@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if, clippy::unnecessary_map_or)]
+
 //! 图片股票代码提取器
 //!
 //! 使用 LLM Vision API 从图片中提取股票代码和名称
@@ -8,7 +10,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use crate::core::Result;
 
 use super::code_resolver::CodeResolver;
-use super::types::{ImportItem, ImportSource, ImportResult};
+use super::types::{ImportItem, ImportResult, ImportSource};
 
 /// 图片格式
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -139,7 +141,10 @@ impl ImageExtractor {
                     total_input_lines: 1,
                     parsed_count: 0,
                     skipped_count: 0,
-                    errors: vec![format!("图片识别失败: {}。请检查 DEEPSEEK_API_KEY 配置。", e)],
+                    errors: vec![format!(
+                        "图片识别失败: {}。请检查 DEEPSEEK_API_KEY 配置。",
+                        e
+                    )],
                 })
             }
         }
@@ -162,8 +167,8 @@ impl ImageExtractor {
         let base_url = std::env::var("DEEPSEEK_BASE_URL")
             .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
 
-        let model = std::env::var("DEEPSEEK_VISION_MODEL")
-            .unwrap_or_else(|_| "deepseek-chat".to_string());
+        let model =
+            std::env::var("DEEPSEEK_VISION_MODEL").unwrap_or_else(|_| "deepseek-chat".to_string());
 
         let image_url = format!("data:{};base64,{}", format.mime_type(), base64_data);
 
@@ -191,9 +196,7 @@ impl ImageExtractor {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| {
-                crate::core::QuantixError::Other(format!("Vision API 请求失败: {}", e))
-            })?;
+            .map_err(|e| crate::core::QuantixError::Other(format!("Vision API 请求失败: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -204,9 +207,10 @@ impl ImageExtractor {
             )));
         }
 
-        let body: serde_json::Value = response.json().await.map_err(|e| {
-            crate::core::QuantixError::Other(format!("解析 API 响应失败: {}", e))
-        })?;
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| crate::core::QuantixError::Other(format!("解析 API 响应失败: {}", e)))?;
 
         // 提取内容
         let content = body["choices"][0]["message"]["content"]

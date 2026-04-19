@@ -68,10 +68,10 @@ impl MemoryTracker {
                 for line in status.lines() {
                     if line.starts_with("VmRSS:") {
                         let parts: Vec<&str> = line.split_whitespace().collect();
-                        if parts.len() >= 2 {
-                            if let Ok(kb) = parts[1].parse::<usize>() {
-                                return kb;
-                            }
+                        if parts.len() >= 2
+                            && let Ok(kb) = parts[1].parse::<usize>()
+                        {
+                            return kb;
                         }
                     }
                 }
@@ -145,7 +145,7 @@ pub enum OptimizationSuggestion {
 
 /// 分析性能并提供建议
 pub fn analyze_performance(
-    operation_name: &str,
+    _operation_name: &str,
     data_size: usize,
     duration_ms: u128,
     memory_delta_kb: isize,

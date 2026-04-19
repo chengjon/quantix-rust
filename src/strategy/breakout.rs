@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 /// 突破策略
 ///
 /// 基于价格和成交量的突破策略
@@ -36,13 +38,6 @@ impl Default for BreakoutConfig {
             take_profit_atr: rust_decimal::Decimal::from(60),   // 止盈 6 倍 ATR
         }
     }
-}
-
-/// 突破类型
-#[derive(Debug, Clone, Copy)]
-enum BreakoutType {
-    Upward,
-    Downward,
 }
 
 /// 突破策略
@@ -202,7 +197,7 @@ impl Strategy for BreakoutStrategy {
 
         // 如果持仓中，检查止损止盈
         if self.position {
-            if let Some(entry) = self.entry_price {
+            if let Some(_entry) = self.entry_price {
                 if let (Some(stop_loss), Some(take_profit)) =
                     (self.stop_loss_price, self.take_profit_price)
                 {

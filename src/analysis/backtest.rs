@@ -78,7 +78,7 @@ pub struct BacktestEngine {
 /// 持仓信息
 #[derive(Debug, Clone)]
 struct PositionInfo {
-    code: String,
+    _code: String,
     open_date: NaiveDate,
     open_price: Decimal,
     quantity: i64,
@@ -121,7 +121,7 @@ impl BacktestEngine {
     }
 
     /// 运行回测
-    pub async fn run<S: Strategy>(
+    pub async fn run<S>(
         &mut self,
         strategy: &mut S,
         data: &HashMap<String, Vec<Kline>>,
@@ -192,17 +192,17 @@ impl BacktestEngine {
 
     /// 更新持仓价格
     fn update_positions_price(&mut self, data: &HashMap<String, Vec<Kline>>, date: NaiveDate) {
-        for (code, position) in self.portfolio.positions.clone() {
-            if let Some(klines) = data.get(&code) {
-                if let Some(kline) = klines.iter().find(|k| k.date == date) {
-                    self.portfolio.update_position_price(&code, kline.close);
-                }
+        for (code, _position) in self.portfolio.positions.clone() {
+            if let Some(klines) = data.get(&code)
+                && let Some(kline) = klines.iter().find(|k| k.date == date)
+            {
+                self.portfolio.update_position_price(&code, kline.close);
             }
         }
     }
 
     /// 执行策略
-    async fn execute_strategy<S: Strategy>(
+    async fn execute_strategy<S>(
         &mut self,
         strategy: &mut S,
         data: &HashMap<String, Vec<Kline>>,
@@ -217,7 +217,7 @@ impl BacktestEngine {
                     Ok(crate::strategy::trait_def::Signal::Buy) => {
                         self.pending_orders.push(BacktestOrder {
                             code: code.clone(),
-                            quantity: self.calculate_order_quantity(&code, kline.close),
+                            quantity: self.calculate_order_quantity(code, kline.close),
                             order_type: OrderType::Buy,
                         });
                     }
@@ -242,7 +242,7 @@ impl BacktestEngine {
     }
 
     /// 计算订单数量
-    fn calculate_order_quantity(&self, code: &str, price: Decimal) -> i64 {
+    fn calculate_order_quantity(&self, _code: &str, price: Decimal) -> i64 {
         // 计算目标金额（平均分配）
         let target_amount = self.portfolio.cash / Decimal::from(self.config.max_positions);
 
@@ -270,7 +270,7 @@ impl BacktestEngine {
 
                 match order.order_type {
                     OrderType::Buy => {
-                        if let Ok((order_id, commission)) =
+                        if let Ok((_order_id, commission)) =
                             self.portfolio
                                 .buy(order.code.clone(), order.quantity, price, date)
                         {
@@ -278,7 +278,7 @@ impl BacktestEngine {
                             self.position_info.insert(
                                 order.code.clone(),
                                 PositionInfo {
-                                    code: order.code.clone(),
+                                    _code: order.code.clone(),
                                     open_date: date,
                                     open_price: price,
                                     quantity: order.quantity,
@@ -290,7 +290,7 @@ impl BacktestEngine {
                         }
                     }
                     OrderType::Sell => {
-                        if let Ok((order_id, commission, pnl)) =
+                        if let Ok((_order_id, commission, pnl)) =
                             self.portfolio.sell(&order.code, order.quantity, price)
                         {
                             // 记录交易

@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if, clippy::manual_flatten)]
+
 //! 新闻聚合器
 //!
 //! 多源聚合、去重、排序
@@ -6,10 +8,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::core::{QuantixError, Result};
+use super::cache::NewsCache;
 use super::provider::NewsProvider;
 use super::types::{NewsArticle, NewsSearchRequest, NewsSearchResult};
-use super::cache::NewsCache;
+use crate::core::{QuantixError, Result};
 
 /// 新闻聚合器
 ///
@@ -40,7 +42,11 @@ pub struct AggregatorConfig {
 impl Default for AggregatorConfig {
     fn default() -> Self {
         Self {
-            enabled_providers: vec!["tavily".to_string(), "serpapi".to_string(), "bocha".to_string()],
+            enabled_providers: vec![
+                "tavily".to_string(),
+                "serpapi".to_string(),
+                "bocha".to_string(),
+            ],
             max_concurrent: 3,
             timeout_seconds: 30,
             enable_cache: true,
@@ -84,19 +90,25 @@ impl NewsAggregator {
         }
 
         // 获取可用的提供商（按优先级排序）
-        let available_providers: Vec<_> = self.providers.iter()
+        let available_providers: Vec<_> = self
+            .providers
+            .iter()
             .filter(|p| p.is_available())
             .filter(|p| {
                 if let Some(ref provider) = request.provider {
                     p.name() == provider
                 } else {
-                    self.config.enabled_providers.contains(&p.name().to_string())
+                    self.config
+                        .enabled_providers
+                        .contains(&p.name().to_string())
                 }
             })
             .collect();
 
         if available_providers.is_empty() {
-            return Err(QuantixError::Other("No news providers available".to_string()));
+            return Err(QuantixError::Other(
+                "No news providers available".to_string(),
+            ));
         }
 
         // 尝试每个提供商
@@ -110,11 +122,12 @@ impl NewsAggregator {
                     // 缓存结果
                     if let Some(cache) = &self.cache {
                         if self.config.enable_cache {
-                            let cache_result = NewsSearchResult::new(
-                                deduped.clone(),
-                                result.provider.clone(),
-                            ).with_elapsed(result.elapsed_ms);
-                            cache.set(&request.query, &cache_result, self.config.cache_ttl_seconds).await;
+                            let cache_result =
+                                NewsSearchResult::new(deduped.clone(), result.provider.clone())
+                                    .with_elapsed(result.elapsed_ms);
+                            cache
+                                .set(&request.query, &cache_result, self.config.cache_ttl_seconds)
+                                .await;
                         }
                     }
 
@@ -132,7 +145,8 @@ impl NewsAggregator {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| QuantixError::Other("All news providers failed".to_string())))
+        Err(last_error
+            .unwrap_or_else(|| QuantixError::Other("All news providers failed".to_string())))
     }
 
     /// 并行搜索多个提供商并合并结果
@@ -151,28 +165,32 @@ impl NewsAggregator {
         }
 
         // 并行请求所有可用的提供商
-        let available_providers: Vec<_> = self.providers.iter()
+        let available_providers: Vec<_> = self
+            .providers
+            .iter()
             .filter(|p| p.is_available())
             .filter(|p| {
                 if let Some(ref provider) = request.provider {
                     p.name() == provider
                 } else {
-                    self.config.enabled_providers.contains(&p.name().to_string())
+                    self.config
+                        .enabled_providers
+                        .contains(&p.name().to_string())
                 }
             })
             .collect();
 
         if available_providers.is_empty() {
-            return Err(QuantixError::Other("No news providers available".to_string()));
+            return Err(QuantixError::Other(
+                "No news providers available".to_string(),
+            ));
         }
 
         // 使用 tokio 并行执行
         let mut tasks = Vec::new();
         for provider in available_providers {
             let request = request.clone();
-            let task = async move {
-                provider.search(&request).await
-            };
+            let task = async move { provider.search(&request).await };
             tasks.push(task);
         }
 
@@ -191,7 +209,9 @@ impl NewsAggregator {
         }
 
         if all_articles.is_empty() {
-            return Err(QuantixError::Other("All news providers returned no results".to_string()));
+            return Err(QuantixError::Other(
+                "All news providers returned no results".to_string(),
+            ));
         }
 
         // 去重和排序
@@ -203,7 +223,9 @@ impl NewsAggregator {
         // 缓存结果
         if let Some(cache) = &self.cache {
             if self.config.enable_cache {
-                cache.set(&request.query, &result, self.config.cache_ttl_seconds).await;
+                cache
+                    .set(&request.query, &result, self.config.cache_ttl_seconds)
+                    .await;
             }
         }
 
@@ -234,13 +256,11 @@ impl NewsAggregator {
         }
 
         // 按发布时间排序（最新的在前）
-        result.sort_by(|a, b| {
-            match (&a.published_at, &b.published_at) {
-                (Some(a_time), Some(b_time)) => b_time.cmp(a_time),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => std::cmp::Ordering::Equal,
-            }
+        result.sort_by(|a, b| match (&a.published_at, &b.published_at) {
+            (Some(a_time), Some(b_time)) => b_time.cmp(a_time),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
         });
 
         result
@@ -248,7 +268,8 @@ impl NewsAggregator {
 
     /// 获取可用的提供商列表
     pub fn available_providers(&self) -> Vec<&str> {
-        self.providers.iter()
+        self.providers
+            .iter()
             .filter(|p| p.is_available())
             .map(|p| p.name())
             .collect()

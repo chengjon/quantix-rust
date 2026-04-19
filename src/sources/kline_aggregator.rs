@@ -1,3 +1,5 @@
+#![allow(clippy::should_implement_trait)]
+
 use crate::sources::tdx::StockQuote;
 use chrono::{DateTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -161,7 +163,7 @@ impl KlineWindow {
 
         // 更新最后更新时间（从 u64 timestamp 转换为 DateTime<Utc>）
         self.last_update =
-            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(|| Utc::now());
+            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(Utc::now);
     }
 
     /// 判断窗口是否应该关闭（时间窗口结束）
@@ -169,7 +171,7 @@ impl KlineWindow {
         let elapsed = current_time
             .signed_duration_since(self.start_time)
             .num_seconds()
-            .abs() as u64;
+            .unsigned_abs();
         elapsed >= self.period.minutes() * 60
     }
 
@@ -202,7 +204,7 @@ pub struct KlineAggregator {
     /// 窗口映射：key = "code:period:date"
     windows: Arc<Mutex<HashMap<String, KlineWindow>>>,
     /// 完成的 K线数据发送器
-    kline_sender: mpsc::UnboundedSender<KlineData>,
+    _kline_sender: mpsc::UnboundedSender<KlineData>,
 }
 
 impl KlineAggregator {
@@ -214,7 +216,7 @@ impl KlineAggregator {
 
         let aggregator = Self {
             windows: Arc::new(Mutex::new(HashMap::new())),
-            kline_sender,
+            _kline_sender: kline_sender,
         };
 
         // 启动过期窗口清理任务
@@ -310,7 +312,7 @@ impl KlineAggregator {
     async fn update_window(&self, quote: &StockQuote, period: KlinePeriod) -> Option<KlineData> {
         // 从 u64 timestamp 转换为 DateTime<Utc>
         let current_time =
-            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(|| Utc::now());
+            DateTime::from_timestamp(quote.timestamp as i64, 0).unwrap_or_else(Utc::now);
         let window_key = Self::make_window_key(&quote.code, period, &current_time);
 
         let mut windows = self.windows.lock().await;

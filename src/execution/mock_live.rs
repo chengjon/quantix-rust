@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
@@ -110,6 +112,156 @@ where
             OrderStatus::Filled
         }
     }
+
+    fn parse_query_script(mode: &str) -> Option<Vec<OrderStatus>> {
+        let script = mode.strip_prefix("query_script:")?;
+        let mut statuses = Vec::new();
+        for token in script.split(',') {
+            let status = match token.trim().to_ascii_lowercase().as_str() {
+                "submitted" => OrderStatus::Submitted,
+                "accepted" => OrderStatus::Accepted,
+                "partially_filled" | "partial" => OrderStatus::PartiallyFilled,
+                "filled" => OrderStatus::Filled,
+                "pending_cancel" => OrderStatus::PendingCancel,
+                "canceled" | "cancelled" => OrderStatus::Canceled,
+                "rejected" => OrderStatus::Rejected,
+                "unknown" => OrderStatus::Unknown,
+                _ => return None,
+            };
+            statuses.push(status);
+        }
+        Some(statuses)
+    }
+
+    async fn build_response(
+        &self,
+        order_id: &str,
+        state: &MockLiveOrderState,
+        status: OrderStatus,
+    ) -> std::result::Result<OrderQueryResponse, AdapterError> {
+        let fill_price = match state.simulated_fill_price {
+            Some(price) => price,
+            None => self.load_requested_price(order_id).await?,
+        };
+        let fill_details = if Self::has_unapplied_fill(state) {
+            let fill_index = state.last_applied_fill_id as usize;
+            let fill_step = state.fill_plan[fill_index].clone();
+            Some(FillDetails {
+                fill_id: fill_index as u64 + 1,
+                fill_quantity: fill_step.quantity,
+                fill_price,
+                last_fill_price: fill_price,
+                last_fill_quantity: fill_step.quantity,
+                total_fills: (fill_index + 1) as i64,
+                commission: Decimal::ZERO,
+                fees: Decimal::ZERO,
+                venue: "mock".to_string(),
+                broker_fill_id: String::new(),
+            })
+        } else {
+            None
+        };
+
+        Ok(OrderQueryResponse {
+            adapter_order_id: order_id.to_string(),
+            latest_status: status,
+            filled_quantity: Self::cumulative_filled_quantity(state),
+            avg_fill_price: (state.next_step_index > 0).then_some(fill_price),
+            fill_details,
+            rejection_reason: None,
+        })
+    }
+
+    fn maybe_mark_recovery_exhausted(state: &mut MockLiveOrderState) {
+        if state.unknown_retries > 3 {
+            state.recovery_exhausted = true;
+            state.exhausted_reason = Some("unknown_retry_budget_exceeded".to_string());
+        }
+    }
+
+    async fn handle_query_script(
+        &self,
+        order_id: &str,
+        state: &mut MockLiveOrderState,
+    ) -> std::result::Result<Option<OrderQueryResponse>, AdapterError> {
+        let Some(mode) = state
+            .fault_injection
+            .as_ref()
+            .and_then(|fault| fault.mode.as_deref())
+        else {
+            return Ok(None);
+        };
+        let Some(script) = Self::parse_query_script(mode) else {
+            return Ok(None);
+        };
+
+        loop {
+            if state.query_script_index >= script.len() {
+                state.fault_injection = None;
+                state.query_script_fill_started = false;
+                self.save_state(order_id, state).await?;
+                return Ok(None);
+            }
+
+            let status = script[state.query_script_index];
+            match status {
+                OrderStatus::Unknown => {
+                    state.unknown_retries += 1;
+                    Self::maybe_mark_recovery_exhausted(state);
+                    state.query_script_index += 1;
+                    state.query_script_fill_started = false;
+                    self.save_state(order_id, state).await?;
+                    return Ok(Some(OrderQueryResponse {
+                        adapter_order_id: order_id.to_string(),
+                        latest_status: OrderStatus::Unknown,
+                        filled_quantity: Self::cumulative_filled_quantity(state),
+                        avg_fill_price: None,
+                        fill_details: None,
+                        rejection_reason: None,
+                    }));
+                }
+                OrderStatus::Submitted
+                | OrderStatus::Accepted
+                | OrderStatus::PendingCancel
+                | OrderStatus::Canceled
+                | OrderStatus::Rejected => {
+                    state.query_script_index += 1;
+                    state.query_script_fill_started = false;
+                    self.save_state(order_id, state).await?;
+                    return Ok(Some(OrderQueryResponse {
+                        adapter_order_id: order_id.to_string(),
+                        latest_status: status,
+                        filled_quantity: Self::cumulative_filled_quantity(state),
+                        avg_fill_price: None,
+                        fill_details: None,
+                        rejection_reason: None,
+                    }));
+                }
+                OrderStatus::PartiallyFilled | OrderStatus::Filled => {
+                    if state.query_script_fill_started {
+                        if Self::has_unapplied_fill(state) {
+                            return self.build_response(order_id, state, status).await.map(Some);
+                        }
+
+                        state.query_script_fill_started = false;
+                        state.query_script_index += 1;
+                        self.save_state(order_id, state).await?;
+                        continue;
+                    }
+
+                    if !Self::has_unapplied_fill(state)
+                        && state.next_step_index < state.fill_plan.len()
+                    {
+                        state.next_step_index += 1;
+                    }
+                    state.query_script_fill_started = true;
+                    self.save_state(order_id, state).await?;
+                    return self.build_response(order_id, state, status).await.map(Some);
+                }
+                OrderStatus::PendingSubmit => return Ok(None),
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -169,6 +321,10 @@ where
             });
         }
 
+        if let Some(response) = self.handle_query_script(order_id, &mut state).await? {
+            return Ok(response);
+        }
+
         if state
             .fault_injection
             .as_ref()
@@ -195,10 +351,7 @@ where
             == Some("unknown_always")
         {
             state.unknown_retries += 1;
-            if state.unknown_retries > 3 {
-                state.recovery_exhausted = true;
-                state.exhausted_reason = Some("unknown_retry_budget_exceeded".to_string());
-            }
+            Self::maybe_mark_recovery_exhausted(&mut state);
             self.save_state(order_id, &state).await?;
             return Ok(OrderQueryResponse {
                 adapter_order_id: order_id.to_string(),
@@ -225,7 +378,9 @@ where
             tokio::time::sleep(tokio::time::Duration::from_secs(delay_secs as u64)).await;
             state.fault_injection = None;
             self.save_state(order_id, &state).await?;
-            return Err(AdapterError::Network("Simulated network timeout".to_string()));
+            return Err(AdapterError::Network(
+                "Simulated network timeout".to_string(),
+            ));
         }
 
         // Network disconnect simulation - returns error immediately
@@ -237,7 +392,9 @@ where
         {
             state.fault_injection = None;
             self.save_state(order_id, &state).await?;
-            return Err(AdapterError::Network("Simulated network disconnect".to_string()));
+            return Err(AdapterError::Network(
+                "Simulated network disconnect".to_string(),
+            ));
         }
 
         // Delayed response simulation - delays response but succeeds
@@ -286,38 +443,8 @@ where
             state.next_step_index += 1;
             self.save_state(order_id, &state).await?;
         }
-
-        let fill_price = match state.simulated_fill_price {
-            Some(price) => price,
-            None => self.load_requested_price(order_id).await?,
-        };
-        let fill_details = if Self::has_unapplied_fill(&state) {
-            let fill_index = state.last_applied_fill_id as usize;
-            let fill_step = state.fill_plan[fill_index].clone();
-            Some(FillDetails {
-                fill_id: fill_index as u64 + 1,
-                fill_quantity: fill_step.quantity,
-                fill_price,
-                last_fill_price: fill_price,
-                last_fill_quantity: fill_step.quantity,
-                total_fills: (fill_index + 1) as i64,
-                commission: Decimal::ZERO,
-                fees: Decimal::ZERO,
-                venue: "mock".to_string(),
-                broker_fill_id: String::new(),
-            })
-        } else {
-            None
-        };
-
-        Ok(OrderQueryResponse {
-            adapter_order_id: order_id.to_string(),
-            latest_status: Self::latest_status_for_state(&state),
-            filled_quantity: Self::cumulative_filled_quantity(&state),
-            avg_fill_price: (state.next_step_index > 0).then_some(fill_price),
-            fill_details,
-            rejection_reason: None,
-        })
+        self.build_response(order_id, &state, Self::latest_status_for_state(&state))
+            .await
     }
 
     async fn cancel_order(&self, order_id: &str) -> std::result::Result<(), AdapterError> {

@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use chrono::{DateTime, Utc};
 use sqlx::Row;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
@@ -6,9 +8,12 @@ use uuid::Uuid;
 
 use crate::core::{QuantixError, Result};
 use crate::risk::{
-    LiveImportBatchSummary, LiveImportConflict, LiveImportMirrorAccount,
-    LiveImportMirrorPosition, LiveImportRecord,
+    LiveImportBatchSummary, LiveImportConflict, LiveImportMirrorAccount, LiveImportRecord,
 };
+
+mod parsing;
+
+use parsing::{parse_decimal, parse_timestamp, row_to_mirror_position};
 
 const CREATE_LIVE_IMPORT_BATCHES_TABLE_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS live_import_batches (
@@ -395,8 +400,14 @@ ORDER BY code ASC
                 &row.try_get::<String, _>("current_total_assets")?,
                 "current_total_assets",
             )?,
-            cash_balance: parse_decimal(&row.try_get::<String, _>("cash_balance")?, "cash_balance")?,
-            realized_pnl: parse_decimal(&row.try_get::<String, _>("realized_pnl")?, "realized_pnl")?,
+            cash_balance: parse_decimal(
+                &row.try_get::<String, _>("cash_balance")?,
+                "cash_balance",
+            )?,
+            realized_pnl: parse_decimal(
+                &row.try_get::<String, _>("realized_pnl")?,
+                "realized_pnl",
+            )?,
             total_fees: parse_decimal(&row.try_get::<String, _>("total_fees")?, "total_fees")?,
             last_rebuild_at: parse_timestamp(&row.try_get::<String, _>("last_rebuild_at")?)?,
             positions: position_rows
@@ -487,24 +498,4 @@ fn row_to_conflict(row: SqliteRow) -> Result<LiveImportConflict> {
             .map_err(|err| QuantixError::DataParse(format!("invalid stored timestamp: {err}")))?
             .with_timezone(&Utc),
     })
-}
-
-fn row_to_mirror_position(row: SqliteRow) -> Result<LiveImportMirrorPosition> {
-    Ok(LiveImportMirrorPosition {
-        code: row.try_get("code")?,
-        volume: row.try_get("volume")?,
-        avg_cost: parse_decimal(&row.try_get::<String, _>("avg_cost")?, "avg_cost")?,
-        last_trade_at: parse_timestamp(&row.try_get::<String, _>("last_trade_at")?)?,
-    })
-}
-
-fn parse_timestamp(value: &str) -> Result<DateTime<Utc>> {
-    Ok(DateTime::parse_from_rfc3339(value)
-        .map_err(|err| QuantixError::DataParse(format!("invalid stored timestamp: {err}")))?
-        .with_timezone(&Utc))
-}
-
-fn parse_decimal(value: &str, field: &str) -> Result<rust_decimal::Decimal> {
-    rust_decimal::Decimal::from_str_exact(value)
-        .map_err(|_| QuantixError::DataParse(format!("invalid stored decimal for {field}: {value}")))
 }

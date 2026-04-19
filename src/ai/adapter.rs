@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::types::{LLMCallOptions, LLMResponse, Message, ToolDefinition, LLMProvider};
+use super::types::{LLMCallOptions, LLMProvider, LLMResponse, Message, ToolDefinition};
 
 /// Main LLM adapter trait
 #[async_trait]
@@ -57,9 +57,15 @@ pub struct LlmConfig {
     pub providers: HashMap<String, ProviderConfig>,
 }
 
-fn default_temperature() -> f32 { 0.7 }
-fn default_max_tokens() -> u32 { 4096 }
-fn default_timeout() -> u64 { 60 }
+fn default_temperature() -> f32 {
+    0.7
+}
+fn default_max_tokens() -> u32 {
+    4096
+}
+fn default_timeout() -> u64 {
+    60
+}
 
 impl Default for LlmConfig {
     fn default() -> Self {
@@ -94,17 +100,17 @@ impl LlmConfig {
         }
 
         // Load temperature
-        if let Ok(temp) = std::env::var("LLM_TEMPERATURE") {
-            if let Ok(t) = temp.parse() {
-                config.temperature = t;
-            }
+        if let Ok(temp) = std::env::var("LLM_TEMPERATURE")
+            && let Ok(t) = temp.parse()
+        {
+            config.temperature = t;
         }
 
         // Load max tokens
-        if let Ok(tokens) = std::env::var("LLM_MAX_TOKENS") {
-            if let Ok(t) = tokens.parse() {
-                config.max_tokens = t;
-            }
+        if let Ok(tokens) = std::env::var("LLM_MAX_TOKENS")
+            && let Ok(t) = tokens.parse()
+        {
+            config.max_tokens = t;
         }
 
         // Load provider configurations

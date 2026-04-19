@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_map_or)]
+
 //! 智能导入核心类型
 
 use serde::{Deserialize, Serialize};
@@ -28,7 +30,12 @@ pub struct ImportItem {
 }
 
 impl ImportItem {
-    pub fn new(code: Option<String>, name: Option<String>, confidence: f64, source: ImportSource) -> Self {
+    pub fn new(
+        code: Option<String>,
+        name: Option<String>,
+        confidence: f64,
+        source: ImportSource,
+    ) -> Self {
         Self {
             code,
             name,
@@ -110,14 +117,16 @@ pub fn is_code_like(text: &str) -> bool {
 pub fn normalize_code(code: &str) -> String {
     let code = code.trim();
     // 去掉市场前缀
-    let code = code.trim_start_matches("SH")
+    let code = code
+        .trim_start_matches("SH")
         .trim_start_matches("SZ")
         .trim_start_matches("BJ")
         .trim_start_matches("sh")
         .trim_start_matches("sz")
         .trim_start_matches("bj");
     // 去掉 .SH / .SZ 后缀
-    let code = code.trim_end_matches(".SH")
+    let code = code
+        .trim_end_matches(".SH")
         .trim_end_matches(".SZ")
         .trim_end_matches(".BJ")
         .trim_end_matches(".sh")

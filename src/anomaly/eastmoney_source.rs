@@ -49,10 +49,8 @@ impl EastMoneyAnomalySource {
     fn get_market_code(code: &str) -> &'static str {
         if code.starts_with('6') {
             "1" // 上海
-        } else if code.starts_with('8') || code.starts_with('4') {
-            "0" // 北京 (北交所)
         } else {
-            "0" // 深圳
+            "0" // 深圳 / 北京 (北交所)
         }
     }
 
@@ -83,13 +81,13 @@ impl DataSource for EastMoneyAnomalySource {
         // - m:1+t:2 = 上海A股
         // - m:1+t:23 = 上海科创板
         let params = [
-            ("pn", "1"),           // Page number
-            ("pz", "5000"),        // Page size (max)
-            ("po", "1"),           // Sort order
-            ("np", "1"),           // No pagination
-            ("fltt", "2"),         // Float format
-            ("invt", "2"),         // Investment type
-            ("fid", "f3"),         // Sort field (change %)
+            ("pn", "1"),    // Page number
+            ("pz", "5000"), // Page size (max)
+            ("po", "1"),    // Sort order
+            ("np", "1"),    // No pagination
+            ("fltt", "2"),  // Float format
+            ("invt", "2"),  // Investment type
+            ("fid", "f3"),  // Sort field (change %)
             ("fs", "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23"),
             ("fields", "f12,f14,f2,f3,f5,f6"),
         ];
@@ -159,7 +157,7 @@ impl DataSource for EastMoneyAnomalySource {
             30 => "30",
             60 => "60",
             1440 | 0 => "101", // 日线
-            _ => "15",          // Default to 15min
+            _ => "15",         // Default to 15min
         };
 
         // Adjust type: qfq=前复权, hfq=后复权, none=不复权
@@ -191,7 +189,11 @@ impl DataSource for EastMoneyAnomalySource {
             .map_err(|e| format!("HTTP request failed for {}: {}", code, e))?;
 
         if !response.status().is_success() {
-            return Err(format!("API returned status {} for {}", response.status(), code));
+            return Err(format!(
+                "API returned status {} for {}",
+                response.status(),
+                code
+            ));
         }
 
         let json: EastMoneyKlineResponse = response
@@ -290,14 +292,8 @@ mod tests {
 
     #[test]
     fn test_build_secid() {
-        assert_eq!(
-            EastMoneyAnomalySource::build_secid("600000"),
-            "1.600000"
-        );
-        assert_eq!(
-            EastMoneyAnomalySource::build_secid("000001"),
-            "0.000001"
-        );
+        assert_eq!(EastMoneyAnomalySource::build_secid("600000"), "1.600000");
+        assert_eq!(EastMoneyAnomalySource::build_secid("000001"), "0.000001");
     }
 
     #[test]

@@ -1,6 +1,7 @@
 //! Order reconciliation module for execution system
 //!
 //! Provides open-order scanning, account reconciliation, and state repair capabilities.
+#![allow(clippy::should_implement_trait)]
 //!
 //! # Features
 //!
@@ -10,6 +11,7 @@
 //! - **Recovery**: Recover from Unknown order states
 
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -113,8 +115,8 @@ impl OpenOrderScanner {
     pub fn new(store: StrategyRuntimeStore) -> Self {
         Self {
             store,
-            stale_order_threshold_seconds: 3600,    // 1 hour
-            unknown_timeout_seconds: 300,           // 5 minutes
+            stale_order_threshold_seconds: 3600, // 1 hour
+            unknown_timeout_seconds: 300,        // 5 minutes
         }
     }
 
@@ -171,7 +173,9 @@ impl OpenOrderScanner {
         let mut unknown_count = 0;
 
         for order in &open_orders {
-            *by_status.entry(order.status.as_str().to_string()).or_insert(0) += 1;
+            *by_status
+                .entry(order.status.as_str().to_string())
+                .or_insert(0) += 1;
 
             if order.status == OrderStatus::Unknown {
                 unknown_count += 1;
@@ -241,10 +245,29 @@ impl ReconciliationService {
             results.push(result);
         }
 
-        let matched = results.iter().filter(|r| r.action == ReconciliationAction::NoAction).count();
-        let mismatched = results.iter().filter(|r| r.action == ReconciliationAction::StateUpdated).count();
-        let recovered = results.iter().filter(|r| r.action == ReconciliationAction::Recovered).count();
-        let failed = results.iter().filter(|r| !r.success).count();
+        let matched = results
+            .iter()
+            .filter(|r| r.action == ReconciliationAction::NoAction)
+            .count();
+        let mismatched = results
+            .iter()
+            .filter(|r| r.action == ReconciliationAction::StateUpdated)
+            .count();
+        let recovered = results
+            .iter()
+            .filter(|r| r.action == ReconciliationAction::Recovered)
+            .count();
+        let failed = results
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r.action,
+                    ReconciliationAction::MarkedFailed
+                        | ReconciliationAction::Cancelled
+                        | ReconciliationAction::ManualIntervention
+                ) || !r.success
+            })
+            .count();
 
         Ok(ReconciliationReport {
             summary: ReconciliationSummary {
@@ -290,25 +313,39 @@ impl ReconciliationService {
         // If order has been in Unknown state too long, mark as failed
         if age > timeout {
             // Check if there's a mock_live state we can recover from
-            if let Ok(Some(mock_state)) = self.store.get_mock_live_order_state(&order.order_id).await {
-                // If recovery exhausted, mark as failed
-                if mock_state.recovery_exhausted {
-                    return self.mark_order_failed(order, "Unknown state recovery exhausted").await;
-                }
-
-                // Otherwise, we can recover by querying the adapter
-                // For now, simulate recovery by checking fill state
+            if let Ok(Some(mock_state)) =
+                self.store.get_mock_live_order_state(&order.order_id).await
+            {
                 let filled_qty = mock_state
                     .fill_plan
                     .iter()
                     .take(mock_state.next_step_index)
                     .map(|step| step.quantity)
                     .sum::<i64>();
+                let recovered_fill_price = mock_state
+                    .simulated_fill_price
+                    .or(order.avg_fill_price)
+                    .or(Some(order.requested_price));
+
+                // If recovery exhausted, mark as failed
+                if mock_state.recovery_exhausted {
+                    return self
+                        .mark_order_failed(order, "Unknown state recovery exhausted")
+                        .await;
+                }
 
                 if filled_qty >= order.requested_quantity {
-                    return self.mark_order_filled(order).await;
+                    return self
+                        .mark_order_filled(
+                            order,
+                            filled_qty.min(order.requested_quantity),
+                            recovered_fill_price,
+                        )
+                        .await;
                 } else if filled_qty > 0 {
-                    return self.mark_order_partial_fill(order).await;
+                    return self
+                        .mark_order_partial_fill(order, filled_qty, recovered_fill_price)
+                        .await;
                 }
             }
 
@@ -330,14 +367,19 @@ impl ReconciliationService {
     }
 
     /// Mark an order as filled
-    async fn mark_order_filled(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
+    async fn mark_order_filled(
+        &self,
+        order: &OrderRecord,
+        filled_quantity: i64,
+        avg_fill_price: Option<Decimal>,
+    ) -> Result<OrderReconciliationResult> {
         let now = Utc::now();
         self.store
             .update_order(
                 &order.order_id,
                 OrderStatus::Filled,
-                order.filled_quantity,
-                order.avg_fill_price,
+                filled_quantity,
+                avg_fill_price,
                 now,
             )
             .await?;
@@ -355,14 +397,19 @@ impl ReconciliationService {
     }
 
     /// Mark an order as partially filled
-    async fn mark_order_partial_fill(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
+    async fn mark_order_partial_fill(
+        &self,
+        order: &OrderRecord,
+        filled_quantity: i64,
+        avg_fill_price: Option<Decimal>,
+    ) -> Result<OrderReconciliationResult> {
         let now = Utc::now();
         self.store
             .update_order(
                 &order.order_id,
                 OrderStatus::PartiallyFilled,
-                order.filled_quantity,
-                order.avg_fill_price,
+                filled_quantity,
+                avg_fill_price,
                 now,
             )
             .await?;
@@ -380,7 +427,11 @@ impl ReconciliationService {
     }
 
     /// Mark an order as failed
-    async fn mark_order_failed(&self, order: &OrderRecord, reason: &str) -> Result<OrderReconciliationResult> {
+    async fn mark_order_failed(
+        &self,
+        order: &OrderRecord,
+        reason: &str,
+    ) -> Result<OrderReconciliationResult> {
         let now = Utc::now();
         self.store
             .update_order(
@@ -420,49 +471,4 @@ pub struct ReconciliationReport {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_reconciliation_action_serialization() {
-        let action = ReconciliationAction::Recovered;
-        assert_eq!(action.as_str(), "recovered");
-        assert_eq!(ReconciliationAction::from_str("recovered"), Some(action));
-    }
-
-    #[test]
-    fn test_reconciliation_summary_creation() {
-        let summary = ReconciliationSummary {
-            reconciled_at: Utc::now(),
-            total_open_orders: 10,
-            matched_orders: 8,
-            mismatched_orders: 1,
-            recovered_orders: 1,
-            failed_orders: 0,
-            duration_ms: 150,
-        };
-
-        assert_eq!(summary.total_open_orders, 10);
-        assert_eq!(summary.matched_orders, 8);
-    }
-
-    #[test]
-    fn test_open_order_summary() {
-        let mut by_status = HashMap::new();
-        by_status.insert("accepted".to_string(), 5);
-        by_status.insert("partially_filled".to_string(), 3);
-
-        let summary = OpenOrderSummary {
-            total_open: 8,
-            by_status,
-            stale_count: 2,
-            unknown_count: 1,
-            stale_threshold_seconds: 3600,
-            unknown_timeout_seconds: 300,
-        };
-
-        assert_eq!(summary.total_open, 8);
-        assert_eq!(summary.stale_count, 2);
-        assert_eq!(summary.unknown_count, 1);
-    }
-}
+mod tests;

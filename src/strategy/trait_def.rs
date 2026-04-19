@@ -18,7 +18,7 @@ pub trait Strategy: Send + Sync {
     }
 
     /// 处理 K线数据
-    async fn on_bar(&mut self, bar: &Kline) -> Result<Signal, Box<dyn std::error::Error>> {
+    async fn on_bar(&mut self, _bar: &Kline) -> Result<Signal, Box<dyn std::error::Error>> {
         Ok(Signal::Hold)
     }
 

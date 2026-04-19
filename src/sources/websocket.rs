@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 /// WebSocket 实时行情客户端
 ///
 /// 支持多数据源的 WebSocket 实时行情订阅

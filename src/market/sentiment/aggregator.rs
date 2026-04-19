@@ -1,9 +1,12 @@
 //! 舆情数据聚合器
+#![allow(clippy::collapsible_if)]
 
-use chrono::Utc;
-use crate::core::Result;
 use super::provider::SentimentProvider;
-use super::types::{SentimentData, SentimentLevel, SentimentTrend, SocialMention, SentimentHistoryPoint};
+use super::types::{
+    SentimentData, SentimentHistoryPoint, SentimentLevel, SentimentTrend, SocialMention,
+};
+use crate::core::Result;
+use chrono::Utc;
 
 /// 舆情聚合器
 pub struct SentimentAggregator {
@@ -54,12 +57,12 @@ impl SentimentAggregator {
         }
 
         // 按时间排序
-        recent_mentions.sort_by(|a, b| {
-            b.published_at.cmp(&a.published_at)
-        });
+        recent_mentions.sort_by(|a, b| b.published_at.cmp(&a.published_at));
         recent_mentions.truncate(20);
 
-        let sources: Vec<String> = self.providers.iter()
+        let sources: Vec<String> = self
+            .providers
+            .iter()
             .filter(|p| p.is_available())
             .map(|p| p.name().to_string())
             .collect();
@@ -78,7 +81,8 @@ impl SentimentAggregator {
 
     /// 获取可用提供商列表
     pub fn available_providers(&self) -> Vec<&str> {
-        self.providers.iter()
+        self.providers
+            .iter()
             .filter(|p| p.is_available())
             .map(|p| p.name())
             .collect()

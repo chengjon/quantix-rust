@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::Row;
@@ -56,7 +58,9 @@ impl MySqlIndustrySyncSource {
             .max_connections(1)
             .connect_with(options)
             .await
-            .map_err(|err| QuantixError::DatabaseConnection(format!("upstream mysql 连接失败: {err}")))
+            .map_err(|err| {
+                QuantixError::DatabaseConnection(format!("upstream mysql 连接失败: {err}"))
+            })
     }
 }
 
@@ -189,7 +193,8 @@ fn build_history_rows(rows: Vec<RawHistoricalIndustryRow>) -> Vec<ShenwanHistori
     let mut deduped: Vec<RawHistoricalIndustryRow> = Vec::with_capacity(rows.len());
     for row in rows {
         if let Some(last) = deduped.last_mut() {
-            if last.security_code == row.security_code && last.effective_from == row.effective_from {
+            if last.security_code == row.security_code && last.effective_from == row.effective_from
+            {
                 last.industry_name = row.industry_name;
                 continue;
             }

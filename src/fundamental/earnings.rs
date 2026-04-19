@@ -1,10 +1,9 @@
 //! 财报数据获取
 
+use super::types::EarningsReport;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
-use super::types::EarningsReport;
 
 /// EastMoney 财报分析 API 响应
 #[derive(Debug, Deserialize)]
@@ -15,13 +14,17 @@ struct EarningsApiResponse {
 #[derive(Debug, Deserialize)]
 struct EarningsApiData {
     /// f57: 代码
-    f57: Option<serde_json::Value>,
+    #[serde(rename = "f57")]
+    _f57: Option<serde_json::Value>,
     /// f58: 名称
-    f58: Option<serde_json::Value>,
+    #[serde(rename = "f58")]
+    _f58: Option<serde_json::Value>,
     /// f162: 市盈率(动)
-    f162: Option<serde_json::Value>,
+    #[serde(rename = "f162")]
+    _f162: Option<serde_json::Value>,
     /// f167: 市净率
-    f167: Option<serde_json::Value>,
+    #[serde(rename = "f167")]
+    _f167: Option<serde_json::Value>,
     /// f183: 总营收 (元)
     f183: Option<serde_json::Value>,
     /// f184: 总营收同比增长(%)
@@ -33,9 +36,11 @@ struct EarningsApiData {
     /// f187: 净利润 (元)
     f187: Option<serde_json::Value>,
     /// f188: 净利润增长率(%)
-    f188: Option<serde_json::Value>,
+    #[serde(rename = "f188")]
+    _f188: Option<serde_json::Value>,
     /// f189: 未分配利润
-    f189: Option<serde_json::Value>,
+    #[serde(rename = "f189")]
+    _f189: Option<serde_json::Value>,
 }
 
 /// 从 serde_json::Value 提取 f64
@@ -74,7 +79,8 @@ impl EarningsFetcher {
             Self::format_secid(code)
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Referer", "https://quote.eastmoney.com/")
             .send()
@@ -82,7 +88,10 @@ impl EarningsFetcher {
             .map_err(|e| QuantixError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(QuantixError::Other(format!("EastMoney API error: {}", response.status())));
+            return Err(QuantixError::Other(format!(
+                "EastMoney API error: {}",
+                response.status()
+            )));
         }
 
         let resp: EarningsApiResponse = response
@@ -90,9 +99,9 @@ impl EarningsFetcher {
             .await
             .map_err(|e| QuantixError::Other(format!("解析财报响应失败: {}", e)))?;
 
-        let data = resp.data.ok_or_else(|| {
-            QuantixError::Other("EastMoney 财报 API 返回空数据".to_string())
-        })?;
+        let data = resp
+            .data
+            .ok_or_else(|| QuantixError::Other("EastMoney 财报 API 返回空数据".to_string()))?;
 
         let date = chrono::Utc::now().date_naive();
         let mut report = EarningsReport::new(code.to_string(), date, "最新".to_string());

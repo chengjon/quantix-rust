@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::Row;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
@@ -58,10 +60,10 @@ pub struct SqliteIndustryStore {
 impl SqliteIndustryStore {
     pub async fn new(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent)?;
         }
 
         let options = SqliteConnectOptions::new()
@@ -77,8 +79,7 @@ impl SqliteIndustryStore {
     }
 
     pub async fn from_risk_state_path(risk_state_path: impl AsRef<Path>) -> Result<Self> {
-        Self::new(Self::default_db_path_from_risk_state(risk_state_path))
-            .await
+        Self::new(Self::default_db_path_from_risk_state(risk_state_path)).await
     }
 
     pub fn default_db_path_from_risk_state(risk_state_path: impl AsRef<Path>) -> PathBuf {

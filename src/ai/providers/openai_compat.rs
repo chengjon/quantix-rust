@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 use crate::ai::adapter::{LlmAdapter, LlmConfig};
-use crate::ai::types::{LLMCallOptions, LLMProvider, LLMResponse, Message, TokenUsage, ToolCall, ToolDefinition};
+use crate::ai::types::{
+    LLMCallOptions, LLMProvider, LLMResponse, Message, TokenUsage, ToolCall, ToolDefinition,
+};
 use crate::core::{QuantixError, Result};
 
 /// OpenAI-compatible adapter
@@ -73,7 +75,13 @@ impl OpenAICompatAdapter {
     }
 
     /// Create a custom adapter with specified configuration
-    pub fn custom(provider: LLMProvider, base_url: String, api_key: Option<String>, default_model: String, timeout_secs: u64) -> Self {
+    pub fn custom(
+        provider: LLMProvider,
+        base_url: String,
+        api_key: Option<String>,
+        default_model: String,
+        timeout_secs: u64,
+    ) -> Self {
         Self {
             provider,
             api_key,
@@ -102,15 +110,25 @@ impl OpenAICompatAdapter {
                     // Assistant message with tool calls
                     OpenAIMessage {
                         role: role.to_string(),
-                        content: if msg.content.is_empty() { None } else { Some(msg.content.clone()) },
-                        tool_calls: Some(msg.tool_calls.iter().map(|tc| OpenAIToolCall {
-                            id: tc.id.clone(),
-                            typ: "function".to_string(),
-                            function: OpenAIFunctionCall {
-                                name: tc.name.clone(),
-                                arguments: serde_json::to_string(&tc.arguments).unwrap_or_default(),
-                            },
-                        }).collect()),
+                        content: if msg.content.is_empty() {
+                            None
+                        } else {
+                            Some(msg.content.clone())
+                        },
+                        tool_calls: Some(
+                            msg.tool_calls
+                                .iter()
+                                .map(|tc| OpenAIToolCall {
+                                    id: tc.id.clone(),
+                                    typ: "function".to_string(),
+                                    function: OpenAIFunctionCall {
+                                        name: tc.name.clone(),
+                                        arguments: serde_json::to_string(&tc.arguments)
+                                            .unwrap_or_default(),
+                                    },
+                                })
+                                .collect(),
+                        ),
                         tool_call_id: None,
                     }
                 } else if msg.role == crate::ai::types::MessageRole::Tool {
@@ -190,7 +208,11 @@ impl LlmAdapter for OpenAICompatAdapter {
         let url = format!("{}/chat/completions", self.base_url);
 
         let openai_messages = self.convert_messages(messages);
-        let openai_tools = if tools.is_empty() { None } else { Some(self.convert_tools(tools)) };
+        let openai_tools = if tools.is_empty() {
+            None
+        } else {
+            Some(self.convert_tools(tools))
+        };
 
         let model = &self.default_model;
         let extra_body = self.get_thinking_extra(model);
@@ -210,13 +232,12 @@ impl LlmAdapter for OpenAICompatAdapter {
         }
 
         // Merge extra body for thinking mode
-        if let Some(extra) = extra_body {
-            if let Some(obj) = body.as_object_mut() {
-                if let Some(extra_obj) = extra.as_object() {
-                    for (k, v) in extra_obj {
-                        obj.insert(k.clone(), v.clone());
-                    }
-                }
+        if let Some(extra) = extra_body
+            && let Some(obj) = body.as_object_mut()
+            && let Some(extra_obj) = extra.as_object()
+        {
+            for (k, v) in extra_obj {
+                obj.insert(k.clone(), v.clone());
             }
         }
 
@@ -258,10 +279,10 @@ impl LlmAdapter for OpenAICompatAdapter {
                     .map(|tcs| {
                         tcs.iter()
                             .map(|tc| {
-                                let args: serde_json::Value =
-                                    serde_json::from_str(&tc.function.arguments).unwrap_or(
-                                        serde_json::json!({"raw": tc.function.arguments}),
-                                    );
+                                let args: serde_json::Value = serde_json::from_str(
+                                    &tc.function.arguments,
+                                )
+                                .unwrap_or(serde_json::json!({"raw": tc.function.arguments}));
                                 ToolCall {
                                     id: tc.id.clone(),
                                     name: tc.function.name.clone(),
@@ -347,7 +368,8 @@ struct OpenAIResponse {
 struct OpenAIChoice {
     message: OpenAIResponseMessage,
     #[serde(default)]
-    finish_reason: String,
+    #[serde(rename = "finish_reason")]
+    _finish_reason: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,10 +1,9 @@
 //! 估值指标获取
 
+use super::types::ValuationMetrics;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
-use super::types::ValuationMetrics;
 
 /// EastMoney push2 API 响应
 #[derive(Debug, Deserialize)]
@@ -15,9 +14,11 @@ struct EastMoneyResponse {
 #[derive(Debug, Deserialize)]
 struct EastMoneyStockData {
     /// f57: 代码
-    f57: Option<serde_json::Value>,
+    #[serde(rename = "f57")]
+    _f57: Option<serde_json::Value>,
     /// f58: 名称
-    f58: Option<serde_json::Value>,
+    #[serde(rename = "f58")]
+    _f58: Option<serde_json::Value>,
     /// f116: 总市值 (元)
     f116: Option<serde_json::Value>,
     /// f117: 流通市值 (元)
@@ -31,9 +32,11 @@ struct EastMoneyStockData {
     /// f187: 每股收益
     f187: Option<serde_json::Value>,
     /// f92: 净利润增长率(%)
-    f92: Option<serde_json::Value>,
+    #[serde(rename = "f92")]
+    _f92: Option<serde_json::Value>,
     /// f105: 净利润(元)
-    f105: Option<serde_json::Value>,
+    #[serde(rename = "f105")]
+    _f105: Option<serde_json::Value>,
 }
 
 /// 从 serde_json::Value 提取 f64
@@ -72,7 +75,8 @@ impl ValuationFetcher {
             Self::format_secid(code)
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Referer", "https://quote.eastmoney.com/")
             .send()
@@ -80,7 +84,10 @@ impl ValuationFetcher {
             .map_err(|e| QuantixError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(QuantixError::Other(format!("EastMoney API error: {}", response.status())));
+            return Err(QuantixError::Other(format!(
+                "EastMoney API error: {}",
+                response.status()
+            )));
         }
 
         let resp: EastMoneyResponse = response
@@ -88,9 +95,9 @@ impl ValuationFetcher {
             .await
             .map_err(|e| QuantixError::Other(format!("解析 EastMoney 响应失败: {}", e)))?;
 
-        let data = resp.data.ok_or_else(|| {
-            QuantixError::Other("EastMoney API 返回空数据".to_string())
-        })?;
+        let data = resp
+            .data
+            .ok_or_else(|| QuantixError::Other("EastMoney API 返回空数据".to_string()))?;
 
         // 解析估值指标
         let date = chrono::Utc::now().date_naive();

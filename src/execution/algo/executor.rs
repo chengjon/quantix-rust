@@ -8,9 +8,9 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use super::{AlgoType, AlgoContext, AlgoParams, AlgoState, ChildOrder};
-use crate::execution::adapter::ExecutionAdapter;
+use super::{AlgoContext, AlgoParams, AlgoState, AlgoType, ChildOrder};
 use crate::core::Result;
+use crate::execution::adapter::ExecutionAdapter;
 
 /// 算法执行错误
 #[derive(Debug, thiserror::Error)]
@@ -68,11 +68,7 @@ impl AlgoResult {
     pub fn performance_summary(&self) -> String {
         format!(
             "Algorithm {} completed: filled {}/{} orders, avg price {:.4}, duration {}s",
-            self.algo_id,
-            self.order_count,
-            self.order_count,
-            self.avg_price,
-            self.duration_seconds
+            self.algo_id, self.order_count, self.order_count, self.avg_price, self.duration_seconds
         )
     }
 }
@@ -130,7 +126,11 @@ pub trait AlgorithmExecutor: Send + Sync {
     async fn get_state(&self, algo_id: &str) -> Result<AlgoState>;
 
     /// 执行一步算法 (由调度器调用)
-    async fn step(&mut self, algo_id: &str, adapter: &dyn ExecutionAdapter) -> Result<Option<ChildOrder>>;
+    async fn step(
+        &mut self,
+        algo_id: &str,
+        adapter: &dyn ExecutionAdapter,
+    ) -> Result<Option<ChildOrder>>;
 
     /// 获取切片计划
     fn get_slice_plan(&self, params: &AlgoParams) -> Result<SlicePlan>;
@@ -140,11 +140,13 @@ pub trait AlgorithmExecutor: Send + Sync {
 }
 
 /// 算法管理器
+#[allow(dead_code)]
 pub struct AlgoManager {
     /// 活跃的算法
     algos: Arc<RwLock<std::collections::HashMap<String, AlgoContext>>>,
 }
 
+#[allow(dead_code)]
 impl AlgoManager {
     /// 创建新的算法管理器
     pub fn new() -> Self {
@@ -180,7 +182,8 @@ impl AlgoManager {
     /// 获取所有活跃算法
     pub async fn get_active_algos(&self) -> Vec<(String, AlgoContext)> {
         let algos = self.algos.read().await;
-        algos.iter()
+        algos
+            .iter()
             .filter(|(_, ctx)| !ctx.state.is_finished())
             .map(|(id, ctx)| (id.clone(), ctx.clone()))
             .collect()
@@ -189,7 +192,8 @@ impl AlgoManager {
     /// 获取需要执行的算法
     pub async fn get_ready_algos(&self) -> Vec<String> {
         let algos = self.algos.read().await;
-        algos.iter()
+        algos
+            .iter()
             .filter(|(_, ctx)| ctx.should_order_now())
             .map(|(id, _)| id.clone())
             .collect()

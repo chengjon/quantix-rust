@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::{Path, PathBuf};

@@ -1,15 +1,17 @@
+#![allow(clippy::collapsible_if)]
+
 //! Algorithm Context
 //!
 //! 算法执行的上下文和参数定义
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::super::adapter::AdapterOrderRequest;
 use super::super::models::OrderSide;
-use super::{AlgoType, AlgoState};
+use super::{AlgoState, AlgoType};
 
 /// 算法参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,7 +261,11 @@ impl AlgoContext {
     }
 
     /// 生成订单请求
-    pub fn create_order_request(&self, quantity: i64, price: Option<Decimal>) -> AdapterOrderRequest {
+    pub fn create_order_request(
+        &self,
+        quantity: i64,
+        price: Option<Decimal>,
+    ) -> AdapterOrderRequest {
         let side = match self.params.side.as_str() {
             "buy" => OrderSide::Buy,
             "sell" => OrderSide::Sell,
@@ -267,7 +273,12 @@ impl AlgoContext {
         };
 
         AdapterOrderRequest {
-            client_order_id: format!("{}-{}-{}", self.state.algo_id, self.current_slice, Utc::now().timestamp()),
+            client_order_id: format!(
+                "{}-{}-{}",
+                self.state.algo_id,
+                self.current_slice,
+                Utc::now().timestamp()
+            ),
             symbol: self.params.symbol.clone(),
             side,
             quantity,

@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::{QuantixError, Result};
 use super::models::{AccountConfig, AccountGroup};
 use super::registry::AccountRegistry;
+use crate::core::{QuantixError, Result};
 
 /// 账户注册表存储接口
 #[async_trait::async_trait]
@@ -73,12 +73,12 @@ impl JsonAccountRegistryStore {
 
     /// 确保目录存在
     fn ensure_parent_dir(&self) -> Result<()> {
-        if let Some(parent) = self.path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    QuantixError::Other(format!("无法创建目录 {}: {}", parent.display(), e))
-                })?;
-            }
+        if let Some(parent) = self.path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                QuantixError::Other(format!("无法创建目录 {}: {}", parent.display(), e))
+            })?;
         }
         Ok(())
     }

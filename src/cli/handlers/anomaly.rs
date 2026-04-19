@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use super::*;
 
 // ============================================================================
@@ -28,7 +30,8 @@ pub async fn run_anomaly_command(cmd: AnomalyCommands) -> Result<()> {
                 history,
                 mock,
                 mock_count,
-            ).await
+            )
+            .await
         }
     }
 }
@@ -46,8 +49,8 @@ async fn run_anomaly_detection(
     mock_count: usize,
 ) -> Result<()> {
     use crate::anomaly::{
-        AnomalyConfig, AnomalyDetector, DataSource, EastMoneyAnomalySource, FilterConfig, ForestConfig,
-        MockDataSource, FeatureConfig,
+        AnomalyConfig, AnomalyDetector, DataSource, EastMoneyAnomalySource, FeatureConfig,
+        FilterConfig, ForestConfig, MockDataSource,
     };
 
     println!("🚀 启动异常检测...");
@@ -96,7 +99,9 @@ async fn run_anomaly_detection(
                     println!("{}", json);
                 }
                 "csv" => {
-                    println!("rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20");
+                    println!(
+                        "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
+                    );
                     for (i, a) in result.anomalies.iter().enumerate() {
                         println!(
                             "{},{},{},{:.6},{},{:.4},{:.6},{:.6}",
@@ -118,8 +123,6 @@ async fn run_anomaly_detection(
             }
             Ok(())
         }
-        Err(e) => {
-            Err(QuantixError::Other(format!("异常检测失败: {}", e)))
-        }
+        Err(e) => Err(QuantixError::Other(format!("异常检测失败: {}", e))),
     }
 }

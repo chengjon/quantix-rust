@@ -1,6 +1,8 @@
+#![allow(clippy::should_implement_trait)]
+
 use chrono::{DateTime, NaiveDate, Utc};
-use serde_json::Value;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StopRule {

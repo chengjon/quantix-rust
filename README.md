@@ -375,13 +375,17 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `volatility-limit` 缺少日线时会拒绝买单而不是静默跳过
   - `volatility-limit` 只拦截新的买单，不影响卖出
   - `industry-blocklist` 现已成为受支持的风险规则
+  - `industry-limit` 现已成为受支持的风险规则
+  - 风控 CLI 当前仍接受 `auto-reduce` rule type，但 `auto-reduce` 仍未交付 operator workflow
   - Phase 27D v1 使用 `SW 一级行业` 作为运行时生效标准
   - `security_class_2024` / CSRC 2024 仍保留在系统中作为并行分类标准，但不是该 v1 规则的运行时生效标准
   - 运行时风控评估只读取本地 SQLite 参考/快照表
   - MySQL 仅作为上游同步源，不是运行时查询依赖
   - 最终运行时边界保持为 ClickHouse + SQLite；本规则不在运行时直接查询 MySQL
   - 启用 `industry-blocklist` 前需要先执行 `quantix risk sync industry --standard shenwan`
+  - 启用 `industry-limit` 前同样需要先执行 `quantix risk sync industry --standard shenwan`
   - 如果本地 SQLite 行业引用表尚未同步完成，`industry-blocklist` 会 fail-closed 并拒绝买单
+  - 如果本地 SQLite 行业引用表尚未同步完成，`industry-limit` 也会 fail-closed 并拒绝买单
   - 运行时行业解析顺序固定为：当前 SW 映射 -> 查询月份快照 -> 历史 SW 映射 -> 最新本地快照
   - 月度快照会在该月第一次成功命中生效标准时冻结
   - `industry-blocklist` 继续使用精确字符串匹配
@@ -394,7 +398,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件，不记录每次买入拒单
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
-  - 行业白名单 / 自动减仓继续延后到后续 Phase
+  - `industry-limit` 会按目标行业的买后集中度执行真实拦截；自动减仓继续延后到后续 Phase
 
 #### Phase 29: 策略 Paper 执行骨架 ✅
 - **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
@@ -410,9 +414,10 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 运行结果会写入独立的 runtime SQLite，paper 账户与 risk 状态仍分别保存在原有本地存储中
   - `paper` 是立即成交路径，`mock_live` 当前会返回非终态订单状态
   - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
+  - `mock_live` 当前是 live-ready hardening / reconciliation scaffolding，用于验证 delayed fill、partial fill 与 `unknown` 恢复语义，不是真实 broker live execution
   - 同一个 mock-live 订单在 partial fill 场景下可能写出多笔 `TradeRecord`
   - 这些增量成交会直接体现在 `trade history`、`trade fees`、`trade overview` 的本地视图里
-  - 通用 `target_mode=live` 仍在开发中
+  - live 模式仍在开发中；通用 `target_mode=live` 仍在开发中
   - `execution daemon` 与基础自动审批已在下文 Phase 29C 补齐；当前真实下单只开放受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 #### Phase 29B: 策略信号守护进程 ✅
@@ -439,6 +444,8 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`
   - `strategy signal approve` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
   - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
+  - request completed 但订单仍非终态时，`strategy request list` / `execution daemon run --once` 会额外输出 `semantics=request_completed_order_non_terminal`
+  - `strategy request show` 会同时展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
 - **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
   - `quantix strategy service install`
@@ -474,7 +481,12 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **P0 约束**
   - `execution daemon` 当前是单 worker、串行消费
   - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
+  - request completed 但订单仍非终态时，紧凑输出会额外带上 `semantics=request_completed_order_non_terminal`
+  - `strategy request show` 会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
+  - `quantix execution daemon run --once` 会在紧凑输出里附带 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
+  - `mock_live` 继续承担 live-ready hardening / reconciliation scaffolding；reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义
+  - `live` adapter 仍未实现
   - 通用 `target_mode=live` 仍未实现；当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 ### Windows Bridge v1
@@ -484,7 +496,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **QMT preview-only**
   - 当前只支持 frozen execution request 的 broker payload 预览
   - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
-  - 真实 QMT 提交只会在 bridge 明确回报 `qmt.mode=live` 时放行
+  - 真实 QMT 提交只会在 bridge 明确回报 `qmt.enabled=true`、`qmt.mode=live` 且 `qmt.supports` 包含 `order_submit` 时放行
   - 真实 `qmt-live` 提交会把对应 `execution_request` 写回为 `completed` 或 `failed`
 
 #### Windows 侧目录
@@ -495,10 +507,25 @@ A 股量化交易 CLI 工具 - Rust 实现
 - `QUANTIX_BRIDGE_API_KEY`
 
 #### Bridge CLI
+- 推荐入口: `quantix execution qmt`
+- 兼容旧入口: `quantix execution bridge`
+- `quantix execution qmt status`
+- `quantix execution qmt preview --request-id <ID>`
+- `quantix execution qmt live --request-id <ID> [--yes]`
+- `quantix execution qmt query --order-id <ORDER_ID>`
 - `quantix execution bridge status`
 - `quantix execution bridge qmt-preview --request-id <ID>`
 - `quantix execution bridge qmt-live --request-id <ID> [--yes]`
-- 如需真实 QMT 提交，Windows bridge 必须先进入 `qmt.mode=live`
+- `quantix execution bridge qmt-query --order-id <ORDER_ID>`
+- 如需真实 QMT 提交，Windows bridge 必须先满足 `qmt.enabled=true`、`qmt.mode=live`，并确保 `qmt.supports` 包含 `order_submit`
+
+#### 最小安全流程
+- 先确认 request 目标是 `qmt_live`，不要把通用 `target_mode=live` 当成实盘入口
+- 建议先运行 `quantix execution qmt status`，确认 bridge 已进入 `qmt.mode=live` 且具备 `order_submit` 能力
+- `quantix execution qmt preview --request-id <ID>` 只做 preview，不会真实发单
+- 手动执行 `quantix execution qmt live --request-id <ID>` 时，CLI 会要求输入 `YES` 确认；只有显式传入 `--yes` 才会跳过确认
+- 提交成功后，按 CLI 打印的 `quantix execution qmt query --order-id <ORDER_ID>` 继续核验券商侧订单状态
+- 旧路径 `quantix execution bridge ...` 仍兼容，适合已有脚本渐进迁移
 
 #### 当前边界
 - 通用 `target_mode=live` 仍延后到后续 phase；真实 QMT 提交仅支持受 `qmt.mode=live` 保护的 `qmt_live` 路径
@@ -733,9 +760,15 @@ quantix-rust/
 - ✅ 核心编码规则（所有权、错误处理、类型安全）
 - ✅ 量化交易特殊注意事项（性能优化、安全性、CLI交互）
 - ✅ 测试规范（单元测试、集成测试、回测验证）
+- ✅ 收口阶段规则（先完成运行门禁闭环，再做后续清理）
 - ✅ 性能优化指南（编译优化、基准测试）
 - ✅ 安全与稳定性（依赖安全、资源管理、并发安全）
 - ✅ 代码质量工具（rustfmt、clippy、CI/CD）
+
+**收口阶段强制规则**:
+- 当任务已经进入“可收口”阶段后，必须优先完成运行门禁闭环。
+- 在门禁未闭环前，不得继续扩散为零散 cosmetic 微调、顺手重构或机械性清理。
+- 任何继续修改都必须直接服务于失败门禁、验收阻塞或交付风险。
 
 ### 代码质量检查
 

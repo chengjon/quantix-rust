@@ -1,9 +1,14 @@
+#![allow(clippy::should_implement_trait)]
+
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::core::{QuantixError, Result};
+
+mod lock_state;
+pub use lock_state::RiskLockStateSource;
 
 pub const DEFAULT_RISK_ACCOUNT_ID: &str = "default";
 pub const RISK_STATE_VERSION: u32 = 1;
@@ -184,13 +189,6 @@ pub struct BuyLockState {
     pub triggered_at: Option<DateTime<Utc>>,
     pub trading_date: Option<NaiveDate>,
     pub released_for_date: Option<NaiveDate>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RiskLockStateSource {
-    Open,
-    DailyLossLocked,
-    ManualReleaseActive,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

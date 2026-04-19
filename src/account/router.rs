@@ -127,10 +127,11 @@ impl AccountRouter {
     async fn get_enabled_group_accounts(&self, account_ids: &[String]) -> Vec<AccountConfig> {
         let mut accounts = Vec::new();
         for account_id in account_ids {
-            if let Some(account) = self.registry.get_account(account_id).await {
-                if account.enabled && account.initial_capital > Decimal::ZERO {
-                    accounts.push(account);
-                }
+            if let Some(account) = self.registry.get_account(account_id).await
+                && account.enabled
+                && account.initial_capital > Decimal::ZERO
+            {
+                accounts.push(account);
             }
         }
         accounts

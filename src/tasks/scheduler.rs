@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 /// 任务调度器
 ///
 /// 从短线侠项目迁移 - 基于 tokio-cron-scheduler 的异步任务调度
