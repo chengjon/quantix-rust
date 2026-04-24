@@ -9,6 +9,9 @@ pub mod clickhouse;
 pub mod postgresql;
 pub mod tdengine;
 
-pub use clickhouse::{ClickHouseClient, KlineDataCH, LimitUpEventCH, StockInfoCH, StockQuoteCH};
+pub use clickhouse::{
+    ClickHouseClient, KlineDataCH, LimitUpEventCH, MarketFundamentalSnapshotCH, StockInfoCH,
+    StockQuoteCH,
+};
 pub use postgresql::{KlineDaily, PostgresClient, StockInfo};
 pub use tdengine::{MinuteKline, TDengineClient};

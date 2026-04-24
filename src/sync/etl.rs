@@ -3,7 +3,7 @@
 /// 实现 Python quantix ↔ quantix-rust 数据同步
 /// 方向：PostgreSQL/TDengine → ClickHouse
 use crate::core::Result;
-use crate::db::clickhouse::{ClickHouseClient, KlineDataCH};
+use crate::db::clickhouse::{ClickHouseClient, KlineDataCH, MarketFundamentalSnapshotCH};
 use crate::sources::kline_aggregator::KlineData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,6 +60,17 @@ pub struct SyncStats {
     pub records_failed: usize,
     /// 耗时（秒）
     pub elapsed_seconds: i64,
+}
+
+/// 市场基础面快照同步记录。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MarketFundamentalSyncRecord {
+    pub code: String,
+    pub snapshot_date: chrono::NaiveDate,
+    pub market_cap: Option<f64>,
+    pub latest_report_profit: Option<f64>,
+    pub profit_source: String,
+    pub pe_dynamic: Option<f64>,
 }
 
 /// 数据同步器
@@ -161,6 +172,31 @@ impl DataSync {
         Ok(stats)
     }
 
+    /// 将上游已准备好的市场基础面记录落盘到 ClickHouse。
+    ///
+    /// 该入口不负责抓取外部数据，只负责本地 ETL 写入，便于后续替换不同来源。
+    pub async fn sync_market_fundamentals(
+        &self,
+        records: &[MarketFundamentalSyncRecord],
+    ) -> Result<SyncStats> {
+        info!("开始同步市场基础面快照: {} 条记录", records.len());
+
+        let start_time = Utc::now();
+        let records_synced = self
+            .write_market_fundamentals_to_clickhouse(records)
+            .await?;
+        let end_time = Utc::now();
+        let elapsed = end_time.signed_duration_since(start_time).num_seconds();
+
+        Ok(SyncStats {
+            start_time,
+            end_time,
+            records_synced,
+            records_failed: 0,
+            elapsed_seconds: elapsed,
+        })
+    }
+
     /// 写入 K线数据到 ClickHouse
     async fn write_klines_to_clickhouse(&self, klines: &[KlineData]) -> Result<usize> {
         if klines.is_empty() {
@@ -233,6 +269,37 @@ impl DataSync {
         Err(crate::core::QuantixError::Unsupported(
             "DataSync::fetch_minute_source_data 尚未接入分钟线来源".to_string(),
         ))
+    }
+
+    async fn write_market_fundamentals_to_clickhouse(
+        &self,
+        records: &[MarketFundamentalSyncRecord],
+    ) -> Result<usize> {
+        if records.is_empty() {
+            return Ok(0);
+        }
+
+        let snapshots = records
+            .iter()
+            .map(|record| MarketFundamentalSnapshotCH {
+                code: record.code.clone(),
+                snapshot_date: record.snapshot_date,
+                market_cap: record.market_cap,
+                latest_report_profit: record.latest_report_profit,
+                profit_source: record.profit_source.clone(),
+                pe_dynamic: record.pe_dynamic,
+                updated_at: Utc::now()
+                    .naive_utc()
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string(),
+            })
+            .collect::<Vec<_>>();
+
+        self.clickhouse_client
+            .insert_market_fundamental_snapshots(&snapshots)
+            .await?;
+
+        Ok(snapshots.len())
     }
 
     /// 运行定时同步
@@ -358,5 +425,22 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    #[test]
+    fn test_market_fundamental_sync_record_serialization_roundtrip() {
+        let record = MarketFundamentalSyncRecord {
+            code: "600519".to_string(),
+            snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap(),
+            market_cap: Some(23000.5),
+            latest_report_profit: Some(862.1),
+            profit_source: "report".to_string(),
+            pe_dynamic: Some(27.4),
+        };
+
+        let json = serde_json::to_string(&record).unwrap();
+        let restored: MarketFundamentalSyncRecord = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored, record);
     }
 }
