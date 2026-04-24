@@ -7,8 +7,9 @@ pub(crate) use super::{
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands,
-    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
+    StrengthStockMetric, TaskCommands, TradeCommands, WatchlistCommands,
+    WatchlistGroupCommands, WatchlistTagCommands,
 };
 pub(crate) use crate::ai::providers::OpenAICompatAdapter;
 pub(crate) use crate::ai::{DecisionEngine, LlmConfig};

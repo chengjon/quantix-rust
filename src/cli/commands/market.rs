@@ -1,4 +1,4 @@
-use clap::{ArgGroup, Subcommand};
+use clap::{ArgGroup, Subcommand, ValueEnum};
 
 #[derive(Subcommand, Debug)]
 pub enum MarketCommands {
@@ -107,6 +107,31 @@ pub enum MarketCommands {
         #[arg(long, default_value_t = 10)]
         stock_top: usize,
     },
+
+    /// 仅输出强势板块个股排行
+    StrengthStocks {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 强势板块数量
+        #[arg(long, default_value_t = 3)]
+        strong_top: usize,
+
+        /// 排名字段
+        #[arg(long, value_enum, default_value_t = StrengthStockMetric::MarketCap)]
+        metric: StrengthStockMetric,
+
+        /// 返回条数
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+    },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum StrengthStockMetric {
+    MarketCap,
+    Profit,
 }
 
 #[derive(Subcommand, Debug)]

@@ -135,6 +135,39 @@ fn parses_market_strength_command_with_explicit_thresholds() {
 }
 
 #[test]
+fn parses_market_strength_stocks_command_with_metric_and_top() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "market",
+        "strength-stocks",
+        "--date",
+        "2026-03-09",
+        "--strong-top",
+        "4",
+        "--metric",
+        "profit",
+        "--top",
+        "8",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Market(MarketCommands::StrengthStocks {
+            date,
+            strong_top,
+            metric,
+            top,
+        }) => {
+            assert_eq!(date.as_deref(), Some("2026-03-09"));
+            assert_eq!(strong_top, 4);
+            assert_eq!(metric, StrengthStockMetric::Profit);
+            assert_eq!(top, 8);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn rejects_market_leader_with_sector_and_concept_together() {
     let result = Cli::try_parse_from([
         "quantix",

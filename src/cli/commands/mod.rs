@@ -18,7 +18,10 @@ pub use info::{
     AiCommands, FundamentalCommands, ImportCommands, NewsCommands, NotifyCommands,
     SentimentCommands,
 };
-pub use market::{MarketCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands};
+pub use market::{
+    MarketCommands, StrengthStockMetric, WatchlistCommands, WatchlistGroupCommands,
+    WatchlistTagCommands,
+};
 pub use monitor::{
     MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
     MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands,

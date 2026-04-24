@@ -16,8 +16,8 @@ pub use commands::{
     RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands, RiskSyncCommands,
     ScreenerCommands, SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
-    StrategyServiceConfigCommands, StrategySignalCommands, TaskCommands, TradeCommands,
-    WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
+    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 
 #[cfg(test)]
