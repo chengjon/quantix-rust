@@ -1,4 +1,5 @@
 use super::*;
+use chrono::NaiveDate;
 
 impl ClickHouseClient {
     /// 批量写入市场基础面快照。
@@ -36,5 +37,44 @@ impl ClickHouseClient {
         }
 
         Ok(())
+    }
+
+    /// 查询指定股票代码在某日之前最近可用的市场基础面快照。
+    pub async fn get_latest_market_fundamental_snapshots(
+        &self,
+        codes: &[String],
+        as_of: Option<NaiveDate>,
+    ) -> Result<Vec<MarketFundamentalSnapshotCH>> {
+        if codes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let code_list = codes
+            .iter()
+            .map(|code| format!("'{}'", code.replace('\'', "''")))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let date_clause = as_of
+            .map(|date| format!(" AND snapshot_date <= '{date}'"))
+            .unwrap_or_default();
+
+        let sql = format!(
+            r#"
+            SELECT
+                code,
+                max(snapshot_date) AS snapshot_date,
+                argMax(market_cap, snapshot_date) AS market_cap,
+                argMax(latest_report_profit, snapshot_date) AS latest_report_profit,
+                argMax(profit_source, snapshot_date) AS profit_source,
+                argMax(pe_dynamic, snapshot_date) AS pe_dynamic,
+                formatDateTime(max(updated_at), '%F %T') AS updated_at
+            FROM market_fundamentals_daily
+            WHERE code IN ({code_list}){date_clause}
+            GROUP BY code
+            "#
+        );
+
+        self.query_json(&sql).await
     }
 }
