@@ -1,6 +1,16 @@
 use super::*;
 
 #[test]
+fn parses_market_foundation_command() {
+    let cli = Cli::try_parse_from(["quantix", "market", "foundation"]).unwrap();
+
+    match cli.command {
+        Commands::Market(MarketCommands::Foundation) => {}
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_market_sector_command_with_top() {
     let cli = Cli::try_parse_from(["quantix", "market", "sector", "--top", "10"]).unwrap();
 
@@ -86,6 +96,39 @@ fn parses_market_overview_command() {
         Commands::Market(MarketCommands::Overview { top, date }) => {
             assert_eq!(top, None);
             assert_eq!(date, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_market_strength_command_with_explicit_thresholds() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "market",
+        "strength",
+        "--date",
+        "2026-03-09",
+        "--strong-top",
+        "5",
+        "--weak-top",
+        "4",
+        "--stock-top",
+        "12",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Market(MarketCommands::Strength {
+            date,
+            strong_top,
+            weak_top,
+            stock_top,
+        }) => {
+            assert_eq!(date.as_deref(), Some("2026-03-09"));
+            assert_eq!(strong_top, 5);
+            assert_eq!(weak_top, 4);
+            assert_eq!(stock_top, 12);
         }
         other => panic!("unexpected command: {:?}", other),
     }

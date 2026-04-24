@@ -2,6 +2,9 @@ use clap::{ArgGroup, Subcommand};
 
 #[derive(Subcommand, Debug)]
 pub enum MarketCommands {
+    /// 获取全市场 A 股与行业分类基础数据摘要
+    Foundation,
+
     /// 行业板块排名
     Sector {
         /// 限制返回条数
@@ -84,6 +87,25 @@ pub enum MarketCommands {
         /// 指定交易日期
         #[arg(long)]
         date: Option<String>,
+    },
+
+    /// 分析强势/弱势行业板块，并输出强势板块个股 Top10
+    Strength {
+        /// 指定交易日期
+        #[arg(long)]
+        date: Option<String>,
+
+        /// 强势板块数量
+        #[arg(long, default_value_t = 3)]
+        strong_top: usize,
+
+        /// 弱势板块数量
+        #[arg(long, default_value_t = 3)]
+        weak_top: usize,
+
+        /// 强势板块内个股 TopN
+        #[arg(long, default_value_t = 10)]
+        stock_top: usize,
     },
 }
 

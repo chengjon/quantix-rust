@@ -128,6 +128,27 @@ WHERE standard = ? AND level = ? AND code = ?
         row.map(map_reference_record).transpose()
     }
 
+    pub async fn list_current(
+        &self,
+        standard: ClassificationStandard,
+        level: IndustryClassificationLevel,
+    ) -> Result<Vec<IndustryReferenceRecord>> {
+        let rows = sqlx::query(
+            r#"
+SELECT standard, level, code, industry_name, source
+FROM industry_reference_current
+WHERE standard = ? AND level = ?
+ORDER BY code ASC
+"#,
+        )
+        .bind(standard.as_str())
+        .bind(level.as_str())
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(map_reference_record).collect()
+    }
+
     pub async fn lookup_historical(
         &self,
         standard: ClassificationStandard,
