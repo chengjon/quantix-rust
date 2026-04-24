@@ -148,6 +148,7 @@ fn config() -> MonitorConfig {
         interval_seconds: 30,
         watchlist_group: None,
         persist_events: true,
+        notify_enabled: false,
         max_event_history: 1000,
     }
 }
