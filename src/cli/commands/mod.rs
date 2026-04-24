@@ -1,31 +1,44 @@
 mod account;
 mod analysis;
+mod backtest;
 mod data;
 mod info;
 mod market;
 mod monitor;
+mod performance;
 mod risk;
 mod strategy;
 mod trade;
 
 pub use account::{AccountCommands, AccountGroupCommands};
 pub use analysis::{AnalyzeCommands, ScreenerCommands, TaskCommands};
-pub use data::DataCommands;
+pub use backtest::BacktestCommands;
+pub use data::{DataCommands, DataSourceCommands, DataSourceKind};
 pub use info::{
     AiCommands, FundamentalCommands, ImportCommands, NewsCommands, NotifyCommands,
     SentimentCommands,
 };
 pub use market::{MarketCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands};
-pub use monitor::{MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands};
+pub use monitor::{
+    MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
+    MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands,
+};
+pub use performance::PerformanceCommands;
 pub use risk::{
     RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands,
     RiskSyncCommands,
 };
-pub use strategy::{StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands};
-pub use trade::{AlgoCommands, AnomalyCommands, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands, ExecutionDaemonCommands, TradeCommands};
+pub use strategy::{
+    StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
+    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
+};
+pub use trade::{
+    AlgoCommands, AnomalyCommands, ExecutionBridgeCommands, ExecutionCommands,
+    ExecutionConfigCommands, ExecutionDaemonCommands, ExecutionQmtCommands, TradeCommands,
+};
 
-use crate::core::Result;
 use crate::cli::handlers;
+use crate::core::Result;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -68,6 +81,14 @@ pub enum Commands {
     /// 分析命令
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
+
+    /// 回测命令
+    #[command(subcommand)]
+    Backtest(BacktestCommands),
+
+    /// 绩效命令
+    #[command(subcommand)]
+    Performance(PerformanceCommands),
 
     /// 监控命令
     #[command(subcommand)]
@@ -165,6 +186,12 @@ impl Cli {
             }
             Commands::Analyze(cmd) => {
                 handlers::run_analyze_command(cmd).await?;
+            }
+            Commands::Backtest(cmd) => {
+                handlers::run_backtest_command(cmd).await?;
+            }
+            Commands::Performance(cmd) => {
+                handlers::run_performance_command(cmd)?;
             }
             Commands::Monitor(cmd) => {
                 handlers::run_monitor_command(cmd).await?;

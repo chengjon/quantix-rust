@@ -3,9 +3,12 @@ use clap::Parser;
 use clap::error::ErrorKind;
 
 mod analyze;
+mod backtest;
+mod data;
 mod execution;
 mod market;
 mod monitor;
+mod performance;
 mod risk;
 mod screener;
 mod stop;
