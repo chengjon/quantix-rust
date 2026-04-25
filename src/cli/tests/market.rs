@@ -234,6 +234,17 @@ fn market_help_lists_strength_and_strength_stocks_commands() {
 }
 
 #[test]
+fn root_help_lists_market_command() {
+    let err = Cli::try_parse_from(["quantix", "--help"]).expect_err("expected clap help");
+
+    assert_eq!(err.kind(), ErrorKind::DisplayHelp);
+
+    let help = err.to_string();
+    assert!(help.contains("market"));
+    assert!(help.contains("市场分析命令"));
+}
+
+#[test]
 fn rejects_market_leader_with_sector_and_concept_together() {
     let result = Cli::try_parse_from([
         "quantix",
