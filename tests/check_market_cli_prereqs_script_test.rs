@@ -1,4 +1,5 @@
 use std::fs;
+use std::process::Command;
 
 #[test]
 fn market_prereq_script_covers_expected_environment_checks() {
@@ -6,8 +7,8 @@ fn market_prereq_script_covers_expected_environment_checks() {
         .expect("should read scripts/dev/check_market_cli_prereqs.sh");
 
     assert!(
-        script.contains("QUANTIX_BIN=\"$ROOT_DIR/target/debug/quantix\""),
-        "expected precheck script to reference quantix binary"
+        script.contains("QUANTIX_BIN=\"${QUANTIX_BIN:-$ROOT_DIR/target/debug/quantix}\""),
+        "expected precheck script to support an overridable quantix binary path"
     );
     assert!(
         script.contains("INDUSTRY_DB_PATH"),
@@ -57,6 +58,82 @@ fn market_prereq_script_covers_expected_environment_checks() {
         script.contains("Market CLI prerequisite checks passed"),
         "expected precheck script to emit a clear terminal summary"
     );
+}
+
+#[test]
+fn market_prereq_script_runs_with_fake_quantix_and_expected_warnings() {
+    let tempdir = tempfile::tempdir().expect("should create tempdir");
+    let log_dir = tempdir.path().join("logs");
+    let log_file = log_dir.join("check_market_cli_prereqs.log");
+    let fake_quantix = tempdir.path().join("fake-quantix.sh");
+    let fake_env = tempdir.path().join("fake.env");
+    let fake_env_template = tempdir.path().join("market_cli_env.example.sh");
+    let missing_industry_db = tempdir.path().join("missing-industry.db");
+
+    fs::create_dir_all(&log_dir).expect("should create log dir");
+    fs::write(
+        &fake_quantix,
+        r#"#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  "market --help"|"risk --help")
+    echo "help ok"
+    ;;
+  *)
+    echo "unexpected args: $*" >&2
+    exit 64
+    ;;
+esac
+"#,
+    )
+    .expect("should write fake quantix");
+    fs::write(&fake_env, "").expect("should write fake env");
+    fs::write(&fake_env_template, "# fake env template\n").expect("should write fake env template");
+
+    let mut perms = fs::metadata(&fake_quantix)
+        .expect("metadata")
+        .permissions();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        perms.set_mode(0o755);
+    }
+    fs::set_permissions(&fake_quantix, perms).expect("set permissions");
+
+    let output = Command::new("bash")
+        .arg("scripts/dev/check_market_cli_prereqs.sh")
+        .env("LOG_DIR", &log_dir)
+        .env("LOG_FILE", &log_file)
+        .env("QUANTIX_BIN", &fake_quantix)
+        .env("LOCAL_ENV_PATH", &fake_env)
+        .env("ENV_TEMPLATE_PATH", &fake_env_template)
+        .env("QUANTIX_INDUSTRY_DB_PATH", &missing_industry_db)
+        .env("CLICKHOUSE_URL", "http://localhost:8123")
+        .env("CLICKHOUSE_DB", "quantix")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("should run prerequisite script");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let log = fs::read_to_string(&log_file).expect("should read prerequisite log");
+    assert!(log.contains("[INFO] Market CLI prerequisite log:"));
+    assert!(log.contains("[PASS] Quantix binary exists"));
+    assert!(log.contains("[PASS] Market command tree reachable"));
+    assert!(log.contains("[PASS] Risk command tree reachable"));
+    assert!(log.contains("[WARN] Shenwan SQLite reference DB present"));
+    assert!(log.contains("[WARN] Upstream MySQL env configured for risk sync"));
+    assert!(log.contains("[PASS] ClickHouse env resolved for market strength"));
+    assert!(log.contains("缺少本地行业 SQLite：先 source "));
+    assert!(log.contains("quantix risk sync industry --standard shenwan"));
+    assert!(log.contains("缺少上游 MySQL 环境变量：请 source "));
+    assert!(log.contains("PASS : 4"));
+    assert!(log.contains("WARN : 2"));
+    assert!(log.contains("FAIL : 0"));
 }
 
 #[test]

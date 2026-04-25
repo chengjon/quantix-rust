@@ -4,11 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-LOG_DIR="$ROOT_DIR/logs"
+LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/check_market_cli_prereqs_$(date +%Y%m%d_%H%M%S).log}"
-ENV_TEMPLATE_PATH="$ROOT_DIR/scripts/dev/market_cli_env.example.sh"
-LOCAL_ENV_PATH="$ROOT_DIR/.env.market.local"
+ENV_TEMPLATE_PATH="${ENV_TEMPLATE_PATH:-$ROOT_DIR/scripts/dev/market_cli_env.example.sh}"
+LOCAL_ENV_PATH="${LOCAL_ENV_PATH:-$ROOT_DIR/.env.market.local}"
 
 if [[ -f "$LOCAL_ENV_PATH" ]]; then
   set -a
@@ -25,7 +25,7 @@ PASS=0
 WARN=0
 FAIL=0
 WARNINGS=()
-QUANTIX_BIN="$ROOT_DIR/target/debug/quantix"
+QUANTIX_BIN="${QUANTIX_BIN:-$ROOT_DIR/target/debug/quantix}"
 RISK_DIR="${QUANTIX_RISK_DIR:-$HOME/.quantix/risk}"
 INDUSTRY_DB_PATH="${QUANTIX_INDUSTRY_DB_PATH:-$RISK_DIR/industry_reference.db}"
 CLICKHOUSE_URL="${CLICKHOUSE_URL:-http://localhost:8123}"
@@ -102,7 +102,7 @@ check_pass "Risk command tree reachable" "\"$QUANTIX_BIN\" risk --help >/dev/nul
 
 check_warn_if_missing \
   "Shenwan SQLite reference DB present" \
-  "test -f \"$INDUSTRY_DB_PATH\" && test -s \"$INDUSTRY_DB_PATH\"" \
+  "ls \"$INDUSTRY_DB_PATH\" >/dev/null && test -s \"$INDUSTRY_DB_PATH\"" \
   "No such file|cannot access|not found"
 
 check_warn_if_missing \
