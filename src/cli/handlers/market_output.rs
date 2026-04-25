@@ -26,20 +26,30 @@ pub(super) fn print_market_foundation_summary(summary: &MarketFoundationSummary)
 }
 
 pub(super) fn print_market_board_rows(rows: &[BoardRankRow]) {
+    print!("{}", render_market_board_rows(rows));
+}
+
+fn render_market_board_rows(rows: &[BoardRankRow]) -> String {
+    let mut output = String::new();
+
     if rows.is_empty() {
-        println!("📭 没有可展示的板块数据");
-        return;
+        writeln!(&mut output, "📭 没有可展示的板块数据").unwrap();
+        return output;
     }
 
-    println!("{:<8} {:<12} {:<16} 涨跌幅", "排名", "代码", "板块");
-    println!("{}", "-".repeat(56));
+    writeln!(&mut output, "{:<8} {:<12} {:<16} 涨跌幅", "排名", "代码", "板块").unwrap();
+    writeln!(&mut output, "{}", "-".repeat(56)).unwrap();
 
     for row in rows {
-        println!(
+        writeln!(
+            &mut output,
             "{:<8} {:<12} {:<16} {:.2}%",
             row.rank, row.board_code, row.board_name, row.change_pct
-        );
+        )
+        .unwrap();
     }
+
+    output
 }
 
 pub(super) fn print_north_flow_snapshot(snapshot: Option<&NorthFlowSnapshot>) {
@@ -124,43 +134,75 @@ pub(super) fn print_market_overview(overview: &MarketOverview) {
 }
 
 pub(super) fn print_market_strength_report(report: &MarketStrengthReport) {
-    println!("== 强弱板块分析 ==");
-    println!(
+    print!("{}", render_market_strength_report(report));
+}
+
+fn render_market_strength_report(report: &MarketStrengthReport) -> String {
+    let mut output = String::new();
+
+    writeln!(&mut output, "== 强弱板块分析 ==").unwrap();
+    writeln!(
+        &mut output,
         "基础数据: A股={} 行业覆盖={} 未覆盖={}",
         report.foundation.total_stocks,
         report.foundation.classified_stocks,
         report.foundation.unclassified_stocks
-    );
-    println!("强势板块候选股数: {}", report.candidate_stock_count);
-    println!(
+    )
+    .unwrap();
+    writeln!(&mut output, "强势板块候选股数: {}", report.candidate_stock_count).unwrap();
+    writeln!(
+        &mut output,
         "基本面覆盖: 市值={}/{} 利润={}/{}",
         report.market_cap_coverage_count,
         report.candidate_stock_count,
         report.profit_coverage_count,
         report.candidate_stock_count
-    );
+    )
+    .unwrap();
     if report.valuation_error_count > 0 || report.earnings_error_count > 0 {
-        println!(
+        writeln!(
+            &mut output,
             "基本面抓取异常: 市值请求失败={} 利润请求失败={}",
             report.valuation_error_count, report.earnings_error_count
-        );
+        )
+        .unwrap();
     }
 
-    println!();
-    println!("强势板块:");
-    print_market_board_rows(&report.strong_sectors);
+    writeln!(&mut output).unwrap();
+    writeln!(&mut output, "强势板块:").unwrap();
+    output.push_str(&render_market_board_rows(&report.strong_sectors));
 
-    println!();
-    println!("弱势板块:");
-    print_market_board_rows(&report.weak_sectors);
+    writeln!(&mut output).unwrap();
+    writeln!(&mut output, "弱势板块:").unwrap();
+    output.push_str(&render_market_board_rows(&report.weak_sectors));
 
-    println!();
-    println!("强势板块个股 Top{} 总市值:", report.top_by_market_cap.len());
-    print_strong_sector_stock_rows(&report.top_by_market_cap, "总市值(亿)", true);
+    writeln!(&mut output).unwrap();
+    writeln!(
+        &mut output,
+        "强势板块个股 Top{} 总市值:",
+        report.top_by_market_cap.len()
+    )
+    .unwrap();
+    output.push_str(&render_strong_sector_stock_rows(
+        &report.top_by_market_cap,
+        "总市值(亿)",
+        true,
+    ));
 
-    println!();
-    println!("强势板块个股 Top{} 推算净利润:", report.top_by_profit.len());
-    print_strong_sector_stock_rows(&report.top_by_profit, "推算净利润(亿)", false);
+    writeln!(&mut output).unwrap();
+    writeln!(
+        &mut output,
+        "强势板块个股 Top{} 推算净利润:",
+        report.top_by_profit.len()
+    )
+    .unwrap();
+    output.push_str(&render_strong_sector_stock_rows(
+        &report.top_by_profit,
+        "推算净利润(亿)",
+        false,
+    ));
+
+    output
 }
 
 pub(super) fn print_market_strength_stock_ranking(ranking: &MarketStrengthStockRankingOutput) {
@@ -200,14 +242,6 @@ fn render_market_strength_stock_ranking(ranking: &MarketStrengthStockRankingOutp
     ));
 
     output
-}
-
-fn print_strong_sector_stock_rows(
-    rows: &[StrongSectorStockRow],
-    metric_label: &str,
-    use_market_cap: bool,
-) {
-    print!("{}", render_strong_sector_stock_rows(rows, metric_label, use_market_cap));
 }
 
 fn render_strong_sector_stock_rows(
@@ -263,7 +297,78 @@ fn format_decimal(value: &Option<Decimal>) -> String {
 mod tests {
     use super::*;
     use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
+    use crate::market::{BoardRankRow, BoardType, MarketFoundationSummary, MarketStrengthReport};
     use rust_decimal::Decimal;
+
+    #[test]
+    fn render_market_strength_report_shows_zero_candidate_empty_sections() {
+        let report = MarketStrengthReport {
+            foundation: MarketFoundationSummary {
+                total_stocks: 100,
+                classified_stocks: 85,
+                unclassified_stocks: 15,
+                sector_count: 23,
+                top_sectors: vec![],
+            },
+            strong_sectors: vec![],
+            weak_sectors: vec![],
+            top_by_market_cap: vec![],
+            top_by_profit: vec![],
+            candidate_stock_count: 0,
+            market_cap_coverage_count: 0,
+            profit_coverage_count: 0,
+            valuation_error_count: 0,
+            earnings_error_count: 0,
+        };
+
+        let output = render_market_strength_report(&report);
+
+        assert!(output.contains("== 强弱板块分析 =="));
+        assert!(output.contains("基础数据: A股=100 行业覆盖=85 未覆盖=15"));
+        assert!(output.contains("强势板块候选股数: 0"));
+        assert!(output.contains("基本面覆盖: 市值=0/0 利润=0/0"));
+        assert!(output.contains("强势板块:"));
+        assert!(output.contains("📭 没有可展示的板块数据"));
+        assert!(output.contains("弱势板块:"));
+        assert!(output.contains("强势板块个股 Top0 总市值:"));
+        assert!(output.contains("强势板块个股 Top0 推算净利润:"));
+        assert!(output.contains("📭 没有可展示的个股数据"));
+    }
+
+    #[test]
+    fn render_market_strength_report_shows_fetch_error_counts() {
+        let report = MarketStrengthReport {
+            foundation: MarketFoundationSummary {
+                total_stocks: 5300,
+                classified_stocks: 5200,
+                unclassified_stocks: 100,
+                sector_count: 31,
+                top_sectors: vec![],
+            },
+            strong_sectors: vec![BoardRankRow::new(
+                "BK001",
+                "银行",
+                BoardType::Sector,
+                1,
+                2.1,
+            )],
+            weak_sectors: vec![],
+            top_by_market_cap: vec![],
+            top_by_profit: vec![],
+            candidate_stock_count: 12,
+            market_cap_coverage_count: 8,
+            profit_coverage_count: 6,
+            valuation_error_count: 2,
+            earnings_error_count: 1,
+        };
+
+        let output = render_market_strength_report(&report);
+
+        assert!(output.contains("强势板块候选股数: 12"));
+        assert!(output.contains("基本面覆盖: 市值=8/12 利润=6/12"));
+        assert!(output.contains("基本面抓取异常: 市值请求失败=2 利润请求失败=1"));
+        assert!(output.contains("银行"));
+    }
 
     #[test]
     fn render_market_strength_stock_ranking_includes_sector_filter_and_row_values() {
