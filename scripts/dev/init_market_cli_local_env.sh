@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-EXAMPLE_PATH="$ROOT_DIR/.env.market.local.example"
-LOCAL_PATH="$ROOT_DIR/.env.market.local"
+EXAMPLE_PATH="${EXAMPLE_PATH:-$ROOT_DIR/.env.market.local.example}"
+LOCAL_PATH="${LOCAL_PATH:-$ROOT_DIR/.env.market.local}"
 
 if [[ ! -f "$EXAMPLE_PATH" ]]; then
   echo "[FAIL] missing example file: $EXAMPLE_PATH" >&2
