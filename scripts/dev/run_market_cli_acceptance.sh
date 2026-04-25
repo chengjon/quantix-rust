@@ -4,14 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-LOG_DIR="$ROOT_DIR/logs"
+LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/run_market_cli_acceptance_$(date +%Y%m%d_%H%M%S).log}"
-ENV_TEMPLATE_PATH="$ROOT_DIR/scripts/dev/market_cli_env.example.sh"
-LOCAL_ENV_PATH="$ROOT_DIR/.env.market.local"
-INIT_LOCAL_ENV_SCRIPT="$ROOT_DIR/scripts/dev/init_market_cli_local_env.sh"
-PRECHECK_SCRIPT="$ROOT_DIR/scripts/dev/check_market_cli_prereqs.sh"
-SMOKE_SCRIPT="$ROOT_DIR/scripts/dev/verify_market_cli_smoke.sh"
+ENV_TEMPLATE_PATH="${ENV_TEMPLATE_PATH:-$ROOT_DIR/scripts/dev/market_cli_env.example.sh}"
+LOCAL_ENV_PATH="${LOCAL_ENV_PATH:-$ROOT_DIR/.env.market.local}"
+INIT_LOCAL_ENV_SCRIPT="${INIT_LOCAL_ENV_SCRIPT:-$ROOT_DIR/scripts/dev/init_market_cli_local_env.sh}"
+PRECHECK_SCRIPT="${PRECHECK_SCRIPT:-$ROOT_DIR/scripts/dev/check_market_cli_prereqs.sh}"
+SMOKE_SCRIPT="${SMOKE_SCRIPT:-$ROOT_DIR/scripts/dev/verify_market_cli_smoke.sh}"
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 
