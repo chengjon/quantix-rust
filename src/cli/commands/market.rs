@@ -118,6 +118,10 @@ pub enum MarketCommands {
         #[arg(long, default_value_t = 3)]
         strong_top: usize,
 
+        /// 仅查看指定强势行业
+        #[arg(long)]
+        sector: Option<String>,
+
         /// 排名字段
         #[arg(long, value_enum, default_value_t = StrengthStockMetric::MarketCap)]
         metric: StrengthStockMetric,

@@ -175,6 +175,9 @@ pub(super) fn print_market_strength_stock_ranking(ranking: &MarketStrengthStockR
 
     println!("== 强势板块个股排行 ==");
     println!("强势板块范围: Top{}", ranking.strong_top);
+    if let Some(sector_name) = ranking.sector_filter.as_deref() {
+        println!("行业过滤: {}", sector_name);
+    }
     println!("候选股数: {}", ranking.candidate_stock_count);
     println!(
         "{}覆盖: {}/{}",

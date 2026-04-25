@@ -27,7 +27,9 @@ pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
         MarketCommandOutput::Leaders(rows) => print_market_leader_rows(&rows),
         MarketCommandOutput::Overview(overview) => print_market_overview(&overview),
         MarketCommandOutput::Strength(report) => print_market_strength_report(&report),
-        MarketCommandOutput::StrengthStocks(ranking) => print_market_strength_stock_ranking(&ranking),
+        MarketCommandOutput::StrengthStocks(ranking) => {
+            print_market_strength_stock_ranking(&ranking)
+        }
     }
 
     Ok(())
@@ -49,6 +51,7 @@ pub(crate) enum MarketCommandOutput {
 pub(crate) struct MarketStrengthStockRankingOutput {
     pub metric: StrengthStockMetric,
     pub strong_top: usize,
+    pub sector_filter: Option<String>,
     pub candidate_stock_count: usize,
     pub covered_count: usize,
     pub rows: Vec<StrongSectorStockRow>,
@@ -80,11 +83,14 @@ where
             .map(MarketCommandOutput::Foundation)
             .ok_or_else(|| QuantixError::Other("缺少 foundation 测试载荷".to_string())),
         MarketCommands::StrengthStocks {
-            strong_top, metric, ..
+            strong_top,
+            sector,
+            metric,
+            ..
         } => strength_report
             .map(|report| {
                 MarketCommandOutput::StrengthStocks(build_market_strength_stock_ranking_output(
-                    report, metric, strong_top,
+                    report, metric, strong_top, sector,
                 ))
             })
             .ok_or_else(|| QuantixError::Other("缺少 strength 测试载荷".to_string())),
@@ -190,6 +196,7 @@ where
         MarketCommands::StrengthStocks {
             date,
             strong_top,
+            sector,
             metric,
             top,
         } => {
@@ -203,7 +210,7 @@ where
             )
             .await?;
             Ok(MarketCommandOutput::StrengthStocks(
-                build_market_strength_stock_ranking_output(report, metric, strong_top),
+                build_market_strength_stock_ranking_output(report, metric, strong_top, sector),
             ))
         }
     }
@@ -213,16 +220,35 @@ fn build_market_strength_stock_ranking_output(
     report: MarketStrengthReport,
     metric: StrengthStockMetric,
     strong_top: usize,
+    sector_filter: Option<String>,
 ) -> MarketStrengthStockRankingOutput {
     let (rows, covered_count) = match metric {
-        StrengthStockMetric::MarketCap => (report.top_by_market_cap, report.market_cap_coverage_count),
+        StrengthStockMetric::MarketCap => {
+            (report.top_by_market_cap, report.market_cap_coverage_count)
+        }
         StrengthStockMetric::Profit => (report.top_by_profit, report.profit_coverage_count),
+    };
+    let (candidate_stock_count, covered_count, rows) = match sector_filter.as_ref() {
+        Some(sector_name) => {
+            let filtered_rows = rows
+                .into_iter()
+                .filter(|row| row.sector_name == *sector_name)
+                .collect::<Vec<_>>();
+            let filtered_count = filtered_rows.len();
+            (
+                filtered_count,
+                covered_count.min(filtered_count),
+                filtered_rows,
+            )
+        }
+        None => (report.candidate_stock_count, covered_count, rows),
     };
 
     MarketStrengthStockRankingOutput {
         metric,
         strong_top,
-        candidate_stock_count: report.candidate_stock_count,
+        sector_filter,
+        candidate_stock_count,
         covered_count,
         rows,
     }

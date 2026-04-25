@@ -155,13 +155,48 @@ fn parses_market_strength_stocks_command_with_metric_and_top() {
         Commands::Market(MarketCommands::StrengthStocks {
             date,
             strong_top,
+            sector,
             metric,
             top,
         }) => {
             assert_eq!(date.as_deref(), Some("2026-03-09"));
             assert_eq!(strong_top, 4);
+            assert_eq!(sector, None);
             assert_eq!(metric, StrengthStockMetric::Profit);
             assert_eq!(top, 8);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_market_strength_stocks_command_with_sector() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "market",
+        "strength-stocks",
+        "--sector",
+        "银行",
+        "--metric",
+        "market-cap",
+        "--top",
+        "10",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Market(MarketCommands::StrengthStocks {
+            date,
+            strong_top,
+            sector,
+            metric,
+            top,
+        }) => {
+            assert_eq!(date, None);
+            assert_eq!(strong_top, 3);
+            assert_eq!(sector.as_deref(), Some("银行"));
+            assert_eq!(metric, StrengthStockMetric::MarketCap);
+            assert_eq!(top, 10);
         }
         other => panic!("unexpected command: {:?}", other),
     }
