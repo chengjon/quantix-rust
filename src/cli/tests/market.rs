@@ -220,6 +220,20 @@ fn market_strength_stocks_help_lists_sector_metric_and_top_options() {
 }
 
 #[test]
+fn market_help_lists_strength_and_strength_stocks_commands() {
+    let err =
+        Cli::try_parse_from(["quantix", "market", "--help"]).expect_err("expected clap help");
+
+    assert_eq!(err.kind(), ErrorKind::DisplayHelp);
+
+    let help = err.to_string();
+    assert!(help.contains("strength"));
+    assert!(help.contains("strength-stocks"));
+    assert!(help.contains("分析强势/弱势行业板块，并输出强势板块个股 Top10"));
+    assert!(help.contains("仅输出强势板块个股排行"));
+}
+
+#[test]
 fn rejects_market_leader_with_sector_and_concept_together() {
     let result = Cli::try_parse_from([
         "quantix",
