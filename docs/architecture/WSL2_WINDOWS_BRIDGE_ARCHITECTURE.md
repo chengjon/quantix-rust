@@ -17,7 +17,7 @@
 - `Windows` 侧只承接当前确实需要的专有能力
 - `v1` 范围收敛为两项：
   - `TDX bridge source`：提供真实可用的远端行情与 K 线读取
-  - `QMT bridge contract`：定义并验证券商执行边界，但首期不真实发单
+  - `QMT bridge contract`：先定义并验证券商执行边界；该文档成稿时的首期目标是不真实发单，当前项目已在受能力门控的 `qmt_live` 路径上补齐真实提交
 - `quantix-rust` 继续保留当前执行架构的所有权：
   - `execution_request`
   - frozen execution snapshot
@@ -38,22 +38,25 @@
 1. 保持 `quantix-rust` 在 `WSL2` 中开发、测试、回测、策略研发的主路径不变
 2. 通过明确的 bridge 边界访问 Windows 独有能力，而不是把执行状态迁移到 Windows
 3. 为 `TDX` 提供可实际接入的远端数据源能力
-4. 为 `QMT` 提供和当前 `ExecutionAdapter` 契约对齐的预演型 broker contract
-5. 避免在首期把“跨系统边界验证”和“真实券商副作用”绑定在一起
-6. 为后续真正的 `live` adapter 留出清晰升级路径
+4. 为 `QMT` 提供和当前 `ExecutionAdapter` 契约对齐的 broker contract，并在能力门控下支持 `qmt_live` 真实提交
+5. 把“跨系统边界验证”和“真实券商副作用”分离治理，确保只有 guarded `qmt_live` 路径可以进入真实提交
+6. 为后续通用 `live` 语义是否收敛到 `qmt_live` 留出清晰升级路径
 
 ### 2.2 非目标
 
-本期明确不做：
+当前仍明确不做：
 
-- 真实 `QMT` 发单
-- `target_mode=live` 落地
+- 通用 `target_mode=live` 落地
 - `Wind` / `Choice` 接入
 - `gRPC` 接口
 - 面向浏览器客户端的开放 API
 - 广播式 WebSocket 行情推送
 - 把 `runtime.db` 或风险状态迁移到 Windows
 - 在 Windows bridge 内部复制一套交易状态机
+
+当前已不再属于“非目标”的事项：
+
+- 受 bridge capability 明确门控的 `qmt_live` 真实提交
 
 ---
 
@@ -89,9 +92,15 @@ Bridge 不负责：
 - 最终 order / order_event source of truth
 - 本地持仓或运行时状态替代
 
-### 3.3 `QMT` 首期是 contract-first，不是 live-first
+### 3.3 `QMT` 首期是 contract-first，不是 generic-live-first
 
-当前 `paper` / `mock_live` 仍是唯一真正可执行的 target mode。
+当前可执行 target mode 已包含：
+
+- `paper`
+- `mock_live`
+- 受 bridge capability 明确保护的 `qmt_live`
+
+但通用 `target_mode=live` 仍未实现，也不应与 `qmt_live` 混写。
 
 本期 `QMT` 的目标是：
 
@@ -99,7 +108,12 @@ Bridge 不负责：
 - 先对齐 request snapshot 所需字段
 - 先验证 Windows 侧 SDK 可调用、参数可映射、状态可归一化
 
-本期不让 `QMT bridge` 进入真实发单路径。
+当前规则是：
+
+- `QMT bridge` 不拥有本地执行状态机
+- 真实提交仅允许通过 guarded `qmt_live` 路径进入
+- `qmt_live` 必须满足 bridge 的 live mode 与 submit capability 要求
+- 这不代表通用 `live` 模式已经完成
 
 ### 3.4 `TDX` 是首期真正交付能力
 
@@ -278,9 +292,9 @@ quantix-rust CLI / service
 - 不改变现有 execution 生命周期
 - 可以独立验收
 
-## 6.2 `QMT` preview 流程
+## 6.2 初始 `QMT` preview 流程
 
-`QMT` 首期不是“执行订单”，而是“验证桥接契约”。
+以下描述的是该架构文档成稿时的初始 `v1` 设想：先把 `QMT` 作为桥接契约验证路径，而不是直接进入真实提交。
 
 推荐流程：
 
@@ -302,9 +316,11 @@ execution_request / frozen snapshot
 - 不触发真实券商副作用
 - 不把 preview 结果误写成 live settlement
 
-## 6.3 未来 `QMT live` 流程
+## 6.3 当前 guarded `QMT live` 路径与后续演进
 
-未来如果要落地真实 `live`，推荐路径是：
+当前项目已经落地受能力门控的 `qmt_live` 真实提交通道。
+
+后续如果要把这条路径继续扩展为更完整的通用 `live` 工作流，推荐仍沿用以下结构：
 
 1. 保持 `execution_request -> execute_request(...)` 的既有边界
 2. 用真实 `QmtLiveExecutionAdapter` 取代 preview adapter
@@ -608,7 +624,8 @@ qmt:
 原因：
 
 - `TDX` 读接口是请求/响应型
-- `QMT` 首期仅 preview
+- 该文档初始阶段的 `QMT` 目标是先完成 preview 契约
+- 当前项目已在此基础上补齐 guarded `qmt_live` 真实提交
 - 先把 contract 和状态语义稳定下来，比先加 gRPC / WS 更重要
 
 `WebSocket` 或 `gRPC` 若后续需要，应在 `v2+` 单独立项。
@@ -728,9 +745,10 @@ quantix-rust/
 - 用户能明确配置 `base_url`、API Key、Windows 侧依赖
 - 网络不可达、认证失败、TDX 不可用、QMT SDK 不可用时都有明确排错路径
 
-## 11.5 未来 Phase 5: 真实 `QMT live`
+## 11.5 后续 Phase: 更完整的 `QMT live` 工作流
 
-这不是本期范围，但可以作为后续单独 phase。
+受能力门控的 `qmt_live` 真实提交已不再是“未来才有”的能力。
+这里保留的是后续单独 phase 仍需补齐的更完整 live workflow 事项。
 
 准入条件：
 
@@ -747,8 +765,8 @@ quantix-rust/
 |------|--------|------|----------|
 | Windows host 地址发现不稳定 | 高 | 高 | 显式 `base_url`；自动发现仅作脚本辅助 |
 | TDX 远端数据格式与本地源差异 | 中 | 中 | 在 bridge 层做统一归一化；Rust 侧做契约测试 |
-| QMT SDK 仅 Windows 可用导致 CI 难验证 | 高 | 中 | 将 QMT preview 抽象成 contract test；Windows 专项测试单独运行 |
-| 把 preview 误当成 live 执行 | 中 | 高 | 文档、命名、配置全部明确 `preview_only` |
+| QMT SDK 仅 Windows 可用导致 CI 难验证 | 高 | 中 | 将 QMT preview 与 qmt_live 都抽象成 contract/integration test；Windows 专项测试单独运行 |
+| 把 preview 误当成 live 执行 | 中 | 高 | 文档、命名、配置全部明确 `qmt-preview` 与 guarded `qmt_live` 的边界 |
 | bridge 过度扩张为“第二套后端” | 中 | 高 | 严格限制其职责，不迁移 request/risk/runtime state |
 | 安全边界配置错误 | 中 | 高 | 强制 API Key；默认本机绑定；最小防火墙开放 |
 
@@ -758,19 +776,25 @@ quantix-rust/
 
 1. `TDX` bridge 返回的 symbol 规范是否统一采用 `000001.SZ` / `600519.SH`
 2. `QMT` preview 是否需要支持多账户选择
-3. 未来真实 `QMT live` 中，`Submitted` 与 `Accepted` 的映射边界如何定义
-4. 未来真实 `QMT live` 是否需要 bridge 侧保存短期订单查询缓存
+3. 当前 guarded `qmt_live` 中，`Submitted` 与 `Accepted` 的映射边界如何进一步稳定
+4. 后续更完整的 `QMT live` 工作流是否需要 bridge 侧保存短期订单查询缓存
 
 ---
 
-## 14. 最终结论
+## 14. 最终结论（初始架构结论 + 当前演进）
 
 推荐采用以下路线：
 
 - `v1` 真正交付 `TDX bridge source`
 - `v1` 同时定义并验证 `QMT preview contract`
-- 不在 `v1` 启用真实 `live`
+- 初始 `v1` 设计中不启用真实 `live`
 - 保持当前 `quantix-rust` execution architecture 不变
+
+当前项目演进结果是：
+
+- `QMT preview contract` 仍然保留，作为 `qmt-preview` 路径
+- 受能力门控的 `qmt_live` 真实提交通道已经补齐
+- 通用 `target_mode=live` 仍未实现
 
 这个方案的关键不是“尽快让 Windows 能发单”，而是先确保：
 
@@ -779,4 +803,4 @@ quantix-rust/
 - 契约与当前内核兼容
 - 安全默认值正确
 
-在这些前提下，后续再把 `QMT preview` 升级成真实 `live adapter`，才不会和当前项目的执行内核发生结构性冲突。
+在这些前提下，项目已经能够在不破坏执行内核边界的前提下补齐 guarded `qmt_live`；后续若继续把它扩展为更完整的 live workflow，也应继续遵守同样的边界。

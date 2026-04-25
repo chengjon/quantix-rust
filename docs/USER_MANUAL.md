@@ -514,7 +514,9 @@ quantix strategy run -n ma_cross --mode live
 - 运行审计默认写入 `~/.quantix/strategy/runtime.db`
 - 可通过 `QUANTIX_STRATEGY_RUNTIME_DB_PATH` 覆盖该路径
 - `mock_live` 可能返回 `accepted`、`partially_filled`、`unknown` 等非终态状态
+- `mock_live` 当前只是 live-ready hardening / reconciliation scaffolding，用于验证 delayed fill、partial fill 与 `unknown` 恢复语义，不是真实 broker live execution
 - 同一个 mock-live 订单在 partial fill 路径下可能生成多笔 `TradeRecord`
+- 项目级 MOCK 使用边界与验收口径见 `docs/standards/MOCK_USAGE_POLICY.md`
 - 这些增量成交会直接出现在 `trade history`、`trade fees`、`trade overview` 的本地视图中
 - `live` 模式仍在开发中
 
@@ -570,6 +572,8 @@ quantix strategy service status
 - `strategy signal approve` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
 - `strategy signal reject` 会输出 `signal_id signal_status=<STATUS> approval_status=<STATUS> reason=<TEXT>`
 - `strategy request list` 会输出 `request_id signal=<ID> target=<MODE>/<ACCOUNT> status=<STATUS>`
+- request completed 但订单仍非终态时会额外输出 `semantics=request_completed_order_non_terminal`
+- `strategy request show` 会同时展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
 - mock_live request 即使返回 `accepted` 也会被标记为 `completed`
 - `strategy service install/start/stop/enable/disable` 成功时会输出明确消息
 
@@ -609,22 +613,29 @@ quantix execution daemon run --once
 - `execution daemon` 不负责 signal 审批
 - `execution daemon` 当前是单 worker、串行消费
 - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
+- request completed 但订单仍非终态时会额外输出 `semantics=request_completed_order_non_terminal`
+- request 详情会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
+- `quantix execution daemon run --once` 会在紧凑输出里带上 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
 - `mock_live` request 即使返回 `accepted` 也会被标记为 `completed`
+- `mock_live` 继续承担 live-ready hardening / reconciliation scaffolding；reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义
+- `live` adapter 仍未实现
 - 通用 `target_mode=live` 仍未实现；当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径
 
 #### 当前输出语义
 
 - `quantix execution config init/show` 会输出完整 JSON 配置
 - `quantix execution daemon run --once` 在没有待消费 request 时会输出 `execution daemon 未找到 pending request`
-- request 消费成功时会输出 `execution daemon consumed request status=completed`
-- request 消费失败时会输出 `execution daemon consumed request status=failed`
+- request 消费成功时会输出 `execution daemon consumed request=<ID> status=completed`；若订单仍非终态，会额外带上 `semantics=request_completed_order_non_terminal`
+- request 消费失败时会输出 `execution daemon consumed request=<ID> status=failed`
+- 紧凑输出会继续附带 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
 
 #### Windows Bridge v1
 
 - `TDX bridge source` 通过 Windows `quantix-bridge` 提供远端行情与 K 线读取
-- `QMT preview-only` 只消费 frozen execution request 的快照做 broker payload 预览
+- `QMT preview path` 只消费 frozen execution request 的快照做 broker payload 预览
 - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
-- 真实 QMT 提交只会在 bridge 明确回报 `qmt.mode=live` 时放行
+- 此处的 `preview-only` 仅指 `qmt-preview` 预览路径，不代表整个 QMT 能力仍然只有预览
+- 真实 QMT 提交只会在 bridge 明确回报 `qmt.enabled=true`、`qmt.mode=live` 且 `qmt.supports` 包含 `order_submit` 时放行
 - 真实 `qmt-live` 提交会把对应 `execution_request` 写回为 `completed` 或 `failed`
 
 ##### Windows 侧目录
@@ -639,12 +650,22 @@ quantix execution daemon run --once
 ##### Bridge 命令
 
 ```bash
+quantix execution qmt status
+quantix execution qmt preview --request-id <ID>
+quantix execution qmt live --request-id <ID> [--yes]
+quantix execution qmt query --order-id <ORDER_ID>
 quantix execution bridge status
 quantix execution bridge qmt-preview --request-id <ID>
 quantix execution bridge qmt-live --request-id <ID> [--yes]
+quantix execution bridge qmt-query --order-id <ORDER_ID>
 ```
 
-- 如需真实 QMT 提交，Windows bridge 必须先进入 `qmt.mode=live`
+- 如需真实 QMT 提交，Windows bridge 必须先满足 `qmt.enabled=true`、`qmt.mode=live`，并确保 `qmt.supports` 包含 `order_submit`
+- 推荐优先使用 `quantix execution qmt ...`，旧的 `quantix execution bridge ...` 仍保持兼容
+- 手动执行 `quantix execution qmt live --request-id <ID>` 时，CLI 默认会要求输入 `YES` 确认；只有显式传入 `--yes` 才会跳过确认
+- `quantix execution qmt preview --request-id <ID>` 只做 preview，不是实盘提交
+- 提交成功后，继续执行 `quantix execution qmt query --order-id <ORDER_ID>` 核验券商侧订单状态
+- 通用 `target_mode=live` 仍未实现；真实提交只支持 guarded `qmt_live` 路径
 
 ---
 
@@ -1079,12 +1100,15 @@ quantix watchlist history [--code 000001] [--limit 20]
 #### 命令摘要
 
 ```bash
+quantix market foundation
 quantix market sector [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]
 quantix market concept [--top <N>] [--date <YYYY-MM-DD>] [--sort-by <FIELD>]
 quantix market north [--date <YYYY-MM-DD>]
 quantix market sentiment [--date <YYYY-MM-DD>]
 quantix market leader (--sector <NAME> | --concept <NAME> | --all) [--limit <N>] [--date <YYYY-MM-DD>]
 quantix market overview [--top <N>] [--date <YYYY-MM-DD>]
+quantix market strength [--date <YYYY-MM-DD>] [--strong-top <N>] [--weak-top <N>] [--stock-top <N>]
+quantix market strength-stocks [--date <YYYY-MM-DD>] [--strong-top <N>] [--sector <NAME>] [--metric <market-cap|profit>] [--top <N>]
 ```
 
 #### 参数约束
@@ -1093,16 +1117,23 @@ quantix market overview [--top <N>] [--date <YYYY-MM-DD>]
 - `sector` / `concept` 的 `--sort-by` 当前只支持 `change` 或 `change_pct`
 - `leader` 必须且只能指定 `--sector`、`--concept`、`--all` 之一
 - `overview` 会组合行业、概念、北向资金和市场情绪四部分数据
+- `foundation` / `strength` 依赖本地申万一级行业 SQLite 引用表；未同步时先运行 `quantix risk sync industry --standard shenwan`
+- `strength` 会输出强势板块、弱势板块，以及强势板块内个股按总市值/最新净利润排序的 TopN
+- `strength-stocks` 仅输出强势板块个股排行；`--metric` 支持 `market-cap` 或 `profit`，`--sector` 可把范围收敛到单个强势行业
 
 #### 常用示例
 
 ```bash
+quantix market foundation
 quantix market sector --top 10
 quantix market concept --date 2026-03-09
 quantix market north
 quantix market sentiment --date 2026-03-09
 quantix market leader --concept 人工智能 --limit 10
 quantix market overview --top 5
+quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10
+quantix market strength-stocks --date 2026-03-09 --strong-top 3 --metric market-cap --top 10
+quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10
 ```
 
 #### 延后能力
@@ -1115,6 +1146,10 @@ quantix market overview --top 5
 ---
 
 ### monitor - 实时监控
+
+系统通知当前支持 `quantix monitor watchlist --repeat` / `quantix monitor daemon run` 对新增监控事件做自动通知桥接。
+推荐通过 `quantix monitor config set --notify true` 显式开启；`QUANTIX_MONITOR_NOTIFY=1` 仍保留为兼容兜底开关。
+通知渠道复用 `quantix notify` 环境变量约定，最小可用路径是 `NOTIFICATION_LOG_PATH`。
 
 提供 Phase 24B 的最小监控自动化闭环：一次性/重复自选池扫描、持久化价格告警、守护进程入口、`systemd --user` 服务管理，以及业务事件历史。
 
@@ -1334,7 +1369,7 @@ quantix trade cash
 
 - 默认数据源仍是本地 paper-trade 账户
 - 支持导入标准化 `CSV/JSON` 实盘流水并重建只读镜像账户
-- 目前支持 `position-limit`、`daily-loss-limit`、`volatility-limit`、`industry-limit`、`auto-reduce`、`industry-blocklist` 六类规则
+- 风控 CLI 当前接受 `position-limit`、`daily-loss-limit`、`volatility-limit`、`industry-limit`、`auto-reduce`、`industry-blocklist` 六类 rule type
 - `trade buy` 会执行风控预检查，`trade sell` 仍然允许成交
 - `trade init` / `trade reset` 会清除当日买入锁并保留已配置规则
 - 日亏损只基于本地 paper-trade 账户资产快照，不做实时行情盯市
@@ -1342,13 +1377,16 @@ quantix trade cash
 - `--source live_import` 要求显式指定 `--account`
 - `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
 - `volatility-limit` 缺少或不足日线时会拒绝买单
+- 当前真正已交付的运行时增强规则是 `volatility-limit`、`industry-limit` 与 `industry-blocklist`
+- `industry-limit` 会按目标行业的买后集中度执行真实拦截
+- `auto-reduce` 当前已交付 recommendation-only workflow：触发时会在 `risk status` / `risk pnl` / `risk position` 输出人工减仓建议，但不会自动卖出
 - Phase 27D v1 使用 `SW 一级行业` 作为运行时生效标准
 - `security_class_2024` / CSRC 2024 仍保留在系统中作为并行分类标准，不是该 v1 规则的运行时生效标准
 - 运行时风险评估只读取本地 SQLite reference/snapshot 表
 - MySQL 仅作为上游同步来源，不参与运行时查询
 - 最终运行时边界保持为 ClickHouse + SQLite；MySQL 仅负责上游同步
-- 启用 `industry-blocklist` 前，先运行 `quantix risk sync industry --standard shenwan`
-- 如果本地 SQLite 行业引用表为空或未同步完成，`industry-blocklist` 会 fail-closed 并拒绝买单
+- 启用 `industry-blocklist` 或 `industry-limit` 前，先运行 `quantix risk sync industry --standard shenwan`
+- 如果本地 SQLite 行业引用表为空或未同步完成，`industry-blocklist` 与 `industry-limit` 都会 fail-closed 并拒绝买单
 - 运行时解析顺序：1. 当前 SW 映射 2. 查询月份快照 3. 历史 SW 映射 4. 最新本地快照
 - 月度快照会在该月第一次成功命中 `SW 一级行业` 时冻结
 - `industry-blocklist` 采用精确字符串匹配，不做模糊归一化
@@ -1359,7 +1397,7 @@ quantix trade cash
 - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件
 - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
 - `risk log` 当前支持按事件写入日 `--date` 和事件类型 `--type` 过滤
-- 行业白名单、自动减仓 继续延后到后续 Phase
+- 行业白名单继续延后到后续 Phase；`auto-reduce` 当前仅交付人工减仓建议，不自动执行卖出
 
 #### 命令摘要
 
@@ -1388,6 +1426,8 @@ quantix risk lock release
 - `daily-loss-limit` 同时支持金额值和百分比值，例如 `50000` 或 `5%`
 - `volatility-limit` 仅接受百分比值，例如 `4%`
 - `volatility-limit` 固定使用 `ATR(14) / latest_close * 100`
+- `industry-limit` 仅接受百分比值，例如 `30%`，并会按目标行业的买后集中度执行真实拦截
+- `auto-reduce` 支持金额值或百分比值；触发时只输出人工减仓建议，不会自动卖出
 - `industry-blocklist` 现已成为受支持的风险规则
 - `industry-blocklist` 的值按逗号分隔行业名称，例如 `银行,地产`
 - `risk sync industry --standard shenwan` 会刷新 `industry_reference_current` 和 `industry_reference_history`

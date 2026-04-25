@@ -56,6 +56,11 @@
 
 ### 发现 C：Bridge 能力描述需区分“API 能力”与“产品承诺”
 
+> 历史说明：
+> 本节记录的是 2026-03-29 审计时点的判断。
+> 当前项目事实已变化：仓库现已提供受能力门控的 `qmt_live` 真实提交通道；
+> 通用 `live` 语义仍未实现，但“当前对外承诺仍以 preview-only 为准”已不再是现状描述。
+
 - `docs/FUNCTION_MAP.md` 提到 `/api/v1/broker/qmt/orders/live` 与“QMT 真实下单”树节点；
 - README 侧强调 `QMT preview-only`。
 
@@ -63,7 +68,7 @@
 
 - 在 `docs/FUNCTION_MAP.md` 对应位置增加注记：
   - `orders/live` 为桥接 API 端点能力描述；
-  - quantix-rust 当前对外承诺仍以 `preview-only` 为准。
+  - 当时的 quantix-rust 对外承诺仍以 `preview-only` 为准。
 - 避免用户误解“端点存在 = 产品已开放”。
 
 ---
@@ -185,7 +190,8 @@
 
 ### 7.3 回归核对要点
 
-- README 与 docs/FUNCTION_MAP.md 在 QMT 边界表达保持一致（均明确 preview-only 承诺）
+- README 与 docs/FUNCTION_MAP.md 在 QMT 边界表达保持一致
+- 当前一致口径应为：`qmt_live` 是受能力门控的真实提交通道，通用 `live` 仍未实现
 - 验收脚本 WARN 项仍遵循“预期告警不计失败”
 - Cursor + WSL 并存策略保持“可并存、不互斥、可纯 CLI 执行”
 

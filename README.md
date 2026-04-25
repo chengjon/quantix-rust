@@ -40,7 +40,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
 - Windows Bridge v1 已完成首版设计与实现集成：
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
-  - `QMT preview-only` 已接入 execution bridge CLI，用于基于 frozen request 做 broker payload 预览
+  - `QMT` 已接入 execution bridge CLI：`qmt-preview` 用于基于 frozen request 做 broker payload 预览，guarded `qmt_live` 用于真实提交
   - canonical Windows-side 路径固定为 `/mnt/d/mystocks/quantix/quantix_bridge`
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
@@ -253,16 +253,20 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 #### Phase 23: 市场分析 ✅
 - **市场分析命令** (`src/cli/mod.rs`, `src/cli/handlers.rs`, `src/market/*`)
+  - `quantix market foundation` - 全市场 A 股与行业分类基础摘要
   - `quantix market sector` - 行业板块排名
   - `quantix market concept` - 概念板块排名
   - `quantix market north` - 北向资金概览
   - `quantix market sentiment` - 市场情绪快照
   - `quantix market leader` - 龙头股识别
   - `quantix market overview` - 综合概览
+  - `quantix market strength` - 强弱板块与强势板块个股 Top10
+  - `quantix market strength-stocks` - 强势板块个股按市值/利润直接排行，支持 `--sector`
 - **P0 约束**
   - 仅覆盖日度快照和只读查询
   - `leader` 只支持 `--sector`、`--concept`、`--all` 三选一
   - `sort-by` 仅保留极小集合，当前支持涨跌幅排序
+  - `foundation` / `strength` 依赖已同步的申万一级行业 SQLite 引用表
   - 历史/详情/实时功能延后到后续 Phase
 
 #### Phase 24: 实时监控 ✅
@@ -292,9 +296,13 @@ A 股量化交易 CLI 工具 - Rust 实现
   - 支持 `watchlist --once`、`watchlist --repeat`、`daemon run` 与 `systemd --user` 用户服务
   - 复用现有自选池加载、TDX 行情查询与 stop 规则评估链路
   - 业务事件只持久化价格告警命中与 stop 触发，不持久化服务生命周期日志
-  - `systemd --user` 当前面向 WSL2/Linux 用户环境
-  - `service install` 要求先配置稳定的 `quantix` 二进制绝对路径
-  - `service uninstall` 必须先停服务再卸载
+- `systemd --user` 当前面向 WSL2/Linux 用户环境
+- `service install` 要求先配置稳定的 `quantix` 二进制绝对路径
+- `service uninstall` 必须先停服务再卸载
+- 系统通知当前支持 `quantix monitor watchlist --repeat` / `quantix monitor daemon run` 对新增监控事件做自动通知桥接
+- 推荐通过 `quantix monitor config set --notify true` 显式开启
+- `QUANTIX_MONITOR_NOTIFY=1` 仍保留为兼容兜底开关
+- 通知渠道复用 `quantix notify` 环境变量约定，最小可用路径是 `NOTIFICATION_LOG_PATH`
   - 系统通知延后到后续 Phase
 
 #### Phase 25: 止盈止损 ✅
@@ -376,7 +384,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `volatility-limit` 只拦截新的买单，不影响卖出
   - `industry-blocklist` 现已成为受支持的风险规则
   - `industry-limit` 现已成为受支持的风险规则
-  - 风控 CLI 当前仍接受 `auto-reduce` rule type，但 `auto-reduce` 仍未交付 operator workflow
+  - 风控 CLI 当前仍接受 `auto-reduce` rule type，并在触发时输出 recommendation-only 的人工减仓建议
   - Phase 27D v1 使用 `SW 一级行业` 作为运行时生效标准
   - `security_class_2024` / CSRC 2024 仍保留在系统中作为并行分类标准，但不是该 v1 规则的运行时生效标准
   - 运行时风控评估只读取本地 SQLite 参考/快照表
@@ -398,7 +406,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `risk log` 仅记录规则变更、日亏损锁触发、手动释放、以及 rollover/reset 清锁事件，不记录每次买入拒单
   - `risk lock release` 仅对当前交易日生效，当日内不再自动重新锁定；次日或 `trade init/reset` 会自动清除该手动释放标记
   - `risk log` 默认返回最近事件，当前支持按事件写入日 `--date` 与事件类型 `--type` 过滤
-  - `industry-limit` 会按目标行业的买后集中度执行真实拦截；自动减仓继续延后到后续 Phase
+  - `industry-limit` 会按目标行业的买后集中度执行真实拦截；`auto-reduce` 当前仅输出人工减仓建议，不会自动卖出
 
 #### Phase 29: 策略 Paper 执行骨架 ✅
 - **策略执行命令** (`src/cli/handlers.rs`, `src/execution/*`, `src/strategy/runtime.rs`)
@@ -416,6 +424,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `mock_live` 可能返回 `accepted`、`partially_filled`、`pending_cancel`、`unknown` 等生命周期状态
   - `mock_live` 当前是 live-ready hardening / reconciliation scaffolding，用于验证 delayed fill、partial fill 与 `unknown` 恢复语义，不是真实 broker live execution
   - 同一个 mock-live 订单在 partial fill 场景下可能写出多笔 `TradeRecord`
+  - 项目级 MOCK 使用边界与验收口径见 `docs/standards/MOCK_USAGE_POLICY.md`
   - 这些增量成交会直接体现在 `trade history`、`trade fees`、`trade overview` 的本地视图里
   - live 模式仍在开发中；通用 `target_mode=live` 仍在开发中
   - `execution daemon` 与基础自动审批已在下文 Phase 29C 补齐；当前真实下单只开放受 `qmt.mode=live` 保护的 `qmt_live` 路径
@@ -493,9 +502,10 @@ A 股量化交易 CLI 工具 - Rust 实现
 - **TDX bridge source**
   - 通过 Windows `quantix-bridge` 暴露远端行情与 K 线读取
   - 当前 bridge 的首个真实能力是 `TDX bridge source`
-- **QMT preview-only**
+- **QMT preview path**
   - 当前只支持 frozen execution request 的 broker payload 预览
   - `QMT preview-only` 不会真实发单，也不会改写 request / order lifecycle
+  - 此处的 `preview-only` 仅指 `qmt-preview` 预览路径，不代表整个 QMT 能力仍然只有预览
   - 真实 QMT 提交只会在 bridge 明确回报 `qmt.enabled=true`、`qmt.mode=live` 且 `qmt.supports` 包含 `order_submit` 时放行
   - 真实 `qmt-live` 提交会把对应 `execution_request` 写回为 `completed` 或 `failed`
 
@@ -886,6 +896,9 @@ quantix analyze screener run \
 ### 市场分析 CLI
 
 ```bash
+# 查看全市场基础摘要
+quantix market foundation
+
 # 查看行业和概念板块
 quantix market sector --top 10
 quantix market concept --date 2026-03-09
@@ -897,9 +910,17 @@ quantix market sentiment
 # 查看龙头股和综合概览
 quantix market leader --sector 银行 --limit 5
 quantix market overview --top 5
+
+# 分析强势/弱势板块，并查看强势板块个股 Top10
+quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10
+
+# 直接查看强势板块中的银行股排行
+quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric market-cap --top 10
+quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10
 ```
 
 - 当前只文档化已经实现的 Phase 23 P0 行为。
+- 运行 `foundation` / `strength` 前，先执行 `quantix risk sync industry --standard shenwan`。
 - 历史/详情/实时功能延后到后续 Phase。
 
 ### 回测示例

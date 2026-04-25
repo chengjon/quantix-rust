@@ -2,6 +2,11 @@
 
 > 本文档记录 Quantix Rust 与 QMT 实盘交易的完整集成方案。
 > 适用于 AI 助手或开发者复现实盘交易功能。
+>
+> 当前边界说明：
+> - 本文档描述的是受能力门控的 `qmt_live` 真实提交流程。
+> - 通用 `target_mode=live` 仍未实现，不应与 `qmt_live` 混写。
+> - `mock_live` 是模拟执行路径，不属于本指南覆盖范围；相关 MOCK 口径以 `docs/standards/MOCK_USAGE_POLICY.md` 为准。
 
 ---
 

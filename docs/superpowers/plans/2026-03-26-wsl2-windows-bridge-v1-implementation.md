@@ -1,10 +1,15 @@
 # WSL2 Windows Bridge v1 Implementation Plan
 
+> Historical context:
+> This dated implementation plan reflects the intended v1 scope on 2026-03-26.
+> Current project state has moved beyond the original preview-only QMT contract:
+> guarded `qmt_live` real submission now exists, while generic `target_mode=live` remains unimplemented.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver a working `TDX` Windows bridge source for `quantix-rust` and a `QMT` preview-only broker contract that aligns with the current execution-request / execution-kernel architecture without enabling real live order submission.
+**Goal:** Deliver a working `TDX` Windows bridge source for `quantix-rust` and, at that time, a `QMT` preview-only broker contract that aligned with the then-current execution-request / execution-kernel architecture without enabling real live order submission.
 
-**Architecture:** This feature spans two codebases and must be implemented as two coordinated tracks: a Windows-side `quantix-bridge` HTTP service and a Rust-side bridge client/integration layer. `TDX` ships as the first real remote capability, while `QMT` ships only as a preview/validation path that consumes frozen execution snapshots and does not mutate request state or submit live orders.
+**Architecture:** This feature spans two codebases and must be implemented as two coordinated tracks: a Windows-side `quantix-bridge` HTTP service and a Rust-side bridge client/integration layer. `TDX` ships as the first real remote capability, while this plan's original `QMT` scope ships only as a preview/validation path that consumes frozen execution snapshots and does not mutate request state or submit live orders.
 
 **Tech Stack:** Rust 2024, tokio, reqwest, serde/serde_json, clap, chrono, rust_decimal, existing `CliRuntime`, existing execution/request models, existing watchlist/source code, Python 3.11+, FastAPI, pydantic, pytest, FastAPI `TestClient`, optional Rust dev-dependency `wiremock` for bridge client contract tests.
 

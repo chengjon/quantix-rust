@@ -19,7 +19,7 @@
 ├── Phase 29/29B/29C: 策略执行自动化 ✅
 │   ├── src/execution/ 执行框架
 │   ├── Paper Trading
-│   └── QMT Bridge v1 (预览模式)
+│   └── QMT Bridge v1 (`qmt-preview` + guarded `qmt_live`)
 ├── Phase 30: 异常检测 ✅
 │   ├── src/anomaly/ 异常检测模块
 │   └── 特征工程
@@ -94,8 +94,8 @@
 ### 1.1 ✅→🔨 QMT 真实下单接口 (从预览到实盘)
 
 **优先级**: P0 (最高)
-**预估工时**: 2-3 天 (框架已完成，仅需 adapter)
-**状态**: Phase 29C 执行自动化已完成，需扩展真实下单能力
+**预估工时**: 2-3 天 (guarded `qmt_live` 已落地，主要补后续 hardening 与回报闭环)
+**状态**: guarded `qmt_live` 真实提交通道已落地；后续重点转为 callback / query / cancel / broader live workflow hardening，而不是从零开始补真实下单 adapter
 
 ```
 任务清单:
@@ -116,8 +116,8 @@
     └── 模拟环境集成测试
 ```
 
-**已有基础**: `src/execution/qmt_bridge.rs`, `src/execution/runtime_store.rs`
-**产出**: 扩展 `src/execution/qmt_executor.rs`
+**已有基础**: `src/execution/qmt_live_adapter.rs`, `src/execution/qmt_live_gate.rs`, `src/execution/runtime_store.rs`, `quantix execution qmt ...`
+**产出**: 继续完善 guarded `qmt_live` 工作流与后续 broker 回报闭环
 
 ### 1.2 算法交易 (TWAP/VWAP)
 

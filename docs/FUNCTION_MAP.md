@@ -770,10 +770,10 @@ Quantix-Rust 围绕五个稳定中心设计：
 | `runtime.db` | 执行审计存储 |
 | `execution_request` | 审批与执行之间的持久化传递对象 |
 | 冻结快照 | 防止请求意图漂移 |
-| `paper` + `mock_live` | 已实现的执行目标 |
-| `live` | 故意保持不完整 |
+| `paper` + `mock_live` + guarded `qmt_live` | 当前已实现的执行目标 |
+| `live` | 通用 live 语义故意保持不完整，不等于 `qmt_live` |
 | Bridge 不拥有执行状态 | Windows 端无状态 |
-| `QMT` | Bridge v1 仅预览 |
+| `QMT` | Bridge v1 已支持受能力门控的 `qmt_live` 真实提交通道，同时保留 preview 路径 |
 | `TDX bridge source` | 第一个真正的 bridge 能力 |
 
 ---
@@ -805,7 +805,7 @@ Quantix-Rust 围绕五个稳定中心设计：
 └── Windows Bridge v1
     ├── TDX bridge 数据源
     ├── QMT 预览
-    └── QMT live 端点预留（当前产品仍为 preview-only）
+    └── guarded `qmt_live` 真实提交 + query 路径
 ```
 
 ### C.2 故意推迟的功能
