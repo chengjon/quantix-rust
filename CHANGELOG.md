@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here.
 
+## 2026-04-26
+
+### Added
+- **MOCK 数据顶层规范与事实对齐** (`docs/standards/MOCK_USAGE_POLICY.md`, `README.md`, `docs/USER_MANUAL.md`)
+  - 新增项目级 `MOCK_USAGE_POLICY`，明确 `anomaly run --mock` 与 `strategy run --mode mock_live` 都属于显式 mock/runtime mock 路径
+  - 明确 `mock_live` 是仿真执行与联调加固路径，不等于真实券商实盘
+  - 明确真实提交单路径是受保护的 `qmt_live`
+  - 明确泛化 `target_mode=live` 仍未实现，且真实路径不得静默回退到 mock
+- **文档事实收敛** (`docs/FUNCTION_MAP.md`, `docs/GAP_ANALYSIS.md`, `docs/DEVELOPMENT_ROADMAP.md`, `docs/ROADMAP_REVIEW.md`, `docs/QMT_LIVE_TRADING_SETUP.md`)
+  - 同步更新当前能力说明、架构边界、路线图判断与操作手册，消除 `mock_live` / `live` / `qmt_live` 表述漂移
+  - 为部分历史设计/计划文档补充“历史结论不代表当前实现状态”的上下文说明
+
+### Changed
+- **CLI 手册纳入文档基线** (`docs/CLI_COMMAND_MANUAL.html`)
+  - 将生成的 CLI 手册纳入仓库基线，避免 clean checkout 下文档卫生测试缺文件
+
+### Added
+- **仓库卫生回归保护** (`tests/repo_hygiene_test.rs`)
+  - 新增针对 mock policy、README/USER_MANUAL 边界表述、当前能力摘要与相关说明文档的回归校验
+  - 锁定 `qmt-preview`、`mock_live`、`qmt_live` 的当前语义，后续文档漂移将直接触发测试失败
+
 ## 2026-03-28
 
 ### Fixed

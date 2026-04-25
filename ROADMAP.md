@@ -1,10 +1,10 @@
 # Quantix Roadmap
 
-更新日期：2026-03-22
+更新日期：2026-04-26
 
 本文件把仓库中已经明确写出的“后续 Phase”能力、设计文档中的后续阶段、以及代码里的长期占坑，整理成一个可执行的优先级 backlog。
 
-当前仓库没有独立的 `.planning/` 规划结构；在引入正式规划系统前，本文件作为项目级路线图与 backlog 的统一入口。
+自 2026-04-11 起，正式 GSD 规划结构已同步建立在 `.planning/` 下；本文件继续作为项目级优先级总览与对外可读入口，`.planning/ROADMAP.md` 作为 GSD 执行入口。
 
 ## 排序原则
 
@@ -14,12 +14,32 @@
 
 ## 当前阶段判断
 
-- 已交付能力已经推进到策略执行 Phase 29B。
+- 已交付能力已经推进到策略执行 Phase 29C。
+- 已完成一轮项目级 MOCK 数据治理，README / USER_MANUAL / FUNCTION_MAP / 路线图系文档已与当前实现边界对齐。
 - 最连续、最值得继续推进的主线是：
   `strategy run (paper)` -> `strategy daemon` -> `signal` -> `execution request` -> `execution/live-ready`
+- 当前最直接的后续工作，不再是补写顶层规范，而是把新规范继续压实到 CLI 文案、运行时分支和 operator 排障体验中。
 - README 中仍有多条能力被明确标记为“延后到后续 Phase”。
 
 ## P0：策略执行主线闭环
+
+### 0. 已完成：MOCK policy 与执行边界事实对齐
+
+目标：先把项目里已经存在的 mock / mock_live / qmt_live 边界写清楚并锁住，避免后续实现继续建立在含混文案之上。
+
+已完成：
+
+- 新增 `docs/standards/MOCK_USAGE_POLICY.md`
+- 对齐 `README.md`、`docs/USER_MANUAL.md` 与多个现状/架构/路线图文档
+- 将 `docs/CLI_COMMAND_MANUAL.html` 纳入文档基线
+- 在 `tests/repo_hygiene_test.rs` 中加入回归保护，锁定当前边界语义
+
+结果：
+
+- `anomaly run --mock` 被明确归类为显式 mock 路径
+- `strategy run --mode mock_live` 被明确归类为 runtime mock / 仿真执行路径
+- 真实提交单路径明确为受保护的 `qmt_live`
+- 泛化 `target_mode=live` 仍视为未实现，不允许静默回退到 mock
 
 ### 1. Phase 29C：Live-ready execution hardening
 
@@ -38,29 +58,33 @@
 
 - `docs/superpowers/specs/2026-03-17-phase29a-strategy-paper-execution-kernel-design.md`
 
-### 2. Execution request 生命周期闭环
+### 2. Execution mainline 语义加固
 
-目标：结束 Phase 29B 只会创建 `pending` request 的半闭环状态。
+目标：在已有 Phase 29C 基础上继续收紧执行链路的运行边界与结果语义，而不是重复建设已交付的基础生命周期能力。
 
 交付项：
 
-- `execution_request` 从 `pending` 走向 `completed` / `failed` / `canceled`
-- 将 signal 审批后的 request 执行结果写回 runtime store
-- 补齐 request 查询与排障信息，便于后续 daemon/operator 使用
+- 明确 `request completed` 与订单终态的区别
+- 补齐 daemon/operator 侧 request 排障与可观测信息
+- 收紧 `mock_live` / `live` / `qmt_live` 语义边界，避免 CLI 帮助、运行时报错和用户手册再次漂移
+- 核对执行链路里是否仍存在隐式 mock 回退或半接线的 `live` 分支
+- 让 operator 能直接看见“为何是 mock_live、为何不是 real live、卡在哪个 gate”
 
 依据：
 
-- `docs/superpowers/specs/2026-03-18-phase29b-strategy-signal-daemon-design.md`
+- `README.md`
+- `docs/USER_MANUAL.md`
+- `docs/standards/MOCK_USAGE_POLICY.md`
 
-### 3. Execution automation 收口
+### 3. Real live / broker execution 收口
 
-目标：补齐 README 已经明确延后的自动化能力。
+目标：补齐当前仍明确缺失的实盘执行边界，而不是重复规划已经交付的 execution daemon 基础能力。
 
 交付项：
 
-- 自动审批策略
-- execution daemon
-- 与 live adapter 对接的运行边界
+- `live` adapter
+- QMT 从 preview-only 到真实执行的边界决策与实现
+- 与 live adapter / broker path 对接的运行边界
 
 依据：
 
@@ -68,20 +92,7 @@
 
 ## P1：交易与风控能力补全
 
-### 4. Stop 命令补全
-
-交付项：
-
-- `stop status`
-- `stop history`
-- `stop update`
-- 百分比止损 / 止盈参数
-
-依据：
-
-- `README.md`
-
-### 5. 风控规则增强
+### 4. 风控规则增强
 
 交付项：
 
@@ -96,7 +107,7 @@
 
 ## P2：用户可见能力扩展
 
-### 6. 市场分析增强
+### 5. 市场分析增强
 
 交付项：
 
@@ -108,7 +119,7 @@
 
 - `README.md`
 
-### 7. 监控通知能力
+### 6. 监控通知能力
 
 交付项：
 
@@ -122,7 +133,7 @@
 
 这些工作有价值，但不应抢占策略执行主线。
 
-### 8. CLI / UX 占坑
+### 7. CLI / UX 占坑
 
 交付项：
 
@@ -134,7 +145,7 @@
 - `src/tui/app.rs`
 - `src/cli/handlers.rs`
 
-### 9. 数据与运行时基础能力
+### 8. 数据与运行时基础能力
 
 交付项：
 
@@ -152,10 +163,10 @@
 
 下一阶段建议按下面顺序推进：
 
-1. 先完成 P0.1 和 P0.2，保证 execution 主线从“可生成 request”升级为“可追踪执行结果”。
-2. 再推进 P0.3，补齐自动审批和 execution daemon。
-3. 主线稳定后，再处理 P1 的 stop / risk 缺口。
-4. P2 与 P3 作为次级队列，按用户需求和资源情况插入。
+1. 先推进 P0.2，做一次“规则对代码事实”的系统审计，优先查清 CLI 文案、运行时报错、执行分支与新 MOCK policy 是否完全一致。
+2. 审计后只修补直接影响执行边界的差口，重点是隐式 mock 回退、半实现 `live` 分支、以及 operator 无法快速定位 gate 原因的问题。
+3. 在 P0.2 收紧完成后，再推进 P0.3，补齐 real live / broker execution 边界。
+4. 主线稳定后，再处理 P1 的 risk 缺口，P2 与 P3 继续作为次级队列按需求插入。
 
 ## 非目标
 
