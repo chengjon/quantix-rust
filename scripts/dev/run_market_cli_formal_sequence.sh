@@ -4,13 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-LOG_DIR="$ROOT_DIR/logs"
+LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 mkdir -p "$LOG_DIR"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 SUMMARY_LOG="${SUMMARY_LOG:-$LOG_DIR/market_cli_formal_sequence_$STAMP.log}"
-QUANTIX_BIN="$ROOT_DIR/target/debug/quantix"
-LOCAL_ENV_PATH="$ROOT_DIR/.env.market.local"
-INIT_LOCAL_ENV_SCRIPT="$ROOT_DIR/scripts/dev/init_market_cli_local_env.sh"
+QUANTIX_BIN="${QUANTIX_BIN:-$ROOT_DIR/target/debug/quantix}"
+LOCAL_ENV_PATH="${LOCAL_ENV_PATH:-$ROOT_DIR/.env.market.local}"
+INIT_LOCAL_ENV_SCRIPT="${INIT_LOCAL_ENV_SCRIPT:-$ROOT_DIR/scripts/dev/init_market_cli_local_env.sh}"
 
 exec > >(tee -a "$SUMMARY_LOG") 2>&1
 
