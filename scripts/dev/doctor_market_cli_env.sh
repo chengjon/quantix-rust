@@ -10,8 +10,8 @@ DEFAULT_UPSTREAM_MYSQL_URL="mysql://127.0.0.1:3306"
 DEFAULT_UPSTREAM_MYSQL_DB="mystocks"
 DEFAULT_UPSTREAM_MYSQL_USER="root"
 
-DOTENV_PATH="$ROOT_DIR/.env"
-LOCAL_ENV_PATH="$ROOT_DIR/.env.market.local"
+DOTENV_PATH="${DOTENV_PATH:-$ROOT_DIR/.env}"
+LOCAL_ENV_PATH="${LOCAL_ENV_PATH:-$ROOT_DIR/.env.market.local}"
 
 if [[ -f "$DOTENV_PATH" ]]; then
   set -a
