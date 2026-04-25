@@ -3,26 +3,36 @@ use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
 use std::fmt::Write as _;
 
 pub(super) fn print_market_foundation_summary(summary: &MarketFoundationSummary) {
-    println!("== 市场基础数据 ==");
-    println!("A股总数: {}", summary.total_stocks);
-    println!("已匹配行业: {}", summary.classified_stocks);
-    println!("未匹配行业: {}", summary.unclassified_stocks);
-    println!("行业数: {}", summary.sector_count);
+    print!("{}", render_market_foundation_summary(summary));
+}
+
+fn render_market_foundation_summary(summary: &MarketFoundationSummary) -> String {
+    let mut output = String::new();
+
+    writeln!(&mut output, "== 市场基础数据 ==").unwrap();
+    writeln!(&mut output, "A股总数: {}", summary.total_stocks).unwrap();
+    writeln!(&mut output, "已匹配行业: {}", summary.classified_stocks).unwrap();
+    writeln!(&mut output, "未匹配行业: {}", summary.unclassified_stocks).unwrap();
+    writeln!(&mut output, "行业数: {}", summary.sector_count).unwrap();
 
     if !summary.top_sectors.is_empty() {
-        println!();
-        println!("行业覆盖 Top10:");
-        println!("{:<4} {:<16} 成分股数", "排名", "行业");
-        println!("{}", "-".repeat(40));
+        writeln!(&mut output).unwrap();
+        writeln!(&mut output, "行业覆盖 Top10:").unwrap();
+        writeln!(&mut output, "{:<4} {:<16} 成分股数", "排名", "行业").unwrap();
+        writeln!(&mut output, "{}", "-".repeat(40)).unwrap();
         for (idx, row) in summary.top_sectors.iter().enumerate() {
-            println!(
+            writeln!(
+                &mut output,
                 "{:<4} {:<16} {}",
                 idx + 1,
                 row.industry_name,
                 row.stock_count
-            );
+            )
+            .unwrap();
         }
     }
+
+    output
 }
 
 pub(super) fn print_market_board_rows(rows: &[BoardRankRow]) {
@@ -298,7 +308,59 @@ mod tests {
     use super::*;
     use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
     use crate::market::{BoardRankRow, BoardType, MarketFoundationSummary, MarketStrengthReport};
+    use crate::market::SectorCoverageRow;
     use rust_decimal::Decimal;
+
+    #[test]
+    fn render_market_foundation_summary_shows_core_counts_without_sector_table() {
+        let summary = MarketFoundationSummary {
+            total_stocks: 100,
+            classified_stocks: 0,
+            unclassified_stocks: 100,
+            sector_count: 0,
+            top_sectors: vec![],
+        };
+
+        let output = render_market_foundation_summary(&summary);
+
+        assert!(output.contains("== 市场基础数据 =="));
+        assert!(output.contains("A股总数: 100"));
+        assert!(output.contains("已匹配行业: 0"));
+        assert!(output.contains("未匹配行业: 100"));
+        assert!(output.contains("行业数: 0"));
+        assert!(!output.contains("行业覆盖 Top10:"));
+    }
+
+    #[test]
+    fn render_market_foundation_summary_includes_sector_coverage_table() {
+        let summary = MarketFoundationSummary {
+            total_stocks: 5300,
+            classified_stocks: 5200,
+            unclassified_stocks: 100,
+            sector_count: 31,
+            top_sectors: vec![
+                SectorCoverageRow {
+                    industry_name: "银行".to_string(),
+                    stock_count: 42,
+                },
+                SectorCoverageRow {
+                    industry_name: "计算机".to_string(),
+                    stock_count: 38,
+                },
+            ],
+        };
+
+        let output = render_market_foundation_summary(&summary);
+
+        assert!(output.contains("行业覆盖 Top10:"));
+        assert!(output.contains("排名"));
+        assert!(output.contains("行业"));
+        assert!(output.contains("成分股数"));
+        assert!(output.contains("1    银行"));
+        assert!(output.contains("42"));
+        assert!(output.contains("2    计算机"));
+        assert!(output.contains("38"));
+    }
 
     #[test]
     fn render_market_strength_report_shows_zero_candidate_empty_sections() {
