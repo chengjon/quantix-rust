@@ -92,6 +92,7 @@ run_expect_pass "Build quantix binary" "cargo build -q --bin quantix"
 run_expect_pass "Market help" "\"$QUANTIX_BIN\" market --help"
 run_expect_pass "Market foundation help" "\"$QUANTIX_BIN\" market foundation --help"
 run_expect_pass "Market strength help" "\"$QUANTIX_BIN\" market strength --help"
+run_expect_pass "Market strength-stocks help" "\"$QUANTIX_BIN\" market strength-stocks --help"
 
 # 2) External dependency checks
 run_expect_warn \
@@ -109,6 +110,12 @@ run_expect_warn \
 run_expect_warn \
   "Market strength (external dependency)" \
   "\"$QUANTIX_BIN\" market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10" \
+  "Connection refused|timed out|timeout|industry|Industry|shenwan|SQLite|sqlite|未同步|sync industry|empty|no data|not found|网络|失败" \
+  external
+
+run_expect_warn \
+  "Market strength-stocks (external dependency)" \
+  "\"$QUANTIX_BIN\" market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10" \
   "Connection refused|timed out|timeout|industry|Industry|shenwan|SQLite|sqlite|未同步|sync industry|empty|no data|not found|网络|失败" \
   external
 

@@ -1,7 +1,7 @@
 use std::fs;
 
 #[test]
-fn market_smoke_script_covers_foundation_strength_acceptance_path() {
+fn market_smoke_script_covers_foundation_strength_and_strength_stocks_acceptance_path() {
     let script = fs::read_to_string("scripts/dev/verify_market_cli_smoke.sh")
         .expect("should read scripts/dev/verify_market_cli_smoke.sh");
 
@@ -18,6 +18,10 @@ fn market_smoke_script_covers_foundation_strength_acceptance_path() {
         "expected market smoke script to cover market strength help"
     );
     assert!(
+        script.contains("run_expect_pass \"Market strength-stocks help\" \"\\\"$QUANTIX_BIN\\\" market strength-stocks --help\""),
+        "expected market smoke script to cover market strength-stocks help"
+    );
+    assert!(
         script.contains("Risk sync industry Shenwan (external dependency)"),
         "expected market smoke script to include Shenwan sync dependency check"
     );
@@ -28,6 +32,10 @@ fn market_smoke_script_covers_foundation_strength_acceptance_path() {
     assert!(
         script.contains("\"\\\"$QUANTIX_BIN\\\" market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10\""),
         "expected market smoke script to include market strength execution"
+    );
+    assert!(
+        script.contains("\"\\\"$QUANTIX_BIN\\\" market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10\""),
+        "expected market smoke script to include market strength-stocks execution"
     );
     assert!(
         script.contains("sync industry"),

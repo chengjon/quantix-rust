@@ -17,6 +17,7 @@ fn acceptance_orchestrator_references_template_precheck_and_smoke() {
         "quantix risk sync industry --standard shenwan",
         "quantix market foundation",
         "quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10",
+        "quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10",
         "Market CLI acceptance orchestration completed.",
     ] {
         assert!(

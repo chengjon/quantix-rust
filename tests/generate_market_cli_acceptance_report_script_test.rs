@@ -21,9 +21,15 @@ fn acceptance_report_generator_references_expected_logs_and_sections() {
         "top_sector:",
         "candidate_stock_count:",
         "top_market_cap_stock:",
+        "market strength-stocks exit=",
+        "sector_filter:",
+        "metric:",
+        "coverage:",
+        "top_row:",
         "quantix risk sync industry --standard shenwan",
         "quantix market foundation",
         "quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10",
+        "quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10",
         "Generated report:",
     ] {
         assert!(

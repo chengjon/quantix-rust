@@ -47,5 +47,6 @@ echo "  - 最后再执行正式命令链路："
 echo "      quantix risk sync industry --standard shenwan"
 echo "      quantix market foundation"
 echo "      quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10"
+echo "      quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10"
 
 echo "\nMarket CLI acceptance orchestration completed."

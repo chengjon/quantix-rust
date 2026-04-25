@@ -86,7 +86,7 @@ summarize_step() {
       top_strong="$(extract_first_row_after_heading '强势板块:' "$step_log")"
       top_weak="$(extract_first_row_after_heading '弱势板块:' "$step_log")"
       top_cap="$(extract_first_row_after_heading '强势板块个股 Top10 总市值:' "$step_log")"
-      top_profit="$(extract_first_row_after_heading '强势板块个股 Top10 最新净利润:' "$step_log")"
+      top_profit="$(extract_first_row_after_heading '强势板块个股 Top10 推算净利润:' "$step_log")"
       echo "[FIELD] market_strength_base=${base:-N/A}"
       echo "[FIELD] market_strength_candidate_stock_count=${candidates:-N/A}"
       echo "[FIELD] market_strength_top_strong_sector=${top_strong:-N/A}"
@@ -94,6 +94,18 @@ summarize_step() {
       echo "[FIELD] market_strength_top_market_cap_stock=${top_cap:-N/A}"
       echo "[FIELD] market_strength_top_profit_stock=${top_profit:-N/A}"
       summary="基础数据=${base:-N/A}; 候选股数=${candidates:-N/A}; 强势首行=${top_strong:-N/A}; 弱势首行=${top_weak:-N/A}; 总市值首行=${top_cap:-N/A}; 净利润首行=${top_profit:-N/A}"
+      ;;
+    market_strength_stocks)
+      local sector metric covered top_row
+      sector="$(grep -E '^行业过滤:' "$step_log" | head -n 1 | sed 's/^行业过滤: //')"
+      covered="$(grep -E '覆盖:' "$step_log" | head -n 1 | sed 's/^[^:]*: //')"
+      metric="$(grep -E '^按.*从大到小 Top[0-9]+:' "$step_log" | head -n 1 | sed 's/^按//; s/从大到小 Top.*$//')"
+      top_row="$(extract_first_row_after_heading '按上一会计周期净利润从大到小 Top10:' "$step_log")"
+      echo "[FIELD] market_strength_stocks_sector_filter=${sector:-N/A}"
+      echo "[FIELD] market_strength_stocks_metric=${metric:-N/A}"
+      echo "[FIELD] market_strength_stocks_coverage=${covered:-N/A}"
+      echo "[FIELD] market_strength_stocks_top_row=${top_row:-N/A}"
+      summary="行业过滤=${sector:-N/A}; 指标=${metric:-N/A}; 覆盖=${covered:-N/A}; 首行=${top_row:-N/A}"
       ;;
   esac
 
@@ -132,5 +144,10 @@ run_formal_step \
   "market_strength" \
   "Market strength" \
   "\"$QUANTIX_BIN\" market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10"
+
+run_formal_step \
+  "market_strength_stocks" \
+  "Market strength-stocks" \
+  "\"$QUANTIX_BIN\" market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10"
 
 echo "\nMarket CLI formal sequence completed."

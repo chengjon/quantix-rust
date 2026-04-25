@@ -41,12 +41,15 @@ SMOKE_FAIL="$(extract_last_field 'FAIL : ' "${SMOKE_LOG:-}")"
 SYNC_EXIT="$(extract_last_field '\[RESULT\] sync_industry_exit=' "${FORMAL_LOG:-}")"
 FOUNDATION_EXIT="$(extract_last_field '\[RESULT\] market_foundation_exit=' "${FORMAL_LOG:-}")"
 STRENGTH_EXIT="$(extract_last_field '\[RESULT\] market_strength_exit=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_EXIT="$(extract_last_field '\[RESULT\] market_strength_stocks_exit=' "${FORMAL_LOG:-}")"
 SYNC_LOG_PATH="$(extract_last_field '\[LOG\] sync_industry_log=' "${FORMAL_LOG:-}")"
 FOUNDATION_LOG_PATH="$(extract_last_field '\[LOG\] market_foundation_log=' "${FORMAL_LOG:-}")"
 STRENGTH_LOG_PATH="$(extract_last_field '\[LOG\] market_strength_log=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_LOG_PATH="$(extract_last_field '\[LOG\] market_strength_stocks_log=' "${FORMAL_LOG:-}")"
 SYNC_SUMMARY="$(extract_last_field '\[SUMMARY\] sync_industry_summary=' "${FORMAL_LOG:-}")"
 FOUNDATION_SUMMARY="$(extract_last_field '\[SUMMARY\] market_foundation_summary=' "${FORMAL_LOG:-}")"
 STRENGTH_SUMMARY="$(extract_last_field '\[SUMMARY\] market_strength_summary=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_SUMMARY="$(extract_last_field '\[SUMMARY\] market_strength_stocks_summary=' "${FORMAL_LOG:-}")"
 FOUNDATION_TOTAL="$(extract_last_field '\[FIELD\] market_foundation_total_stocks=' "${FORMAL_LOG:-}")"
 FOUNDATION_CLASSIFIED="$(extract_last_field '\[FIELD\] market_foundation_classified_stocks=' "${FORMAL_LOG:-}")"
 FOUNDATION_UNCLASSIFIED="$(extract_last_field '\[FIELD\] market_foundation_unclassified_stocks=' "${FORMAL_LOG:-}")"
@@ -58,6 +61,10 @@ STRENGTH_TOP_STRONG="$(extract_last_field '\[FIELD\] market_strength_top_strong_
 STRENGTH_TOP_WEAK="$(extract_last_field '\[FIELD\] market_strength_top_weak_sector=' "${FORMAL_LOG:-}")"
 STRENGTH_TOP_CAP="$(extract_last_field '\[FIELD\] market_strength_top_market_cap_stock=' "${FORMAL_LOG:-}")"
 STRENGTH_TOP_PROFIT="$(extract_last_field '\[FIELD\] market_strength_top_profit_stock=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_SECTOR="$(extract_last_field '\[FIELD\] market_strength_stocks_sector_filter=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_METRIC="$(extract_last_field '\[FIELD\] market_strength_stocks_metric=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_COVERAGE="$(extract_last_field '\[FIELD\] market_strength_stocks_coverage=' "${FORMAL_LOG:-}")"
+STRENGTH_STOCKS_TOP_ROW="$(extract_last_field '\[FIELD\] market_strength_stocks_top_row=' "${FORMAL_LOG:-}")"
 
 cat > "$REPORT_PATH" <<EOF
 # Market CLI Acceptance Report
@@ -93,6 +100,12 @@ cat > "$REPORT_PATH" <<EOF
     - top_weak_sector: ${STRENGTH_TOP_WEAK:-N/A}
     - top_market_cap_stock: ${STRENGTH_TOP_CAP:-N/A}
     - top_profit_stock: ${STRENGTH_TOP_PROFIT:-N/A}
+  - market strength-stocks exit=${STRENGTH_STOCKS_EXIT:-N/A} log=${STRENGTH_STOCKS_LOG_PATH:-未找到}
+    - summary: ${STRENGTH_STOCKS_SUMMARY:-N/A}
+    - sector_filter: ${STRENGTH_STOCKS_SECTOR:-N/A}
+    - metric: ${STRENGTH_STOCKS_METRIC:-N/A}
+    - coverage: ${STRENGTH_STOCKS_COVERAGE:-N/A}
+    - top_row: ${STRENGTH_STOCKS_TOP_ROW:-N/A}
 
 ## 当前判定
 
@@ -102,6 +115,7 @@ cat > "$REPORT_PATH" <<EOF
   - \`quantix risk sync industry --standard shenwan\`
   - \`quantix market foundation\`
   - \`quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10\`
+  - \`quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10\`
 
 ## 建议补充记录
 
@@ -112,6 +126,7 @@ cat > "$REPORT_PATH" <<EOF
   - sync industry:
   - market foundation:
   - market strength:
+  - market strength-stocks:
 - 结论:
 EOF
 
