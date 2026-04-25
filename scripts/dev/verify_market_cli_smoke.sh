@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-LOG_DIR="$ROOT_DIR/logs"
+LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/verify_market_cli_smoke_$(date +%Y%m%d_%H%M%S).log}"
 
@@ -26,7 +26,7 @@ LOCAL_FAIL=0
 EXTERNAL_PASS=0
 EXTERNAL_WARN=0
 EXTERNAL_FAIL=0
-QUANTIX_BIN="$ROOT_DIR/target/debug/quantix"
+QUANTIX_BIN="${QUANTIX_BIN:-$ROOT_DIR/target/debug/quantix}"
 
 record_result() {
   local category="$1"
