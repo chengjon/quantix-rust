@@ -203,6 +203,23 @@ fn parses_market_strength_stocks_command_with_sector() {
 }
 
 #[test]
+fn market_strength_stocks_help_lists_sector_metric_and_top_options() {
+    let err = Cli::try_parse_from(["quantix", "market", "strength-stocks", "--help"])
+        .expect_err("expected clap to stop at --help");
+
+    assert_eq!(err.kind(), ErrorKind::DisplayHelp);
+
+    let help = err.to_string();
+    assert!(help.contains("仅输出强势板块个股排行"));
+    assert!(help.contains("--strong-top"));
+    assert!(help.contains("--sector"));
+    assert!(help.contains("--metric"));
+    assert!(help.contains("--top"));
+    assert!(help.contains("market-cap"));
+    assert!(help.contains("profit"));
+}
+
+#[test]
 fn rejects_market_leader_with_sector_and_concept_together() {
     let result = Cli::try_parse_from([
         "quantix",
