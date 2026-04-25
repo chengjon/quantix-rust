@@ -519,6 +519,43 @@ async fn test_execute_market_strength_stocks_filters_selected_sector() {
 }
 
 #[tokio::test]
+async fn test_execute_market_strength_requires_runtime_risk_path_context() {
+    let err = execute_market_command_with_reader(
+        MarketCommands::Strength {
+            date: Some("2026-03-09".to_string()),
+            strong_top: 3,
+            weak_top: 3,
+            stock_top: 10,
+        },
+        FakeMarketReader::new(),
+    )
+    .await
+    .unwrap_err();
+
+    assert!(matches!(err, QuantixError::Other(_)));
+    assert!(err.to_string().contains("risk_path"));
+}
+
+#[tokio::test]
+async fn test_execute_market_strength_stocks_requires_runtime_risk_path_context() {
+    let err = execute_market_command_with_reader(
+        MarketCommands::StrengthStocks {
+            date: Some("2026-03-09".to_string()),
+            strong_top: 3,
+            sector: Some("银行".to_string()),
+            metric: StrengthStockMetric::Profit,
+            top: 10,
+        },
+        FakeMarketReader::new(),
+    )
+    .await
+    .unwrap_err();
+
+    assert!(matches!(err, QuantixError::Other(_)));
+    assert!(err.to_string().contains("risk_path"));
+}
+
+#[tokio::test]
 async fn test_execute_market_leader_rejects_invalid_filter_combination() {
     let err = execute_market_command_with_reader(
         MarketCommands::Leader {
