@@ -116,31 +116,39 @@ pub(super) fn print_market_leader_rows(rows: &[LeaderRow]) {
 }
 
 pub(super) fn print_market_overview(overview: &MarketOverview) {
-    println!("== 市场概览 ==");
-    println!("行业板块: {}", overview.top_sectors.len());
-    println!("概念板块: {}", overview.top_concepts.len());
+    print!("{}", render_market_overview(overview));
+}
+
+fn render_market_overview(overview: &MarketOverview) -> String {
+    let mut output = String::new();
+
+    writeln!(&mut output, "== 市场概览 ==").unwrap();
+    writeln!(&mut output, "行业板块: {}", overview.top_sectors.len()).unwrap();
+    writeln!(&mut output, "概念板块: {}", overview.top_concepts.len()).unwrap();
 
     match overview.north_flow.as_ref() {
-        Some(snapshot) => println!("北向资金: {:.2}", snapshot.total_amount),
-        None => println!("北向资金: -"),
+        Some(snapshot) => writeln!(&mut output, "北向资金: {:.2}", snapshot.total_amount).unwrap(),
+        None => writeln!(&mut output, "北向资金: -").unwrap(),
     }
 
     match overview.sentiment.as_ref() {
-        Some(snapshot) => println!("涨停数: {}", snapshot.limit_up_count),
-        None => println!("涨停数: -"),
+        Some(snapshot) => writeln!(&mut output, "涨停数: {}", snapshot.limit_up_count).unwrap(),
+        None => writeln!(&mut output, "涨停数: -").unwrap(),
     }
 
     if !overview.top_sectors.is_empty() {
-        println!();
-        println!("Top 行业:");
-        print_market_board_rows(&overview.top_sectors);
+        writeln!(&mut output).unwrap();
+        writeln!(&mut output, "Top 行业:").unwrap();
+        output.push_str(&render_market_board_rows(&overview.top_sectors));
     }
 
     if !overview.top_concepts.is_empty() {
-        println!();
-        println!("Top 概念:");
-        print_market_board_rows(&overview.top_concepts);
+        writeln!(&mut output).unwrap();
+        writeln!(&mut output, "Top 概念:").unwrap();
+        output.push_str(&render_market_board_rows(&overview.top_concepts));
     }
+
+    output
 }
 
 pub(super) fn print_market_strength_report(report: &MarketStrengthReport) {
@@ -307,9 +315,77 @@ fn format_decimal(value: &Option<Decimal>) -> String {
 mod tests {
     use super::*;
     use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
-    use crate::market::{BoardRankRow, BoardType, MarketFoundationSummary, MarketStrengthReport};
+    use crate::market::{
+        BoardRankRow, BoardType, MarketFoundationSummary, MarketOverview, MarketStrengthReport,
+        MarketSentimentSnapshot, NorthFlowSnapshot,
+    };
     use crate::market::SectorCoverageRow;
+    use chrono::NaiveDate;
     use rust_decimal::Decimal;
+
+    #[test]
+    fn render_market_overview_shows_missing_optional_summary_values() {
+        let overview = MarketOverview {
+            top_sectors: vec![],
+            top_concepts: vec![],
+            north_flow: None,
+            sentiment: None,
+        };
+
+        let output = render_market_overview(&overview);
+
+        assert!(output.contains("== 市场概览 =="));
+        assert!(output.contains("行业板块: 0"));
+        assert!(output.contains("概念板块: 0"));
+        assert!(output.contains("北向资金: -"));
+        assert!(output.contains("涨停数: -"));
+        assert!(!output.contains("Top 行业:"));
+        assert!(!output.contains("Top 概念:"));
+    }
+
+    #[test]
+    fn render_market_overview_includes_sector_and_concept_sections() {
+        let overview = MarketOverview {
+            top_sectors: vec![BoardRankRow::new("BK001", "银行", BoardType::Sector, 1, 2.10)],
+            top_concepts: vec![BoardRankRow::new(
+                "GN001",
+                "人工智能",
+                BoardType::Concept,
+                1,
+                4.20,
+            )],
+            north_flow: Some(NorthFlowSnapshot::new(
+                NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+                12.3,
+                8.6,
+                20.9,
+                100.0,
+            )),
+            sentiment: Some(MarketSentimentSnapshot::new(
+                NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
+                3210,
+                1875,
+                87,
+                4,
+                0.81,
+                0.19,
+                23,
+            )),
+        };
+
+        let output = render_market_overview(&overview);
+
+        assert!(output.contains("行业板块: 1"));
+        assert!(output.contains("概念板块: 1"));
+        assert!(output.contains("北向资金: 20.90"));
+        assert!(output.contains("涨停数: 87"));
+        assert!(output.contains("Top 行业:"));
+        assert!(output.contains("BK001"));
+        assert!(output.contains("银行"));
+        assert!(output.contains("Top 概念:"));
+        assert!(output.contains("GN001"));
+        assert!(output.contains("人工智能"));
+    }
 
     #[test]
     fn render_market_foundation_summary_shows_core_counts_without_sector_table() {
