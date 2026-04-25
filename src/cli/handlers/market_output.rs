@@ -1,5 +1,6 @@
 use super::*;
 use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
+use std::fmt::Write as _;
 
 pub(super) fn print_market_foundation_summary(summary: &MarketFoundationSummary) {
     println!("== 市场基础数据 ==");
@@ -163,6 +164,10 @@ pub(super) fn print_market_strength_report(report: &MarketStrengthReport) {
 }
 
 pub(super) fn print_market_strength_stock_ranking(ranking: &MarketStrengthStockRankingOutput) {
+    print!("{}", render_market_strength_stock_ranking(ranking));
+}
+
+fn render_market_strength_stock_ranking(ranking: &MarketStrengthStockRankingOutput) -> String {
     let metric_label = match ranking.metric {
         StrengthStockMetric::MarketCap => "总市值(亿)",
         StrengthStockMetric::Profit => "上一会计周期净利润(亿)",
@@ -172,20 +177,29 @@ pub(super) fn print_market_strength_stock_ranking(ranking: &MarketStrengthStockR
         StrengthStockMetric::Profit => "上一会计周期净利润",
     };
     let use_market_cap = matches!(ranking.metric, StrengthStockMetric::MarketCap);
+    let mut output = String::new();
 
-    println!("== 强势板块个股排行 ==");
-    println!("强势板块范围: Top{}", ranking.strong_top);
+    writeln!(&mut output, "== 强势板块个股排行 ==").unwrap();
+    writeln!(&mut output, "强势板块范围: Top{}", ranking.strong_top).unwrap();
     if let Some(sector_name) = ranking.sector_filter.as_deref() {
-        println!("行业过滤: {}", sector_name);
+        writeln!(&mut output, "行业过滤: {}", sector_name).unwrap();
     }
-    println!("候选股数: {}", ranking.candidate_stock_count);
-    println!(
+    writeln!(&mut output, "候选股数: {}", ranking.candidate_stock_count).unwrap();
+    writeln!(
+        &mut output,
         "{}覆盖: {}/{}",
         metric_name, ranking.covered_count, ranking.candidate_stock_count
-    );
-    println!();
-    println!("按{}从大到小 Top{}:", metric_name, ranking.rows.len());
-    print_strong_sector_stock_rows(&ranking.rows, metric_label, use_market_cap);
+    )
+    .unwrap();
+    writeln!(&mut output).unwrap();
+    writeln!(&mut output, "按{}从大到小 Top{}:", metric_name, ranking.rows.len()).unwrap();
+    output.push_str(&render_strong_sector_stock_rows(
+        &ranking.rows,
+        metric_label,
+        use_market_cap,
+    ));
+
+    output
 }
 
 fn print_strong_sector_stock_rows(
@@ -193,16 +207,28 @@ fn print_strong_sector_stock_rows(
     metric_label: &str,
     use_market_cap: bool,
 ) {
+    print!("{}", render_strong_sector_stock_rows(rows, metric_label, use_market_cap));
+}
+
+fn render_strong_sector_stock_rows(
+    rows: &[StrongSectorStockRow],
+    metric_label: &str,
+    use_market_cap: bool,
+) -> String {
+    let mut output = String::new();
+
     if rows.is_empty() {
-        println!("📭 没有可展示的个股数据");
-        return;
+        writeln!(&mut output, "📭 没有可展示的个股数据").unwrap();
+        return output;
     }
 
-    println!(
+    writeln!(
+        &mut output,
         "{:<4} {:<10} {:<12} {:<12} {:<12} {}",
         "排名", "行业", "代码", "名称", "现价", metric_label
-    );
-    println!("{}", "-".repeat(84));
+    )
+    .unwrap();
+    writeln!(&mut output, "{}", "-".repeat(84)).unwrap();
 
     for (idx, row) in rows.iter().enumerate() {
         let metric = if use_market_cap {
@@ -210,7 +236,8 @@ fn print_strong_sector_stock_rows(
         } else {
             row.latest_report_profit.clone()
         };
-        println!(
+        writeln!(
+            &mut output,
             "{:<4} {:<10} {:<12} {:<12} {:<12.2} {}",
             idx + 1,
             row.sector_name,
@@ -218,13 +245,73 @@ fn print_strong_sector_stock_rows(
             row.name,
             row.latest_price,
             format_decimal(&metric)
-        );
+        )
+        .unwrap();
     }
+
+    output
 }
 
 fn format_decimal(value: &Option<Decimal>) -> String {
     match value {
         Some(value) => format!("{:.2}", value),
         None => "-".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn render_market_strength_stock_ranking_includes_sector_filter_and_row_values() {
+        let ranking = MarketStrengthStockRankingOutput {
+            metric: StrengthStockMetric::Profit,
+            strong_top: 3,
+            sector_filter: Some("银行".to_string()),
+            candidate_stock_count: 1,
+            covered_count: 1,
+            rows: vec![StrongSectorStockRow {
+                sector_name: "银行".to_string(),
+                code: "601398".to_string(),
+                name: "工商银行".to_string(),
+                latest_price: 7.0,
+                latest_change_pct: 1.5,
+                market_cap: Some(Decimal::new(700000, 2)),
+                latest_report_profit: Some(Decimal::new(10000, 2)),
+            }],
+        };
+
+        let output = render_market_strength_stock_ranking(&ranking);
+
+        assert!(output.contains("== 强势板块个股排行 =="));
+        assert!(output.contains("强势板块范围: Top3"));
+        assert!(output.contains("行业过滤: 银行"));
+        assert!(output.contains("上一会计周期净利润覆盖: 1/1"));
+        assert!(output.contains("按上一会计周期净利润从大到小 Top1:"));
+        assert!(output.contains("601398"));
+        assert!(output.contains("工商银行"));
+        assert!(output.contains("100.00"));
+    }
+
+    #[test]
+    fn render_market_strength_stock_ranking_shows_empty_state() {
+        let ranking = MarketStrengthStockRankingOutput {
+            metric: StrengthStockMetric::MarketCap,
+            strong_top: 3,
+            sector_filter: None,
+            candidate_stock_count: 0,
+            covered_count: 0,
+            rows: vec![],
+        };
+
+        let output = render_market_strength_stock_ranking(&ranking);
+
+        assert!(output.contains("强势板块范围: Top3"));
+        assert!(output.contains("总市值覆盖: 0/0"));
+        assert!(output.contains("按总市值从大到小 Top0:"));
+        assert!(output.contains("📭 没有可展示的个股数据"));
     }
 }
