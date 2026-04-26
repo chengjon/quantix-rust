@@ -174,10 +174,12 @@ fn parses_monitor_config_set_interval_command() {
             interval_seconds,
             group,
             persist_events,
+            notify,
         })) => {
             assert_eq!(interval_seconds, Some(15));
             assert_eq!(group, None);
             assert_eq!(persist_events, None);
+            assert_eq!(notify, None);
         }
         other => panic!("unexpected command: {:?}", other),
     }
@@ -193,10 +195,12 @@ fn parses_monitor_config_set_group_command() {
             interval_seconds,
             group,
             persist_events,
+            notify,
         })) => {
             assert_eq!(interval_seconds, None);
             assert_eq!(group.as_deref(), Some("core"));
             assert_eq!(persist_events, None);
+            assert_eq!(notify, None);
         }
         other => panic!("unexpected command: {:?}", other),
     }
@@ -219,10 +223,33 @@ fn parses_monitor_config_set_persist_events_command() {
             interval_seconds,
             group,
             persist_events,
+            notify,
         })) => {
             assert_eq!(interval_seconds, None);
             assert_eq!(group, None);
             assert_eq!(persist_events, Some(false));
+            assert_eq!(notify, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_monitor_config_set_notify_command() {
+    let cli =
+        Cli::try_parse_from(["quantix", "monitor", "config", "set", "--notify", "true"]).unwrap();
+
+    match cli.command {
+        Commands::Monitor(MonitorCommands::Config(MonitorConfigCommands::Set {
+            interval_seconds,
+            group,
+            persist_events,
+            notify,
+        })) => {
+            assert_eq!(interval_seconds, None);
+            assert_eq!(group, None);
+            assert_eq!(persist_events, None);
+            assert_eq!(notify, Some(true));
         }
         other => panic!("unexpected command: {:?}", other),
     }

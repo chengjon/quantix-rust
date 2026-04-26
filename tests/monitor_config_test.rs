@@ -22,6 +22,7 @@ fn save_and_reload_round_trips_monitor_config() {
         interval_seconds: 15,
         watchlist_group: Some("core".to_string()),
         persist_events: false,
+        notify_enabled: true,
         max_event_history: 250,
     };
 

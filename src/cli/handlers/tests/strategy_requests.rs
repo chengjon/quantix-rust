@@ -371,9 +371,9 @@ fn test_execute_execution_bridge_qmt_live_source_keeps_confirmation_and_query_gu
             .join("src")
             .join("cli")
             .join("handlers")
-            .join("mod.rs"),
+            .join("execution_handler.rs"),
     )
-    .expect("expected src/cli/handlers/mod.rs");
+    .expect("expected src/cli/handlers/execution_handler.rs");
 
     assert!(
         source.contains("输入 'YES' 确认下单"),

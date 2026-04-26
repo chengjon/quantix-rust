@@ -10,6 +10,7 @@ pub struct MonitorConfig {
     pub interval_seconds: u64,
     pub watchlist_group: Option<String>,
     pub persist_events: bool,
+    pub notify_enabled: bool,
     pub max_event_history: usize,
 }
 
@@ -19,6 +20,7 @@ impl Default for MonitorConfig {
             interval_seconds: 30,
             watchlist_group: None,
             persist_events: true,
+            notify_enabled: false,
             max_event_history: 1000,
         }
     }
