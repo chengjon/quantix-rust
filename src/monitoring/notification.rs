@@ -525,16 +525,35 @@ impl NotificationSender for LogSender {
 
         // 如果配置了日志文件，追加写入
         if let Some(path) = &self.log_path {
+            let path_ref = std::path::Path::new(path);
+            if let Some(parent) = path_ref.parent().filter(|parent| !parent.as_os_str().is_empty())
+            {
+                tokio::fs::create_dir_all(parent).await.map_err(|err| {
+                    QuantixError::Other(format!(
+                        "创建通知日志目录失败 ({}): {}",
+                        parent.display(),
+                        err
+                    ))
+                })?;
+            }
+
             let log_entry = format!("{}\n", log_text);
-            if let Ok(mut file) = tokio::fs::OpenOptions::new()
+            let mut file = tokio::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(path)
                 .await
-            {
-                use tokio::io::AsyncWriteExt;
-                let _ = file.write_all(log_entry.as_bytes()).await;
-            }
+                .map_err(|err| {
+                    QuantixError::Other(format!("打开通知日志文件失败 ({}): {}", path, err))
+                })?;
+
+            use tokio::io::AsyncWriteExt;
+            file.write_all(log_entry.as_bytes()).await.map_err(|err| {
+                QuantixError::Other(format!("写入通知日志文件失败 ({}): {}", path, err))
+            })?;
+            file.flush().await.map_err(|err| {
+                QuantixError::Other(format!("刷新通知日志文件失败 ({}): {}", path, err))
+            })?;
         }
 
         Ok(())
