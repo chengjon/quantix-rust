@@ -37,18 +37,18 @@ fn delivery_gate_script_runs_fake_acceptance_formal_and_report_scripts() {
 
     fs::write(
         &fake_acceptance,
-        "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] acceptance'\n",
+        "#!/usr/bin/env bash\nset -euo pipefail\necho \"[FAKE] acceptance LOG_DIR=$LOG_DIR\"\n",
     )
     .expect("should write fake acceptance");
     fs::write(
         &fake_formal,
-        "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] formal'\n",
+        "#!/usr/bin/env bash\nset -euo pipefail\necho \"[FAKE] formal LOG_DIR=$LOG_DIR\"\n",
     )
     .expect("should write fake formal");
     fs::write(
         &fake_report,
         format!(
-            "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] report'\nprintf '# fake report\\n' > \"{}\"\n",
+            "#!/usr/bin/env bash\nset -euo pipefail\necho \"[FAKE] report REPORT_PATH=$REPORT_PATH\"\nprintf '# fake report\\n' > \"$REPORT_PATH\"\nif [[ \"$REPORT_PATH\" != \"{}\" ]]; then\n  echo \"unexpected report path: $REPORT_PATH\" >&2\n  exit 64\nfi\n",
             report_path.display()
         ),
     )
@@ -84,11 +84,11 @@ fn delivery_gate_script_runs_fake_acceptance_formal_and_report_scripts() {
 
     let log = fs::read_to_string(&gate_log).expect("should read gate log");
     assert!(log.contains("[STEP] Acceptance orchestration"));
-    assert!(log.contains("[FAKE] acceptance"));
+    assert!(log.contains(&format!("[FAKE] acceptance LOG_DIR={}", log_dir.display())));
     assert!(log.contains("[STEP] Formal sequence"));
-    assert!(log.contains("[FAKE] formal"));
+    assert!(log.contains(&format!("[FAKE] formal LOG_DIR={}", log_dir.display())));
     assert!(log.contains("[STEP] Acceptance report generation"));
-    assert!(log.contains("[FAKE] report"));
+    assert!(log.contains(&format!("[FAKE] report REPORT_PATH={}", report_path.display())));
     assert!(log.contains(&format!("Report path: {}", report_path.display())));
 
     let report = fs::read_to_string(&report_path).expect("should read generated report");

@@ -13,6 +13,12 @@ FORMAL_SEQUENCE_SCRIPT="${FORMAL_SEQUENCE_SCRIPT:-$ROOT_DIR/scripts/dev/run_mark
 REPORT_SCRIPT="${REPORT_SCRIPT:-$ROOT_DIR/scripts/dev/generate_market_cli_acceptance_report.sh}"
 REPORT_PATH="${REPORT_PATH:-$LOG_DIR/market_cli_delivery_gate_report_$(date +%Y%m%d_%H%M%S).md}"
 
+export LOG_DIR
+export ACCEPTANCE_SCRIPT
+export FORMAL_SEQUENCE_SCRIPT
+export REPORT_SCRIPT
+export REPORT_PATH
+
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "[INFO] Market CLI delivery gate log: $LOG_FILE"
