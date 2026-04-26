@@ -106,7 +106,7 @@ pub enum StrategySignalCommands {
         #[arg(long = "signal-id")]
         signal_id: String,
 
-        /// 目标执行模式
+        /// 目标执行模式: paper | mock_live | qmt_live（live 将被拒绝并提示改走 qmt_live）
         #[arg(long = "target-mode")]
         target_mode: String,
 
@@ -135,7 +135,7 @@ pub enum StrategyRequestCommands {
         #[arg(long)]
         status: Option<String>,
 
-        /// 目标模式
+        /// 目标模式过滤: paper | mock_live | qmt_live | live（legacy rejected mode）
         #[arg(long = "target-mode")]
         target_mode: Option<String>,
 
