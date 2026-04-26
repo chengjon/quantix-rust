@@ -1,10 +1,13 @@
 use super::*;
 use crate::cli::{RiskImportCommands, RiskRebuildCommands, RiskSyncCommands};
+use crate::risk::service::check_auto_reduce_trigger;
 use crate::risk::{
-    IndustrySyncSummary, MySqlIndustrySyncSource, RiskRuleType, RuleValue,
-    sync_industry_reference_data_at,
+    DailyRiskBaseline, IndustrySyncSummary, MySqlIndustrySyncSource, RiskRuleType, RiskState,
+    RuleValue, sync_industry_reference_data_at,
 };
 use std::path::Path;
+
+mod output;
 
 pub async fn run_risk_command(cmd: RiskCommands) -> Result<()> {
     let runtime = CliRuntime::load();
@@ -24,7 +27,7 @@ pub async fn run_risk_command(cmd: RiskCommands) -> Result<()> {
         }
         _ => execute_risk_command_with_service_at(cmd, &service, Utc::now()).await?,
     };
-    print_risk_command_output(&output);
+    output::print_risk_command_output(&output);
     Ok(())
 }
 
@@ -58,7 +61,9 @@ where
                 let contents = std::fs::read_to_string(&input)?;
                 let records = parse_live_import_by_path(&input, &contents)?;
                 Ok(RiskCommandOutput::ImportSummary(
-                    store.import_records(&account, &input, &records, now).await?,
+                    store
+                        .import_records(&account, &input, &records, now)
+                        .await?,
                 ))
             }
         },
@@ -144,207 +149,6 @@ where
     }
 }
 
-fn print_risk_command_output(output: &RiskCommandOutput) {
-    match output {
-        RiskCommandOutput::RuleSet(rule) => {
-            println!(
-                "✅ 已设置风控规则 {} = {}",
-                rule.rule_type.as_cli_str(),
-                rule.value.display()
-            );
-        }
-        RiskCommandOutput::RuleList(rules) => print_risk_rules(rules),
-        RiskCommandOutput::RuleToggled(rule) => {
-            let status = if rule.enabled { "启用" } else { "禁用" };
-            println!("✅ 已{}风控规则 {}", status, rule.rule_type.as_cli_str());
-        }
-        RiskCommandOutput::ImportSummary(summary) => {
-            println!(
-                "✅ 已导入 {}: total={} inserted={} skipped={} conflicts={}",
-                summary.account_id,
-                summary.total_rows,
-                summary.inserted,
-                summary.skipped_duplicates,
-                summary.conflicts
-            );
-        }
-        RiskCommandOutput::RebuildSummary(summary) => {
-            println!(
-                "✅ 已重建 {} as_of={} cash={} positions={} realized_pnl={}",
-                summary.account_id,
-                summary.as_of.to_rfc3339(),
-                summary.cash_balance,
-                summary.positions.len(),
-                summary.realized_pnl
-            );
-        }
-        RiskCommandOutput::IndustrySync(summary) => {
-            println!(
-                "✅ 已同步 {} 行业引用表: current={} history={} sqlite={} at={}",
-                summary.standard.as_str(),
-                summary.current_rows,
-                summary.history_rows,
-                summary.store_path.display(),
-                summary.synced_at.to_rfc3339()
-            );
-        }
-        RiskCommandOutput::Log(events) => print_risk_log(events),
-        RiskCommandOutput::LockReleased(lock_state) => {
-            if let Some(trading_date) = lock_state.released_for_date {
-                println!("✅ 已释放买入锁，{} 当日内不再自动重新锁定", trading_date);
-            } else {
-                println!("✅ 已释放买入锁");
-            }
-        }
-        RiskCommandOutput::Status(status) => print_risk_status(status),
-        RiskCommandOutput::Pnl(status) => print_risk_pnl(status),
-        RiskCommandOutput::Position(status) => print_risk_positions(status),
-    }
-}
-
-fn print_risk_rules(rules: &[RiskRule]) {
-    if rules.is_empty() {
-        println!("📭 暂无风控规则");
-        return;
-    }
-
-    println!("{:<20} {:<12} {}", "规则", "值", "状态");
-    println!("{}", "-".repeat(48));
-
-    for rule in rules {
-        println!(
-            "{:<20} {:<12} {}",
-            rule.rule_type.as_cli_str(),
-            rule.value.display(),
-            if rule.enabled { "enabled" } else { "disabled" }
-        );
-    }
-}
-
-fn print_risk_log(events: &[RiskLogEvent]) {
-    for line in build_risk_log_lines(events) {
-        println!("{line}");
-    }
-}
-
-pub(super) fn build_risk_log_lines(events: &[RiskLogEvent]) -> Vec<String> {
-    if events.is_empty() {
-        return vec!["🕘 暂无风控事件日志".to_string()];
-    }
-
-    let mut lines = Vec::new();
-    let mut index = 0;
-
-    while index < events.len() {
-        let event_date = events[index].ts.date_naive();
-        let group_end = events[index..]
-            .iter()
-            .position(|event| event.ts.date_naive() != event_date)
-            .map(|offset| index + offset)
-            .unwrap_or(events.len());
-        let group = &events[index..group_end];
-
-        if index > 0 {
-            lines.push(String::new());
-        }
-        lines.push(format!("[{event_date}] · {} 条", group.len()));
-        lines.push(build_risk_log_group_summary(group));
-        lines.push(format!(
-            "{:<10} {:<18} {:<12} {}",
-            "时间", "事件", "交易日", "说明"
-        ));
-        lines.push("-".repeat(76));
-
-        lines.extend(group.iter().map(|event| {
-            format!(
-                "{:<10} {:<18} {:<12} {}",
-                event.ts.format("%H:%M:%S"),
-                event.event_type.display_label(),
-                event
-                    .trading_date
-                    .map(|date| date.to_string())
-                    .unwrap_or_else(|| "-".to_string()),
-                display_risk_log_detail(event)
-            )
-        }));
-
-        index = group_end;
-    }
-
-    lines
-}
-
-fn build_risk_log_group_summary(events: &[RiskLogEvent]) -> String {
-    let mut rule_changes = 0;
-    let mut lock_triggered = 0;
-    let mut lock_released = 0;
-    let mut lock_cleared = 0;
-    let mut industry_triggered = 0;
-    let mut auto_reduce = 0;
-
-    for event in events {
-        match event.event_type {
-            RiskLogEventType::RuleSet
-            | RiskLogEventType::RuleEnabled
-            | RiskLogEventType::RuleDisabled => rule_changes += 1,
-            RiskLogEventType::DailyLossLockTriggered => lock_triggered += 1,
-            RiskLogEventType::BuyLockReleased => lock_released += 1,
-            RiskLogEventType::BuyLockCleared => lock_cleared += 1,
-            RiskLogEventType::IndustryLimitTriggered => industry_triggered += 1,
-            RiskLogEventType::AutoReduceTriggered | RiskLogEventType::AutoReduceExecuted => {
-                auto_reduce += 1
-            }
-        }
-    }
-
-    format!(
-        "摘要: 规则变更 {} / 锁触发 {} / 手动释放 {} / 锁清除 {} / 行业超限 {} / 自动减仓 {}",
-        rule_changes, lock_triggered, lock_released, lock_cleared, industry_triggered, auto_reduce
-    )
-}
-
-fn display_risk_log_detail(event: &RiskLogEvent) -> String {
-    match event.event_type {
-        RiskLogEventType::RuleSet => {
-            if let Some((left, right)) = event.detail.split_once(" = ") {
-                format!("{left}={right}")
-            } else {
-                event.detail.clone()
-            }
-        }
-        RiskLogEventType::RuleEnabled => format!("启用 {}", event.detail),
-        RiskLogEventType::RuleDisabled => format!("禁用 {}", event.detail),
-        RiskLogEventType::DailyLossLockTriggered => {
-            if let Some(detail) = event.detail.strip_suffix(" 已触发") {
-                format!("阈值触发: {detail}")
-            } else {
-                event.detail.clone()
-            }
-        }
-        RiskLogEventType::BuyLockReleased => {
-            if let Some(detail) = event.detail.strip_suffix(" 已触发") {
-                format!("手动释放: {detail}")
-            } else {
-                format!("手动释放: {}", event.detail)
-            }
-        }
-        RiskLogEventType::BuyLockCleared => match event.detail.as_str() {
-            "day rollover" => "跨日清除".to_string(),
-            "trade init/reset" => "账户重置清除".to_string(),
-            _ => event.detail.clone(),
-        },
-        RiskLogEventType::IndustryLimitTriggered => {
-            format!("行业超限: {}", event.detail)
-        }
-        RiskLogEventType::AutoReduceTriggered => {
-            format!("减仓触发: {}", event.detail)
-        }
-        RiskLogEventType::AutoReduceExecuted => {
-            format!("减仓执行: {}", event.detail)
-        }
-    }
-}
-
 fn parse_risk_log_date(raw: Option<&str>) -> Result<Option<chrono::NaiveDate>> {
     raw.map(|value| {
         chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
@@ -391,10 +195,14 @@ fn print_risk_status(status: &RiskStatus) {
         println!("触发时间: {}", triggered_at.to_rfc3339());
     }
 
+    for line in build_auto_reduce_lines(status) {
+        println!("{line}");
+    }
+
     if !status.position_ratios.is_empty() {
         println!();
         println!("[持仓风险]");
-        println!("{:<10} {:<14} {}", "代码", "市值", "仓位占比");
+        println!("{:<10} {:<14} 仓位占比", "代码", "市值");
         println!("{}", "-".repeat(42));
         for row in &status.position_ratios {
             println!(
@@ -407,7 +215,7 @@ fn print_risk_status(status: &RiskStatus) {
     if !status.rules.is_empty() {
         println!();
         println!("[规则]");
-        println!("{:<20} {:<12} {}", "规则", "值", "状态");
+        println!("{:<20} {:<12} 状态", "规则", "值");
         println!("{}", "-".repeat(48));
         for rule in &status.rules {
             println!(
@@ -434,6 +242,10 @@ fn print_risk_positions(status: &RiskStatus) {
 
 pub(super) fn build_risk_pnl_lines(status: &RiskStatus) -> Vec<String> {
     let mut lines = build_risk_summary_lines(status);
+    if status.auto_reduce_recommendation.is_some() {
+        lines.push(String::new());
+        lines.extend(build_auto_reduce_lines(status));
+    }
     lines.push(String::new());
     lines.extend(build_risk_lock_lines(status));
     lines
@@ -445,8 +257,14 @@ pub(super) fn build_risk_position_lines(status: &RiskStatus) -> Vec<String> {
         format!("账户: {}", status.account_id),
         format!("交易日: {}", status.trading_date),
         format!("当前资产: {}", status.current_total_assets),
-        String::new(),
     ];
+
+    if status.auto_reduce_recommendation.is_some() {
+        lines.push(String::new());
+        lines.extend(build_auto_reduce_lines(status));
+    }
+
+    lines.push(String::new());
 
     if status.position_ratios.is_empty() {
         lines.push("[持仓风险]".to_string());
@@ -503,6 +321,29 @@ fn build_risk_lock_lines(status: &RiskStatus) -> Vec<String> {
     lines
 }
 
+fn build_auto_reduce_lines(status: &RiskStatus) -> Vec<String> {
+    let Some(recommendation) = &status.auto_reduce_recommendation else {
+        return Vec::new();
+    };
+
+    let targets = if recommendation.position_codes.is_empty() {
+        "无可减仓持仓".to_string()
+    } else {
+        recommendation.position_codes.join(",")
+    };
+
+    vec![
+        String::new(),
+        "[自动减仓建议]".to_string(),
+        format!("当前亏损比: {}%", recommendation.current_loss_pct),
+        format!(
+            "建议动作: 当前仅提供人工执行建议，不会自动卖出；如需处理，可按 {}% 减仓以下持仓 {}",
+            recommendation.reduce_ratio, targets
+        ),
+        format!("触发时间: {}", recommendation.triggered_at.to_rfc3339()),
+    ]
+}
+
 fn format_position_row(row: &PositionRiskRow) -> String {
     format!(
         "{:<10} {:<14} {}%",
@@ -527,7 +368,9 @@ where
 {
     match parse_risk_source(source)? {
         crate::risk::RiskAccountSource::Paper => {
-            service.status(&load_paper_risk_account_snapshot().await?, now).await
+            service
+                .status(&load_paper_risk_account_snapshot().await?, now)
+                .await
         }
         crate::risk::RiskAccountSource::LiveImport => {
             let account = account.ok_or_else(|| {
@@ -537,7 +380,9 @@ where
             let mirror = store
                 .get_latest_mirror_account(account)
                 .await?
-                .ok_or_else(|| QuantixError::Other(format!("live_import mirror 不存在: {account}")))?;
+                .ok_or_else(|| {
+                    QuantixError::Other(format!("live_import mirror 不存在: {account}"))
+                })?;
             let rules = service.list_rules().await?;
             Ok(build_risk_status_from_live_import(&mirror, &rules)?)
         }
@@ -587,11 +432,44 @@ fn build_risk_status_from_live_import(
         None => false,
     };
     let lock_reason = if buy_locked {
-        daily_loss_limit
-            .map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
+        daily_loss_limit.map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
     } else {
         None
     };
+    let snapshot = RiskAccountSnapshot::new(
+        mirror.account_id.clone(),
+        mirror.current_total_assets,
+        positions.clone(),
+    );
+    let auto_reduce_recommendation = check_auto_reduce_trigger(
+        &RiskState {
+            account_id: mirror.account_id.clone(),
+            daily_baseline: Some(DailyRiskBaseline {
+                trading_date: mirror.trading_date,
+                starting_total_assets: mirror.starting_total_assets,
+            }),
+            rules: rules.to_vec(),
+            ..RiskState::default()
+        },
+        &snapshot,
+        mirror.last_rebuild_at,
+    )
+    .map(|decision| {
+        let mut position_codes = decision
+            .positions_to_reduce
+            .iter()
+            .map(|position| position.code.clone())
+            .collect::<Vec<_>>();
+        position_codes.sort();
+        position_codes.dedup();
+
+        crate::risk::AutoReduceRecommendation {
+            current_loss_pct: decision.current_loss_pct,
+            reduce_ratio: decision.reduce_ratio,
+            position_codes,
+            triggered_at: decision.triggered_at,
+        }
+    });
 
     Ok(RiskStatus {
         account_id: mirror.account_id.clone(),
@@ -628,6 +506,7 @@ fn build_risk_status_from_live_import(
                 enabled: rule.enabled,
             })
             .collect(),
+        auto_reduce_recommendation,
     })
 }
 
@@ -648,13 +527,15 @@ fn evaluate_daily_loss_rule_triggered(
 fn parse_risk_source(raw: Option<&str>) -> Result<crate::risk::RiskAccountSource> {
     match raw {
         None => Ok(crate::risk::RiskAccountSource::Paper),
-        Some(value) => crate::risk::RiskAccountSource::from_str(value).ok_or_else(|| {
-            QuantixError::Other(format!("risk --source 不支持的值: {value}"))
-        }),
+        Some(value) => crate::risk::RiskAccountSource::from_str(value)
+            .ok_or_else(|| QuantixError::Other(format!("risk --source 不支持的值: {value}"))),
     }
 }
 
-fn parse_live_import_by_path(path: &str, contents: &str) -> Result<Vec<crate::risk::LiveImportRecord>> {
+fn parse_live_import_by_path(
+    path: &str,
+    contents: &str,
+) -> Result<Vec<crate::risk::LiveImportRecord>> {
     match Path::new(path)
         .extension()
         .and_then(|ext| ext.to_str())
@@ -715,6 +596,7 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use chrono::TimeZone;
+    use rust_decimal_macros::dec;
     use tempfile::tempdir;
 
     use crate::risk::{
@@ -797,5 +679,68 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(current.industry_name, "银行");
+    }
+
+    #[tokio::test]
+    async fn execute_risk_rule_set_industry_limit_command_returns_percentage_rule() {
+        let dir = tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk").join("risk_state.json");
+        let service = RiskService::new(JsonRiskStore::new(&risk_state_path));
+
+        let output = execute_risk_command_with_service_at(
+            RiskCommands::Rule(RiskRuleCommands::Set {
+                rule_type: "industry-limit".to_string(),
+                value: "30%".to_string(),
+            }),
+            &service,
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+        match output {
+            RiskCommandOutput::RuleSet(rule) => {
+                assert_eq!(rule.rule_type, RiskRuleType::IndustryLimit);
+                assert_eq!(rule.value, RuleValue::Percentage(dec!(30)));
+                assert!(rule.enabled);
+            }
+            other => panic!("unexpected output: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn build_risk_pnl_lines_surfaces_auto_reduce_as_manual_recommendation() {
+        let status = RiskStatus {
+            account_id: "paper".to_string(),
+            trading_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 25).unwrap(),
+            starting_total_assets: dec!(1000000),
+            current_total_assets: dec!(930000),
+            daily_pnl: dec!(-70000),
+            daily_pnl_pct: dec!(-7),
+            buy_locked: false,
+            manual_release_active: false,
+            lock_state_source: RiskLockStateSource::Open,
+            lock_reason: None,
+            lock_trigger_reason: None,
+            lock_triggered_at: None,
+            lock_effective_trading_date: None,
+            position_ratios: vec![PositionRiskRow {
+                code: "000001".to_string(),
+                market_value: dec!(120000),
+                ratio_pct: dec!(12.9),
+            }],
+            rules: vec![],
+            auto_reduce_recommendation: Some(crate::risk::AutoReduceRecommendation {
+                current_loss_pct: dec!(-7),
+                reduce_ratio: dec!(50),
+                position_codes: vec!["000001".to_string()],
+                triggered_at: fixed_ts(),
+            }),
+        };
+
+        let lines = build_risk_pnl_lines(&status).join("\n");
+        assert!(lines.contains("[自动减仓建议]"));
+        assert!(lines.contains("不会自动卖出"));
+        assert!(lines.contains("000001"));
     }
 }

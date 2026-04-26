@@ -93,6 +93,10 @@ pub enum ExecutionCommands {
     /// Bridge 诊断与预览命令
     #[command(subcommand)]
     Bridge(ExecutionBridgeCommands),
+
+    /// QMT 执行兼容入口
+    #[command(subcommand)]
+    Qmt(ExecutionQmtCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -159,6 +163,53 @@ pub enum ExecutionBridgeCommands {
 
     /// 查询资产
     QmtAsset,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecutionQmtCommands {
+    /// 查看 QMT bridge 能力状态
+    Status,
+
+    /// 预览待执行 request 对应的 QMT payload
+    Preview {
+        /// 请求 ID
+        #[arg(long = "request-id")]
+        request_id: String,
+    },
+
+    /// 提交真实订单 (需要确认)
+    Live {
+        /// 请求 ID (frozen execution request)
+        #[arg(long = "request-id")]
+        request_id: String,
+
+        /// 跳过确认提示 (危险!)
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// 查询订单状态
+    Query {
+        /// 订单 ID
+        #[arg(long = "order-id")]
+        order_id: String,
+    },
+
+    /// 撤销订单
+    Cancel {
+        /// 订单 ID
+        #[arg(long = "order-id")]
+        order_id: String,
+    },
+
+    /// 查询账户状态
+    Account,
+
+    /// 查询持仓
+    Positions,
+
+    /// 查询资产
+    Asset,
 }
 
 #[derive(Subcommand, Debug)]

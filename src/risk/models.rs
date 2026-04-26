@@ -277,6 +277,15 @@ pub struct RiskStatus {
     pub lock_effective_trading_date: Option<NaiveDate>,
     pub position_ratios: Vec<PositionRiskRow>,
     pub rules: Vec<RiskRuleSnapshot>,
+    pub auto_reduce_recommendation: Option<AutoReduceRecommendation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AutoReduceRecommendation {
+    pub current_loss_pct: Decimal,
+    pub reduce_ratio: Decimal,
+    pub position_codes: Vec<String>,
+    pub triggered_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
