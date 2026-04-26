@@ -23,6 +23,14 @@ fn market_prereq_script_covers_expected_environment_checks() {
         "expected precheck script to inspect ClickHouse environment"
     );
     assert!(
+        script.contains("MARKET_SNAPSHOT_PROBE_URL"),
+        "expected precheck script to define an overridable A-share snapshot probe url"
+    );
+    assert!(
+        script.contains("MARKET_SNAPSHOT_PROBE_CMD"),
+        "expected precheck script to define an overridable A-share snapshot probe command"
+    );
+    assert!(
         script.contains("market_cli_env.example.sh"),
         "expected precheck script to point operators to the reusable environment template"
     );
@@ -43,6 +51,10 @@ fn market_prereq_script_covers_expected_environment_checks() {
         "expected precheck script to validate ClickHouse prerequisites"
     );
     assert!(
+        script.contains("EastMoney A-share snapshot upstream reachable"),
+        "expected precheck script to validate the upstream A-share snapshot reachability"
+    );
+    assert!(
         script.contains("[REMEDIATION]"),
         "expected precheck script to print remediation guidance for warnings"
     );
@@ -58,6 +70,10 @@ fn market_prereq_script_covers_expected_environment_checks() {
         script.contains("Market CLI prerequisite checks passed"),
         "expected precheck script to emit a clear terminal summary"
     );
+    assert!(
+        script.contains("A股全市场快照上游当前不可达"),
+        "expected precheck script to explain the runtime impact when the upstream snapshot source is blocked"
+    );
 }
 
 #[test]
@@ -69,6 +85,7 @@ fn market_prereq_script_runs_with_fake_quantix_and_expected_warnings() {
     let fake_env = tempdir.path().join("fake.env");
     let fake_env_template = tempdir.path().join("market_cli_env.example.sh");
     let missing_industry_db = tempdir.path().join("missing-industry.db");
+    let fake_snapshot_probe = tempdir.path().join("fake-snapshot-probe.sh");
 
     fs::create_dir_all(&log_dir).expect("should create log dir");
     fs::write(
@@ -89,16 +106,21 @@ esac
     .expect("should write fake quantix");
     fs::write(&fake_env, "").expect("should write fake env");
     fs::write(&fake_env_template, "# fake env template\n").expect("should write fake env template");
+    fs::write(
+        &fake_snapshot_probe,
+        "#!/usr/bin/env bash\nset -euo pipefail\necho 'curl: (52) Empty reply from server'\nexit 52\n",
+    )
+    .expect("should write fake snapshot probe");
 
-    let mut perms = fs::metadata(&fake_quantix)
-        .expect("metadata")
-        .permissions();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        perms.set_mode(0o755);
+    for path in [&fake_quantix, &fake_snapshot_probe] {
+        let mut perms = fs::metadata(path).expect("metadata").permissions();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            perms.set_mode(0o755);
+        }
+        fs::set_permissions(path, perms).expect("set permissions");
     }
-    fs::set_permissions(&fake_quantix, perms).expect("set permissions");
 
     let output = Command::new("bash")
         .arg("scripts/dev/check_market_cli_prereqs.sh")
@@ -110,6 +132,7 @@ esac
         .env("QUANTIX_INDUSTRY_DB_PATH", &missing_industry_db)
         .env("CLICKHOUSE_URL", "http://localhost:8123")
         .env("CLICKHOUSE_DB", "quantix")
+        .env("MARKET_SNAPSHOT_PROBE_CMD", &fake_snapshot_probe)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
         .expect("should run prerequisite script");
@@ -128,11 +151,14 @@ esac
     assert!(log.contains("[WARN] Shenwan SQLite reference DB present"));
     assert!(log.contains("[WARN] Upstream MySQL env configured for risk sync"));
     assert!(log.contains("[PASS] ClickHouse env resolved for market strength"));
+    assert!(log.contains("[WARN] EastMoney A-share snapshot upstream reachable"));
     assert!(log.contains("缺少本地行业 SQLite：先 source "));
     assert!(log.contains("quantix risk sync industry --standard shenwan"));
     assert!(log.contains("缺少上游 MySQL 环境变量：请 source "));
+    assert!(log.contains("A股全市场快照上游当前不可达"));
+    assert!(log.contains("market foundation / strength / strength-stocks"));
     assert!(log.contains("PASS : 4"));
-    assert!(log.contains("WARN : 2"));
+    assert!(log.contains("WARN : 3"));
     assert!(log.contains("FAIL : 0"));
 }
 

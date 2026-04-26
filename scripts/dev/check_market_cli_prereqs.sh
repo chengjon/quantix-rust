@@ -33,6 +33,8 @@ CLICKHOUSE_DB="${CLICKHOUSE_DB:-quantix}"
 UPSTREAM_MYSQL_URL="${QUANTIX_UPSTREAM_MYSQL_URL:-}"
 UPSTREAM_MYSQL_DB="${QUANTIX_UPSTREAM_MYSQL_DB:-}"
 UPSTREAM_MYSQL_USER="${QUANTIX_UPSTREAM_MYSQL_USER:-}"
+MARKET_SNAPSHOT_PROBE_URL="${MARKET_SNAPSHOT_PROBE_URL:-https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f2,f3,f5,f6}"
+MARKET_SNAPSHOT_PROBE_CMD="${MARKET_SNAPSHOT_PROBE_CMD:-curl -sS \"$MARKET_SNAPSHOT_PROBE_URL\" -H \"Referer: https://data.eastmoney.com/\" -H \"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\" >/dev/null}"
 
 record_result() {
   local outcome="$1"
@@ -89,6 +91,9 @@ check_warn_if_missing() {
       "ClickHouse env resolved for market strength")
         record_warning_detail "缺少 ClickHouse 配置：请 source $ENV_TEMPLATE_PATH，并填写 CLICKHOUSE_URL / CLICKHOUSE_DB"
         ;;
+      "EastMoney A-share snapshot upstream reachable")
+        record_warning_detail "A股全市场快照上游当前不可达：market foundation / strength / strength-stocks 将因实时列表拉取失败而无法通过；请检查出口网络、目标站点可达性，或切换到可用的 A 股快照来源"
+        ;;
     esac
   else
     echo "[FAIL] $name"
@@ -115,9 +120,15 @@ check_warn_if_missing \
   "test -n \"$CLICKHOUSE_URL\" && test -n \"$CLICKHOUSE_DB\"" \
   "^$"
 
+check_warn_if_missing \
+  "EastMoney A-share snapshot upstream reachable" \
+  "$MARKET_SNAPSHOT_PROBE_CMD" \
+  "curl: \\(52\\)|Empty reply from server|Connection refused|Could not resolve host|timed out|SSL connect error"
+
 echo "\n[INFO] Expected runtime endpoints"
 echo "  ClickHouse URL : $CLICKHOUSE_URL"
 echo "  ClickHouse DB  : $CLICKHOUSE_DB"
+echo "  Snapshot probe : $MARKET_SNAPSHOT_PROBE_URL"
 echo "  Industry SQLite: $INDUSTRY_DB_PATH"
 echo "  Env template   : $ENV_TEMPLATE_PATH"
 echo "  Local env file : $LOCAL_ENV_PATH"
