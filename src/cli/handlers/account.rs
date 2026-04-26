@@ -517,7 +517,7 @@ async fn run_account_summary() -> Result<()> {
         .filter(|a| a.account_type == AccountType::MockLive)
         .count();
     println!("  模拟账户资金: {:.2} ({})", paper_capital, paper_count);
-    println!("  实盘账户资金: {:.2} ({})", live_capital, live_count);
+    println!("  qmt_live 账户资金: {:.2} ({})", live_capital, live_count);
     println!("  模拟实盘资金: {:.2} ({})", mock_live_capital, mock_count);
 
     // 显示账户组信息

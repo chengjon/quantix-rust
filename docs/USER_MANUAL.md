@@ -474,7 +474,7 @@ quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]
 | 模式 | 说明 |
 |------|------|
 | `backtest` | 回测模式 |
-| `live` | 实盘模式 (开发中) |
+| `live` | 通用 live 语义未实现；如需真实提交请改走 `qmt_live` request + `execution bridge qmt-live` |
 | `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |
 | `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |
 
@@ -494,8 +494,9 @@ quantix strategy run -n ma_cross --mode paper -c 000001
 # 使用 mock_live 模式单次执行
 quantix strategy run -n ma_cross --mode mock_live -c 000001
 
-# 使用实盘模式
-quantix strategy run -n ma_cross --mode live
+# `live` 当前会被拒绝；如需真实 QMT 提交请改走 request + bridge
+quantix strategy signal approve --signal-id <ID> --target-mode qmt_live --target-account <ACCOUNT>
+quantix execution bridge qmt-live --request-id <ID> [--yes]
 ```
 
 ##### 输出

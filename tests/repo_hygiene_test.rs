@@ -546,10 +546,13 @@ fn user_manual_documents_phase29_strategy_paper_commands() {
 
     for expected in [
         "quantix strategy run -n <NAME> [--mode <MODE>] [-c|--code <CODE>]",
+        "| `live` | 通用 live 语义未实现；如需真实提交请改走 `qmt_live` request + `execution bridge qmt-live` |",
         "| `paper` | 模拟盘模式（当前支持 `ma_cross` 单次执行） |",
         "| `mock_live` | mock-live 模式（支持非终态订单生命周期模拟） |",
         "quantix strategy run -n ma_cross --mode paper -c 000001",
         "quantix strategy run -n ma_cross --mode mock_live -c 000001",
+        "quantix strategy signal approve --signal-id <ID> --target-mode qmt_live --target-account <ACCOUNT>",
+        "quantix execution bridge qmt-live --request-id <ID> [--yes]",
         "QUANTIX_STRATEGY_RUNTIME_DB_PATH",
         "~/.quantix/strategy/runtime.db",
         "首次使用前请先执行 `quantix trade init`",
@@ -558,7 +561,7 @@ fn user_manual_documents_phase29_strategy_paper_commands() {
         "不是真实 broker live execution",
         "同一个 mock-live 订单在 partial fill 路径下可能生成多笔 `TradeRecord`",
         "docs/standards/MOCK_USAGE_POLICY.md",
-        "`live` 模式仍在开发中",
+        "通用 `target_mode=live` 仍未实现",
     ] {
         assert!(
             contents.contains(expected),
