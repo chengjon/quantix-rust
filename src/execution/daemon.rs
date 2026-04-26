@@ -9,7 +9,6 @@ use crate::execution::models::{
     OrderSide,
 };
 use crate::execution::paper::PaperExecutionAdapter;
-use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
 use crate::execution::qmt_live_gate::{QMT_LIVE_BRIDGE_COMMAND, QMT_LIVE_BRIDGE_MODE_REQUIREMENT};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::risk::JsonRiskStore;
@@ -23,6 +22,40 @@ use helpers::{
     build_risk_account_snapshot, decimal_to_f64, load_initialized_trade_account,
     merge_execution_request_payload, remap_trade_request_error, sync_risk_from_trade_store,
 };
+
+fn manual_qmt_live_request_message(context: &str) -> String {
+    format!(
+        "{context} 不支持直接执行 qmt_live request；如需真实 QMT 提交，请保留 pending request，并走 {QMT_LIVE_BRIDGE_COMMAND} 路径，同时确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}"
+    )
+}
+
+async fn fail_qmt_live_request_as_manual_only(
+    store: &StrategyRuntimeStore,
+    request: &ExecutionRequestRecord,
+) -> Result<ExecutionRequestRecord> {
+    let failed_at = Utc::now();
+    let payload_json = merge_execution_request_payload(
+        &request.payload_json,
+        "execution_error",
+        serde_json::json!({
+            "failed_at": failed_at.to_rfc3339(),
+            "message": manual_qmt_live_request_message("execution daemon"),
+            "adapter": "qmt_live",
+        }),
+    );
+    store
+        .update_execution_request_status(
+            &request.request_id,
+            ExecutionRequestStatus::Failed,
+            payload_json,
+            failed_at,
+        )
+        .await?;
+    store
+        .get_execution_request(&request.request_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("request 不存在: {}", request.request_id)))
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExecutionDaemonIterationSummary {
@@ -154,6 +187,16 @@ where
         });
     };
 
+    if request.target_mode == "qmt_live" {
+        let saved_request = fail_qmt_live_request_as_manual_only(store, &request).await?;
+        return Ok(ExecutionDaemonIterationSummary {
+            claimed: 1,
+            completed: 0,
+            failed: 1,
+            request: Some(saved_request),
+        });
+    }
+
     match execute_request_by_id_with_components(store, &request.request_id, trade_store, risk_store)
         .await
     {
@@ -200,6 +243,11 @@ where
             "request 不是 pending: {request_id}"
         )));
     }
+    if request.target_mode == "qmt_live" {
+        return Err(QuantixError::Unsupported(manual_qmt_live_request_message(
+            "strategy request execute / execution daemon 共享 request 消费链路",
+        )));
+    }
 
     let now = Utc::now();
     let start_payload = merge_execution_request_payload(
@@ -238,15 +286,9 @@ where
             let kernel = ExecutionKernel::with_fill_delta(store.clone(), adapter, fill_delta, risk);
             kernel.execute_request(prepared).await
         }
-        "qmt_live" => {
-            // QMT Live trading via Windows bridge
-            // Requires BRIDGE_QMT_MODE=live in bridge configuration
-            let bridge_client = crate::cli::handlers::create_bridge_client()
-                .map_err(|e| QuantixError::Other(format!("Bridge client error: {}", e)))?;
-            let adapter = QmtLiveExecutionAdapter::new(bridge_client);
-            let kernel = ExecutionKernel::new(store.clone(), adapter, risk);
-            kernel.execute_request(prepared).await
-        }
+        "qmt_live" => Err(QuantixError::Unsupported(manual_qmt_live_request_message(
+            "execution daemon",
+        ))),
         "live" => Err(QuantixError::Unsupported(format!(
             "execution daemon live 模式尚未实现；如需真实 QMT 提交，请将 request target_mode 设为 qmt_live，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}，然后走 {QMT_LIVE_BRIDGE_COMMAND} 路径"
         ))),

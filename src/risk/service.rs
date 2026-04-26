@@ -321,6 +321,10 @@ where
         Ok(status)
     }
 
+    pub async fn snapshot_state(&self) -> Result<RiskState> {
+        self.load_state().await
+    }
+
     pub async fn release_buy_lock(&self, now: DateTime<Utc>) -> Result<BuyLockState> {
         let mut state = self.load_state().await?;
         let trading_date = now.date_naive();

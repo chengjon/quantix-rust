@@ -383,8 +383,8 @@ where
                 .ok_or_else(|| {
                     QuantixError::Other(format!("live_import mirror 不存在: {account}"))
                 })?;
-            let rules = service.list_rules().await?;
-            Ok(build_risk_status_from_live_import(&mirror, &rules)?)
+            let state = service.snapshot_state().await?;
+            Ok(build_risk_status_from_live_import(&mirror, &state)?)
         }
     }
 }
@@ -405,7 +405,7 @@ async fn load_paper_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
 
 fn build_risk_status_from_live_import(
     mirror: &crate::risk::LiveImportMirrorAccount,
-    rules: &[RiskRule],
+    state: &RiskState,
 ) -> Result<RiskStatus> {
     let positions: Vec<(String, rust_decimal::Decimal)> = mirror
         .positions
@@ -424,18 +424,62 @@ fn build_risk_status_from_live_import(
         daily_pnl / mirror.starting_total_assets * rust_decimal::Decimal::from(100)
     };
 
-    let daily_loss_limit = rules
+    let daily_loss_limit = state
+        .rules
         .iter()
         .find(|rule| rule.enabled && rule.rule_type == RiskRuleType::DailyLossLimit);
-    let buy_locked = match daily_loss_limit {
+    let mirror_daily_loss_triggered = match daily_loss_limit {
         Some(rule) => evaluate_daily_loss_rule_triggered(rule, daily_pnl, daily_pnl_pct)?,
         None => false,
     };
-    let lock_reason = if buy_locked {
+    let derived_lock_reason = if mirror_daily_loss_triggered {
         daily_loss_limit.map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
     } else {
         None
     };
+    let manual_release_active =
+        !state.buy_lock.locked && state.buy_lock.released_for_date == Some(mirror.trading_date);
+    let (buy_locked, lock_state_source, lock_reason, lock_trigger_reason, lock_triggered_at, lock_effective_trading_date) =
+        if manual_release_active {
+            (
+                false,
+                RiskLockStateSource::ManualReleaseActive,
+                state.buy_lock.reason.clone(),
+                state.buy_lock.reason.clone(),
+                state.buy_lock.triggered_at,
+                state
+                    .buy_lock
+                    .released_for_date
+                    .or(state.buy_lock.trading_date),
+            )
+        } else if state.buy_lock.locked && state.buy_lock.trading_date == Some(mirror.trading_date) {
+            (
+                true,
+                RiskLockStateSource::DailyLossLocked,
+                state.buy_lock.reason.clone(),
+                state.buy_lock.reason.clone(),
+                state.buy_lock.triggered_at,
+                state.buy_lock.trading_date,
+            )
+        } else if mirror_daily_loss_triggered {
+            (
+                true,
+                RiskLockStateSource::DailyLossLocked,
+                derived_lock_reason.clone(),
+                derived_lock_reason.clone(),
+                Some(mirror.last_rebuild_at),
+                Some(mirror.trading_date),
+            )
+        } else {
+            (
+                false,
+                RiskLockStateSource::Open,
+                None,
+                None,
+                None,
+                None,
+            )
+        };
     let snapshot = RiskAccountSnapshot::new(
         mirror.account_id.clone(),
         mirror.current_total_assets,
@@ -448,7 +492,8 @@ fn build_risk_status_from_live_import(
                 trading_date: mirror.trading_date,
                 starting_total_assets: mirror.starting_total_assets,
             }),
-            rules: rules.to_vec(),
+            rules: state.rules.clone(),
+            buy_lock: state.buy_lock.clone(),
             ..RiskState::default()
         },
         &snapshot,
@@ -479,26 +524,15 @@ fn build_risk_status_from_live_import(
         daily_pnl,
         daily_pnl_pct,
         buy_locked,
-        manual_release_active: false,
-        lock_state_source: if buy_locked {
-            RiskLockStateSource::DailyLossLocked
-        } else {
-            RiskLockStateSource::Open
-        },
-        lock_reason: lock_reason.clone(),
-        lock_trigger_reason: lock_reason,
-        lock_triggered_at: if buy_locked {
-            Some(mirror.last_rebuild_at)
-        } else {
-            None
-        },
-        lock_effective_trading_date: if buy_locked {
-            Some(mirror.trading_date)
-        } else {
-            None
-        },
+        manual_release_active,
+        lock_state_source,
+        lock_reason,
+        lock_trigger_reason,
+        lock_triggered_at,
+        lock_effective_trading_date,
         position_ratios: build_position_rows(mirror.current_total_assets, &positions),
-        rules: rules
+        rules: state
+            .rules
             .iter()
             .map(|rule| crate::risk::RiskRuleSnapshot {
                 rule_type: rule.rule_type,
@@ -742,5 +776,66 @@ mod tests {
         assert!(lines.contains("[自动减仓建议]"));
         assert!(lines.contains("不会自动卖出"));
         assert!(lines.contains("000001"));
+    }
+
+    #[test]
+    fn build_risk_status_from_live_import_preserves_manual_release_state() {
+        let trading_date = chrono::NaiveDate::from_ymd_opt(2026, 3, 25).unwrap();
+        let lock_reason = "daily-loss-limit 5% 已触发".to_string();
+        let state = RiskState {
+            account_id: "live-001".to_string(),
+            daily_baseline: Some(DailyRiskBaseline {
+                trading_date,
+                starting_total_assets: dec!(1000000),
+            }),
+            rules: vec![RiskRule {
+                rule_type: RiskRuleType::DailyLossLimit,
+                value: RuleValue::Percentage(dec!(5)),
+                enabled: true,
+                created_at: fixed_ts(),
+                updated_at: fixed_ts(),
+            }],
+            buy_lock: BuyLockState {
+                locked: false,
+                reason: Some(lock_reason.clone()),
+                triggered_at: Some(fixed_ts()),
+                trading_date: Some(trading_date),
+                released_for_date: Some(trading_date),
+            },
+            ..RiskState::default()
+        };
+        let mirror = crate::risk::LiveImportMirrorAccount {
+            account_id: "live-001".to_string(),
+            trading_date,
+            as_of: fixed_ts(),
+            starting_total_assets: dec!(1000000),
+            current_total_assets: dec!(950000),
+            cash_balance: dec!(400000),
+            realized_pnl: dec!(-50000),
+            total_fees: dec!(120),
+            last_rebuild_at: fixed_ts(),
+            positions: vec![crate::risk::LiveImportMirrorPosition {
+                code: "000001".to_string(),
+                volume: 1000,
+                avg_cost: dec!(10),
+                last_trade_at: fixed_ts(),
+            }],
+        };
+
+        let status = build_risk_status_from_live_import(&mirror, &state).unwrap();
+
+        assert!(!status.buy_locked);
+        assert!(status.manual_release_active);
+        assert_eq!(
+            status.lock_state_source,
+            RiskLockStateSource::ManualReleaseActive
+        );
+        assert_eq!(status.lock_reason.as_deref(), Some(lock_reason.as_str()));
+        assert_eq!(
+            status.lock_trigger_reason.as_deref(),
+            Some(lock_reason.as_str())
+        );
+        assert_eq!(status.lock_triggered_at, Some(fixed_ts()));
+        assert_eq!(status.lock_effective_trading_date, Some(trading_date));
     }
 }
