@@ -23,7 +23,7 @@ impl std::fmt::Display for AccountType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AccountType::Paper => write!(f, "paper"),
-            AccountType::Live => write!(f, "live"),
+            AccountType::Live => write!(f, "qmt_live"),
             AccountType::MockLive => write!(f, "mock_live"),
         }
     }
@@ -35,7 +35,7 @@ impl std::str::FromStr for AccountType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "paper" => Ok(AccountType::Paper),
-            "live" => Ok(AccountType::Live),
+            "qmt_live" | "live" => Ok(AccountType::Live),
             "mock_live" | "mocklive" => Ok(AccountType::MockLive),
             _ => Err(format!("Unknown account type: {}", s)),
         }
@@ -290,8 +290,19 @@ mod tests {
     fn test_account_type_from_str() {
         assert_eq!(AccountType::from_str("paper").unwrap(), AccountType::Paper);
         assert_eq!(AccountType::from_str("LIVE").unwrap(), AccountType::Live);
-        assert_eq!(AccountType::from_str("mock_live").unwrap(), AccountType::MockLive);
+        assert_eq!(AccountType::from_str("qmt_live").unwrap(), AccountType::Live);
+        assert_eq!(
+            AccountType::from_str("mock_live").unwrap(),
+            AccountType::MockLive
+        );
         assert!(AccountType::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_account_type_display_prefers_qmt_live_for_live_accounts() {
+        assert_eq!(AccountType::Paper.to_string(), "paper");
+        assert_eq!(AccountType::Live.to_string(), "qmt_live");
+        assert_eq!(AccountType::MockLive.to_string(), "mock_live");
     }
 
     #[test]

@@ -76,18 +76,7 @@ async fn run_account_register(
     let store = JsonAccountRegistryStore::default_store();
     let registry = load_or_create_registry(&store).await?;
 
-    // 解析账户类型
-    let acc_type = match account_type.to_lowercase().as_str() {
-        "paper" => AccountType::Paper,
-        "live" => AccountType::Live,
-        "mock_live" => AccountType::MockLive,
-        _ => {
-            return Err(QuantixError::Other(format!(
-                "无效的账户类型: {}，支持: paper, live, mock_live",
-                account_type
-            )));
-        }
-    };
+    let acc_type = parse_account_type_input(&account_type)?;
 
     let mut config = AccountConfig::new(id.clone(), acc_type, parse_positive_capital(capital)?);
     config.adapter_name = adapter;
@@ -112,17 +101,7 @@ async fn run_account_list(account_type: Option<String>, enabled_only: bool) -> R
 
     // 按类型过滤
     let filtered: Vec<_> = if let Some(ref type_filter) = account_type {
-        let filter_type = match type_filter.to_lowercase().as_str() {
-            "paper" => AccountType::Paper,
-            "live" => AccountType::Live,
-            "mock_live" => AccountType::MockLive,
-            _ => {
-                return Err(QuantixError::Other(format!(
-                    "无效的账户类型: {}",
-                    type_filter
-                )));
-            }
-        };
+        let filter_type = parse_account_type_input(type_filter)?;
         accounts
             .into_iter()
             .filter(|a| a.account_type == filter_type)
@@ -248,6 +227,18 @@ fn parse_positive_capital(capital: f64) -> Result<Decimal> {
     }
 
     Ok(decimal)
+}
+
+fn parse_account_type_input(input: &str) -> Result<AccountType> {
+    match input.to_lowercase().as_str() {
+        "paper" => Ok(AccountType::Paper),
+        "mock_live" => Ok(AccountType::MockLive),
+        "qmt_live" | "live" => Ok(AccountType::Live),
+        _ => Err(QuantixError::Other(format!(
+            "无效的账户类型: {}，支持: paper, mock_live, qmt_live（兼容 live 别名）",
+            input
+        ))),
+    }
 }
 
 /// 删除账户
@@ -631,6 +622,33 @@ async fn run_account_split(
 /// 加载或创建注册表
 async fn load_or_create_registry(store: &JsonAccountRegistryStore) -> Result<AccountRegistry> {
     load_registry(store).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_account_type_input;
+    use crate::account::AccountType;
+
+    #[test]
+    fn parse_account_type_prefers_qmt_live_wording_but_keeps_live_alias() {
+        assert_eq!(parse_account_type_input("paper").unwrap(), AccountType::Paper);
+        assert_eq!(
+            parse_account_type_input("mock_live").unwrap(),
+            AccountType::MockLive
+        );
+        assert_eq!(
+            parse_account_type_input("qmt_live").unwrap(),
+            AccountType::Live
+        );
+        assert_eq!(parse_account_type_input("live").unwrap(), AccountType::Live);
+    }
+
+    #[test]
+    fn parse_account_type_error_mentions_qmt_live_boundary() {
+        let err = parse_account_type_input("invalid").unwrap_err().to_string();
+        assert!(err.contains("paper, mock_live, qmt_live"));
+        assert!(err.contains("live"));
+    }
 }
 
 /// 解析分配策略

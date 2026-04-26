@@ -8,7 +8,7 @@ pub enum AccountCommands {
         #[arg(long)]
         id: String,
 
-        /// 账户类型: paper | live | mock_live
+        /// 账户类型: paper | mock_live | qmt_live（兼容 live 别名）
         #[arg(long, default_value = "paper")]
         account_type: String,
 
