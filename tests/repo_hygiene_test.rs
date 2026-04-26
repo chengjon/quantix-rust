@@ -713,6 +713,8 @@ fn generated_cli_manual_keeps_qmt_and_mock_boundary() {
         "账户类型: paper | mock_live | qmt_live（兼容 live 别名）",
         "目标执行模式: paper | mock_live | qmt_live（live 将被拒绝并提示改走 qmt_live）",
         "目标模式过滤: paper | mock_live | qmt_live | live（legacy rejected mode）",
+        "bridge qmt.mode=live",
+        "`qmt.supports` 包含 `order_submit`",
     ] {
         assert!(
             cli_manual.contains(expected),

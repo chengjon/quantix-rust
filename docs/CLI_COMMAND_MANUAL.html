@@ -4199,7 +4199,7 @@ request ID:
 <h4>功能说明</h4>
 <p>把冻结后的 request 真正提交到 QMT 实盘通道。该命令有真实交易风险，只应在测试账户、桥接能力和支持列表确认无误后执行。</p>
 </div></div>
-<div class='chips'><span class='chip risk'>高风险实盘</span><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div><div class='testbox'><h4>测试记录</h4><p><b>预期结果</b>：仅在测试账户和 live 能力完整时执行；默认应出现二次确认或明确风险提示。</p><p><b>常见失败原因</b>：bridge 不支持下单、live 模式未开启、请求状态不允许提交。</p><pre>命令:
+<div class='chips'><span class='chip risk'>高风险实盘</span><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div><div class='testbox'><h4>测试记录</h4><p><b>预期结果</b>：仅在测试账户、`bridge qmt.mode=live` 且 `qmt.supports` 包含 `order_submit` 时执行；默认应出现二次确认或明确风险提示。</p><p><b>常见失败原因</b>：bridge 不支持下单、`bridge qmt.mode` 未切到 `live`、请求状态不允许提交。</p><pre>命令:
 request ID:
 是否真实下单:
 返回码:
