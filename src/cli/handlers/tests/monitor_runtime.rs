@@ -126,25 +126,8 @@ async fn test_execute_monitor_daemon_run_uses_runner_in_daemon_mode() {
 
 #[tokio::test]
 async fn test_monitor_iteration_dispatches_notifications_when_enabled() {
-    let _env_lock = env_lock();
-    let _env_guard = NotificationEnvGuard::capture();
     let dir = tempdir().unwrap();
     let log_path = dir.path().join("notifications.log");
-
-    unsafe {
-        std::env::set_var("QUANTIX_MONITOR_NOTIFY", "1");
-        std::env::set_var("NOTIFICATION_LOG_PATH", &log_path);
-        std::env::set_var("NOTIFICATION_MIN_LEVEL", "warning");
-        std::env::remove_var("WEBHOOK_URL");
-        std::env::remove_var("WECHAT_WORK_WEBHOOK_URL");
-        std::env::remove_var("FEISHU_WEBHOOK_URL");
-        std::env::remove_var("TELEGRAM_BOT_TOKEN");
-        std::env::remove_var("TELEGRAM_CHAT_ID");
-        std::env::remove_var("DISCORD_WEBHOOK_URL");
-        std::env::remove_var("SLACK_WEBHOOK_URL");
-        std::env::remove_var("DINGTALK_WEBHOOK_URL");
-        std::env::remove_var("PUSHPLUS_TOKEN");
-    }
 
     let store = SqliteMonitorAlertStore::new(dir.path().join("alerts.db"))
         .await
@@ -183,16 +166,69 @@ async fn test_monitor_iteration_dispatches_notifications_when_enabled() {
         MonitorCommandOutput::AutomationIteration { output, .. } => output,
         other => panic!("unexpected output: {:?}", other),
     };
-    super::super::monitor_handler::dispatch_monitor_notifications_for_output(
-        &crate::monitor::MonitorConfig {
-            notify_enabled: true,
-            ..crate::monitor::MonitorConfig::default()
-        },
+    let mut service =
+        crate::monitoring::NotificationService::new(crate::monitoring::NotificationConfig {
+            enabled_channels: vec![crate::monitoring::NotificationChannel::Log],
+            webhook_url: None,
+            log_path: Some(log_path.display().to_string()),
+            min_level: crate::monitoring::AlertLevel::Warning,
+            quiet_hours: None,
+            templates: std::collections::HashMap::new(),
+            wechat_work_webhook: None,
+            feishu_webhook: None,
+        });
+    super::super::monitor_handler::send_monitor_notifications_with_service(
         &iteration,
+        &mut service,
     )
-    .await;
+    .await
+    .unwrap();
 
     let contents = std::fs::read_to_string(&log_path).unwrap();
     assert!(contents.contains("Monitor price alert 000001"));
     assert!(contents.contains("000001 crossed Above 15.00"));
+}
+
+#[derive(Default)]
+struct FailingMonitorNotificationService {
+    attempts: usize,
+}
+
+#[async_trait]
+impl super::super::monitor_handler::MonitorNotificationSender for FailingMonitorNotificationService {
+    async fn notify(&mut self, _notification: crate::monitoring::Notification) -> Result<()> {
+        self.attempts += 1;
+        Err(QuantixError::Other("notify boom".to_string()))
+    }
+}
+
+#[tokio::test]
+async fn test_send_monitor_notifications_propagates_notify_errors() {
+    let mut service = FailingMonitorNotificationService::default();
+    let output = crate::monitor::MonitorIterationOutput {
+        snapshot: crate::monitor::MonitorWatchlistSnapshot::default(),
+        triggered_stops: Vec::new(),
+        new_events: vec![crate::monitor::MonitorEventRow {
+            id: 1,
+            event_time: monitor_sample_time(),
+            event_type: MonitorEventType::PriceAlert,
+            code: "000001".to_string(),
+            price: Some(16.8),
+            message: "000001 crossed Above 15.00".to_string(),
+            source_type: "price_alert".to_string(),
+            source_key: "price_alert:000001".to_string(),
+            observed_at: Some(monitor_sample_time()),
+            run_mode: MonitorRunMode::Daemon,
+        }],
+    };
+
+    let err = super::super::monitor_handler::send_monitor_notifications_with_service(
+        &output,
+        &mut service,
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(service.attempts, 1);
+    assert!(err.to_string().contains("notify boom"));
 }
