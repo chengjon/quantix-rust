@@ -403,6 +403,7 @@ fn readme_documents_phase29_strategy_paper_boundary() {
         "同一个 mock-live 订单在 partial fill 场景下可能写出多笔 `TradeRecord`",
         "docs/standards/MOCK_USAGE_POLICY.md",
         "live 模式仍在开发中",
+        "通用 `target_mode=live` 仍在开发中",
     ] {
         assert!(
             contents.contains(expected),
@@ -465,6 +466,7 @@ fn readme_documents_phase29c_execution_automation_boundary() {
         "`strategy request execute` 与 `execution daemon` 复用同一条 request 消费路径",
         "reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义",
         "`live` adapter 仍未实现",
+        "当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径",
     ] {
         assert!(
             contents.contains(expected),
@@ -787,6 +789,7 @@ fn user_manual_documents_phase29c_execution_automation_commands() {
         "`quantix execution daemon run --once` 会在紧凑输出里带上 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）",
         "reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义",
         "`live` adapter 仍未实现",
+        "当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径",
     ] {
         assert!(
             contents.contains(expected),
