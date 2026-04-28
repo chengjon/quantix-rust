@@ -379,3 +379,42 @@ async fn daemon_run_once_returns_unsupported_for_live_request_before_sqlite_setu
             .contains("live 模式尚未实现")
     );
 }
+
+#[tokio::test]
+async fn daemon_run_once_rejects_qmt_live_request_with_manual_bridge_guidance() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let risk_store = JsonRiskStore::new(invalid_runtime_risk_state_path(&dir));
+
+    let run = sample_run(fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-daemon-qmt-live-1", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+    let request = runtime_store
+        .approve_signal_and_create_request("signal-daemon-qmt-live-1", "qmt_live", "default", Some("cli"))
+        .await
+        .unwrap();
+
+    let summary =
+        consume_next_pending_request_with_components(&runtime_store, trade_store, risk_store)
+            .await
+            .unwrap();
+    assert_eq!(summary.claimed, 1);
+    assert_eq!(summary.completed, 0);
+    assert_eq!(summary.failed, 1);
+
+    let saved = runtime_store
+        .get_execution_request(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    let message = saved.payload_json["execution_error"]["message"]
+        .as_str()
+        .unwrap();
+    assert!(message.contains("qmt_live"));
+    assert!(message.contains("execution bridge qmt-live"));
+}

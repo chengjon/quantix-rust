@@ -9,7 +9,6 @@ use crate::execution::models::{
     OrderSide,
 };
 use crate::execution::paper::PaperExecutionAdapter;
-use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
 use crate::execution::qmt_live_gate::{QMT_LIVE_BRIDGE_COMMAND, QMT_LIVE_BRIDGE_MODE_REQUIREMENT};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::risk::JsonRiskStore;
@@ -238,15 +237,10 @@ where
             let kernel = ExecutionKernel::with_fill_delta(store.clone(), adapter, fill_delta, risk);
             kernel.execute_request(prepared).await
         }
-        "qmt_live" => {
-            // QMT Live trading via Windows bridge
-            // Requires BRIDGE_QMT_MODE=live in bridge configuration
-            let bridge_client = crate::cli::handlers::create_bridge_client()
-                .map_err(|e| QuantixError::Other(format!("Bridge client error: {}", e)))?;
-            let adapter = QmtLiveExecutionAdapter::new(bridge_client);
-            let kernel = ExecutionKernel::new(store.clone(), adapter, risk);
-            kernel.execute_request(prepared).await
-        }
+        "qmt_live" => Err(QuantixError::Other(format!(
+            "qmt_live request 不能通过自动执行路径提交，请使用 {QMT_LIVE_BRIDGE_COMMAND} --request-id {}，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}",
+            request.request_id
+        ))),
         "live" => Err(QuantixError::Unsupported(format!(
             "execution daemon live 模式尚未实现；如需真实 QMT 提交，请将 request target_mode 设为 qmt_live，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}，然后走 {QMT_LIVE_BRIDGE_COMMAND} 路径"
         ))),

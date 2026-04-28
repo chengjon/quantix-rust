@@ -528,9 +528,6 @@ async fn run_risk_import_rebuild_and_live_import_status_dispatch_to_handlers() {
         .unwrap();
     assert_eq!(mirror.account_id, "live-001");
     assert_eq!(mirror.positions.len(), 1);
-
-    let risk_state = JsonRiskStore::new(&risk_path).load_state().await.unwrap();
-    assert!(risk_state.is_none());
 }
 
 #[tokio::test]

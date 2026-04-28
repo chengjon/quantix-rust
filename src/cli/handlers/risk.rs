@@ -1,10 +1,6 @@
 use super::*;
 use crate::cli::{RiskImportCommands, RiskRebuildCommands, RiskSyncCommands};
-use crate::risk::service::check_auto_reduce_trigger;
-use crate::risk::{
-    DailyRiskBaseline, IndustrySyncSummary, MySqlIndustrySyncSource, RiskRuleType, RiskState,
-    RuleValue, sync_industry_reference_data_at,
-};
+use crate::risk::{IndustrySyncSummary, MySqlIndustrySyncSource, sync_industry_reference_data_at};
 use std::path::Path;
 
 mod output;
@@ -383,8 +379,8 @@ where
                 .ok_or_else(|| {
                     QuantixError::Other(format!("live_import mirror 不存在: {account}"))
                 })?;
-            let rules = service.list_rules().await?;
-            Ok(build_risk_status_from_live_import(&mirror, &rules)?)
+            let snapshot = build_risk_account_snapshot_from_live_import(&mirror);
+            service.status(&snapshot, now).await
         }
     }
 }
@@ -403,10 +399,9 @@ async fn load_paper_risk_account_snapshot() -> Result<RiskAccountSnapshot> {
     Ok(build_risk_account_snapshot(&account))
 }
 
-fn build_risk_status_from_live_import(
+fn build_risk_account_snapshot_from_live_import(
     mirror: &crate::risk::LiveImportMirrorAccount,
-    rules: &[RiskRule],
-) -> Result<RiskStatus> {
+) -> RiskAccountSnapshot {
     let positions: Vec<(String, rust_decimal::Decimal)> = mirror
         .positions
         .iter()
@@ -417,111 +412,11 @@ fn build_risk_status_from_live_import(
             )
         })
         .collect();
-    let daily_pnl = mirror.current_total_assets - mirror.starting_total_assets;
-    let daily_pnl_pct = if mirror.starting_total_assets.is_zero() {
-        rust_decimal::Decimal::ZERO
-    } else {
-        daily_pnl / mirror.starting_total_assets * rust_decimal::Decimal::from(100)
-    };
-
-    let daily_loss_limit = rules
-        .iter()
-        .find(|rule| rule.enabled && rule.rule_type == RiskRuleType::DailyLossLimit);
-    let buy_locked = match daily_loss_limit {
-        Some(rule) => evaluate_daily_loss_rule_triggered(rule, daily_pnl, daily_pnl_pct)?,
-        None => false,
-    };
-    let lock_reason = if buy_locked {
-        daily_loss_limit.map(|rule| format!("daily-loss-limit {} 已触发", rule.value.display()))
-    } else {
-        None
-    };
-    let snapshot = RiskAccountSnapshot::new(
+    RiskAccountSnapshot::new(
         mirror.account_id.clone(),
         mirror.current_total_assets,
-        positions.clone(),
-    );
-    let auto_reduce_recommendation = check_auto_reduce_trigger(
-        &RiskState {
-            account_id: mirror.account_id.clone(),
-            daily_baseline: Some(DailyRiskBaseline {
-                trading_date: mirror.trading_date,
-                starting_total_assets: mirror.starting_total_assets,
-            }),
-            rules: rules.to_vec(),
-            ..RiskState::default()
-        },
-        &snapshot,
-        mirror.last_rebuild_at,
+        positions,
     )
-    .map(|decision| {
-        let mut position_codes = decision
-            .positions_to_reduce
-            .iter()
-            .map(|position| position.code.clone())
-            .collect::<Vec<_>>();
-        position_codes.sort();
-        position_codes.dedup();
-
-        crate::risk::AutoReduceRecommendation {
-            current_loss_pct: decision.current_loss_pct,
-            reduce_ratio: decision.reduce_ratio,
-            position_codes,
-            triggered_at: decision.triggered_at,
-        }
-    });
-
-    Ok(RiskStatus {
-        account_id: mirror.account_id.clone(),
-        trading_date: mirror.trading_date,
-        starting_total_assets: mirror.starting_total_assets,
-        current_total_assets: mirror.current_total_assets,
-        daily_pnl,
-        daily_pnl_pct,
-        buy_locked,
-        manual_release_active: false,
-        lock_state_source: if buy_locked {
-            RiskLockStateSource::DailyLossLocked
-        } else {
-            RiskLockStateSource::Open
-        },
-        lock_reason: lock_reason.clone(),
-        lock_trigger_reason: lock_reason,
-        lock_triggered_at: if buy_locked {
-            Some(mirror.last_rebuild_at)
-        } else {
-            None
-        },
-        lock_effective_trading_date: if buy_locked {
-            Some(mirror.trading_date)
-        } else {
-            None
-        },
-        position_ratios: build_position_rows(mirror.current_total_assets, &positions),
-        rules: rules
-            .iter()
-            .map(|rule| crate::risk::RiskRuleSnapshot {
-                rule_type: rule.rule_type,
-                value: rule.value.clone(),
-                enabled: rule.enabled,
-            })
-            .collect(),
-        auto_reduce_recommendation,
-    })
-}
-
-fn evaluate_daily_loss_rule_triggered(
-    rule: &RiskRule,
-    daily_pnl: rust_decimal::Decimal,
-    daily_pnl_pct: rust_decimal::Decimal,
-) -> Result<bool> {
-    match &rule.value {
-        RuleValue::Amount(limit) => Ok(daily_pnl <= -*limit),
-        RuleValue::Percentage(limit_pct) => Ok(daily_pnl_pct <= -*limit_pct),
-        RuleValue::TextList(_) => Err(QuantixError::Other(
-            "risk rule daily-loss-limit 配置无效".to_string(),
-        )),
-    }
 }
 
 fn parse_risk_source(raw: Option<&str>) -> Result<crate::risk::RiskAccountSource> {
@@ -600,7 +495,9 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::risk::{
-        ClassificationStandard, IndustryClassificationLevel, IndustrySyncSource, JsonRiskStore,
+        BuyLockState, ClassificationStandard, DailyRiskBaseline, IndustryClassificationLevel,
+        IndustrySyncSource, JsonRiskStore, RiskAccountSnapshot, RiskLockStateSource,
+        RiskRuleType, RiskState, RiskStore, RuleValue,
         ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow, SqliteIndustryStore,
     };
 
@@ -742,5 +639,65 @@ mod tests {
         assert!(lines.contains("[自动减仓建议]"));
         assert!(lines.contains("不会自动卖出"));
         assert!(lines.contains("000001"));
+    }
+
+    #[tokio::test]
+    async fn load_risk_status_for_live_import_preserves_manual_release_state() {
+        let dir = tempdir().unwrap();
+        let risk_state_path = dir.path().join("risk_state.json");
+        let trading_date = fixed_ts().date_naive();
+        let triggered_at = Utc.with_ymd_and_hms(2026, 3, 25, 9, 30, 0).unwrap();
+        let mut state = RiskState {
+            account_id: "live-001".to_string(),
+            daily_baseline: Some(DailyRiskBaseline {
+                trading_date,
+                starting_total_assets: dec!(100000),
+            }),
+            buy_lock: BuyLockState {
+                locked: false,
+                reason: Some("daily-loss-limit 5% 已触发".to_string()),
+                triggered_at: Some(triggered_at),
+                trading_date: Some(trading_date),
+                released_for_date: Some(trading_date),
+            },
+            ..RiskState::default()
+        };
+        JsonRiskStore::new(&risk_state_path)
+            .save_state(&state)
+            .await
+            .unwrap();
+
+        let service = RiskService::new(JsonRiskStore::new(&risk_state_path));
+        let snapshot = RiskAccountSnapshot::new(
+            "live-001".to_string(),
+            dec!(100000),
+            vec![("000001".to_string(), dec!(1520))],
+        );
+        let status = service.status(&snapshot, fixed_ts()).await.unwrap();
+
+        assert_eq!(status.account_id, "live-001");
+        assert!(!status.buy_locked);
+        assert!(status.manual_release_active);
+        assert_eq!(
+            status.lock_state_source,
+            RiskLockStateSource::ManualReleaseActive
+        );
+        assert_eq!(
+            status.lock_trigger_reason.as_deref(),
+            Some("daily-loss-limit 5% 已触发")
+        );
+        assert_eq!(status.lock_triggered_at, Some(triggered_at));
+        assert_eq!(status.lock_effective_trading_date, Some(trading_date));
+
+        state = JsonRiskStore::new(&risk_state_path)
+            .load_state()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(state.buy_lock.released_for_date, Some(trading_date));
+        assert_eq!(
+            state.buy_lock.reason.as_deref(),
+            Some("daily-loss-limit 5% 已触发")
+        );
     }
 }

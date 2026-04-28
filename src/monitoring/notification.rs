@@ -526,15 +526,21 @@ impl NotificationSender for LogSender {
         // 如果配置了日志文件，追加写入
         if let Some(path) = &self.log_path {
             let log_entry = format!("{}\n", log_text);
-            if let Ok(mut file) = tokio::fs::OpenOptions::new()
+            let path = std::path::Path::new(path);
+            if let Some(parent) = path.parent() {
+                if !parent.as_os_str().is_empty() {
+                    tokio::fs::create_dir_all(parent).await?;
+                }
+            }
+
+            use tokio::io::AsyncWriteExt;
+            let mut file = tokio::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(path)
-                .await
-            {
-                use tokio::io::AsyncWriteExt;
-                let _ = file.write_all(log_entry.as_bytes()).await;
-            }
+                .await?;
+            file.write_all(log_entry.as_bytes()).await?;
+            file.flush().await?;
         }
 
         Ok(())
@@ -852,6 +858,7 @@ impl NotificationService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn test_notification_creation() {
@@ -892,6 +899,31 @@ mod tests {
         let sender = LogSender::new(None);
         assert!(sender.is_available());
         assert_eq!(sender.channel(), NotificationChannel::Log);
+    }
+
+    #[tokio::test]
+    async fn test_log_sender_creates_parent_dirs_and_writes_file() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("nested").join("notifications.log");
+        let sender = LogSender::new(Some(log_path.to_string_lossy().into_owned()));
+        let notification = Notification::new("测试通知", "写入文件", AlertLevel::Warning);
+
+        sender.send(&notification).await.unwrap();
+
+        let contents = std::fs::read_to_string(&log_path).unwrap();
+        assert!(contents.contains("测试通知"));
+        assert!(contents.contains("写入文件"));
+    }
+
+    #[tokio::test]
+    async fn test_log_sender_returns_error_when_log_path_is_directory() {
+        let dir = tempdir().unwrap();
+        let sender = LogSender::new(Some(dir.path().to_string_lossy().into_owned()));
+        let notification = Notification::new("测试通知", "写入目录应失败", AlertLevel::Error);
+
+        let err = sender.send(&notification).await.unwrap_err();
+
+        assert!(err.to_string().contains("Is a directory"));
     }
 
     #[test]
