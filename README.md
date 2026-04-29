@@ -455,6 +455,7 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
   - request completed 但订单仍非终态时，`strategy request list` / `execution daemon run --once` 会额外输出 `semantics=request_completed_order_non_terminal`
   - `strategy request show` 会同时展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
+  - 当 payload 内存在结构化 `execution_diagnostics` 时，`strategy request show` 会新增 `Execution Diagnostics` section，展示 `code`、`summary`、`operator_action`、`hint_command` 等字段
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
 - **WSL2 systemd --user 服务** (`src/strategy/systemd.rs`)
   - `quantix strategy service install`
@@ -491,8 +492,10 @@ A 股量化交易 CLI 工具 - Rust 实现
   - `execution daemon` 当前是单 worker、串行消费
   - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
   - request completed 但订单仍非终态时，紧凑输出会额外带上 `semantics=request_completed_order_non_terminal`
-  - `strategy request show` 会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
-  - `quantix execution daemon run --once` 会在紧凑输出里附带 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
+  - `strategy request show` 会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段；若存在结构化 `execution_diagnostics`，还会单独展示 `Execution Diagnostics` section
+  - `quantix execution daemon run --once` 与 `strategy request list` 会在紧凑输出里附带 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
+  - 非 completion 类结构化诊断会在紧凑输出里追加 `diag=<code>`，例如 `bridge_qmt_mode_not_live`
+  - `request_completed_order_terminal` / `request_completed_order_non_terminal` 不会重复显示为 `diag=<code>`；非终态完成仍沿用 `semantics=request_completed_order_non_terminal`
   - `mock_live` request 即使返回 `accepted`，request 也会记为 `completed`
   - `mock_live` 继续承担 live-ready hardening / reconciliation scaffolding；reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义
   - `live` adapter 仍未实现

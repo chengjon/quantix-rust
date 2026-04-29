@@ -615,8 +615,10 @@ quantix execution daemon run --once
 - `execution daemon` 当前是单 worker、串行消费
 - request 进入 `completed` 只表示成功进入执行层，不代表订单已终态
 - request completed 但订单仍非终态时会额外输出 `semantics=request_completed_order_non_terminal`
-- request 详情会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段
-- `quantix execution daemon run --once` 会在紧凑输出里带上 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
+- request 详情会展示 `request_status`、`order_status`、`executed_at`、`failed_at`、`canceled_at` 等诊断字段；若存在结构化 `execution_diagnostics`，还会单独展示 `Execution Diagnostics` section
+- `quantix execution daemon run --once` 与 `strategy request list` 会在紧凑输出里带上 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
+- 非 completion 类结构化诊断会在紧凑输出里追加 `diag=<code>`，例如 `bridge_qmt_mode_not_live`
+- `request_completed_order_terminal` / `request_completed_order_non_terminal` 不会重复显示为 `diag=<code>`；非终态完成仍沿用 `semantics=request_completed_order_non_terminal`
 - `mock_live` request 即使返回 `accepted` 也会被标记为 `completed`
 - `mock_live` 继续承担 live-ready hardening / reconciliation scaffolding；reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义
 - `live` adapter 仍未实现
@@ -627,7 +629,7 @@ quantix execution daemon run --once
 - `quantix execution config init/show` 会输出完整 JSON 配置
 - `quantix execution daemon run --once` 在没有待消费 request 时会输出 `execution daemon 未找到 pending request`
 - request 消费成功时会输出 `execution daemon consumed request=<ID> status=completed`；若订单仍非终态，会额外带上 `semantics=request_completed_order_non_terminal`
-- request 消费失败时会输出 `execution daemon consumed request=<ID> status=failed`
+- request 消费失败时会输出 `execution daemon consumed request=<ID> status=failed`；若存在结构化诊断，会追加 `diag=<code>`
 - 紧凑输出会继续附带 `executed_at`、`failed_at`、`canceled_at` 等诊断字段（若存在）
 
 #### Windows Bridge v1
