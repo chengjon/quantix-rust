@@ -704,7 +704,7 @@
 <h4>参数</h4>
 <table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
 <tr><td><code>-n, --name</code></td><td>NAME</td><td>策略名称</td></tr>
-<tr><td><code>--mode</code></td><td>MODE</td><td>运行模式 [default: backtest]</td></tr>
+<tr><td><code>--mode</code></td><td>MODE</td><td>运行模式: backtest | paper | mock_live | live（live 会被拒绝并提示改走 qmt_live request / execution bridge；不支持直接传 qmt_live） [default: backtest]</td></tr>
 <tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
 <tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
 </tbody></table>

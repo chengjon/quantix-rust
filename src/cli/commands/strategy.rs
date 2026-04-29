@@ -65,7 +65,7 @@ pub enum StrategyCommands {
         #[arg(short, long)]
         name: String,
 
-        /// 运行模式
+        /// 运行模式: backtest | paper | mock_live | live（live 会被拒绝并提示改走 qmt_live request / execution bridge；不支持直接传 qmt_live）
         #[arg(long, default_value = "backtest")]
         mode: String,
 

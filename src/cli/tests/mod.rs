@@ -2,6 +2,7 @@ use super::*;
 use clap::Parser;
 use clap::error::ErrorKind;
 
+mod account;
 mod analyze;
 mod backtest;
 mod data;

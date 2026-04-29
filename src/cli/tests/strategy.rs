@@ -61,6 +61,19 @@ fn parses_strategy_run_modes() {
 }
 
 #[test]
+fn strategy_run_help_describes_mock_live_live_and_qmt_live_boundary() {
+    let err = Cli::try_parse_from(["quantix", "strategy", "run", "--help"])
+        .expect_err("expected clap help");
+
+    assert_eq!(err.kind(), ErrorKind::DisplayHelp);
+
+    let help = err.to_string();
+    assert!(help.contains("运行模式: backtest | paper | mock_live | live"));
+    assert!(help.contains("qmt_live request / execution bridge"));
+    assert!(help.contains("不支持直接传 qmt_live"));
+}
+
+#[test]
 fn parses_strategy_config_commands() {
     let cli = Cli::try_parse_from(["quantix", "strategy", "config", "init"]).unwrap();
     match cli.command {
@@ -184,6 +197,37 @@ fn parses_strategy_request_and_service_commands() {
         "quantix",
         "strategy",
         "request",
+        "list",
+        "--target-mode",
+        "live",
+        "--target-account",
+        "default",
+        "--limit",
+        "5",
+        "--stats",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Request(StrategyRequestCommands::List {
+            status,
+            target_mode,
+            target_account,
+            limit,
+            stats,
+        })) => {
+            assert_eq!(status, None);
+            assert_eq!(target_mode.as_deref(), Some("live"));
+            assert_eq!(target_account.as_deref(), Some("default"));
+            assert_eq!(limit, 5);
+            assert!(stats);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "strategy",
+        "request",
         "execute",
         "--request-id",
         "req-1",
@@ -249,4 +293,16 @@ fn parses_strategy_request_and_service_commands() {
         }
         other => panic!("unexpected command: {:?}", other),
     }
+}
+
+#[test]
+fn strategy_request_list_help_describes_live_as_legacy_rejected_filter() {
+    let err = Cli::try_parse_from(["quantix", "strategy", "request", "list", "--help"])
+        .expect_err("expected clap help");
+
+    assert_eq!(err.kind(), ErrorKind::DisplayHelp);
+
+    let help = err.to_string();
+    assert!(help.contains("目标模式过滤: paper | mock_live | qmt_live | live"));
+    assert!(help.contains("legacy rejected mode"));
 }

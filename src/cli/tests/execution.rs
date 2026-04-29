@@ -53,4 +53,46 @@ fn parses_execution_config_and_daemon_commands() {
         }
         other => panic!("unexpected command: {:?}", other),
     }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "execution",
+        "bridge",
+        "qmt-live",
+        "--request-id",
+        "req-2",
+        "--yes",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Bridge(ExecutionBridgeCommands::QmtLive {
+            request_id,
+            yes,
+        })) => {
+            assert_eq!(request_id, "req-2");
+            assert!(yes);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "execution",
+        "qmt",
+        "live",
+        "--request-id",
+        "req-3",
+        "--yes",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(ExecutionQmtCommands::Live {
+            request_id,
+            yes,
+        })) => {
+            assert_eq!(request_id, "req-3");
+            assert!(yes);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
 }

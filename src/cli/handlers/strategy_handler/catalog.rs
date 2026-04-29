@@ -25,6 +25,10 @@ pub(crate) async fn run_strategy(name: String, mode: String, code: Option<String
                 )
                 .await?;
                 print_strategy_run_summary(&summary);
+            } else if mode == "live" {
+                println!(
+                    "⚠️  strategy run 不支持 direct live；如需真实 QMT 提交，请先创建 qmt_live request，再走 {QMT_LIVE_BRIDGE_COMMAND} 路径，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}"
+                );
             } else if mode == "qmt_live" {
                 println!(
                     "⚠️  strategy run 不直接支持 qmt_live；如需真实 QMT 提交，请先创建 qmt_live request，再走 {QMT_LIVE_BRIDGE_COMMAND} 路径，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}"
@@ -43,7 +47,7 @@ pub(crate) async fn run_strategy(name: String, mode: String, code: Option<String
 }
 
 fn routes_through_execution_handler(mode: &str) -> bool {
-    matches!(mode, "paper" | "mock_live" | "live")
+    matches!(mode, "paper" | "mock_live")
 }
 
 pub(crate) async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
@@ -130,7 +134,7 @@ mod tests {
     fn mock_live_routes_through_execution_handler() {
         assert!(routes_through_execution_handler("paper"));
         assert!(routes_through_execution_handler("mock_live"));
-        assert!(routes_through_execution_handler("live"));
+        assert!(!routes_through_execution_handler("live"));
         assert!(!routes_through_execution_handler("backtest"));
         assert!(!routes_through_execution_handler("qmt_live"));
     }
