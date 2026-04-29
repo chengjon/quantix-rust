@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## 2026-04-29
+
+### Fixed
+- **策略运行 live 路由收口** (`src/cli/handlers/strategy_handler/catalog.rs`, `src/cli/commands/strategy.rs`)
+  - `strategy run --mode live` 不再走通用执行链路，并明确引导到 `qmt_live request + execution bridge`
+  - 泛化 `live` 不再静默落回 mock 语义，真实提交仍保持受保护的 `qmt_live` 单路径边界
+
+### Added
+- **CLI mock policy 边界回归测试** (`src/cli/tests/strategy.rs`, `src/cli/tests/execution.rs`, `src/cli/tests/account.rs`, `src/cli/tests/mod.rs`)
+  - 新增 strategy / execution / account 三处 CLI 帮助文本与解析边界测试
+  - 锁定 `mock_live` / `live` / `qmt_live` 的当前兼容、拒绝与提示文案行为
+
+### Changed
+- **文档与卫生契约同步到主线收口事实** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `ROADMAP.md`)
+  - 同步 `strategy run` 与相关 execution wording 到当前 mock policy 边界
+  - 将这轮执行边界收口作为后续 P0.2 / P0.3 的新主线基线
+
 ## 2026-04-26
 
 ### Added

@@ -1,6 +1,6 @@
 # Quantix Roadmap
 
-更新日期：2026-04-26
+更新日期：2026-04-29
 
 本文件把仓库中已经明确写出的“后续 Phase”能力、设计文档中的后续阶段、以及代码里的长期占坑，整理成一个可执行的优先级 backlog。
 
@@ -16,9 +16,10 @@
 
 - 已交付能力已经推进到策略执行 Phase 29C。
 - 已完成一轮项目级 MOCK 数据治理，README / USER_MANUAL / FUNCTION_MAP / 路线图系文档已与当前实现边界对齐。
+- 已完成第一轮“MOCK policy -> CLI / 运行时边界”收口，相关变更已通过 squash commit `ff84845` 并入 `master`。
 - 最连续、最值得继续推进的主线是：
   `strategy run (paper)` -> `strategy daemon` -> `signal` -> `execution request` -> `execution/live-ready`
-- 当前最直接的后续工作，不再是补写顶层规范，而是把新规范继续压实到 CLI 文案、运行时分支和 operator 排障体验中。
+- 当前最直接的后续工作，不再是补写顶层规范或重复做第一轮对齐，而是继续完成 P0.2 剩余项：`request completed` 语义、gate 可观测性与 operator 排障体验。
 - README 中仍有多条能力被明确标记为“延后到后续 Phase”。
 
 ## P0：策略执行主线闭环
@@ -61,6 +62,13 @@
 ### 2. Execution mainline 语义加固
 
 目标：在已有 Phase 29C 基础上继续收紧执行链路的运行边界与结果语义，而不是重复建设已交付的基础生命周期能力。
+
+推进状态（2026-04-29）：
+
+- 首轮“规则对代码事实”的 mock-policy 审计已经完成，并已作为单个主线提交 `ff84845` 落地。
+- 已收紧 `strategy run --mode live` 路由，不再通过通用执行链静默落到 mock 语义。
+- 已补齐 strategy / execution / account CLI 关于 `mock_live`、`live`、`qmt_live` 的帮助文本与兼容边界回归测试。
+- P0.2 的剩余工作已收敛到 request/result 语义、daemon/operator 可观测性和 residual gate hardening。
 
 交付项：
 
@@ -163,9 +171,9 @@
 
 下一阶段建议按下面顺序推进：
 
-1. 先推进 P0.2，做一次“规则对代码事实”的系统审计，优先查清 CLI 文案、运行时报错、执行分支与新 MOCK policy 是否完全一致。
-2. 审计后只修补直接影响执行边界的差口，重点是隐式 mock 回退、半实现 `live` 分支、以及 operator 无法快速定位 gate 原因的问题。
-3. 在 P0.2 收紧完成后，再推进 P0.3，补齐 real live / broker execution 边界。
+1. 继续推进 P0.2 的剩余收口，优先处理 `request completed` 与订单终态区别、daemon/operator 排障信息、以及 gate 原因可视化。
+2. 在已完成的首轮 mock-policy 审计基础上，只修补仍直接影响执行边界的差口，重点是残余隐式 mock 回退、半实现 `live` 分支、以及用户可见文案/报错的再次漂移。
+3. 在 P0.2 剩余项收紧完成后，再推进 P0.3，补齐 real live / broker execution 边界。
 4. 主线稳定后，再处理 P1 的 risk 缺口，P2 与 P3 继续作为次级队列按需求插入。
 
 ## 非目标
