@@ -1,4 +1,7 @@
 use super::*;
+use crate::execution::request_diagnostics::{
+    diagnostics_code, diagnostics_semantics, should_show_compact_diag,
+};
 
 pub(crate) async fn execute_strategy_signal_list(
     approval_status: Option<&str>,
@@ -305,6 +308,37 @@ pub(crate) fn format_strategy_request_detail(
         }
     }
 
+    if let Some(diagnostics) = request.payload_json.get("execution_diagnostics") {
+        lines.push(String::new());
+        lines.push("=== Execution Diagnostics ===".to_string());
+        if let Some(code) = diagnostics.get("code").and_then(|v| v.as_str()) {
+            lines.push(format!("code: {}", code));
+        }
+        if let Some(category) = diagnostics.get("category").and_then(|v| v.as_str()) {
+            lines.push(format!("category: {}", category));
+        }
+        if let Some(stage) = diagnostics.get("stage").and_then(|v| v.as_str()) {
+            lines.push(format!("stage: {}", stage));
+        }
+        if let Some(semantics) = diagnostics.get("semantics").and_then(|v| v.as_str()) {
+            lines.push(format!("semantics: {}", semantics));
+        }
+        if let Some(order_terminality) = diagnostics.get("order_terminality").and_then(|v| v.as_str())
+        {
+            lines.push(format!("order_terminality: {}", order_terminality));
+        }
+        if let Some(summary) = diagnostics.get("summary").and_then(|v| v.as_str()) {
+            lines.push(format!("summary: {}", summary));
+        }
+        if let Some(operator_action) = diagnostics.get("operator_action").and_then(|v| v.as_str())
+        {
+            lines.push(format!("operator_action: {}", operator_action));
+        }
+        if let Some(hint_command) = diagnostics.get("hint_command").and_then(|v| v.as_str()) {
+            lines.push(format!("hint_command: {}", hint_command));
+        }
+    }
+
     if let Some(cancellation) = request.payload_json.get("cancellation") {
         lines.push(String::new());
         lines.push("=== Cancellation ===".to_string());
@@ -439,26 +473,18 @@ pub(crate) fn format_strategy_rejection_result(signal: &StrategySignalRecord) ->
 
 pub(crate) fn format_strategy_request_row(row: &ExecutionRequestRecord) -> String {
     let result = format_execution_request_result(&row.payload_json);
-    let semantics = row
-        .payload_json
-        .get("execution_result")
-        .and_then(|value| value.get("order_status"))
-        .and_then(|value| value.as_str())
-        .filter(|order_status| {
-            row.request_status == ExecutionRequestStatus::Completed
-                && is_non_terminal_order_status(order_status)
-        })
-        .map(|_| " semantics=request_completed_order_non_terminal")
-        .unwrap_or("");
+    let semantics = compact_semantics_suffix(&row.payload_json, row.request_status);
+    let diag = compact_diag_suffix(&row.payload_json);
 
     format!(
-        "{} signal={} target={}/{} status={}{}{} created_at={}",
+        "{} signal={} target={}/{} status={}{}{}{} created_at={}",
         row.request_id,
         row.signal_id,
         row.target_mode,
         row.target_account,
         row.request_status.as_str(),
         semantics,
+        diag,
         result,
         row.created_at.format("%Y-%m-%dT%H:%M:%SZ")
     )
@@ -473,25 +499,44 @@ pub(crate) fn format_execution_daemon_summary(summary: &ExecutionDaemonIteration
         return "execution daemon consumed request=<unknown> status=unknown".to_string();
     };
 
-    let semantics = request
-        .payload_json
-        .get("execution_result")
-        .and_then(|value| value.get("order_status"))
-        .and_then(|value| value.as_str())
-        .filter(|order_status| {
-            request.request_status == ExecutionRequestStatus::Completed
-                && is_non_terminal_order_status(order_status)
-        })
-        .map(|_| " semantics=request_completed_order_non_terminal")
-        .unwrap_or("");
+    let semantics = compact_semantics_suffix(&request.payload_json, request.request_status);
+    let diag = compact_diag_suffix(&request.payload_json);
     let result = format_execution_request_result(&request.payload_json);
     format!(
-        "execution daemon consumed request={} status={}{}{}",
+        "execution daemon consumed request={} status={}{}{}{}",
         request.request_id,
         request.request_status.as_str(),
         semantics,
+        diag,
         result
     )
+}
+
+fn compact_semantics_suffix(
+    payload_json: &serde_json::Value,
+    request_status: ExecutionRequestStatus,
+) -> String {
+    diagnostics_semantics(payload_json)
+        .map(|semantics| format!(" semantics={semantics}"))
+        .or_else(|| {
+            payload_json
+                .get("execution_result")
+                .and_then(|value| value.get("order_status"))
+                .and_then(|value| value.as_str())
+                .filter(|order_status| {
+                    request_status == ExecutionRequestStatus::Completed
+                        && is_non_terminal_order_status(order_status)
+                })
+                .map(|_| " semantics=request_completed_order_non_terminal".to_string())
+        })
+        .unwrap_or_default()
+}
+
+fn compact_diag_suffix(payload_json: &serde_json::Value) -> String {
+    diagnostics_code(payload_json)
+        .filter(|code| should_show_compact_diag(code))
+        .map(|code| format!(" diag={code}"))
+        .unwrap_or_default()
 }
 
 pub(crate) fn format_execution_request_result(payload_json: &serde_json::Value) -> String {
