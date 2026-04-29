@@ -349,6 +349,10 @@ async fn test_execute_execution_bridge_qmt_live_rejects_preview_only_bridge_mode
         saved.request_status,
         crate::execution::models::ExecutionRequestStatus::Failed
     );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "bridge_qmt_mode_not_live"
+    );
     assert!(
         saved.payload_json["execution_error"]["message"]
             .as_str()
@@ -441,6 +445,10 @@ async fn test_execute_execution_bridge_qmt_live_completes_request_when_bridge_is
         "submitted"
     );
     assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "request_completed_order_non_terminal"
+    );
+    assert_eq!(
         saved.payload_json["execution_result"]["adapter_order_id"],
         "qmt-order-handler-1"
     );
@@ -514,6 +522,10 @@ async fn test_execute_execution_bridge_qmt_live_rejects_live_mode_without_order_
     assert_eq!(
         saved.request_status,
         crate::execution::models::ExecutionRequestStatus::Failed
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "bridge_qmt_order_submit_capability_missing"
     );
     assert_eq!(saved.payload_json["execution_error"]["adapter"], "qmt_live");
     assert!(
