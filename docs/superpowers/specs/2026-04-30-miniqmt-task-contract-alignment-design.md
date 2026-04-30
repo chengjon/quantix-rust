@@ -11,6 +11,8 @@ Align `quantix-rust` with the external miniQMT v1 contract by introducing a cont
 
 The alignment must preserve the existing guarded `qmt_live` safety gate and the existing `qmt-preview` path, while changing live submission semantics from direct broker-style submit to receipt-plus-result semantics.
 
+This design only covers the `quantix-rust` side of the integration. It does not re-implement the miniQMT bridge kernel, server route tree, SQLite task persistence, or xtquant service ownership inside this repository.
+
 ## 2. Current Baseline
 
 The current Rust-side QMT integration is still broker-style:
@@ -33,6 +35,11 @@ This drifts from the external miniQMT v1 plan, where:
 - `task/result` is the canonical result lookup
 - bridge failure and broker-facing result must be distinguished explicitly
 - stable identity echo must rely on `client_order_id` and `local_submission_id`
+
+The miniQMT implementation plan and `FUNCTION_TREE.md` also clarify the ownership split:
+
+- miniQMT owns the bridge server, contract metadata, task persistence, compatibility facades, and xtquant-facing service seams
+- `quantix-rust` only owns local request shaping, polling, result translation, execution lifecycle handling, and local evidence persistence
 
 ## 3. Chosen Approach
 
@@ -62,8 +69,36 @@ Use a compatibility-first layered migration.
 - changing preview semantics
 - re-enabling generic `target_mode=live`
 - changing runtime store database schema in this phase
+- introducing a local miniQMT-style task kernel or SQLite task mirror into `quantix-rust`
+- widening this work into the miniQMT `xttrader` / `xtdata` reference branches that the external `FUNCTION_TREE.md` explicitly keeps outside the v1 trading-contract core
 
 ## 4. Architecture Boundaries
+
+The miniQMT implementation plan and `FUNCTION_TREE.md` require a stricter ownership boundary than “same contract means same responsibilities”.
+
+### 4.0 Ownership Split
+
+miniQMT owns:
+
+- `/api/v1/task/*` server behavior
+- `/api/v1/broker/qmt/*` compatibility facade behavior
+- SQLite WAL task persistence and `task_id` truth
+- bridge-side `QmtService` / xtquant integration seams
+- future callback-ingestion seams for native broker events
+
+`quantix-rust` owns:
+
+- bridge runtime configuration for calling miniQMT
+- task execute request shaping
+- task result polling and validation
+- translation into Rust adapter / CLI / daemon lifecycle semantics
+- local evidence snapshots inside `execution_request.payload_json`
+
+`quantix-rust` must not:
+
+- recreate the bridge route tree as a local server
+- add its own bridge-side task status database
+- absorb miniQMT’s `xtdata` or broader `xttrader` function tree into this live-contract alignment slice
 
 ### 4.1 Preview Boundary
 
@@ -99,6 +134,8 @@ Existing broker-style endpoints remain available for:
 - asset
 
 Only submit semantics move to task contract in this phase.
+
+The server-side semantics of those compatibility endpoints remain owned by miniQMT. This repository only consumes them through `BridgeHttpClient` where needed.
 
 ## 5. Runtime Configuration
 
@@ -436,6 +473,8 @@ Do not change the runtime DB schema in this phase. Store alignment facts in `pay
 
 These sections are additive and do not replace existing `execution_result` or `execution_error` immediately; they become the factual substrate from which those compatibility views can be derived.
 
+No local SQLite task mirror is introduced. miniQMT remains the only task-status source of truth; `quantix-rust` stores only the local receipt/result evidence needed to preserve execution lifecycle continuity.
+
 ## 14. Test Strategy
 
 ### 14.1 Existing Tests To Preserve
@@ -497,6 +536,9 @@ Update `tests/repo_hygiene_test.rs` and related docs assertions so repository do
 - `qmt-live` now means receipt-plus-result
 - `execution qmt` remains preferred entrypoint
 - `execution bridge` remains compatibility entrypoint
+- miniQMT owns the bridge task kernel and compatibility facade
+- `quantix-rust` consumes that contract rather than re-implementing it
+- miniQMT `xtdata` / broader `xttrader` reference branches remain outside this Rust-side live-contract slice
 
 ## 15. Acceptance Criteria
 
@@ -513,6 +555,7 @@ This design is considered implemented only when all of the following are true:
 6. live capability gate remains unchanged.
 7. `execution_request.payload_json` records both receipt evidence and result evidence.
 8. documentation matches the new receipt/result semantics.
+9. no local bridge-server task kernel or SQLite task mirror is introduced into `quantix-rust`.
 
 ## 16. Non-Goals
 
@@ -520,6 +563,9 @@ This phase does not:
 
 - remove current broker-style compatibility endpoints
 - redesign miniQMT Python implementation
+- implement miniQMT bridge internals inside Rust
+- mirror miniQMT server-side `FUNCTION_TREE` branches as local Rust features
+- absorb `xtdata` market-data capability branches into this live-trading alignment
 - add generic `target_mode=live`
 - redesign runtime DB schema
 - redefine preview semantics
@@ -552,6 +598,7 @@ Mitigation:
 Mitigation:
 
 - keep repo hygiene assertions updated with receipt/result semantics
+- keep ownership language explicit so future contributors do not push miniQMT server responsibilities into Rust by accident
 
 ## 18. Final Recommendation
 
@@ -562,4 +609,4 @@ Implement the miniQMT alignment in four low-risk slices:
 3. manual `execution bridge qmt-live` lifecycle changes
 4. daemon `qmt_live` lifecycle changes plus docs/hygiene alignment
 
-This preserves current guarded `qmt_live` safety guarantees, keeps preview stable, and moves the real submission path onto the miniQMT v1 contract without overreaching into unrelated workflow redesign.
+This preserves current guarded `qmt_live` safety guarantees, keeps preview stable, and moves the real submission path onto the miniQMT v1 contract without overreaching into miniQMT-owned server internals, xtquant reference breadth, or unrelated workflow redesign.
