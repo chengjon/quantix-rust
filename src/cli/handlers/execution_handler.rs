@@ -1,7 +1,8 @@
 use super::*;
 use crate::execution::qmt_live_gate::QmtLiveGateFailure;
 use crate::execution::request_diagnostics::{
-    build_bridge_qmt_mode_not_live_diagnostics,
+    build_bridge_qmt_capability_check_failed_diagnostics,
+    build_bridge_qmt_capability_disabled_diagnostics, build_bridge_qmt_mode_not_live_diagnostics,
     build_bridge_qmt_order_submit_capability_missing_diagnostics, build_completion_diagnostics,
     build_unclassified_execution_error_diagnostics,
 };
@@ -213,13 +214,18 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
         let failed_at = Utc::now();
         let error = gate_error.to_quantix_error();
         let diagnostics = match &gate_error {
+            QmtLiveGateFailure::CapabilityCheckFailed(_) => {
+                build_bridge_qmt_capability_check_failed_diagnostics(&error.to_string())
+            }
+            QmtLiveGateFailure::CapabilityDisabled => {
+                build_bridge_qmt_capability_disabled_diagnostics()
+            }
             QmtLiveGateFailure::ModeNotLive { observed_mode } => {
                 build_bridge_qmt_mode_not_live_diagnostics(observed_mode)
             }
             QmtLiveGateFailure::MissingOrderSubmitSupport => {
                 build_bridge_qmt_order_submit_capability_missing_diagnostics()
             }
-            _ => build_unclassified_execution_error_diagnostics(&error.to_string()),
         };
         let payload_json = merge_execution_request_payload(
             &start_payload,
