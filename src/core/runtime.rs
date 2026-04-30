@@ -17,6 +17,16 @@ pub const STRATEGY_RUNTIME_DB_PATH_ENV: &str = "QUANTIX_STRATEGY_RUNTIME_DB_PATH
 pub const EXECUTION_CONFIG_PATH_ENV: &str = "QUANTIX_EXECUTION_CONFIG_PATH";
 pub const BRIDGE_BASE_URL_ENV: &str = "QUANTIX_BRIDGE_BASE_URL";
 pub const BRIDGE_API_KEY_ENV: &str = "QUANTIX_BRIDGE_API_KEY";
+pub const BRIDGE_BEARER_TOKEN_ENV: &str = "QUANTIX_BRIDGE_BEARER_TOKEN";
+pub const BRIDGE_CONTRACT_VERSION_ENV: &str = "QUANTIX_BRIDGE_CONTRACT_VERSION";
+pub const BRIDGE_TIMEOUT_MS_ENV: &str = "QUANTIX_BRIDGE_TIMEOUT_MS";
+pub const BRIDGE_POLL_INTERVAL_MS_ENV: &str = "QUANTIX_BRIDGE_POLL_INTERVAL_MS";
+pub const BRIDGE_POLL_TIMEOUT_MS_ENV: &str = "QUANTIX_BRIDGE_POLL_TIMEOUT_MS";
+pub const DEFAULT_BRIDGE_BASE_URL: &str = "http://127.0.0.1:17580";
+pub const DEFAULT_BRIDGE_CONTRACT_VERSION: &str = "miniqmt.v1";
+pub const DEFAULT_BRIDGE_TIMEOUT_MS: u64 = 30_000;
+pub const DEFAULT_BRIDGE_POLL_INTERVAL_MS: u64 = 1_000;
+pub const DEFAULT_BRIDGE_POLL_TIMEOUT_MS: u64 = 30_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClickHouseSettings {
@@ -85,6 +95,12 @@ pub struct CliRuntime {
 pub struct BridgeRuntimeSettings {
     pub base_url: String,
     pub api_key: Option<String>,
+    pub bearer_token: Option<String>,
+    pub api_key_fallback: Option<String>,
+    pub contract_version: String,
+    pub timeout_ms: u64,
+    pub poll_interval_ms: u64,
+    pub poll_timeout_ms: u64,
     pub tdx_enabled: bool,
     pub qmt_preview_enabled: bool,
 }
@@ -110,14 +126,45 @@ impl CliRuntime {
 
 impl BridgeRuntimeSettings {
     pub fn from_env() -> Self {
+        let api_key = optional_env(BRIDGE_API_KEY_ENV);
         Self {
             base_url: std::env::var(BRIDGE_BASE_URL_ENV)
-                .unwrap_or_else(|_| "http://127.0.0.1:17580".to_string()),
-            api_key: std::env::var(BRIDGE_API_KEY_ENV).ok(),
+                .unwrap_or_else(|_| DEFAULT_BRIDGE_BASE_URL.to_string()),
+            api_key: api_key.clone(),
+            bearer_token: optional_env(BRIDGE_BEARER_TOKEN_ENV),
+            api_key_fallback: api_key,
+            contract_version: std::env::var(BRIDGE_CONTRACT_VERSION_ENV)
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| DEFAULT_BRIDGE_CONTRACT_VERSION.to_string()),
+            timeout_ms: parse_u64_env(BRIDGE_TIMEOUT_MS_ENV, DEFAULT_BRIDGE_TIMEOUT_MS),
+            poll_interval_ms: parse_u64_env(
+                BRIDGE_POLL_INTERVAL_MS_ENV,
+                DEFAULT_BRIDGE_POLL_INTERVAL_MS,
+            ),
+            poll_timeout_ms: parse_u64_env(
+                BRIDGE_POLL_TIMEOUT_MS_ENV,
+                DEFAULT_BRIDGE_POLL_TIMEOUT_MS,
+            ),
             tdx_enabled: true,
             qmt_preview_enabled: true,
         }
     }
+}
+
+fn optional_env(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn parse_u64_env(name: &str, default: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(default)
 }
 
 fn load_dotenv_if_present() {
@@ -276,6 +323,13 @@ mod tests {
         database: Option<String>,
         user: Option<String>,
         password: Option<String>,
+        bridge_base_url: Option<String>,
+        bridge_api_key: Option<String>,
+        bridge_bearer_token: Option<String>,
+        bridge_contract_version: Option<String>,
+        bridge_timeout_ms: Option<String>,
+        bridge_poll_interval_ms: Option<String>,
+        bridge_poll_timeout_ms: Option<String>,
         watchlist_path: Option<String>,
         trade_path: Option<String>,
         risk_path: Option<String>,
@@ -294,6 +348,13 @@ mod tests {
                 database: std::env::var(CLICKHOUSE_DB_ENV).ok(),
                 user: std::env::var(CLICKHOUSE_USER_ENV).ok(),
                 password: std::env::var(CLICKHOUSE_PASSWORD_ENV).ok(),
+                bridge_base_url: std::env::var(BRIDGE_BASE_URL_ENV).ok(),
+                bridge_api_key: std::env::var(BRIDGE_API_KEY_ENV).ok(),
+                bridge_bearer_token: std::env::var(BRIDGE_BEARER_TOKEN_ENV).ok(),
+                bridge_contract_version: std::env::var(BRIDGE_CONTRACT_VERSION_ENV).ok(),
+                bridge_timeout_ms: std::env::var(BRIDGE_TIMEOUT_MS_ENV).ok(),
+                bridge_poll_interval_ms: std::env::var(BRIDGE_POLL_INTERVAL_MS_ENV).ok(),
+                bridge_poll_timeout_ms: std::env::var(BRIDGE_POLL_TIMEOUT_MS_ENV).ok(),
                 watchlist_path: std::env::var(WATCHLIST_PATH_ENV).ok(),
                 trade_path: std::env::var(TRADE_PATH_ENV).ok(),
                 risk_path: std::env::var(RISK_PATH_ENV).ok(),
@@ -327,6 +388,41 @@ mod tests {
             match &self.password {
                 Some(value) => unsafe { std::env::set_var(CLICKHOUSE_PASSWORD_ENV, value) },
                 None => unsafe { std::env::remove_var(CLICKHOUSE_PASSWORD_ENV) },
+            }
+
+            match &self.bridge_base_url {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_BASE_URL_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_BASE_URL_ENV) },
+            }
+
+            match &self.bridge_api_key {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_API_KEY_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_API_KEY_ENV) },
+            }
+
+            match &self.bridge_bearer_token {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_BEARER_TOKEN_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_BEARER_TOKEN_ENV) },
+            }
+
+            match &self.bridge_contract_version {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_CONTRACT_VERSION_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_CONTRACT_VERSION_ENV) },
+            }
+
+            match &self.bridge_timeout_ms {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_TIMEOUT_MS_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_TIMEOUT_MS_ENV) },
+            }
+
+            match &self.bridge_poll_interval_ms {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_POLL_INTERVAL_MS_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_POLL_INTERVAL_MS_ENV) },
+            }
+
+            match &self.bridge_poll_timeout_ms {
+                Some(value) => unsafe { std::env::set_var(BRIDGE_POLL_TIMEOUT_MS_ENV, value) },
+                None => unsafe { std::env::remove_var(BRIDGE_POLL_TIMEOUT_MS_ENV) },
             }
 
             match &self.watchlist_path {
@@ -471,6 +567,58 @@ mod tests {
         assert_eq!(runtime.clickhouse.database, "runtime_db");
         assert_eq!(runtime.clickhouse.user, "cli_user");
         assert_eq!(runtime.clickhouse.password, "cli_password");
+    }
+
+    #[test]
+    fn test_bridge_runtime_settings_default_contract_values() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::remove_var(BRIDGE_BASE_URL_ENV);
+            std::env::remove_var(BRIDGE_API_KEY_ENV);
+            std::env::remove_var(BRIDGE_BEARER_TOKEN_ENV);
+            std::env::remove_var(BRIDGE_CONTRACT_VERSION_ENV);
+            std::env::remove_var(BRIDGE_TIMEOUT_MS_ENV);
+            std::env::remove_var(BRIDGE_POLL_INTERVAL_MS_ENV);
+            std::env::remove_var(BRIDGE_POLL_TIMEOUT_MS_ENV);
+        }
+
+        let settings = BridgeRuntimeSettings::from_env();
+
+        assert_eq!(settings.base_url, "http://127.0.0.1:17580");
+        assert_eq!(settings.api_key, None);
+        assert_eq!(settings.bearer_token, None);
+        assert_eq!(settings.api_key_fallback, None);
+        assert_eq!(settings.contract_version, "miniqmt.v1");
+        assert_eq!(settings.timeout_ms, 30_000);
+        assert_eq!(settings.poll_interval_ms, 1_000);
+        assert_eq!(settings.poll_timeout_ms, 30_000);
+    }
+
+    #[test]
+    fn test_bridge_runtime_settings_contract_env_override() {
+        let _lock = env_lock();
+        let _guard = ClickHouseEnvGuard::capture();
+        unsafe {
+            std::env::set_var(BRIDGE_BASE_URL_ENV, "http://bridge.internal:18080");
+            std::env::set_var(BRIDGE_API_KEY_ENV, "legacy-key");
+            std::env::set_var(BRIDGE_BEARER_TOKEN_ENV, "bearer-123");
+            std::env::set_var(BRIDGE_CONTRACT_VERSION_ENV, "miniqmt.v1beta");
+            std::env::set_var(BRIDGE_TIMEOUT_MS_ENV, "45000");
+            std::env::set_var(BRIDGE_POLL_INTERVAL_MS_ENV, "1500");
+            std::env::set_var(BRIDGE_POLL_TIMEOUT_MS_ENV, "90000");
+        }
+
+        let settings = BridgeRuntimeSettings::from_env();
+
+        assert_eq!(settings.base_url, "http://bridge.internal:18080");
+        assert_eq!(settings.api_key.as_deref(), Some("legacy-key"));
+        assert_eq!(settings.bearer_token.as_deref(), Some("bearer-123"));
+        assert_eq!(settings.api_key_fallback.as_deref(), Some("legacy-key"));
+        assert_eq!(settings.contract_version, "miniqmt.v1beta");
+        assert_eq!(settings.timeout_ms, 45_000);
+        assert_eq!(settings.poll_interval_ms, 1_500);
+        assert_eq!(settings.poll_timeout_ms, 90_000);
     }
 
     #[test]

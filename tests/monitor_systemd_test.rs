@@ -19,6 +19,12 @@ fn sample_runtime() -> CliRuntime {
         bridge: BridgeRuntimeSettings {
             base_url: "http://localhost:8080".to_string(),
             api_key: None,
+            bearer_token: None,
+            api_key_fallback: None,
+            contract_version: "miniqmt.v1".to_string(),
+            timeout_ms: 30_000,
+            poll_interval_ms: 1_000,
+            poll_timeout_ms: 30_000,
             tdx_enabled: false,
             qmt_preview_enabled: false,
         },

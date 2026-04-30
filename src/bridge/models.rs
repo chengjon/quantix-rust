@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BridgeCapabilitySection {
@@ -83,6 +83,100 @@ pub struct BridgeQmtPreviewResponse {
     pub fill_details: Option<serde_json::Value>,
     pub rejection_reason: Option<String>,
     pub broker_payload: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BridgeTaskExecuteRequest {
+    pub provider: String,
+    pub method: String,
+    pub params: BridgeTaskExecuteParams,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BridgeTaskExecuteParams {
+    pub request_id: String,
+    pub client_order_id: String,
+    pub local_submission_id: String,
+    pub symbol: String,
+    pub side: String,
+    pub quantity: i64,
+    pub price: String,
+    pub order_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strategy_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_remark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot_metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BridgeTaskExecuteReceipt {
+    pub task_id: String,
+    pub status: BridgeTaskLifecycleStatus,
+    pub receipt_timestamp: String,
+    pub bridge_contract_version: String,
+    pub source_name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BridgeTaskResultResponse {
+    pub task_id: String,
+    pub status: BridgeTaskLifecycleStatus,
+    pub bridge_contract_version: String,
+    pub result: Option<BridgeTaskResultPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BridgeTaskResultPayload {
+    pub client_order_id: String,
+    pub local_submission_id: String,
+    pub account_scope: String,
+    pub event_id: String,
+    pub occurred_at: String,
+    pub source_name: String,
+    pub broker_event_type: Option<BridgeBrokerEventType>,
+    pub external_order_id: Option<String>,
+    pub reason_code: Option<BridgeFailureCode>,
+    pub reason_detail: Option<String>,
+    pub evidence_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BridgeTaskLifecycleStatus {
+    Pending,
+    Completed,
+    Failed,
+    BridgeTaskAccepted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BridgeImmediateOutcomeStatus {
+    Pending,
+    BrokerResult,
+    BridgeFailure,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BridgeFailureCode {
+    LiveBridgeTimeout,
+    LiveBridgeUnavailable,
+    LiveBridgeAuthFailed,
+    LiveBridgeUnsupportedContractVersion,
+    LiveBridgeUnsupportedMethod,
+    LiveBridgeInvalidResult,
+    LiveBridgeIdentityMismatch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BridgeBrokerEventType {
+    Acknowledgement,
+    Reject,
+    Execution,
 }
 
 // ============ Live Order Models ============
