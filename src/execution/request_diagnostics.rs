@@ -102,6 +102,20 @@ pub fn build_bridge_qmt_mode_not_live_diagnostics(observed_mode: &str) -> Value 
     })
 }
 
+pub fn build_bridge_qmt_capability_disabled_diagnostics() -> Value {
+    json!({
+        "schema_version": 1,
+        "code": "bridge_qmt_capability_disabled",
+        "category": "gate",
+        "stage": "execute",
+        "semantics": null,
+        "order_terminality": "unknown",
+        "summary": "qmt_live 提交被阻止：bridge qmt capability 未启用",
+        "operator_action": "enable_qmt_capability",
+        "hint_command": "quantix execution bridge status"
+    })
+}
+
 pub fn build_bridge_qmt_order_submit_capability_missing_diagnostics() -> Value {
     json!({
         "schema_version": 1,
@@ -112,6 +126,20 @@ pub fn build_bridge_qmt_order_submit_capability_missing_diagnostics() -> Value {
         "order_terminality": "unknown",
         "summary": "qmt_live 提交被阻止：bridge 缺少 order_submit 能力",
         "operator_action": "enable_order_submit_capability",
+        "hint_command": "quantix execution bridge status"
+    })
+}
+
+pub fn build_bridge_qmt_capability_check_failed_diagnostics(summary: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "code": "bridge_qmt_capability_check_failed",
+        "category": "gate",
+        "stage": "execute",
+        "semantics": null,
+        "order_terminality": "unknown",
+        "summary": summary,
+        "operator_action": "inspect_bridge_status",
         "hint_command": "quantix execution bridge status"
     })
 }
@@ -168,6 +196,45 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("preview_only")
+        );
+        assert_eq!(
+            diagnostics["hint_command"].as_str(),
+            Some("quantix execution bridge status")
+        );
+    }
+
+    #[test]
+    fn test_build_bridge_capability_disabled_diagnostics_keeps_status_hint() {
+        let diagnostics = build_bridge_qmt_capability_disabled_diagnostics();
+
+        assert_eq!(
+            diagnostics["code"].as_str(),
+            Some("bridge_qmt_capability_disabled")
+        );
+        assert_eq!(diagnostics["category"].as_str(), Some("gate"));
+        assert_eq!(
+            diagnostics["operator_action"].as_str(),
+            Some("enable_qmt_capability")
+        );
+        assert_eq!(
+            diagnostics["hint_command"].as_str(),
+            Some("quantix execution bridge status")
+        );
+    }
+
+    #[test]
+    fn test_build_bridge_capability_check_failed_diagnostics_keeps_status_hint() {
+        let diagnostics =
+            build_bridge_qmt_capability_check_failed_diagnostics("QMT 实盘能力检查失败: 503");
+
+        assert_eq!(
+            diagnostics["code"].as_str(),
+            Some("bridge_qmt_capability_check_failed")
+        );
+        assert_eq!(diagnostics["category"].as_str(), Some("gate"));
+        assert_eq!(
+            diagnostics["summary"].as_str(),
+            Some("QMT 实盘能力检查失败: 503")
         );
         assert_eq!(
             diagnostics["hint_command"].as_str(),
