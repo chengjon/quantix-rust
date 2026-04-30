@@ -15,7 +15,20 @@ This design only covers the `quantix-rust` side of the integration. It does not 
 
 ## 2. Current Baseline
 
-The current Rust-side QMT integration is still broker-style:
+The repository already has a structured execution-diagnostics baseline that this alignment must reuse rather than replace:
+
+- `src/execution/request_diagnostics.rs`
+  - defines the current `execution_diagnostics` schema v1 contract and compact CLI helpers
+- `src/execution/qmt_live_gate.rs`
+  - exposes `QmtLiveGateFailure` and `check_bridge_qmt_live_mode(...)` as the current gate-classification seam
+- `src/cli/handlers/execution_handler.rs`
+  - manual `execution bridge qmt-live` already persists structured gate/submit diagnostics into `execution_request.payload_json.execution_diagnostics`
+- `src/execution/daemon.rs`
+  - completion/failure paths already write structured diagnostics and currently fail automatic `qmt_live` with `daemon_qmt_live_manual_bridge_required`
+- `src/cli/handlers/strategy_handler/requests.rs`
+  - request list/detail and daemon summaries already render compact and detailed diagnostics output
+
+The current Rust-side live submission semantics are still broker-style:
 
 - `src/bridge/client.rs`
   - calls `/api/v1/broker/qmt/orders*`
@@ -28,6 +41,7 @@ The current Rust-side QMT integration is still broker-style:
   - manual `execution bridge qmt-live` marks `execution_request` complete or failed immediately after submit
 - `src/execution/daemon.rs`
   - `qmt_live` currently flows through the same immediate-completion execution kernel shape used by adapters that do not require deferred polling
+  - structured diagnostics already make that limitation explicit through `daemon_qmt_live_manual_bridge_required`
 
 This drifts from the external miniQMT v1 plan, where:
 
@@ -62,6 +76,7 @@ Use a compatibility-first layered migration.
 - task-contract-aware bridge client methods
 - QMT live submit/result orchestration service
 - deferred `execution_request` completion semantics
+- reuse and extend the existing `execution_diagnostics` channel instead of introducing a parallel task-diagnostics payload shape
 
 ### 3.3 Avoid
 
@@ -121,6 +136,11 @@ These paths must:
 3. receive bridge receipt
 4. poll `task/result`
 5. only write broker-facing final state after result resolution
+
+These paths must reuse the existing Rust-side gate and diagnostics seams where possible:
+
+- keep `check_bridge_qmt_live_mode(...)` / `QmtLiveGateFailure` as the gate-classification entrypoint unless the contract itself requires a broader classification split
+- keep `execution_request.payload_json.execution_diagnostics` as the single operator-facing diagnostics block rather than adding a second top-level diagnostics object
 
 ### 4.3 Compatibility Boundary
 
@@ -450,7 +470,19 @@ Broker reject is a completed business result, not a transport failure.
 
 Do not change the runtime DB schema in this phase. Store alignment facts in `payload_json`.
 
-### 13.1 `bridge_task`
+### 13.1 Existing `execution_diagnostics` Remains Canonical
+
+- keep top-level `execution_diagnostics` as the operator-facing summary channel
+- future task-contract receipt/result stages must update this block from `bridge_task`, `bridge_result`, and gate outcomes instead of inventing `task_diagnostics` or similar parallel structures
+- existing codes such as:
+  - `daemon_qmt_live_manual_bridge_required`
+  - `bridge_qmt_mode_not_live`
+  - `bridge_qmt_order_submit_capability_missing`
+  - `request_completed_order_terminal`
+  - `request_completed_order_non_terminal`
+    form the current baseline vocabulary and should be extended in place if new task-contract-specific codes are needed
+
+### 13.2 `bridge_task`
 
 - `task_id`
 - `local_submission_id`
@@ -460,7 +492,7 @@ Do not change the runtime DB schema in this phase. Store alignment facts in `pay
 - `poll_started_at`
 - `poll_deadline_at`
 
-### 13.2 `bridge_result`
+### 13.3 `bridge_result`
 
 - `status`
 - `source_name`
@@ -471,7 +503,7 @@ Do not change the runtime DB schema in this phase. Store alignment facts in `pay
 - `evidence_ref`
 - `occurred_at`
 
-These sections are additive and do not replace existing `execution_result` or `execution_error` immediately; they become the factual substrate from which those compatibility views can be derived.
+These sections are additive and do not replace existing `execution_result`, `execution_error`, or `execution_diagnostics` immediately; they become the factual substrate from which those compatibility views can be derived.
 
 No local SQLite task mirror is introduced. miniQMT remains the only task-status source of truth; `quantix-rust` stores only the local receipt/result evidence needed to preserve execution lifecycle continuity.
 
@@ -479,11 +511,12 @@ No local SQLite task mirror is introduced. miniQMT remains the only task-status 
 
 ### 14.1 Existing Tests To Preserve
 
+- `src/cli/handlers/tests/strategy_execution.rs`
+- `src/cli/handlers/tests/strategy_requests.rs`
 - `tests/qmt_bridge_preview_test.rs`
 - `tests/qmt_live_gate_test.rs`
 - `tests/bridge_client_test.rs`
 - `tests/qmt_live_adapter_test.rs`
-- `src/cli/handlers/tests/strategy_execution.rs`
 - `tests/execution_daemon_test.rs`
 - `tests/repo_hygiene_test.rs`
 
@@ -501,6 +534,7 @@ This test file should cover:
 - `task/result` pending parsing
 - broker event parsing
 - bridge failure parsing
+- task-contract receipt/result evidence feeding the existing `execution_diagnostics` channel instead of a parallel diagnostics object
 
 ### 14.3 Adapter Tests
 
@@ -519,6 +553,7 @@ Update `src/cli/handlers/tests/strategy_execution.rs` so:
 - `bridge_task.task_id` and `bridge_task.local_submission_id` are persisted
 - broker-facing result later completes request
 - bridge failure later fails request
+- task-contract gate/receipt/result paths keep writing operator-facing diagnostics through `execution_diagnostics`
 
 ### 14.5 Daemon Tests
 
@@ -527,6 +562,7 @@ Update `tests/execution_daemon_test.rs` so:
 - `qmt_live` no longer completes immediately on receipt
 - timeout and auth/version failures become request failure
 - broker reject remains completed terminal result
+- the current `daemon_qmt_live_manual_bridge_required` regression stays covered until the dedicated task-contract daemon path replaces it
 
 ### 14.6 Hygiene Tests
 
