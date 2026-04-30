@@ -10,6 +10,11 @@ use crate::execution::models::{
 };
 use crate::execution::paper::PaperExecutionAdapter;
 use crate::execution::qmt_live_gate::{QMT_LIVE_BRIDGE_COMMAND, QMT_LIVE_BRIDGE_MODE_REQUIREMENT};
+use crate::execution::request_diagnostics::{
+    build_completion_diagnostics, build_daemon_live_mode_unsupported_diagnostics,
+    build_daemon_qmt_live_manual_bridge_required_diagnostics,
+    build_unclassified_execution_error_diagnostics,
+};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::risk::JsonRiskStore;
 use crate::risk::service::RuntimeJsonRiskServices;
@@ -252,6 +257,7 @@ where
     let finished_at = Utc::now();
     match execution_result {
         Ok(result) => {
+            let order_status = result.order_status.map(|status| status.as_str());
             let payload_json = merge_execution_request_payload(
                 &request.payload_json,
                 "execution_result",
@@ -259,9 +265,14 @@ where
                     "executed_at": finished_at.to_rfc3339(),
                     "run_id": result.run_id,
                     "client_order_id": result.client_order_id,
-                    "order_status": result.order_status.map(|status| status.as_str()),
+                    "order_status": order_status,
                     "adapter": request.target_mode,
                 }),
+            );
+            let payload_json = merge_execution_request_payload(
+                &payload_json,
+                "execution_diagnostics",
+                build_completion_diagnostics(order_status),
             );
             let updated = store
                 .try_complete_execution_request(&request.request_id, payload_json, finished_at)
@@ -287,6 +298,18 @@ where
                     "failed_at": finished_at.to_rfc3339(),
                     "message": err.to_string(),
                 }),
+            );
+            let diagnostics = match request.target_mode.as_str() {
+                "qmt_live" => {
+                    build_daemon_qmt_live_manual_bridge_required_diagnostics(&request.request_id)
+                }
+                "live" => build_daemon_live_mode_unsupported_diagnostics(),
+                _ => build_unclassified_execution_error_diagnostics(&err.to_string()),
+            };
+            let payload_json = merge_execution_request_payload(
+                &payload_json,
+                "execution_diagnostics",
+                diagnostics,
             );
             let updated = store
                 .try_fail_execution_request(&request.request_id, payload_json, finished_at)

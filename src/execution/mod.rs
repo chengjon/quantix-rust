@@ -10,4 +10,5 @@ pub mod qmt_bridge;
 pub mod qmt_live_adapter;
 pub mod qmt_live_gate;
 pub mod reconciliation;
+pub mod request_diagnostics;
 pub mod runtime_store;

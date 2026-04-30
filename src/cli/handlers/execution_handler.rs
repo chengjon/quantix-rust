@@ -1,4 +1,10 @@
 use super::*;
+use crate::execution::qmt_live_gate::QmtLiveGateFailure;
+use crate::execution::request_diagnostics::{
+    build_bridge_qmt_mode_not_live_diagnostics,
+    build_bridge_qmt_order_submit_capability_missing_diagnostics, build_completion_diagnostics,
+    build_unclassified_execution_error_diagnostics,
+};
 
 fn create_execution_config_store() -> JsonExecutionConfigStore {
     let runtime = CliRuntime::load();
@@ -202,16 +208,32 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
 
     // 提交订单
     let client = create_bridge_client()?;
-    if let Err(err) = crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode(&client).await {
+    if let Err(gate_error) = crate::execution::qmt_live_gate::check_bridge_qmt_live_mode(&client).await
+    {
         let failed_at = Utc::now();
+        let error = gate_error.to_quantix_error();
+        let diagnostics = match &gate_error {
+            QmtLiveGateFailure::ModeNotLive { observed_mode } => {
+                build_bridge_qmt_mode_not_live_diagnostics(observed_mode)
+            }
+            QmtLiveGateFailure::MissingOrderSubmitSupport => {
+                build_bridge_qmt_order_submit_capability_missing_diagnostics()
+            }
+            _ => build_unclassified_execution_error_diagnostics(&error.to_string()),
+        };
         let payload_json = merge_execution_request_payload(
             &start_payload,
             "execution_error",
             serde_json::json!({
                 "failed_at": failed_at.to_rfc3339(),
-                "message": err.to_string(),
+                "message": error.to_string(),
                 "adapter": "qmt_live",
             }),
+        );
+        let payload_json = merge_execution_request_payload(
+            &payload_json,
+            "execution_diagnostics",
+            diagnostics,
         );
         let updated = runtime_store
             .try_fail_execution_request(&request.request_id, payload_json, failed_at)
@@ -222,7 +244,7 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
                 request.request_id
             )));
         }
-        return Err(err);
+        return Err(error);
     }
 
     let order_request = crate::bridge::models::BridgeQmtOrderRequest {
@@ -251,6 +273,11 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
                     "adapter": "qmt_live",
                 }),
             );
+            let payload_json = merge_execution_request_payload(
+                &payload_json,
+                "execution_diagnostics",
+                build_unclassified_execution_error_diagnostics(&err.to_string()),
+            );
             let updated = runtime_store
                 .try_fail_execution_request(&request.request_id, payload_json, failed_at)
                 .await?;
@@ -278,6 +305,11 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
             "avg_fill_price": response.avg_fill_price,
             "rejection_reason": response.rejection_reason,
         }),
+    );
+    let payload_json = merge_execution_request_payload(
+        &payload_json,
+        "execution_diagnostics",
+        build_completion_diagnostics(Some(response.latest_status.as_str())),
     );
     let updated = runtime_store
         .try_complete_execution_request(&request.request_id, payload_json, finished_at)

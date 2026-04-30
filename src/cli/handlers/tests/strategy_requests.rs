@@ -598,6 +598,44 @@ fn test_format_strategy_request_detail_keeps_request_status_separate_from_order_
 }
 
 #[test]
+fn test_format_strategy_request_detail_displays_execution_diagnostics_section() {
+    let row = crate::execution::models::ExecutionRequestRecord {
+        request_id: "req-detail-diag".to_string(),
+        signal_id: "signal-detail-diag".to_string(),
+        target_mode: "qmt_live".to_string(),
+        target_account: "default".to_string(),
+        request_status: crate::execution::models::ExecutionRequestStatus::Failed,
+        approved_by: Some("cli".to_string()),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        payload_json: json!({
+            "execution_error": {
+                "message": "QMT 实盘下单被拒绝: bridge qmt.mode=preview_only，要求 bridge qmt.mode=live",
+                "failed_at": "2026-03-17T09:32:00Z"
+            },
+            "execution_diagnostics": {
+                "code": "bridge_qmt_mode_not_live",
+                "category": "gate",
+                "stage": "execute",
+                "summary": "qmt_live 提交被阻止：bridge qmt.mode=preview_only，要求 live",
+                "operator_action": "use_live_bridge_mode",
+                "hint_command": "quantix execution bridge status"
+            }
+        }),
+    };
+
+    let detail = format_strategy_request_detail(&row, false);
+
+    assert!(detail.contains("=== Execution Diagnostics ==="));
+    assert!(detail.contains("code: bridge_qmt_mode_not_live"));
+    assert!(detail.contains("category: gate"));
+    assert!(detail.contains("stage: execute"));
+    assert!(detail.contains("summary: qmt_live 提交被阻止：bridge qmt.mode=preview_only，要求 live"));
+    assert!(detail.contains("operator_action: use_live_bridge_mode"));
+    assert!(detail.contains("hint_command: quantix execution bridge status"));
+}
+
+#[test]
 fn test_format_execution_daemon_summary_when_idle() {
     let summary = crate::execution::daemon::ExecutionDaemonIterationSummary {
         claimed: 0,
@@ -703,6 +741,33 @@ fn test_format_strategy_request_row_includes_execution_timestamp_diagnostics() {
 }
 
 #[test]
+fn test_format_strategy_request_row_appends_compact_diag_for_gate_failures() {
+    let row = crate::execution::models::ExecutionRequestRecord {
+        request_id: "req-row-diag".to_string(),
+        signal_id: "signal-row-diag".to_string(),
+        target_mode: "qmt_live".to_string(),
+        target_account: "default".to_string(),
+        request_status: crate::execution::models::ExecutionRequestStatus::Failed,
+        approved_by: Some("cli".to_string()),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        payload_json: json!({
+            "execution_error": {
+                "message": "QMT 实盘下单被拒绝: bridge qmt.mode=preview_only，要求 bridge qmt.mode=live"
+            },
+            "execution_diagnostics": {
+                "code": "bridge_qmt_mode_not_live"
+            }
+        }),
+    };
+
+    let line = format_strategy_request_row(&row);
+
+    assert!(line.contains("status=failed"));
+    assert!(line.contains("diag=bridge_qmt_mode_not_live"));
+}
+
+#[test]
 fn test_format_strategy_request_row_includes_cancellation_timestamp_diagnostics() {
     let row = crate::execution::models::ExecutionRequestRecord {
         request_id: "req-row-canceled".to_string(),
@@ -725,6 +790,39 @@ fn test_format_strategy_request_row_includes_cancellation_timestamp_diagnostics(
 
     assert!(line.contains("status=canceled"));
     assert!(line.contains("result=reason=manual cancel canceled_at=2026-03-17T09:33:00Z"));
+}
+
+#[test]
+fn test_format_execution_daemon_summary_appends_compact_diag_for_gate_failures() {
+    let summary = crate::execution::daemon::ExecutionDaemonIterationSummary {
+        claimed: 1,
+        completed: 0,
+        failed: 1,
+        request: Some(crate::execution::models::ExecutionRequestRecord {
+            request_id: "req-daemon-diag".to_string(),
+            signal_id: "signal-daemon-diag".to_string(),
+            target_mode: "qmt_live".to_string(),
+            target_account: "default".to_string(),
+            request_status: crate::execution::models::ExecutionRequestStatus::Failed,
+            approved_by: Some("cli".to_string()),
+            created_at: fixed_ts(),
+            updated_at: fixed_ts(),
+            payload_json: json!({
+                "execution_error": {
+                    "message": "QMT 实盘下单被拒绝: bridge qmt.mode=preview_only，要求 bridge qmt.mode=live"
+                },
+                "execution_diagnostics": {
+                    "code": "bridge_qmt_mode_not_live"
+                }
+            }),
+        }),
+    };
+
+    let line = format_execution_daemon_summary(&summary);
+
+    assert!(line.contains("request=req-daemon-diag"));
+    assert!(line.contains("status=failed"));
+    assert!(line.contains("diag=bridge_qmt_mode_not_live"));
 }
 
 #[test]

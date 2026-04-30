@@ -176,6 +176,10 @@ async fn daemon_run_once_consumes_one_pending_paper_request() {
         saved.payload_json["execution_result"]["order_status"],
         "filled"
     );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "request_completed_order_terminal"
+    );
 
     let state = trade_store.load_state().await.unwrap().unwrap();
     assert_eq!(state.trade_records.len(), 1);
@@ -243,6 +247,10 @@ async fn daemon_run_once_rejects_pending_request_when_industry_is_blocked() {
     assert_eq!(
         saved.payload_json["execution_result"]["order_status"],
         "rejected"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "request_completed_order_terminal"
     );
 
     let client_order_id = saved.payload_json["execution_result"]["client_order_id"]
@@ -320,6 +328,10 @@ async fn daemon_run_once_marks_request_failed_when_industry_resolver_misses() {
         .unwrap()
         .unwrap();
     assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "execution_error_unclassified"
+    );
     assert!(
         saved.payload_json["execution_error"]["message"]
             .as_str()
@@ -372,6 +384,10 @@ async fn daemon_run_once_returns_unsupported_for_live_request_before_sqlite_setu
         .unwrap()
         .unwrap();
     assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "daemon_live_mode_unsupported"
+    );
     assert!(
         saved.payload_json["execution_error"]["message"]
             .as_str()
@@ -412,9 +428,69 @@ async fn daemon_run_once_rejects_qmt_live_request_with_manual_bridge_guidance() 
         .unwrap()
         .unwrap();
     assert_eq!(saved.request_status, ExecutionRequestStatus::Failed);
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "daemon_qmt_live_manual_bridge_required"
+    );
     let message = saved.payload_json["execution_error"]["message"]
         .as_str()
         .unwrap();
     assert!(message.contains("qmt_live"));
     assert!(message.contains("execution bridge qmt-live"));
+}
+
+#[tokio::test]
+async fn daemon_run_once_writes_non_terminal_completion_diagnostics_for_mock_live() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let risk_store = JsonRiskStore::new(dir.path().join("risk_state.json"));
+
+    TradeService::new(trade_store.clone())
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let run = sample_run(fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+    let signal = sample_signal(&run.run_id, "signal-daemon-mock-live-1", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+    let request = runtime_store
+        .approve_signal_and_create_request(
+            "signal-daemon-mock-live-1",
+            "mock_live",
+            "default",
+            Some("cli"),
+        )
+        .await
+        .unwrap();
+
+    let summary =
+        consume_next_pending_request_with_components(&runtime_store, trade_store, risk_store)
+            .await
+            .unwrap();
+
+    assert_eq!(summary.claimed, 1);
+    assert_eq!(summary.completed, 1);
+    assert_eq!(summary.failed, 0);
+
+    let saved = runtime_store
+        .get_execution_request(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.request_status, ExecutionRequestStatus::Completed);
+    assert_eq!(
+        saved.payload_json["execution_result"]["order_status"],
+        "accepted"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["code"],
+        "request_completed_order_non_terminal"
+    );
 }
