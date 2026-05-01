@@ -117,6 +117,18 @@ path = "src/main.rs"
 name = "bench_main"
 harness = false
 
+[profile.dev]
+debug = 1
+
+[profile.dev.package."*"]
+debug = 0
+
+[profile.test]
+debug = 1
+
+[profile.test.package."*"]
+debug = 0
+
 [profile.release]
 opt-level = 3
 lto = true
