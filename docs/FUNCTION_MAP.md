@@ -1,5 +1,9 @@
 # Quantix Rust 功能树
 
+> 兼容入口文件：仓库根目录 `FUNCTION_TREE.md`
+>
+> 本文档是当前主线的完整展开版功能树；`FUNCTION_TREE.md` 提供与外部项目对齐的简明入口。
+
 本文档以目录树形式展示 Quantix 量化交易系统的功能层次结构。
 
 ```
@@ -12,6 +16,11 @@ quantix-rust/
 │   │   ├── QuantixError - 统一错误类型
 │   │   └── Result<T> - 结果类型别名
 │   ├── 运行时环境 (runtime)
+│   │   ├── CliRuntime - CLI 路径/服务/桥接总运行时
+│   │   ├── BridgeRuntimeSettings - Bridge 运行时配置
+│   │   │   ├── base_url / api_key
+│   │   │   ├── bearer_token / contract_version
+│   │   │   └── qmt poll interval / timeout
 │   │   └── RuntimeContext - 异步运行时上下文
 │   ├── 交易日历 (trading_calendar)
 │   │   ├── TradingCalendar - A股交易日历
@@ -82,6 +91,9 @@ quantix-rust/
 │   │   └── 伪实盘模式（手动确认）
 │   ├── 运行时存储 (runtime_store)
 │   │   └── SQLite 运行状态持久化
+│   ├── 请求诊断 (request_diagnostics)
+│   │   ├── execution_diagnostics 结构化负载
+│   │   └── `qmt_live` gate / bridge / runtime 失败分类
 │   ├── 订单对账 (reconciliation)
 │   │   ├── OpenOrderScanner - 未完成订单扫描
 │   │   ├── ReconciliationService - 对账服务
@@ -89,10 +101,21 @@ quantix-rust/
 │   │   └── 超时订单自动标记失败
 │   ├── QMT Bridge (qmt_bridge)
 │   │   └── QMT 预览请求
+│   ├── QMT Live 门控 (qmt_live_gate)
+│   │   └── 能力/模式校验，只允许 guarded `qmt_live`
+│   ├── QMT 任务提交服务 (qmt_task_submit_service)
+│   │   ├── `/api/v1/task/execute` receipt 提交
+│   │   ├── `/api/v1/task/result/{task_id}` 查询/轮询
+│   │   └── `client_order_id` / `local_submission_id` identity 校验
+│   ├── QMT Live 适配器 (qmt_live_adapter)
+│   │   ├── submit_order -> `PendingSubmit` task receipt
+│   │   ├── query_order -> pending / accepted / rejected / filled 映射
+│   │   └── cancel_order -> 兼容取消端点
 │   ├── 执行适配器 (adapter)
 │   │   └── 多 broker 适配接口
 │   ├── 执行守护进程 (daemon)
-│   │   └── 执行服务后台运行
+│   │   ├── 执行服务后台运行
+│   │   └── 成功/失败路径都写出结构化执行诊断
 │   └── 执行配置 (config)
 │       └── 执行参数配置
 │
@@ -773,7 +796,7 @@ Quantix-Rust 围绕五个稳定中心设计：
 | `paper` + `mock_live` + guarded `qmt_live` | 当前已实现的执行目标 |
 | `live` | 通用 live 语义故意保持不完整，不等于 `qmt_live` |
 | Bridge 不拥有执行状态 | Windows 端无状态 |
-| `QMT` | Bridge v1 已支持受能力门控的 `qmt_live` 真实提交通道，同时保留 preview 路径 |
+| `QMT` | Bridge v1 已支持受能力门控的 `qmt_live` 真实提交通道（task receipt/result 语义），同时保留 preview 路径 |
 | `TDX bridge source` | 第一个真正的 bridge 能力 |
 
 ---
@@ -805,7 +828,7 @@ Quantix-Rust 围绕五个稳定中心设计：
 └── Windows Bridge v1
     ├── TDX bridge 数据源
     ├── QMT 预览
-    └── guarded `qmt_live` 真实提交 + query 路径
+    └── guarded `qmt_live` 真实提交 + task receipt/result query 路径
 ```
 
 ### C.2 故意推迟的功能
@@ -830,6 +853,10 @@ Windows Bridge v1
 │   ├── src/sources/bridge_tdx.rs
 │   ├── src/watchlist/resolver.rs (BridgeTdxWatchlistQuoteLookup)
 │   ├── src/execution/qmt_bridge.rs
+│   ├── src/execution/qmt_live_gate.rs
+│   ├── src/execution/qmt_task_submit_service.rs
+│   ├── src/execution/qmt_live_adapter.rs
+│   ├── src/execution/request_diagnostics.rs
 │   └── quantix execution bridge ...
 │
 └── Windows 端
@@ -838,6 +865,8 @@ Windows Bridge v1
         ├── /api/v1/capabilities
         ├── /api/v1/data/tdx/quotes
         ├── /api/v1/data/tdx/kline/{symbol}
+        ├── /api/v1/task/execute
+        ├── /api/v1/task/result/{task_id}
         ├── /api/v1/broker/qmt/account/status
         ├── /api/v1/broker/qmt/orders/preview
         └── /api/v1/broker/qmt/orders/live   # Bridge API 端点/预留能力；不代表 quantix-rust 当前已开放真实下单

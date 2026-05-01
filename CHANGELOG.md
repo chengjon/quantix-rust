@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## 2026-05-01
+
+### Added
+- **miniQMT task-contract 提交服务与聚焦回归覆盖** (`src/execution/qmt_task_submit_service.rs`, `tests/qmt_task_contract_test.rs`, `tests/qmt_live_adapter_test.rs`)
+  - 新增 `QmtTaskSubmitService`，统一封装 `/api/v1/task/execute` 回执、`/api/v1/task/result/{task_id}` 查询/轮询与 identity 校验
+  - 新增 `qmt_live_adapter_test` / `qmt_task_contract_test`，锁定 `PendingSubmit` receipt、pending `result: null`、ack/reject 映射与轮询超时语义
+
+### Changed
+- **Bridge runtime / client / qmt_live 语义对齐 miniQMT v1 合同** (`src/core/runtime.rs`, `src/bridge/client.rs`, `src/bridge/models.rs`, `src/execution/qmt_live_adapter.rs`)
+  - `BridgeRuntimeSettings` 增加 bearer token、contract version、poll interval、poll timeout 等运行时配置加载
+  - `BridgeHttpClient` 与 bridge models 扩展 `/api/v1/task/execute`、`/api/v1/task/result` 合同
+  - `QmtLiveExecutionAdapter` 从旧的 broker-submit 语义切到 task receipt/result 语义：
+    - `submit_order` 返回 `PendingSubmit` task receipt
+    - `query_order` 映射 pending / acknowledgement / reject / execution
+    - `cancel_order` 继续保留兼容取消端点
+
+### Fixed
+- **手动 `qmt_live` gate 分类诊断补齐** (`src/execution/request_diagnostics.rs`, `src/cli/handlers/execution_handler.rs`, `src/cli/handlers/tests/strategy_execution.rs`)
+  - 手动 `qmt_live` 路径在 capability / mode 阻塞时输出结构化 `execution_diagnostics`
+  - 统一补齐 gate category 与 detail payload，避免 request detail/list 丢失真实阻塞原因
+
+## 2026-04-30
+
+### Added
+- **execution request 结构化执行诊断主线化** (`src/execution/request_diagnostics.rs`, `src/execution/daemon.rs`, `src/cli/handlers/execution_handler.rs`, `tests/execution_daemon_test.rs`, `tests/repo_hygiene_test.rs`)
+  - 执行 daemon 成功/失败路径统一写出 `execution_diagnostics`
+  - request detail/list CLI 展示结构化诊断负载，便于回看 gate、bridge 和 runtime 失败原因
+
 ## 2026-04-29
 
 ### Fixed
