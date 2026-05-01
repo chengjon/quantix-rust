@@ -102,15 +102,12 @@ where
         )));
     }
 
-    let latest_close = bars
-        .last()
-        .map(|bar| bar.close)
-        .ok_or_else(|| {
-            QuantixError::Other(format!(
-                "risk rule volatility-limit 检查失败: code={} 原因=未找到最新收盘价",
-                projected_buy.code
-            ))
-        })?;
+    let latest_close = bars.last().map(|bar| bar.close).ok_or_else(|| {
+        QuantixError::Other(format!(
+            "risk rule volatility-limit 检查失败: code={} 原因=未找到最新收盘价",
+            projected_buy.code
+        ))
+    })?;
     if latest_close <= Decimal::ZERO {
         return Err(QuantixError::Other(format!(
             "risk rule volatility-limit 检查失败: code={} 原因=最新收盘价必须大于 0",

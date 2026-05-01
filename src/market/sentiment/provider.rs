@@ -1,8 +1,8 @@
 //! 舆情数据提供商 Trait
 
-use async_trait::async_trait;
+use super::types::{SentimentData, SentimentHistoryPoint, SentimentScore, SocialMention};
 use crate::core::Result;
-use super::types::{SentimentData, SentimentScore, SocialMention, SentimentHistoryPoint};
+use async_trait::async_trait;
 
 /// 舆情数据提供商 Trait
 #[async_trait]

@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use super::code_resolver::CodeResolver;
-use super::types::{ImportItem, ImportSource, ImportResult};
+use super::types::{ImportItem, ImportResult, ImportSource};
 
 /// CSV 解析器
 pub struct CsvParser {
@@ -49,7 +49,11 @@ impl CsvParser {
             lines.next(); // 跳过 header
         }
 
-        let total_input_lines = content.lines().count().saturating_sub(if has_header { 1 } else { 0 });
+        let total_input_lines =
+            content
+                .lines()
+                .count()
+                .saturating_sub(if has_header { 1 } else { 0 });
 
         for line in lines {
             let line = line.trim();
@@ -78,9 +82,7 @@ impl CsvParser {
         }
 
         // 去重
-        items.dedup_by(|a, b| {
-            a.code.as_ref() == b.code.as_ref() && a.code.is_some()
-        });
+        items.dedup_by(|a, b| a.code.as_ref() == b.code.as_ref() && a.code.is_some());
 
         let parsed_count = items.len();
 
@@ -120,7 +122,11 @@ impl CsvParser {
                 let name = fields[1].trim().trim_matches('"');
                 return Some(ImportItem {
                     code: Some(super::types::normalize_code(code_field)),
-                    name: if name.is_empty() { None } else { Some(name.to_string()) },
+                    name: if name.is_empty() {
+                        None
+                    } else {
+                        Some(name.to_string())
+                    },
                     confidence: 0.95,
                     source: ImportSource::Csv,
                     raw_text: Some(fields.join(",")),
@@ -157,14 +163,28 @@ fn detect_header(line: &str, delimiter: u8) -> bool {
     };
 
     // 如果第一个字段是常见 header 名称
-    let first = fields.first().map(|f| f.trim().trim_matches('"')).unwrap_or("");
+    let first = fields
+        .first()
+        .map(|f| f.trim().trim_matches('"'))
+        .unwrap_or("");
     let header_keywords = [
-        "code", "代码", "股票代码", "股票", "stock", "symbol",
-        "name", "名称", "股票名称",
-        "no", "编号", "序号",
+        "code",
+        "代码",
+        "股票代码",
+        "股票",
+        "stock",
+        "symbol",
+        "name",
+        "名称",
+        "股票名称",
+        "no",
+        "编号",
+        "序号",
     ];
 
-    header_keywords.iter().any(|kw| first.eq_ignore_ascii_case(kw))
+    header_keywords
+        .iter()
+        .any(|kw| first.eq_ignore_ascii_case(kw))
 }
 
 #[cfg(test)]

@@ -403,6 +403,7 @@ pub(crate) fn execute_monitor_config_command_with_store(
             interval_seconds,
             group,
             persist_events,
+            notify,
         } => {
             if let Some(value) = interval_seconds {
                 config.interval_seconds = value.max(1);
@@ -412,6 +413,9 @@ pub(crate) fn execute_monitor_config_command_with_store(
             }
             if let Some(value) = persist_events {
                 config.persist_events = value;
+            }
+            if let Some(value) = notify {
+                config.notify_enabled = value;
             }
 
             store.save(&config)?;
@@ -636,6 +640,7 @@ where
     loop {
         let config = config_store.load_or_create()?;
         let output = runner.run_once(&config, run_mode, Utc::now()).await?;
+        dispatch_monitor_notifications_for_output(&config, &output).await;
         print_monitor_command_output(&MonitorCommandOutput::AutomationIteration {
             run_mode,
             output,
@@ -649,6 +654,101 @@ where
     }
 
     Ok(())
+}
+
+pub(crate) async fn dispatch_monitor_notifications_for_output(
+    config: &MonitorConfig,
+    output: &MonitorIterationOutput,
+) {
+    if !monitor_notifications_enabled(config) || output.new_events.is_empty() {
+        return;
+    }
+
+    if let Err(err) = send_monitor_notifications(output).await {
+        tracing::warn!("monitor notifications failed: {}", err);
+    }
+}
+
+fn monitor_notifications_enabled(config: &MonitorConfig) -> bool {
+    config.notify_enabled
+        || matches!(
+            std::env::var("QUANTIX_MONITOR_NOTIFY")
+                .ok()
+                .as_deref()
+                .map(str::trim)
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("1" | "true" | "yes" | "on")
+        )
+}
+
+async fn send_monitor_notifications(output: &MonitorIterationOutput) -> Result<()> {
+    let config = crate::monitoring::NotificationConfig::from_env();
+    let mut service = crate::monitoring::NotificationService::new(config);
+
+    for event in &output.new_events {
+        let notification = crate::monitoring::Notification::new(
+            format!(
+                "Monitor {} {}",
+                monitor_notification_event_label(event.event_type),
+                event.code
+            ),
+            format!(
+                "{}\n模式: {}\n时间: {}",
+                event.message,
+                monitor_notification_run_mode_label(event.run_mode),
+                event.event_time.format("%Y-%m-%d %H:%M:%S")
+            ),
+            monitor_notification_level(event.event_type),
+        )
+        .with_metadata(
+            "event_type",
+            monitor_notification_event_key(event.event_type).to_string(),
+        )
+        .with_metadata("code", event.code.clone())
+        .with_metadata(
+            "run_mode",
+            monitor_notification_run_mode_label(event.run_mode).to_string(),
+        );
+
+        let _ = service.notify(notification).await;
+    }
+
+    Ok(())
+}
+
+fn monitor_notification_level(event_type: MonitorEventType) -> crate::monitoring::AlertLevel {
+    match event_type {
+        MonitorEventType::PriceAlert => crate::monitoring::AlertLevel::Warning,
+        MonitorEventType::StopLoss => crate::monitoring::AlertLevel::Critical,
+        MonitorEventType::StopProfit => crate::monitoring::AlertLevel::Warning,
+        MonitorEventType::TrailingStop => crate::monitoring::AlertLevel::Error,
+    }
+}
+
+fn monitor_notification_event_label(event_type: MonitorEventType) -> &'static str {
+    match event_type {
+        MonitorEventType::PriceAlert => "price alert",
+        MonitorEventType::StopLoss => "stop loss",
+        MonitorEventType::StopProfit => "stop profit",
+        MonitorEventType::TrailingStop => "trailing stop",
+    }
+}
+
+fn monitor_notification_event_key(event_type: MonitorEventType) -> &'static str {
+    match event_type {
+        MonitorEventType::PriceAlert => "price-alert",
+        MonitorEventType::StopLoss => "stop-loss",
+        MonitorEventType::StopProfit => "stop-profit",
+        MonitorEventType::TrailingStop => "trailing-stop",
+    }
+}
+
+fn monitor_notification_run_mode_label(run_mode: MonitorRunMode) -> &'static str {
+    match run_mode {
+        MonitorRunMode::Foreground => "foreground",
+        MonitorRunMode::Daemon => "daemon",
+    }
 }
 
 pub(crate) async fn persist_triggered_monitor_alerts<RS>(

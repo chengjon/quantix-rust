@@ -1,0 +1,143 @@
+2026-04-26T18:19:38.355833Z  WARN quantix_cli::market::strength: EastMoney A股全市场快照拉取失败，开始尝试 TDX fallback: 其他错误: 获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server
+2026-04-26T18:19:38.790666Z  INFO quantix_cli::sources::tdx: TDX 数据源初始化成功：3 个 TCP 连接
+2026-04-26T18:19:38.790727Z  INFO quantix_cli::sources::quote_collector: 行情采集器初始化：每批 40 只股票，超时 10 秒
+2026-04-26T18:19:38.790745Z  INFO quantix_cli::sources::quote_collector: 开始分批采集全市场 4430 只股票的实时行情
+2026-04-26T18:19:38.791595Z  INFO quantix_cli::sources::quote_collector: 正在采集第 1/111 批（40 只股票）
+2026-04-26T18:19:38.927024Z  INFO quantix_cli::sources::quote_collector: 正在采集第 2/111 批（40 只股票）
+2026-04-26T18:19:39.062041Z  INFO quantix_cli::sources::quote_collector: 正在采集第 3/111 批（40 只股票）
+2026-04-26T18:19:39.198978Z  INFO quantix_cli::sources::quote_collector: 正在采集第 4/111 批（40 只股票）
+2026-04-26T18:19:39.335797Z  INFO quantix_cli::sources::quote_collector: 正在采集第 5/111 批（40 只股票）
+2026-04-26T18:19:39.470879Z  INFO quantix_cli::sources::quote_collector: 正在采集第 6/111 批（40 只股票）
+2026-04-26T18:19:39.607366Z  INFO quantix_cli::sources::quote_collector: 正在采集第 7/111 批（40 只股票）
+2026-04-26T18:19:39.742817Z  INFO quantix_cli::sources::quote_collector: 正在采集第 8/111 批（40 只股票）
+2026-04-26T18:19:39.876127Z  INFO quantix_cli::sources::quote_collector: 正在采集第 9/111 批（40 只股票）
+2026-04-26T18:19:40.013642Z  INFO quantix_cli::sources::quote_collector: 正在采集第 10/111 批（40 只股票）
+2026-04-26T18:19:40.147056Z  INFO quantix_cli::sources::quote_collector: 正在采集第 11/111 批（40 只股票）
+2026-04-26T18:19:40.281106Z  INFO quantix_cli::sources::quote_collector: 正在采集第 12/111 批（40 只股票）
+2026-04-26T18:19:40.420538Z  INFO quantix_cli::sources::quote_collector: 正在采集第 13/111 批（40 只股票）
+2026-04-26T18:19:40.559047Z  INFO quantix_cli::sources::quote_collector: 正在采集第 14/111 批（40 只股票）
+2026-04-26T18:19:40.693223Z  INFO quantix_cli::sources::quote_collector: 正在采集第 15/111 批（40 只股票）
+2026-04-26T18:19:40.831551Z  INFO quantix_cli::sources::quote_collector: 正在采集第 16/111 批（40 只股票）
+2026-04-26T18:19:40.966890Z  INFO quantix_cli::sources::quote_collector: 正在采集第 17/111 批（40 只股票）
+2026-04-26T18:19:41.101952Z  INFO quantix_cli::sources::quote_collector: 正在采集第 18/111 批（40 只股票）
+2026-04-26T18:19:41.239443Z  INFO quantix_cli::sources::quote_collector: 正在采集第 19/111 批（40 只股票）
+2026-04-26T18:19:41.373190Z  INFO quantix_cli::sources::quote_collector: 正在采集第 20/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:41.509014Z  INFO quantix_cli::sources::quote_collector: 正在采集第 21/111 批（40 只股票）
+2026-04-26T18:19:41.646942Z  INFO quantix_cli::sources::quote_collector: 正在采集第 22/111 批（40 只股票）
+2026-04-26T18:19:41.782423Z  INFO quantix_cli::sources::quote_collector: 正在采集第 23/111 批（40 只股票）
+2026-04-26T18:19:41.917778Z  INFO quantix_cli::sources::quote_collector: 正在采集第 24/111 批（40 只股票）
+2026-04-26T18:19:42.055047Z  INFO quantix_cli::sources::quote_collector: 正在采集第 25/111 批（40 只股票）
+2026-04-26T18:19:42.188984Z  INFO quantix_cli::sources::quote_collector: 正在采集第 26/111 批（40 只股票）
+2026-04-26T18:19:42.323849Z  INFO quantix_cli::sources::quote_collector: 正在采集第 27/111 批（40 只股票）
+2026-04-26T18:19:42.461900Z  INFO quantix_cli::sources::quote_collector: 正在采集第 28/111 批（40 只股票）
+2026-04-26T18:19:42.633805Z  INFO quantix_cli::sources::quote_collector: 正在采集第 29/111 批（40 只股票）
+2026-04-26T18:19:42.768694Z  INFO quantix_cli::sources::quote_collector: 正在采集第 30/111 批（40 只股票）
+2026-04-26T18:19:42.905243Z  INFO quantix_cli::sources::quote_collector: 正在采集第 31/111 批（40 只股票）
+2026-04-26T18:19:43.039523Z  INFO quantix_cli::sources::quote_collector: 正在采集第 32/111 批（40 只股票）
+2026-04-26T18:19:43.175456Z  INFO quantix_cli::sources::quote_collector: 正在采集第 33/111 批（40 只股票）
+2026-04-26T18:19:43.312166Z  INFO quantix_cli::sources::quote_collector: 正在采集第 34/111 批（40 只股票）
+2026-04-26T18:19:43.453866Z  INFO quantix_cli::sources::quote_collector: 正在采集第 35/111 批（40 只股票）
+2026-04-26T18:19:43.623505Z  INFO quantix_cli::sources::quote_collector: 正在采集第 36/111 批（40 只股票）
+2026-04-26T18:19:43.758954Z  INFO quantix_cli::sources::quote_collector: 正在采集第 37/111 批（40 只股票）
+2026-04-26T18:19:43.895003Z  INFO quantix_cli::sources::quote_collector: 正在采集第 38/111 批（40 只股票）
+2026-04-26T18:19:44.029685Z  INFO quantix_cli::sources::quote_collector: 正在采集第 39/111 批（40 只股票）
+2026-04-26T18:19:44.166565Z  INFO quantix_cli::sources::quote_collector: 正在采集第 40/111 批（40 只股票）
+2026-04-26T18:19:44.300822Z  INFO quantix_cli::sources::quote_collector: 正在采集第 41/111 批（40 只股票）
+2026-04-26T18:19:44.437599Z  INFO quantix_cli::sources::quote_collector: 正在采集第 42/111 批（40 只股票）
+2026-04-26T18:19:44.575774Z  INFO quantix_cli::sources::quote_collector: 正在采集第 43/111 批（40 只股票）
+2026-04-26T18:19:44.708970Z  INFO quantix_cli::sources::quote_collector: 正在采集第 44/111 批（40 只股票）
+2026-04-26T18:19:44.843416Z  INFO quantix_cli::sources::quote_collector: 正在采集第 45/111 批（40 只股票）
+2026-04-26T18:19:44.979103Z  INFO quantix_cli::sources::quote_collector: 正在采集第 46/111 批（40 只股票）
+2026-04-26T18:19:45.113856Z  INFO quantix_cli::sources::quote_collector: 正在采集第 47/111 批（40 只股票）
+2026-04-26T18:19:45.249205Z  INFO quantix_cli::sources::quote_collector: 正在采集第 48/111 批（40 只股票）
+2026-04-26T18:19:45.388561Z  INFO quantix_cli::sources::quote_collector: 正在采集第 49/111 批（40 只股票）
+2026-04-26T18:19:45.523377Z  INFO quantix_cli::sources::quote_collector: 正在采集第 50/111 批（40 只股票）
+2026-04-26T18:19:45.698900Z  INFO quantix_cli::sources::quote_collector: 正在采集第 51/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:45.839636Z  INFO quantix_cli::sources::quote_collector: 正在采集第 52/111 批（40 只股票）
+2026-04-26T18:19:45.976179Z  INFO quantix_cli::sources::quote_collector: 正在采集第 53/111 批（40 只股票）
+2026-04-26T18:19:46.113553Z  INFO quantix_cli::sources::quote_collector: 正在采集第 54/111 批（40 只股票）
+2026-04-26T18:19:46.250046Z  INFO quantix_cli::sources::quote_collector: 正在采集第 55/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:46.384907Z  INFO quantix_cli::sources::quote_collector: 正在采集第 56/111 批（40 只股票）
+2026-04-26T18:19:46.519353Z  INFO quantix_cli::sources::quote_collector: 正在采集第 57/111 批（40 只股票）
+2026-04-26T18:19:46.656333Z  INFO quantix_cli::sources::quote_collector: 正在采集第 58/111 批（40 只股票）
+2026-04-26T18:19:46.790797Z  INFO quantix_cli::sources::quote_collector: 正在采集第 59/111 批（40 只股票）
+2026-04-26T18:19:46.925877Z  INFO quantix_cli::sources::quote_collector: 正在采集第 60/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:47.063244Z  INFO quantix_cli::sources::quote_collector: 正在采集第 61/111 批（40 只股票）
+2026-04-26T18:19:47.197075Z  INFO quantix_cli::sources::quote_collector: 正在采集第 62/111 批（40 只股票）
+2026-04-26T18:19:47.331990Z  INFO quantix_cli::sources::quote_collector: 正在采集第 63/111 批（40 只股票）
+2026-04-26T18:19:47.469080Z  INFO quantix_cli::sources::quote_collector: 正在采集第 64/111 批（40 只股票）
+2026-04-26T18:19:47.603751Z  INFO quantix_cli::sources::quote_collector: 正在采集第 65/111 批（40 只股票）
+2026-04-26T18:19:47.769587Z  INFO quantix_cli::sources::quote_collector: 正在采集第 66/111 批（40 只股票）
+2026-04-26T18:19:47.906611Z  INFO quantix_cli::sources::quote_collector: 正在采集第 67/111 批（40 只股票）
+2026-04-26T18:19:48.042731Z  INFO quantix_cli::sources::quote_collector: 正在采集第 68/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:48.177752Z  INFO quantix_cli::sources::quote_collector: 正在采集第 69/111 批（40 只股票）
+2026-04-26T18:19:48.317759Z  INFO quantix_cli::sources::quote_collector: 正在采集第 70/111 批（40 只股票）
+2026-04-26T18:19:49.685344Z  INFO quantix_cli::sources::quote_collector: 正在采集第 71/111 批（40 只股票）
+2026-04-26T18:19:49.822383Z  INFO quantix_cli::sources::quote_collector: 正在采集第 72/111 批（40 只股票）
+2026-04-26T18:19:49.990343Z  INFO quantix_cli::sources::quote_collector: 正在采集第 73/111 批（40 只股票）
+2026-04-26T18:19:50.124664Z  INFO quantix_cli::sources::quote_collector: 正在采集第 74/111 批（40 只股票）
+2026-04-26T18:19:50.260273Z  INFO quantix_cli::sources::quote_collector: 正在采集第 75/111 批（40 只股票）
+2026-04-26T18:19:50.397106Z  INFO quantix_cli::sources::quote_collector: 正在采集第 76/111 批（40 只股票）
+2026-04-26T18:19:50.531654Z  INFO quantix_cli::sources::quote_collector: 正在采集第 77/111 批（40 只股票）
+2026-04-26T18:19:50.665618Z  INFO quantix_cli::sources::quote_collector: 正在采集第 78/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:50.802380Z  INFO quantix_cli::sources::quote_collector: 正在采集第 79/111 批（40 只股票）
+2026-04-26T18:19:50.936661Z  INFO quantix_cli::sources::quote_collector: 正在采集第 80/111 批（40 只股票）
+2026-04-26T18:19:51.070051Z  INFO quantix_cli::sources::quote_collector: 正在采集第 81/111 批（40 只股票）
+2026-04-26T18:19:51.206578Z  INFO quantix_cli::sources::quote_collector: 正在采集第 82/111 批（40 只股票）
+2026-04-26T18:19:51.342648Z  INFO quantix_cli::sources::quote_collector: 正在采集第 83/111 批（40 只股票）
+2026-04-26T18:19:51.477150Z  INFO quantix_cli::sources::quote_collector: 正在采集第 84/111 批（40 只股票）
+2026-04-26T18:19:51.614981Z  INFO quantix_cli::sources::quote_collector: 正在采集第 85/111 批（40 只股票）
+2026-04-26T18:19:51.750317Z  INFO quantix_cli::sources::quote_collector: 正在采集第 86/111 批（40 只股票）
+2026-04-26T18:19:51.884876Z  INFO quantix_cli::sources::quote_collector: 正在采集第 87/111 批（40 只股票）
+2026-04-26T18:19:52.033140Z  INFO quantix_cli::sources::quote_collector: 正在采集第 88/111 批（40 只股票）
+2026-04-26T18:19:52.168146Z  INFO quantix_cli::sources::quote_collector: 正在采集第 89/111 批（40 只股票）
+2026-04-26T18:19:52.302665Z  INFO quantix_cli::sources::quote_collector: 正在采集第 90/111 批（40 只股票）
+2026-04-26T18:19:52.438993Z  INFO quantix_cli::sources::quote_collector: 正在采集第 91/111 批（40 只股票）
+2026-04-26T18:19:52.573692Z  INFO quantix_cli::sources::quote_collector: 正在采集第 92/111 批（40 只股票）
+2026-04-26T18:19:52.708580Z  INFO quantix_cli::sources::quote_collector: 正在采集第 93/111 批（40 只股票）
+2026-04-26T18:19:52.845388Z  INFO quantix_cli::sources::quote_collector: 正在采集第 94/111 批（40 只股票）
+2026-04-26T18:19:52.980428Z  INFO quantix_cli::sources::quote_collector: 正在采集第 95/111 批（40 只股票）
+2026-04-26T18:19:53.115157Z  INFO quantix_cli::sources::quote_collector: 正在采集第 96/111 批（40 只股票）
+2026-04-26T18:19:53.251404Z  INFO quantix_cli::sources::quote_collector: 正在采集第 97/111 批（40 只股票）
+2026-04-26T18:19:53.385009Z  INFO quantix_cli::sources::quote_collector: 正在采集第 98/111 批（40 只股票）
+2026-04-26T18:19:53.520251Z  INFO quantix_cli::sources::quote_collector: 正在采集第 99/111 批（40 只股票）
+2026-04-26T18:19:53.663612Z  INFO quantix_cli::sources::quote_collector: 正在采集第 100/111 批（40 只股票）
+2026-04-26T18:19:53.805445Z  INFO quantix_cli::sources::quote_collector: 正在采集第 101/111 批（40 只股票）
+2026-04-26T18:19:53.944396Z  INFO quantix_cli::sources::quote_collector: 正在采集第 102/111 批（40 只股票）
+2026-04-26T18:19:54.081344Z  INFO quantix_cli::sources::quote_collector: 正在采集第 103/111 批（40 只股票）
+2026-04-26T18:19:54.215077Z  INFO quantix_cli::sources::quote_collector: 正在采集第 104/111 批（40 只股票）
+⚠️  行情数据不完整，只解析了 39/40 只股票
+2026-04-26T18:19:54.350296Z  INFO quantix_cli::sources::quote_collector: 正在采集第 105/111 批（40 只股票）
+2026-04-26T18:19:54.487376Z  INFO quantix_cli::sources::quote_collector: 正在采集第 106/111 批（40 只股票）
+2026-04-26T18:19:54.622093Z  INFO quantix_cli::sources::quote_collector: 正在采集第 107/111 批（40 只股票）
+2026-04-26T18:19:54.763168Z  INFO quantix_cli::sources::quote_collector: 正在采集第 108/111 批（40 只股票）
+2026-04-26T18:19:54.899752Z  INFO quantix_cli::sources::quote_collector: 正在采集第 109/111 批（40 只股票）
+2026-04-26T18:19:55.033889Z  INFO quantix_cli::sources::quote_collector: 正在采集第 110/111 批（40 只股票）
+2026-04-26T18:19:55.168535Z  INFO quantix_cli::sources::quote_collector: 正在采集第 111/111 批（30 只股票）
+2026-04-26T18:19:55.203622Z  INFO quantix_cli::sources::quote_collector: 全市场行情采集完成：共获取 4423 只股票的行情数据
+2026-04-26T18:19:55.205134Z  WARN quantix_cli::market::strength: TDX fallback 仅返回部分 A 股实时行情: 4228/4430
+== 市场基础数据 ==
+A股总数: 4228
+已匹配行业: 4228
+未匹配行业: 0
+行业数: 31
+
+行业覆盖 Top10:
+排名   行业               成分股数
+----------------------------------------
+1    机械设备             419
+2    医药生物             372
+3    基础化工             322
+4    电子               319
+5    电力设备             260
+6    计算机              260
+7    汽车               217
+8    建筑装饰             134
+9    传媒               129
+10   轻工制造             124

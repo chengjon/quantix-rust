@@ -13,6 +13,13 @@ pub enum DataCommands {
         input: String,
     },
 
+    /// 校验本地市场基础面 JSON 文件，不写入 ClickHouse
+    ValidateFundamentals {
+        /// 输入 JSON 文件路径，内容为 MarketFundamentalSyncRecord 数组
+        #[arg(long)]
+        input: String,
+    },
+
     /// 查询历史数据
     Query {
         /// 股票代码

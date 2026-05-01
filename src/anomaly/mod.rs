@@ -40,7 +40,9 @@ pub mod filter;
 pub mod forest;
 pub mod statistics;
 
-pub use config::{AnomalyConfig, DataConfig, FeatureConfig, FilterConfig, ForestConfig, OutputConfig};
+pub use config::{
+    AnomalyConfig, DataConfig, FeatureConfig, FilterConfig, ForestConfig, OutputConfig,
+};
 pub use detector::{AnomalyDetector, AnomalyResult, DataSource, MockDataSource};
 pub use eastmoney_source::EastMoneyAnomalySource;
 pub use features::{FeatureExtractor, FeatureSet, OHLCVCandle, OHLCVSeries};

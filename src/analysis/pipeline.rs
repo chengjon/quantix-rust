@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::analysis::{
-    IndicatorCache, IndicatorCacheKey, IndicatorInstanceId, IndicatorInput, IndicatorPipelineConfig,
-    IndicatorRegistry, IndicatorSeries,
+    IndicatorCache, IndicatorCacheKey, IndicatorInput, IndicatorInstanceId,
+    IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries,
 };
 use crate::core::{QuantixError, Result};
 

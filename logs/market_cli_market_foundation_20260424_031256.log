@@ -1,0 +1,21 @@
+2026-04-23T19:12:59.973121Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T19:13:00.207008Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+== 市场基础数据 ==
+A股总数: 100
+已匹配行业: 85
+未匹配行业: 15
+行业数: 23
+
+行业覆盖 Top10:
+排名   行业               成分股数
+----------------------------------------
+1    机械设备             13
+2    公用事业             12
+3    家用电器             5
+4    电力设备             5
+5    电子               5
+6    医药生物             4
+7    基础化工             4
+8    通信               4
+9    传媒               3
+10   建筑装饰             3

@@ -53,4 +53,28 @@ fn parses_execution_config_and_daemon_commands() {
         }
         other => panic!("unexpected command: {:?}", other),
     }
+
+    let cli = Cli::try_parse_from(["quantix", "execution", "qmt", "status"]).unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(ExecutionQmtCommands::Status)) => {}
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "execution",
+        "qmt",
+        "preview",
+        "--request-id",
+        "req-2",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(ExecutionQmtCommands::Preview {
+            request_id,
+        })) => {
+            assert_eq!(request_id, "req-2");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
 }

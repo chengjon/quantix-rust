@@ -1,0 +1,3 @@
+2026-04-23T16:47:23.421248Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T16:47:23.552494Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+Error: Other("未找到行业分类数据，请先运行 quantix risk sync industry --standard shenwan")

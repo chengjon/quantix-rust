@@ -1,10 +1,9 @@
 //! 机构持仓数据获取
 
+use super::types::InstitutionHolding;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
-use super::types::InstitutionHolding;
 
 /// EastMoney 机构持仓 API 响应
 #[derive(Debug, Deserialize)]
@@ -31,7 +30,8 @@ struct HoldingItem {
     /// 变动比例(%)
     change_ratio: Option<serde_json::Value>,
     /// 报告期
-    end_date: Option<String>,
+    #[serde(rename = "end_date")]
+    _end_date: Option<String>,
     /// 机构类型
     holder_type: Option<serde_json::Value>,
 }
@@ -94,7 +94,8 @@ impl InstitutionFetcher {
             secid
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Referer", "https://data.eastmoney.com/")
             .send()
@@ -102,7 +103,10 @@ impl InstitutionFetcher {
             .map_err(|e| QuantixError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(QuantixError::Other(format!("EastMoney API error: {}", response.status())));
+            return Err(QuantixError::Other(format!(
+                "EastMoney API error: {}",
+                response.status()
+            )));
         }
 
         let resp: HoldingApiResponse = response
@@ -110,28 +114,32 @@ impl InstitutionFetcher {
             .await
             .map_err(|e| QuantixError::Other(format!("解析机构持仓响应失败: {}", e)))?;
 
-        let items = resp.result
-            .and_then(|r| r.data)
-            .unwrap_or_default();
+        let items = resp.result.and_then(|r| r.data).unwrap_or_default();
 
         let report_date = chrono::Utc::now().date_naive();
         let code_str = code.to_string();
 
-        let holdings: Vec<InstitutionHolding> = items.into_iter().map(|item| {
-            let change_pct = value_to_f64(&item.change_ratio);
-            InstitutionHolding {
-                code: code_str.clone(),
-                institution_name: item.holder_name.unwrap_or_else(|| "-".to_string()),
-                institution_type: holder_type_label(item.holder_type.as_ref()),
-                shares: Decimal::from_f64_retain(value_to_f64(&item.hold_num).unwrap_or(0.0) / 10000.0)
+        let holdings: Vec<InstitutionHolding> = items
+            .into_iter()
+            .map(|item| {
+                let change_pct = value_to_f64(&item.change_ratio);
+                InstitutionHolding {
+                    code: code_str.clone(),
+                    institution_name: item.holder_name.unwrap_or_else(|| "-".to_string()),
+                    institution_type: holder_type_label(item.holder_type.as_ref()),
+                    shares: Decimal::from_f64_retain(
+                        value_to_f64(&item.hold_num).unwrap_or(0.0) / 10000.0,
+                    )
                     .unwrap_or(Decimal::ZERO),
-                market_value: value_to_f64(&item.hold_value).and_then(|v| to_decimal(v / 10000.0)),
-                float_ratio: value_to_f64(&item.hold_ratio).and_then(to_decimal),
-                change_direction: change_direction(change_pct),
-                change_shares: change_pct.and_then(|c| to_decimal(c)),
-                report_date,
-            }
-        }).collect();
+                    market_value: value_to_f64(&item.hold_value)
+                        .and_then(|v| to_decimal(v / 10000.0)),
+                    float_ratio: value_to_f64(&item.hold_ratio).and_then(to_decimal),
+                    change_direction: change_direction(change_pct),
+                    change_shares: change_pct.and_then(to_decimal),
+                    report_date,
+                }
+            })
+            .collect();
 
         Ok(holdings)
     }

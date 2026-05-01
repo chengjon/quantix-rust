@@ -1,0 +1,65 @@
+[INFO] Market CLI formal sequence log: /opt/claude/quantix-rust/logs/market_cli_formal_sequence_20260424_015500.log
+\n[STEP] Risk sync industry Shenwan
+[LOG] sync_industry_log=/opt/claude/quantix-rust/logs/market_cli_sync_industry_20260424_015500.log
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-23T17:55:00.277898634+00:00
+[RESULT] sync_industry_exit=0
+[SUMMARY] sync_industry_summary=exit=0 completed; see log for refreshed industry reference details
+\n[STEP] Market foundation
+[LOG] market_foundation_log=/opt/claude/quantix-rust/logs/market_cli_market_foundation_20260424_015500.log
+2026-04-23T17:55:02.184595Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T17:55:02.430135Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+== 市场基础数据 ==
+A股总数: 100
+已匹配行业: 85
+未匹配行业: 15
+行业数: 23
+
+行业覆盖 Top10:
+排名   行业               成分股数
+----------------------------------------
+1    机械设备             13
+2    公用事业             12
+3    家用电器             5
+4    电力设备             5
+5    电子               5
+6    医药生物             4
+7    基础化工             4
+8    通信               4
+9    传媒               3
+10   建筑装饰             3
+[RESULT] market_foundation_exit=0
+[FIELD] market_foundation_total_stocks=100
+[FIELD] market_foundation_classified_stocks=85
+[FIELD] market_foundation_unclassified_stocks=15
+[FIELD] market_foundation_sector_count=23
+[FIELD] market_foundation_top_sector=1 机械设备 13
+[SUMMARY] market_foundation_summary=A股总数=100 已匹配行业=85 未匹配行业=15 行业数=23
+\n[STEP] Market strength
+[LOG] market_strength_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_20260424_015500.log
+2026-04-23T17:55:02.567574Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+2026-04-23T17:55:02.620840Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T17:55:02.745426Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+== 强弱板块分析 ==
+基础数据: A股=100 行业覆盖=85 未覆盖=15
+强势板块候选股数: 0
+
+强势板块:
+📭 没有可展示的板块数据
+
+弱势板块:
+📭 没有可展示的板块数据
+
+强势板块个股 Top10 总市值:
+📭 没有可展示的个股数据
+
+强势板块个股 Top10 最新净利润:
+📭 没有可展示的个股数据
+[RESULT] market_strength_exit=0
+[FIELD] market_strength_base=A股=100 行业覆盖=85 未覆盖=15
+[FIELD] market_strength_candidate_stock_count=0
+[FIELD] market_strength_top_strong_sector=弱势板块:
+[FIELD] market_strength_top_weak_sector=强势板块个股 Top10 总市值:
+[FIELD] market_strength_top_market_cap_stock=强势板块个股 Top10 最新净利润:
+[FIELD] market_strength_top_profit_stock=N/A
+[SUMMARY] market_strength_summary=基础数据=A股=100 行业覆盖=85 未覆盖=15; 候选股数=0; 强势首行=弱势板块:; 弱势首行=强势板块个股 Top10 总市值:; 总市值首行=强势板块个股 Top10 最新净利润:; 净利润首行=N/A
+\nMarket CLI formal sequence completed.

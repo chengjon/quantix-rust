@@ -2,10 +2,10 @@
 //!
 //! 各个新闻搜索服务的具体实现
 
-pub mod tavily;
-pub mod serpapi;
 pub mod bocha;
+pub mod serpapi;
+pub mod tavily;
 
-pub use tavily::TavilyProvider;
-pub use serpapi::SerpApiProvider;
 pub use bocha::BochaProvider;
+pub use serpapi::SerpApiProvider;
+pub use tavily::TavilyProvider;

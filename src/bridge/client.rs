@@ -3,11 +3,19 @@ use serde_json::json;
 
 use crate::bridge::error::{BridgeError, Result};
 use crate::bridge::models::{
-    BridgeCapabilitiesResponse, BridgeKlineResponse, BridgeQmtPreviewRequest,
-    BridgeQmtPreviewResponse, BridgeQuotesResponse,
+    BridgeCapabilitiesResponse,
+    BridgeKlineResponse,
+    BridgeQmtAccountStatusResponse,
+    BridgeQmtAsset,
+    BridgeQmtCancelResponse,
+    BridgeQmtOrderQueryResponse,
     // Live order models
-    BridgeQmtOrderRequest, BridgeQmtOrderResponse, BridgeQmtOrderQueryResponse,
-    BridgeQmtCancelResponse, BridgeQmtAccountStatusResponse, BridgeQmtPosition, BridgeQmtAsset,
+    BridgeQmtOrderRequest,
+    BridgeQmtOrderResponse,
+    BridgeQmtPosition,
+    BridgeQmtPreviewRequest,
+    BridgeQmtPreviewResponse,
+    BridgeQuotesResponse,
 };
 
 #[derive(Debug, Clone)]
@@ -20,7 +28,9 @@ pub struct BridgeHttpClient {
 impl BridgeHttpClient {
     pub fn new(base_url: String, api_key: Option<String>) -> Result<Self> {
         if base_url.trim().is_empty() {
-            return Err(BridgeError::Config("bridge base_url cannot be empty".to_string()));
+            return Err(BridgeError::Config(
+                "bridge base_url cannot be empty".to_string(),
+            ));
         }
 
         Ok(Self {
@@ -66,7 +76,10 @@ impl BridgeHttpClient {
     ) -> Result<BridgeKlineResponse> {
         let mut request = self
             .client
-            .get(format!("{}/api/v1/data/tdx/kline/{}", self.base_url, symbol))
+            .get(format!(
+                "{}/api/v1/data/tdx/kline/{}",
+                self.base_url, symbol
+            ))
             .query(&[("period", period), ("start", start), ("end", end)]);
 
         if let Some(api_key) = &self.api_key {
@@ -83,7 +96,10 @@ impl BridgeHttpClient {
     ) -> Result<BridgeQmtPreviewResponse> {
         let mut request = self
             .client
-            .post(format!("{}/api/v1/broker/qmt/orders/preview", self.base_url))
+            .post(format!(
+                "{}/api/v1/broker/qmt/orders/preview",
+                self.base_url
+            ))
             .json(payload);
 
         if let Some(api_key) = &self.api_key {
@@ -116,9 +132,10 @@ impl BridgeHttpClient {
 
     /// Query order status
     pub async fn qmt_query_order(&self, order_id: &str) -> Result<BridgeQmtOrderQueryResponse> {
-        let mut request = self
-            .client
-            .get(format!("{}/api/v1/broker/qmt/orders/{}", self.base_url, order_id));
+        let mut request = self.client.get(format!(
+            "{}/api/v1/broker/qmt/orders/{}",
+            self.base_url, order_id
+        ));
 
         if let Some(api_key) = &self.api_key {
             request = request.header("X-Quantix-Api-Key", api_key);
@@ -130,9 +147,10 @@ impl BridgeHttpClient {
 
     /// Cancel an order
     pub async fn qmt_cancel_order(&self, order_id: &str) -> Result<BridgeQmtCancelResponse> {
-        let mut request = self
-            .client
-            .delete(format!("{}/api/v1/broker/qmt/orders/{}", self.base_url, order_id));
+        let mut request = self.client.delete(format!(
+            "{}/api/v1/broker/qmt/orders/{}",
+            self.base_url, order_id
+        ));
 
         if let Some(api_key) = &self.api_key {
             request = request.header("X-Quantix-Api-Key", api_key);
@@ -144,9 +162,10 @@ impl BridgeHttpClient {
 
     /// Get account status
     pub async fn qmt_account_status(&self) -> Result<BridgeQmtAccountStatusResponse> {
-        let mut request = self
-            .client
-            .get(format!("{}/api/v1/broker/qmt/account/status", self.base_url));
+        let mut request = self.client.get(format!(
+            "{}/api/v1/broker/qmt/account/status",
+            self.base_url
+        ));
 
         if let Some(api_key) = &self.api_key {
             request = request.header("X-Quantix-Api-Key", api_key);

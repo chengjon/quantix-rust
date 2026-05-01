@@ -65,10 +65,9 @@ impl RiskIndustryResolver for FakeIndustryResolver {
         _captured_at: DateTime<Utc>,
     ) -> Result<ResolvedIndustry> {
         let industries = self.industries.lock().unwrap();
-        let industry_name = industries
-            .get(code)
-            .cloned()
-            .ok_or_else(|| quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}")))?;
+        let industry_name = industries.get(code).cloned().ok_or_else(|| {
+            quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}"))
+        })?;
 
         Ok(ResolvedIndustry {
             code: code.to_string(),
@@ -209,16 +208,10 @@ async fn set_rule_upserts_industry_blocklist_values() {
 #[tokio::test]
 async fn set_rule_industry_blocklist_ignores_empty_segments() {
     let cases = vec![
-        (
-            "银行, ,地产",
-            vec!["银行".to_string(), "地产".to_string()],
-        ),
+        ("银行, ,地产", vec!["银行".to_string(), "地产".to_string()]),
         ("银行,", vec!["银行".to_string()]),
         (",地产", vec!["地产".to_string()]),
-        (
-            "银行,,地产",
-            vec!["银行".to_string(), "地产".to_string()],
-        ),
+        ("银行,,地产", vec!["银行".to_string(), "地产".to_string()]),
     ];
 
     for (raw, expected) in cases {
@@ -259,7 +252,10 @@ async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_withou
         .set_rule("industry-blocklist", "银行,地产", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     let before = store.snapshot().unwrap();
 
     let err = service
@@ -281,10 +277,8 @@ async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_withou
 
 #[tokio::test]
 async fn industry_blocklist_allows_buy_when_resolved_industry_is_not_blocked() {
-    let (service, _) = service_with_industry_resolver(FakeIndustryResolver::with_rows(&[(
-        "000001",
-        "有色金属",
-    )]));
+    let (service, _) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "有色金属")]));
     let now = fixed_ts();
 
     service
@@ -311,7 +305,10 @@ async fn industry_blocklist_returns_hard_check_failure_when_resolver_misses() {
         .set_rule("industry-blocklist", "银行,地产", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     let before = store.snapshot().unwrap();
 
     let err = service
@@ -330,6 +327,166 @@ async fn industry_blocklist_returns_hard_check_failure_when_resolver_misses() {
     let state = store.snapshot().unwrap();
     assert!(!state.buy_lock.locked);
     assert_eq!(state.events.len(), before.events.len());
+}
+
+#[tokio::test]
+async fn industry_limit_allows_buy_when_projected_industry_ratio_stays_within_threshold() {
+    let (service, _) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "银行")]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-limit", "20%", now)
+        .await
+        .unwrap();
+
+    service
+        .check_buy(
+            &snapshot(dec!(1000000), &[]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn industry_limit_rejects_buy_when_projected_industry_ratio_exceeds_threshold() {
+    let (service, store) = service_with_industry_resolver(FakeIndustryResolver::with_rows(&[
+        ("000001", "银行"),
+        ("600000", "银行"),
+        ("000333", "家电"),
+    ]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-limit", "30%", now)
+        .await
+        .unwrap();
+    service
+        .status(
+            &snapshot(
+                dec!(1000000),
+                &[
+                    ("000001", dec!(50000)),
+                    ("600000", dec!(200000)),
+                    ("000333", dec!(100000)),
+                ],
+            ),
+            now,
+        )
+        .await
+        .unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(
+                dec!(1000000),
+                &[
+                    ("000001", dec!(50000)),
+                    ("600000", dec!(200000)),
+                    ("000333", dec!(100000)),
+                ],
+            ),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("industry-limit"));
+    assert!(err.to_string().contains("银行"));
+    assert!(err.to_string().contains("projected_ratio="));
+    assert!(err.to_string().contains("35"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
+}
+
+#[tokio::test]
+async fn industry_limit_returns_hard_check_failure_when_required_industry_data_is_missing() {
+    let (service, store) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "银行")]));
+    let now = fixed_ts();
+
+    service
+        .set_rule("industry-limit", "30%", now)
+        .await
+        .unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[("600000", dec!(200000))]), now)
+        .await
+        .unwrap();
+    let before = store.snapshot().unwrap();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[("600000", dec!(200000))]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(1000000)),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, QuantixError::DataSource(_)));
+    assert!(err.to_string().contains("industry-limit"));
+    assert!(err.to_string().contains("600000"));
+    assert!(err.to_string().contains("检查失败"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before.events.len());
+}
+
+#[tokio::test]
+async fn status_surfaces_auto_reduce_as_manual_recommendation_when_rule_triggers() {
+    let (service, _) = service();
+    let now = fixed_ts();
+
+    service.set_rule("auto-reduce", "5%", now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[("000001", dec!(120000))]), now)
+        .await
+        .unwrap();
+
+    let status = service
+        .status(
+            &snapshot(dec!(930000), &[("000001", dec!(120000))]),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+
+    let recommendation = status
+        .auto_reduce_recommendation
+        .expect("expected auto-reduce recommendation");
+    assert_eq!(recommendation.current_loss_pct, dec!(-7));
+    assert_eq!(recommendation.reduce_ratio, dec!(50));
+    assert_eq!(recommendation.position_codes, vec!["000001".to_string()]);
+}
+
+#[tokio::test]
+async fn status_keeps_auto_reduce_empty_when_threshold_is_not_reached() {
+    let (service, _) = service();
+    let now = fixed_ts();
+
+    service.set_rule("auto-reduce", "10%", now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[("000001", dec!(120000))]), now)
+        .await
+        .unwrap();
+
+    let status = service
+        .status(
+            &snapshot(dec!(930000), &[("000001", dec!(120000))]),
+            now + Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+
+    assert!(status.auto_reduce_recommendation.is_none());
 }
 
 #[test]

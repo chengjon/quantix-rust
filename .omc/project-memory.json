@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1772884574877,
+  "lastScanned": 1777625069336,
   "projectRoot": "/opt/claude/quantix-rust",
   "techStack": {
     "languages": [
@@ -35,35 +35,109 @@
     "workspaces": [],
     "mainDirectories": [
       "docs",
-      "src"
+      "examples",
+      "scripts",
+      "src",
+      "tests"
     ],
     "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
+    "benches": {
+      "path": "benches",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1777625069324,
+      "keyFiles": [
+        "bench_main.rs"
+      ]
+    },
     "config": {
       "path": "config",
       "purpose": "Configuration files",
-      "fileCount": 1,
-      "lastAccessed": 1772884574869,
+      "fileCount": 7,
+      "lastAccessed": 1777625069324,
       "keyFiles": [
-        "default.toml"
+        "ai.toml",
+        "clippy.toml",
+        "default.toml",
+        "holidays.json",
+        "news.toml"
       ]
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
-      "fileCount": 1,
-      "lastAccessed": 1772884574869,
+      "fileCount": 21,
+      "lastAccessed": 1777625069327,
       "keyFiles": [
-        "USER_MANUAL.md"
+        "ARCHITECTURE_CLI_ALIGNMENT_PLAN_2026-04-17.md",
+        "AUDIT_OPTIMIZATION_PLAN_2026-03-29.md",
+        "CLI_COMMAND_MANUAL.html",
+        "CLI命令手册优化建议.md",
+        "DEVELOPMENT_ROADMAP.md"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 0,
+      "lastAccessed": 1777625069329,
+      "keyFiles": []
+    },
+    "hooks": {
+      "path": "hooks",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1777625069329,
+      "keyFiles": [
+        "augment-shell.sh",
+        "hooks.json"
+      ]
+    },
+    "logs": {
+      "path": "logs",
+      "purpose": null,
+      "fileCount": 175,
+      "lastAccessed": 1777625069330,
+      "keyFiles": [
+        "check_market_cli_prereqs_20260423_225435.log",
+        "check_market_cli_prereqs_20260423_232652.log",
+        "check_market_cli_prereqs_20260423_234050.log",
+        "check_market_cli_prereqs_20260424_002312.log",
+        "check_market_cli_prereqs_20260424_025146.log"
+      ]
+    },
+    "monitoring": {
+      "path": "monitoring",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1777625069330,
+      "keyFiles": [
+        "alerts.yml",
+        "loki.yml",
+        "prometheus.yml",
+        "promtail.yml"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 4,
+      "lastAccessed": 1777625069330,
+      "keyFiles": [
+        "health-check.sh",
+        "init-clickhouse.sql",
+        "init-postgres.sql",
+        "verify_features.sh"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 2,
-      "lastAccessed": 1772884574871,
+      "lastAccessed": 1777625069331,
       "keyFiles": [
         "lib.rs",
         "main.rs"
@@ -73,16 +147,36 @@
       "path": "target",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1772884574872,
+      "lastAccessed": 1777625069332,
       "keyFiles": [
         "CACHEDIR.TAG"
       ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 73,
+      "lastAccessed": 1777625069332,
+      "keyFiles": [
+        "bridge_client_test.rs",
+        "bridge_integration_test.rs",
+        "bridge_tdx_source_test.rs",
+        "candle_patterns_test.rs",
+        "check_market_cli_prereqs_script_test.rs"
+      ]
+    },
+    "tmp": {
+      "path": "tmp",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1777625069333,
+      "keyFiles": []
     },
     "src/data": {
       "path": "src/data",
       "purpose": "Data files",
       "fileCount": 4,
-      "lastAccessed": 1772884574873,
+      "lastAccessed": 1777625069336,
       "keyFiles": [
         "fetcher.rs",
         "mod.rs",
@@ -92,304 +186,262 @@
   },
   "hotPaths": [
     {
-      "path": "README.md",
-      "accessCount": 31,
-      "lastAccessed": 1772937486096,
+      "path": "src/cli/handlers/app_shell.rs",
+      "accessCount": 24,
+      "lastAccessed": 1776623491013,
       "type": "file"
     },
     {
-      "path": "src/cli/handlers.rs",
-      "accessCount": 30,
-      "lastAccessed": 1772904998240,
+      "path": "src",
+      "accessCount": 7,
+      "lastAccessed": 1776624773989,
+      "type": "directory"
+    },
+    {
+      "path": "Cargo.toml",
+      "accessCount": 7,
+      "lastAccessed": 1777625441320,
+      "type": "directory"
+    },
+    {
+      "path": "src/core/runtime.rs",
+      "accessCount": 6,
+      "lastAccessed": 1776624781426,
       "type": "file"
     },
     {
       "path": "src/analysis/polars_adapter.rs",
-      "accessCount": 21,
-      "lastAccessed": 1772885097052,
+      "accessCount": 3,
+      "lastAccessed": 1776593605172,
       "type": "file"
     },
     {
-      "path": "Cargo.toml",
-      "accessCount": 18,
-      "lastAccessed": 1772934806286,
-      "type": "file"
-    },
-    {
-      "path": "tests/strategy_integration_test.rs",
-      "accessCount": 9,
-      "lastAccessed": 1772898017707,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/performance.rs",
-      "accessCount": 9,
-      "lastAccessed": 1772930201049,
-      "type": "file"
-    },
-    {
-      "path": "src/monitoring/signal_monitor.rs",
-      "accessCount": 7,
-      "lastAccessed": 1772900920995,
-      "type": "file"
-    },
-    {
-      "path": "src/lib.rs",
-      "accessCount": 6,
-      "lastAccessed": 1772905178197,
-      "type": "file"
-    },
-    {
-      "path": "docs/standards/DEVELOPMENT_GUIDELINES.md",
-      "accessCount": 5,
-      "lastAccessed": 1772889417582,
-      "type": "file"
-    },
-    {
-      "path": "src/monitoring/mod.rs",
-      "accessCount": 5,
-      "lastAccessed": 1772936789633,
-      "type": "file"
-    },
-    {
-      "path": "src/strategy/trait_def.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772899845474,
+      "path": "src/core/config.rs",
+      "accessCount": 3,
+      "lastAccessed": 1776593612859,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 4,
-      "lastAccessed": 1772907143020,
+      "accessCount": 3,
+      "lastAccessed": 1776624774043,
       "type": "directory"
     },
     {
-      "path": "src/analysis/mod.rs",
-      "accessCount": 4,
-      "lastAccessed": 1772909387160,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/backtest.rs",
+      "path": "scripts/dev/guard_target_size.sh",
       "accessCount": 3,
-      "lastAccessed": 1772899505174,
+      "lastAccessed": 1777637762849,
       "type": "file"
     },
     {
-      "path": "src/core/mod.rs",
-      "accessCount": 3,
-      "lastAccessed": 1772907676310,
-      "type": "file"
-    },
-    {
-      "path": "src/core/error.rs",
+      "path": "src/cli/handlers/mod.rs",
       "accessCount": 2,
-      "lastAccessed": 1772888149786,
+      "lastAccessed": 1776589635848,
       "type": "file"
     },
     {
-      "path": "src/strategy",
+      "path": "src/cli",
       "accessCount": 2,
-      "lastAccessed": 1772899505190,
+      "lastAccessed": 1776593589521,
       "type": "directory"
     },
     {
-      "path": "docs/reports/PHASE15_COMPLETION_REPORT.md",
+      "path": ".env",
       "accessCount": 2,
-      "lastAccessed": 1772907145618,
+      "lastAccessed": 1776624573064,
+      "type": "file"
+    },
+    {
+      "path": "src/sources/bridge_tdx.rs",
+      "accessCount": 2,
+      "lastAccessed": 1776624765415,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 2,
+      "lastAccessed": 1777646830109,
       "type": "file"
     },
     {
       "path": "src/main.rs",
-      "accessCount": 2,
-      "lastAccessed": 1772934050467,
-      "type": "file"
-    },
-    {
-      "path": "src/cli/mod.rs",
-      "accessCount": 2,
-      "lastAccessed": 1772934052303,
-      "type": "file"
-    },
-    {
-      "path": "docs/USER_MANUAL.md",
       "accessCount": 1,
-      "lastAccessed": 1772885974822,
+      "lastAccessed": 1776589496505,
       "type": "file"
     },
     {
-      "path": "src/tasks/mod.rs",
+      "path": "src/cli/handlers/execution_handler.rs",
       "accessCount": 1,
-      "lastAccessed": 1772886231638,
+      "lastAccessed": 1776589505688,
       "type": "file"
     },
     {
-      "path": "docs/DEVELOPMENT_GUIDELINES.md",
+      "path": "src/cli/handlers/strategy_handler.rs",
       "accessCount": 1,
-      "lastAccessed": 1772888216187,
+      "lastAccessed": 1776589505726,
       "type": "file"
     },
     {
-      "path": ".rustfmt.toml",
+      "path": "src/cli/commands/mod.rs",
       "accessCount": 1,
-      "lastAccessed": 1772888502128,
+      "lastAccessed": 1776589505777,
       "type": "file"
     },
     {
-      "path": "clippy.toml",
+      "path": "src/cli/handlers/trade_handler.rs",
       "accessCount": 1,
-      "lastAccessed": 1772888502416,
+      "lastAccessed": 1776589513641,
       "type": "file"
     },
     {
-      "path": "docs/standards/CODE_RULE_SUMMARY.md",
+      "path": "src/cli/commands/trade.rs",
       "accessCount": 1,
-      "lastAccessed": 1772888702055,
+      "lastAccessed": 1776589513717,
       "type": "file"
     },
     {
-      "path": "docs/QUICKSTART.md",
+      "path": "src/cli/handlers/shared_support.rs",
       "accessCount": 1,
-      "lastAccessed": 1772888752733,
+      "lastAccessed": 1776589513799,
       "type": "file"
     },
     {
-      "path": "docs/reports/CODE_RULE_AUDIT.md",
+      "path": "src/cli/handlers/trade_output.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889116964,
+      "lastAccessed": 1776589523468,
       "type": "file"
     },
     {
-      "path": "docs/reports/CODE_RULE_UPDATE_SUMMARY.md",
+      "path": "src/trade/models.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889451159,
+      "lastAccessed": 1776589523521,
       "type": "file"
     },
     {
-      "path": "docs/reports/INFRASTRUCTURE_TOOLS_EVALUATION.md",
+      "path": "src/trade/storage.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889716000,
+      "lastAccessed": 1776589523535,
       "type": "file"
     },
     {
-      "path": "config/zellij.kdl",
+      "path": "src/core/mod.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889769408,
+      "lastAccessed": 1776589530970,
       "type": "file"
     },
     {
-      "path": "scripts/dev.zsh",
+      "path": "src/trade/service.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889769727,
+      "lastAccessed": 1776589531038,
       "type": "file"
     },
     {
-      "path": "scripts/watch.sh",
+      "path": "src/cli/commands/strategy.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889770070,
+      "lastAccessed": 1776589537903,
       "type": "file"
     },
     {
-      "path": "scripts/watch-test.sh",
+      "path": "src/analysis",
       "accessCount": 1,
-      "lastAccessed": 1772889770374,
+      "lastAccessed": 1776593589579,
+      "type": "directory"
+    },
+    {
+      "path": "src/core",
+      "accessCount": 1,
+      "lastAccessed": 1776593605532,
+      "type": "directory"
+    },
+    {
+      "path": "src/cli/handlers",
+      "accessCount": 1,
+      "lastAccessed": 1776593605614,
+      "type": "directory"
+    },
+    {
+      "path": ".cargo/config.toml",
+      "accessCount": 1,
+      "lastAccessed": 1776621973644,
       "type": "file"
     },
     {
-      "path": "config/systemd/quantix-data-collector.service",
+      "path": "src/sync/mod.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889770684,
+      "lastAccessed": 1776623417023,
       "type": "file"
     },
     {
-      "path": "config/systemd/quantix-strategy-runner.service",
+      "path": "src/sync/etl.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889770988,
+      "lastAccessed": 1776623424435,
       "type": "file"
     },
     {
-      "path": "config/systemd/quantix-task-scheduler.service",
+      "path": "docs/FUNCTION_MAP.md",
       "accessCount": 1,
-      "lastAccessed": 1772889771289,
+      "lastAccessed": 1776623424490,
       "type": "file"
     },
     {
-      "path": "scripts/install-services.sh",
+      "path": "src/sources/tdx.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889771619,
+      "lastAccessed": 1776624765302,
       "type": "file"
     },
     {
-      "path": "scripts/services.sh",
+      "path": "src/db/clickhouse/schema.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889771929,
+      "lastAccessed": 1776624765366,
       "type": "file"
     },
     {
-      "path": "docs/reports/INFRASTRUCTURE_INTEGRATION_REPORT.md",
+      "path": "src/cli/handlers/data_handler.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889931156,
+      "lastAccessed": 1776624765455,
       "type": "file"
     },
     {
-      "path": "docs/INFRASTRUCTURE_TOOLS.md",
+      "path": "src/data/models.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889941562,
+      "lastAccessed": 1776624765515,
       "type": "file"
     },
     {
-      "path": "docs/reports/INFRASTRUCTURE_FINAL_SUMMARY.md",
+      "path": "src/sources/eastmoney.rs",
       "accessCount": 1,
-      "lastAccessed": 1772889957891,
+      "lastAccessed": 1776624765577,
       "type": "file"
     },
     {
-      "path": "src/strategy/ma_cross.rs",
+      "path": "src/data/fetcher.rs",
       "accessCount": 1,
-      "lastAccessed": 1772896503178,
+      "lastAccessed": 1776624772886,
       "type": "file"
     },
     {
-      "path": "src/strategy/mean_reversion.rs",
+      "path": "src/bridge/client.rs",
       "accessCount": 1,
-      "lastAccessed": 1772896503426,
+      "lastAccessed": 1776624772907,
       "type": "file"
     },
     {
-      "path": "src/strategy/momentum.rs",
+      "path": "src/tasks/collect_scheduler.rs",
       "accessCount": 1,
-      "lastAccessed": 1772896503668,
+      "lastAccessed": 1776624781446,
       "type": "file"
     },
     {
-      "path": "src/strategy/grid.rs",
+      "path": "src/tasks",
       "accessCount": 1,
-      "lastAccessed": 1772896503913,
-      "type": "file"
+      "lastAccessed": 1776624781855,
+      "type": "directory"
     },
     {
-      "path": "src/strategy/test_utils.rs",
+      "path": "src/db/clickhouse",
       "accessCount": 1,
-      "lastAccessed": 1772896504184,
-      "type": "file"
-    },
-    {
-      "path": "docs/reports/PHASE15_TEST_COMPLETION_REPORT.md",
-      "accessCount": 1,
-      "lastAccessed": 1772896693233,
-      "type": "file"
-    },
-    {
-      "path": "docs/reports/PHASE15_FINAL_SUMMARY.md",
-      "accessCount": 1,
-      "lastAccessed": 1772896733157,
-      "type": "file"
-    },
-    {
-      "path": "src/analysis/portfolio.rs",
-      "accessCount": 1,
-      "lastAccessed": 1772899502311,
-      "type": "file"
+      "lastAccessed": 1776624781949,
+      "type": "directory"
     }
   ],
   "userDirectives": []

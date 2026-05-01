@@ -19,6 +19,10 @@ fn market_smoke_script_covers_foundation_strength_and_strength_stocks_acceptance
         "expected market smoke script to cover market strength help"
     );
     assert!(
+        script.contains("run_expect_pass \"Data validate-fundamentals help\" \"\\\"$QUANTIX_BIN\\\" data validate-fundamentals --help\""),
+        "expected market smoke script to cover data validate-fundamentals help"
+    );
+    assert!(
         script.contains("run_expect_pass \"Market strength-stocks help\" \"\\\"$QUANTIX_BIN\\\" market strength-stocks --help\""),
         "expected market smoke script to cover market strength-stocks help"
     );
@@ -70,7 +74,7 @@ fn market_smoke_script_runs_fake_cargo_and_quantix() {
         r#"#!/usr/bin/env bash
 set -euo pipefail
 case "$*" in
-  "market --help"|"market foundation --help"|"market strength --help"|"market strength-stocks --help")
+  "market --help"|"market foundation --help"|"market strength --help"|"market strength-stocks --help"|"data validate-fundamentals --help")
     echo "help ok"
     ;;
   "risk sync industry --standard shenwan"|"market foundation"|"market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10"|"market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10")
@@ -117,10 +121,11 @@ esac
 
     let log = fs::read_to_string(&log_file).expect("should read smoke log");
     assert!(log.contains("[FAKE] cargo build"));
+    assert!(log.contains("[PASS] Data validate-fundamentals help"));
     assert!(log.contains("[PASS] Market strength-stocks help"));
     assert!(log.contains("[WARN-EXPECTED] Risk sync industry Shenwan (external dependency)"));
     assert!(log.contains("[WARN-EXPECTED] Market strength-stocks (external dependency)"));
-    assert!(log.contains("PASS : 5"));
+    assert!(log.contains("PASS : 6"));
     assert!(log.contains("WARN : 4"));
     assert!(log.contains("FAIL : 0"));
 }

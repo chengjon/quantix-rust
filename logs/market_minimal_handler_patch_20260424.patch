@@ -1,0 +1,283 @@
+--- a/src/cli/handlers/mod.rs
++++ b/src/cli/handlers/mod.rs
+@@ -39,7 +39,9 @@
+ pub(crate) use crate::execution::runtime_store::StrategyRuntimeStore;
+ pub(crate) use crate::market::{
+     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
+-    MarketOverview, MarketSentimentSnapshot, MarketService, NorthFlowSnapshot,
++    MarketFoundationSummary, MarketOverview, MarketSentimentSnapshot, MarketService,
++    MarketStrengthReport, NorthFlowSnapshot, StrongSectorStockRow,
++    analyze_market_strength_with_reader, load_market_analysis_foundation,
+ };
+ pub(crate) use crate::monitor::storage::SqliteMonitorAlertStore;
+ pub(crate) use crate::monitor::{
+@@ -2390,9 +2392,22 @@
+ }
+ 
+ pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
+-    let output = execute_market_command_with_reader(cmd, create_clickhouse_client().await?).await?;
++    let runtime = CliRuntime::load();
++    let output = match cmd {
++        MarketCommands::Foundation => {
++            let summary = load_market_analysis_foundation(&runtime.risk_path)
++                .await?
++                .summary;
++            MarketCommandOutput::Foundation(summary)
++        }
++        other => {
++            let reader = create_clickhouse_client().await?;
++            execute_market_command_with_runtime(other, reader, Some(&runtime.risk_path)).await?
++        }
++    };
+ 
+     match output {
++        MarketCommandOutput::Foundation(summary) => print_market_foundation_summary(&summary),
+         MarketCommandOutput::BoardRows(rows) => print_market_board_rows(&rows),
+         MarketCommandOutput::NorthFlow(snapshot) => print_north_flow_snapshot(snapshot.as_ref()),
+         MarketCommandOutput::Sentiment(snapshot) => {
+@@ -2400,6 +2415,7 @@
+         }
+         MarketCommandOutput::Leaders(rows) => print_market_leader_rows(&rows),
+         MarketCommandOutput::Overview(overview) => print_market_overview(&overview),
++        MarketCommandOutput::Strength(report) => print_market_strength_report(&report),
+     }
+ 
+     Ok(())
+@@ -2407,11 +2423,13 @@
+ 
+ #[derive(Debug, Clone, PartialEq)]
+ enum MarketCommandOutput {
++    Foundation(MarketFoundationSummary),
+     BoardRows(Vec<BoardRankRow>),
+     NorthFlow(Option<NorthFlowSnapshot>),
+     Sentiment(Option<MarketSentimentSnapshot>),
+     Leaders(Vec<LeaderRow>),
+     Overview(MarketOverview),
++    Strength(MarketStrengthReport),
+ }
+ 
+ #[derive(Debug, Clone)]
+@@ -3150,10 +3168,25 @@
+ where
+     R: MarketDataReader,
+ {
+-    let service = MarketService::new(reader);
++    execute_market_command_with_runtime(cmd, reader, None).await
++}
+ 
++async fn execute_market_command_with_runtime<R>(
++    cmd: MarketCommands,
++    reader: R,
++    risk_state_path: Option<&Path>,
++) -> Result<MarketCommandOutput>
++where
++    R: MarketDataReader,
++{
+     match cmd {
++        MarketCommands::Foundation => Ok(MarketCommandOutput::Foundation(
++            load_market_analysis_foundation(require_risk_state_path(risk_state_path)?)
++                .await?
++                .summary,
++        )),
+         MarketCommands::Sector { top, date, sort_by } => {
++            let service = MarketService::new(reader);
+             let rows = service
+                 .get_board_rankings(
+                     BoardType::Sector,
+@@ -3165,6 +3198,7 @@
+             Ok(MarketCommandOutput::BoardRows(rows))
+         }
+         MarketCommands::Concept { top, date, sort_by } => {
++            let service = MarketService::new(reader);
+             let rows = service
+                 .get_board_rankings(
+                     BoardType::Concept,
+@@ -3175,16 +3209,22 @@
+                 .await?;
+             Ok(MarketCommandOutput::BoardRows(rows))
+         }
+-        MarketCommands::North { date } => Ok(MarketCommandOutput::NorthFlow(
+-            service
+-                .get_north_flow(parse_market_date(date.as_deref())?)
+-                .await?,
+-        )),
+-        MarketCommands::Sentiment { date } => Ok(MarketCommandOutput::Sentiment(
+-            service
+-                .get_market_sentiment(parse_market_date(date.as_deref())?)
+-                .await?,
+-        )),
++        MarketCommands::North { date } => {
++            let service = MarketService::new(reader);
++            Ok(MarketCommandOutput::NorthFlow(
++                service
++                    .get_north_flow(parse_market_date(date.as_deref())?)
++                    .await?,
++            ))
++        }
++        MarketCommands::Sentiment { date } => {
++            let service = MarketService::new(reader);
++            Ok(MarketCommandOutput::Sentiment(
++                service
++                    .get_market_sentiment(parse_market_date(date.as_deref())?)
++                    .await?,
++            ))
++        }
+         MarketCommands::Leader {
+             sector,
+             concept,
+@@ -3192,20 +3232,46 @@
+             limit,
+             date,
+         } => {
++            let service = MarketService::new(reader);
+             let filter = build_leader_filter(sector, concept, all)?;
+             let rows = service
+                 .get_leaders(filter, limit, parse_market_date(date.as_deref())?)
+                 .await?;
+             Ok(MarketCommandOutput::Leaders(rows))
+         }
+-        MarketCommands::Overview { top, date } => Ok(MarketCommandOutput::Overview(
+-            service
+-                .get_overview(parse_market_date(date.as_deref())?, top)
+-                .await?,
++        MarketCommands::Overview { top, date } => {
++            let service = MarketService::new(reader);
++            Ok(MarketCommandOutput::Overview(
++                service
++                    .get_overview(parse_market_date(date.as_deref())?, top)
++                    .await?,
++            ))
++        }
++        MarketCommands::Strength {
++            date,
++            strong_top,
++            weak_top,
++            stock_top,
++        } => Ok(MarketCommandOutput::Strength(
++            analyze_market_strength_with_reader(
++                &reader,
++                parse_market_date(date.as_deref())?,
++                require_risk_state_path(risk_state_path)?,
++                strong_top,
++                weak_top,
++                stock_top,
++            )
++            .await?,
+         )),
+     }
+ }
+ 
++fn require_risk_state_path<'a>(risk_state_path: Option<&'a Path>) -> Result<&'a Path> {
++    risk_state_path.ok_or_else(|| {
++        QuantixError::Other("当前 market 命令需要运行时 risk_path 上下文".to_string())
++    })
++}
++
+ fn validate_monitor_watchlist_command(once: bool, repeat: bool) -> Result<()> {
+     if once ^ repeat {
+         Ok(())
+@@ -3632,6 +3698,29 @@
+     }
+ }
+ 
++fn print_market_foundation_summary(summary: &MarketFoundationSummary) {
++    println!("== 市场基础数据 ==");
++    println!("A股总数: {}", summary.total_stocks);
++    println!("已匹配行业: {}", summary.classified_stocks);
++    println!("未匹配行业: {}", summary.unclassified_stocks);
++    println!("行业数: {}", summary.sector_count);
++
++    if !summary.top_sectors.is_empty() {
++        println!();
++        println!("行业覆盖 Top10:");
++        println!("{:<4} {:<16} 成分股数", "排名", "行业");
++        println!("{}", "-".repeat(40));
++        for (idx, row) in summary.top_sectors.iter().enumerate() {
++            println!(
++                "{:<4} {:<16} {}",
++                idx + 1,
++                row.industry_name,
++                row.stock_count
++            );
++        }
++    }
++}
++
+ fn print_stop_command_output(output: &StopCommandOutput) {
+     match output {
+         StopCommandOutput::RuleSet(rule) => {
+@@ -4022,6 +4111,74 @@
+     }
+ }
+ 
++fn print_market_strength_report(report: &MarketStrengthReport) {
++    println!("== 强弱板块分析 ==");
++    println!(
++        "基础数据: A股={} 行业覆盖={} 未覆盖={}",
++        report.foundation.total_stocks,
++        report.foundation.classified_stocks,
++        report.foundation.unclassified_stocks
++    );
++    println!("强势板块候选股数: {}", report.candidate_stock_count);
++
++    println!();
++    println!("强势板块:");
++    print_market_board_rows(&report.strong_sectors);
++
++    println!();
++    println!("弱势板块:");
++    print_market_board_rows(&report.weak_sectors);
++
++    println!();
++    println!("强势板块个股 Top10 总市值:");
++    print_strong_sector_stock_rows(&report.top_by_market_cap, "总市值(亿)", true);
++
++    println!();
++    println!("强势板块个股 Top10 最新净利润:");
++    print_strong_sector_stock_rows(&report.top_by_profit, "净利润(亿)", false);
++}
++
++fn print_strong_sector_stock_rows(
++    rows: &[StrongSectorStockRow],
++    metric_label: &str,
++    use_market_cap: bool,
++) {
++    if rows.is_empty() {
++        println!("📭 没有可展示的个股数据");
++        return;
++    }
++
++    println!(
++        "{:<4} {:<10} {:<12} {:<12} {:<12} {}",
++        "排名", "行业", "代码", "名称", "现价", metric_label
++    );
++    println!("{}", "-".repeat(84));
++
++    for (idx, row) in rows.iter().enumerate() {
++        let metric = if use_market_cap {
++            row.market_cap
++        } else {
++            row.latest_report_profit
++        };
++        println!(
++            "{:<4} {:<10} {:<12} {:<12} {:<12.2} {}",
++            idx + 1,
++            row.sector_name,
++            row.code,
++            row.name,
++            row.latest_price,
++            format_market_decimal(metric)
++        );
++    }
++}
++
++fn format_market_decimal(value: Option<Decimal>) -> String {
++    match value {
++        Some(value) => format!("{:.2}", value),
++        None => "-".to_string(),
++    }
++}
++
+ fn print_monitor_command_output(output: &MonitorCommandOutput) {
+     match output {
+         MonitorCommandOutput::Watchlist {

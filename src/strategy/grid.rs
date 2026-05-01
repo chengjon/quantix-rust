@@ -261,7 +261,6 @@ impl Strategy for GridStrategy {
 mod tests {
     use super::*;
     use crate::strategy::test_utils::create_test_kline;
-    use rust_decimal::prelude::*;
     use rust_decimal_macros::dec;
 
     #[test]

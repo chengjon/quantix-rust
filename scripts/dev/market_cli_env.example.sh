@@ -8,6 +8,11 @@
 export CLICKHOUSE_URL="http://127.0.0.1:8123"
 export CLICKHOUSE_DB="quantix"
 
+# Optional market snapshot source override.
+# auto = EastMoney first, then TDX fallback
+# tdx  = skip EastMoney and use TDX directly
+export QUANTIX_MARKET_SNAPSHOT_SOURCE="auto"
+
 # Upstream MySQL sync path for `quantix risk sync industry --standard shenwan`.
 export QUANTIX_UPSTREAM_MYSQL_URL="mysql://127.0.0.1:3306"
 export QUANTIX_UPSTREAM_MYSQL_DB="mystocks"

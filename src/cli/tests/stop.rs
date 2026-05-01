@@ -102,8 +102,7 @@ fn parses_stop_set_command_with_trailing() {
 
 #[test]
 fn parses_stop_set_command_with_loss_pct() {
-    let cli =
-        Cli::try_parse_from(["quantix", "stop", "set", "000001", "--loss-pct", "5"]).unwrap();
+    let cli = Cli::try_parse_from(["quantix", "stop", "set", "000001", "--loss-pct", "5"]).unwrap();
 
     match cli.command {
         Commands::Stop(StopCommands::Set {

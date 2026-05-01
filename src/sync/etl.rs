@@ -3,7 +3,7 @@
 /// 实现 Python quantix ↔ quantix-rust 数据同步
 /// 方向：PostgreSQL/TDengine → ClickHouse
 use crate::core::Result;
-use crate::db::clickhouse::{ClickHouseClient, KlineDataCH, MarketFundamentalSnapshotCH};
+use crate::db::clickhouse::{ClickHouseClient, KlineDataCH, MarketFundamentalSnapshotInsertCH};
 use crate::sources::kline_aggregator::KlineData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -182,6 +182,7 @@ impl DataSync {
         info!("开始同步市场基础面快照: {} 条记录", records.len());
 
         let start_time = Utc::now();
+        self.clickhouse_client.init_database().await?;
         let records_synced = self
             .write_market_fundamentals_to_clickhouse(records)
             .await?;
@@ -279,21 +280,21 @@ impl DataSync {
             return Ok(0);
         }
 
+        let updated_at = encode_clickhouse_datetime(Utc::now())?;
         let snapshots = records
             .iter()
-            .map(|record| MarketFundamentalSnapshotCH {
-                code: record.code.clone(),
-                snapshot_date: record.snapshot_date,
-                market_cap: record.market_cap,
-                latest_report_profit: record.latest_report_profit,
-                profit_source: record.profit_source.clone(),
-                pe_dynamic: record.pe_dynamic,
-                updated_at: Utc::now()
-                    .naive_utc()
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string(),
+            .map(|record| {
+                Ok(MarketFundamentalSnapshotInsertCH {
+                    code: record.code.clone(),
+                    snapshot_date: encode_clickhouse_date(record.snapshot_date)?,
+                    market_cap: record.market_cap,
+                    latest_report_profit: record.latest_report_profit,
+                    profit_source: record.profit_source.clone(),
+                    pe_dynamic: record.pe_dynamic,
+                    updated_at,
+                })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
         self.clickhouse_client
             .insert_market_fundamental_snapshots(&snapshots)
@@ -326,6 +327,26 @@ impl DataSync {
             tokio::time::sleep(Duration::from_secs(self.config.sync_interval)).await;
         }
     }
+}
+
+fn encode_clickhouse_date(date: chrono::NaiveDate) -> Result<u16> {
+    let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).expect("valid epoch");
+    let days = date.signed_duration_since(epoch).num_days();
+    u16::try_from(days).map_err(|_| {
+        crate::core::QuantixError::DataParse(format!(
+            "日期超出 ClickHouse Date 可表示范围: {}",
+            date
+        ))
+    })
+}
+
+fn encode_clickhouse_datetime(datetime: DateTime<Utc>) -> Result<u32> {
+    u32::try_from(datetime.timestamp()).map_err(|_| {
+        crate::core::QuantixError::DataParse(format!(
+            "时间超出 ClickHouse DateTime 可表示范围: {}",
+            datetime
+        ))
+    })
 }
 
 #[cfg(test)]
@@ -442,5 +463,23 @@ mod tests {
         let restored: MarketFundamentalSyncRecord = serde_json::from_str(&json).unwrap();
 
         assert_eq!(restored, record);
+    }
+
+    #[test]
+    fn test_encode_clickhouse_date_uses_days_since_unix_epoch() {
+        let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+        let next_day = chrono::NaiveDate::from_ymd_opt(1970, 1, 2).unwrap();
+
+        assert_eq!(encode_clickhouse_date(epoch).unwrap(), 0);
+        assert_eq!(encode_clickhouse_date(next_day).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_encode_clickhouse_datetime_uses_unix_seconds() {
+        let epoch = DateTime::<Utc>::from_timestamp(0, 0).unwrap();
+        let next_day = DateTime::<Utc>::from_timestamp(86_400, 0).unwrap();
+
+        assert_eq!(encode_clickhouse_datetime(epoch).unwrap(), 0);
+        assert_eq!(encode_clickhouse_datetime(next_day).unwrap(), 86_400);
     }
 }

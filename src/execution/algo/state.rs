@@ -102,7 +102,8 @@ impl AlgoState {
         if self.target_quantity == 0 {
             return Decimal::ZERO;
         }
-        Decimal::from(self.filled_quantity) * Decimal::from(100) / Decimal::from(self.target_quantity)
+        Decimal::from(self.filled_quantity) * Decimal::from(100)
+            / Decimal::from(self.target_quantity)
     }
 
     /// 计算剩余数量
@@ -112,7 +113,10 @@ impl AlgoState {
 
     /// 是否已完成
     pub fn is_finished(&self) -> bool {
-        matches!(self.status, AlgoStatus::Completed | AlgoStatus::Cancelled | AlgoStatus::Error)
+        matches!(
+            self.status,
+            AlgoStatus::Completed | AlgoStatus::Cancelled | AlgoStatus::Error
+        )
     }
 
     /// 启动算法

@@ -2,6 +2,8 @@ use super::*;
 use crate::core::config::{AkShareConfig, AppConfig, TdxConfig};
 use crate::sync::{DataSync, MarketFundamentalSyncRecord};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashSet};
+use std::fmt::Write as _;
 use std::fs;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -110,6 +112,14 @@ pub(crate) async fn import_market_fundamentals(input: String) -> Result<()> {
     println!("✅ 市场基础面快照导入完成");
     println!("  已写入: {}", stats.records_synced);
     println!("  耗时(秒): {}", stats.elapsed_seconds);
+    Ok(())
+}
+
+pub(crate) fn validate_market_fundamentals(input: String) -> Result<()> {
+    let records = load_market_fundamental_records(&input)?;
+    let summary = summarize_market_fundamental_records(&records)?;
+    let report = format_market_fundamental_validation_report(&input, &summary);
+    print!("{report}");
     Ok(())
 }
 
@@ -403,6 +413,200 @@ fn load_market_fundamental_records(path: &str) -> Result<Vec<MarketFundamentalSy
         .map_err(|e| QuantixError::Config(format!("解析市场基础面文件失败 ({}): {}", path, e)))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MarketFundamentalValidationSummary {
+    total_records: usize,
+    unique_codes: usize,
+    min_snapshot_date: chrono::NaiveDate,
+    max_snapshot_date: chrono::NaiveDate,
+    market_cap_covered: usize,
+    latest_report_profit_covered: usize,
+    duplicate_code_date_records: usize,
+    empty_code_records: usize,
+    invalid_code_length_records: usize,
+    profit_sources: BTreeMap<String, usize>,
+}
+
+fn summarize_market_fundamental_records(
+    records: &[MarketFundamentalSyncRecord],
+) -> Result<MarketFundamentalValidationSummary> {
+    if records.is_empty() {
+        return Err(QuantixError::Other(
+            "输入文件中没有可校验的市场基础面记录".to_string(),
+        ));
+    }
+
+    let mut unique_codes = HashSet::new();
+    let mut seen_code_dates = HashSet::new();
+    let mut duplicate_code_date_records = 0usize;
+    let mut empty_code_records = 0usize;
+    let mut invalid_code_length_records = 0usize;
+    let mut market_cap_covered = 0usize;
+    let mut latest_report_profit_covered = 0usize;
+    let mut profit_sources = BTreeMap::new();
+    let mut min_snapshot_date = records[0].snapshot_date;
+    let mut max_snapshot_date = records[0].snapshot_date;
+
+    for record in records {
+        let code = record.code.trim();
+        if code.is_empty() {
+            empty_code_records += 1;
+        } else {
+            unique_codes.insert(code.to_string());
+            if code.len() != 6 {
+                invalid_code_length_records += 1;
+            }
+        }
+
+        let code_date_key = format!("{}#{}", code, record.snapshot_date);
+        if !seen_code_dates.insert(code_date_key) {
+            duplicate_code_date_records += 1;
+        }
+
+        if record.market_cap.is_some() {
+            market_cap_covered += 1;
+        }
+        if record.latest_report_profit.is_some() {
+            latest_report_profit_covered += 1;
+        }
+
+        *profit_sources
+            .entry(record.profit_source.trim().to_string())
+            .or_insert(0) += 1;
+
+        if record.snapshot_date < min_snapshot_date {
+            min_snapshot_date = record.snapshot_date;
+        }
+        if record.snapshot_date > max_snapshot_date {
+            max_snapshot_date = record.snapshot_date;
+        }
+    }
+
+    Ok(MarketFundamentalValidationSummary {
+        total_records: records.len(),
+        unique_codes: unique_codes.len(),
+        min_snapshot_date,
+        max_snapshot_date,
+        market_cap_covered,
+        latest_report_profit_covered,
+        duplicate_code_date_records,
+        empty_code_records,
+        invalid_code_length_records,
+        profit_sources,
+    })
+}
+
+fn format_market_fundamental_validation_report(
+    input: &str,
+    summary: &MarketFundamentalValidationSummary,
+) -> String {
+    let mut report = String::new();
+    let _ = writeln!(report, "🔎 校验市场基础面快照");
+    let _ = writeln!(report, "  文件: {input}");
+    let _ = writeln!(report, "  记录数: {}", summary.total_records);
+    let _ = writeln!(report, "  唯一股票: {}", summary.unique_codes);
+    let _ = writeln!(
+        report,
+        "  快照日期范围: {} ~ {}",
+        summary.min_snapshot_date, summary.max_snapshot_date
+    );
+    let _ = writeln!(
+        report,
+        "  总市值覆盖: {}/{}",
+        summary.market_cap_covered, summary.total_records
+    );
+    let _ = writeln!(
+        report,
+        "  净利润覆盖: {}/{}",
+        summary.latest_report_profit_covered, summary.total_records
+    );
+    let _ = writeln!(report);
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_total_records={}",
+        summary.total_records
+    );
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_unique_codes={}",
+        summary.unique_codes
+    );
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_snapshot_min={}",
+        summary.min_snapshot_date
+    );
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_snapshot_max={}",
+        summary.max_snapshot_date
+    );
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_market_cap_coverage={}/{}",
+        summary.market_cap_covered, summary.total_records
+    );
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_latest_report_profit_coverage={}/{}",
+        summary.latest_report_profit_covered, summary.total_records
+    );
+
+    let profit_sources = summary
+        .profit_sources
+        .iter()
+        .map(|(source, count)| format!("{source}={count}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let _ = writeln!(
+        report,
+        "[FIELD] validation_profit_sources={}",
+        profit_sources
+    );
+
+    let mut warnings = Vec::new();
+    if summary.duplicate_code_date_records > 0 {
+        warnings.push(format!(
+            "[WARN] duplicate_code_date_records={}",
+            summary.duplicate_code_date_records
+        ));
+    }
+    if summary.empty_code_records > 0 {
+        warnings.push(format!(
+            "[WARN] empty_code_records={}",
+            summary.empty_code_records
+        ));
+    }
+    if summary.invalid_code_length_records > 0 {
+        warnings.push(format!(
+            "[WARN] invalid_code_length_records={}",
+            summary.invalid_code_length_records
+        ));
+    }
+    if summary.market_cap_covered == 0 {
+        warnings.push(format!(
+            "[WARN] market_cap_missing_all={}",
+            summary.total_records
+        ));
+    }
+    if summary.latest_report_profit_covered == 0 {
+        warnings.push(format!(
+            "[WARN] latest_report_profit_missing_all={}",
+            summary.total_records
+        ));
+    }
+
+    if warnings.is_empty() {
+        let _ = writeln!(report, "[PASS] No blocking data-shape issues detected.");
+    } else {
+        for warning in warnings {
+            let _ = writeln!(report, "{warning}");
+        }
+    }
+
+    report
+}
+
 fn overlay_path(config_dir: &str) -> std::path::PathBuf {
     Path::new(config_dir).join("data_sources.toml")
 }
@@ -487,6 +691,101 @@ mod tests {
         assert_eq!(records[0].latest_report_profit, Some(862.1));
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn summarize_market_fundamental_records_reports_quality_signals() {
+        let records = vec![
+            MarketFundamentalSyncRecord {
+                code: "600519".to_string(),
+                snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap(),
+                market_cap: Some(23000.5),
+                latest_report_profit: Some(862.1),
+                profit_source: "report".to_string(),
+                pe_dynamic: Some(27.4),
+            },
+            MarketFundamentalSyncRecord {
+                code: "600519".to_string(),
+                snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap(),
+                market_cap: Some(23010.0),
+                latest_report_profit: None,
+                profit_source: "report".to_string(),
+                pe_dynamic: Some(27.5),
+            },
+            MarketFundamentalSyncRecord {
+                code: "000021".to_string(),
+                snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 15).unwrap(),
+                market_cap: None,
+                latest_report_profit: Some(18.6),
+                profit_source: "manual".to_string(),
+                pe_dynamic: None,
+            },
+            MarketFundamentalSyncRecord {
+                code: "".to_string(),
+                snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 15).unwrap(),
+                market_cap: None,
+                latest_report_profit: None,
+                profit_source: "manual".to_string(),
+                pe_dynamic: None,
+            },
+        ];
+
+        let summary = summarize_market_fundamental_records(&records).unwrap();
+
+        assert_eq!(summary.total_records, 4);
+        assert_eq!(summary.unique_codes, 2);
+        assert_eq!(summary.market_cap_covered, 2);
+        assert_eq!(summary.latest_report_profit_covered, 2);
+        assert_eq!(summary.duplicate_code_date_records, 1);
+        assert_eq!(summary.empty_code_records, 1);
+        assert_eq!(summary.invalid_code_length_records, 0);
+        assert_eq!(
+            summary.min_snapshot_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap()
+        );
+        assert_eq!(
+            summary.max_snapshot_date,
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 15).unwrap()
+        );
+        assert_eq!(summary.profit_sources.get("report"), Some(&2));
+        assert_eq!(summary.profit_sources.get("manual"), Some(&2));
+
+        let report =
+            format_market_fundamental_validation_report("fixtures/market_fundamentals.json", &summary);
+        assert!(report.contains("[FIELD] validation_total_records=4"));
+        assert!(report.contains("[FIELD] validation_unique_codes=2"));
+        assert!(report.contains("[FIELD] validation_snapshot_min=2026-03-14"));
+        assert!(report.contains("[FIELD] validation_snapshot_max=2026-03-15"));
+        assert!(report.contains("[FIELD] validation_market_cap_coverage=2/4"));
+        assert!(report.contains("[FIELD] validation_latest_report_profit_coverage=2/4"));
+        assert!(report.contains("[FIELD] validation_profit_sources=manual=2,report=2"));
+        assert!(report.contains("[WARN] duplicate_code_date_records=1"));
+        assert!(report.contains("[WARN] empty_code_records=1"));
+    }
+
+    #[test]
+    fn summarize_market_fundamental_records_rejects_empty_input() {
+        let err = summarize_market_fundamental_records(&[]).unwrap_err();
+        assert!(err.to_string().contains("没有可校验的市场基础面记录"));
+    }
+
+    #[test]
+    fn format_market_fundamental_validation_report_warns_when_optional_fields_are_all_missing() {
+        let records = vec![MarketFundamentalSyncRecord {
+            code: "000001".to_string(),
+            snapshot_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 14).unwrap(),
+            market_cap: None,
+            latest_report_profit: None,
+            profit_source: "manual".to_string(),
+            pe_dynamic: None,
+        }];
+
+        let summary = summarize_market_fundamental_records(&records).unwrap();
+        let report =
+            format_market_fundamental_validation_report("fixtures/market_fundamentals.json", &summary);
+
+        assert!(report.contains("[WARN] market_cap_missing_all=1"));
+        assert!(report.contains("[WARN] latest_report_profit_missing_all=1"));
     }
 }
 

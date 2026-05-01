@@ -93,6 +93,7 @@ run_expect_pass "Market help" "\"$QUANTIX_BIN\" market --help"
 run_expect_pass "Market foundation help" "\"$QUANTIX_BIN\" market foundation --help"
 run_expect_pass "Market strength help" "\"$QUANTIX_BIN\" market strength --help"
 run_expect_pass "Market strength-stocks help" "\"$QUANTIX_BIN\" market strength-stocks --help"
+run_expect_pass "Data validate-fundamentals help" "\"$QUANTIX_BIN\" data validate-fundamentals --help"
 
 # 2) External dependency checks
 run_expect_warn \

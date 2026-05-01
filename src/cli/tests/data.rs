@@ -127,3 +127,22 @@ fn parses_data_import_fundamentals_command() {
         other => panic!("unexpected command: {:?}", other),
     }
 }
+
+#[test]
+fn parses_data_validate_fundamentals_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "validate-fundamentals",
+        "--input",
+        "fixtures/market_fundamentals.json",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::ValidateFundamentals { input }) => {
+            assert_eq!(input, "fixtures/market_fundamentals.json");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}

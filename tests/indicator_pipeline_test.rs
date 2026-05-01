@@ -3,10 +3,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use quantix_cli::analysis::{
     IndicatorCache, IndicatorCacheKey, IndicatorInput, IndicatorInstanceId, IndicatorPipeline,
-    IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries, IndicatorSeriesKind, IndicatorSpec,
+    IndicatorPipelineConfig, IndicatorRegistry, IndicatorSeries, IndicatorSeriesKind,
+    IndicatorSpec,
 };
-use rust_decimal::Decimal;
 use quantix_cli::strategy::ConfiguredStrategyInstance;
+use rust_decimal::Decimal;
 use serde_json::json;
 
 #[test]
@@ -22,11 +23,20 @@ fn config_maps_ma_cross_to_two_sma_instances() {
 
     assert_eq!(pipeline.indicators.len(), 2);
     assert_eq!(pipeline.indicators[0].name(), "sma");
-    assert_eq!(pipeline.indicators[0].params().get("period"), Some(&json!(5)));
+    assert_eq!(
+        pipeline.indicators[0].params().get("period"),
+        Some(&json!(5))
+    );
     assert_eq!(pipeline.indicators[0].instance_id().0, "sma:{\"period\":5}");
     assert_eq!(pipeline.indicators[1].name(), "sma");
-    assert_eq!(pipeline.indicators[1].params().get("period"), Some(&json!(20)));
-    assert_eq!(pipeline.indicators[1].instance_id().0, "sma:{\"period\":20}");
+    assert_eq!(
+        pipeline.indicators[1].params().get("period"),
+        Some(&json!(20))
+    );
+    assert_eq!(
+        pipeline.indicators[1].instance_id().0,
+        "sma:{\"period\":20}"
+    );
 }
 
 #[test]
@@ -50,7 +60,10 @@ fn config_generates_stable_instance_id_with_sorted_param_keys() {
 
     let spec = IndicatorSpec::new("sma", params);
 
-    assert_eq!(spec.instance_id().0, "sma:{\"alpha\":1,\"period\":5,\"zeta\":3}");
+    assert_eq!(
+        spec.instance_id().0,
+        "sma:{\"alpha\":1,\"period\":5,\"zeta\":3}"
+    );
 }
 
 #[test]
@@ -129,7 +142,10 @@ fn registry_rejects_unsupported_indicator() {
     let spec = spec("wma", &[("period", 3)]);
 
     let err = registry.compute(&spec, &input).unwrap_err();
-    assert!(err.to_string().contains("first slice only supports sma/ema/rsi"));
+    assert!(
+        err.to_string()
+            .contains("first slice only supports sma/ema/rsi")
+    );
 }
 
 #[test]
@@ -232,7 +248,11 @@ fn registry_rejects_rsi_period_one() {
 
 #[test]
 fn cache_key_keeps_sma_instances_separate() {
-    let k1 = IndicatorCacheKey::new("000001:1d", IndicatorInstanceId("sma:{\"period\":5}".into()), (0, 20));
+    let k1 = IndicatorCacheKey::new(
+        "000001:1d",
+        IndicatorInstanceId("sma:{\"period\":5}".into()),
+        (0, 20),
+    );
     let k2 = IndicatorCacheKey::new(
         "000001:1d",
         IndicatorInstanceId("sma:{\"period\":20}".into()),
@@ -255,13 +275,19 @@ fn cache_get_or_compute_reuses_cached_value() {
     let first = cache
         .get_or_compute(key.clone(), || {
             calls.fetch_add(1, Ordering::SeqCst);
-            Ok(IndicatorSeries::ScalarSeries(vec![None, Some(Decimal::from(3))]))
+            Ok(IndicatorSeries::ScalarSeries(vec![
+                None,
+                Some(Decimal::from(3)),
+            ]))
         })
         .unwrap();
     let second = cache
         .get_or_compute(key, || {
             calls.fetch_add(1, Ordering::SeqCst);
-            Ok(IndicatorSeries::ScalarSeries(vec![None, Some(Decimal::from(9))]))
+            Ok(IndicatorSeries::ScalarSeries(vec![
+                None,
+                Some(Decimal::from(9)),
+            ]))
         })
         .unwrap();
 
@@ -289,7 +315,9 @@ fn pipeline_returns_both_sma_instances_without_overwrite() {
     let mut pipeline = IndicatorPipeline::with_builtin_registry();
     let input = close_input_with_dataset(
         "000001:1d",
-        &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+        &[
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        ],
     );
     let config = pipeline_config(&[("sma", 5), ("sma", 20)]);
 
@@ -304,7 +332,9 @@ fn pipeline_preserves_warmup_none_values() {
     let mut pipeline = IndicatorPipeline::with_builtin_registry();
     let input = close_input_with_dataset(
         "000001:1d",
-        &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+        &[
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        ],
     );
     let config = pipeline_config(&[("sma", 20)]);
 
@@ -330,9 +360,7 @@ fn pipeline_rejects_duplicate_instance_id() {
     };
 
     let err = pipeline.run(&config, &input).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("duplicate indicator instance_id"));
+    assert!(err.to_string().contains("duplicate indicator instance_id"));
 }
 
 #[test]

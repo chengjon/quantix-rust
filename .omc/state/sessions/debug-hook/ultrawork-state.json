@@ -1,0 +1,10 @@
+{
+  "active": true,
+  "started_at": "2026-04-14T16:32:18.155Z",
+  "original_prompt": "ultrawork 请继续",
+  "session_id": "debug-hook",
+  "project_path": "/opt/claude/quantix-rust",
+  "reinforcement_count": 0,
+  "awaiting_confirmation": true,
+  "last_checked_at": "2026-04-14T16:32:18.155Z"
+}

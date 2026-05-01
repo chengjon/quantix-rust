@@ -1,0 +1,27 @@
+[INFO] Market CLI formal sequence log: /opt/claude/quantix-rust/logs/market_cli_formal_sequence_20260426_123059.log
+[INFO] local env already exists: /opt/claude/quantix-rust/.env.market.local
+[PASS] local market env ready: /opt/claude/quantix-rust/.env.market.local
+[INFO] Loading local market env overrides from /opt/claude/quantix-rust/.env.market.local
+\n[STEP] Risk sync industry Shenwan
+[LOG] sync_industry_log=/opt/claude/quantix-rust/logs/market_cli_sync_industry_20260426_123059.log
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-26T04:30:59.270005211+00:00
+[RESULT] sync_industry_exit=0
+[SUMMARY] sync_industry_summary=exit=0 completed; see log for refreshed industry reference details
+\n[STEP] Market foundation
+[LOG] market_foundation_log=/opt/claude/quantix-rust/logs/market_cli_market_foundation_20260426_123059.log
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_foundation_exit=1
+[SUMMARY] market_foundation_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\n[STEP] Market strength
+[LOG] market_strength_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_20260426_123059.log
+2026-04-26T04:31:03.960353Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_exit=1
+[SUMMARY] market_strength_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\n[STEP] Market strength-stocks
+[LOG] market_strength_stocks_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_stocks_20260426_123059.log
+2026-04-26T04:31:07.026496Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_stocks_exit=1
+[SUMMARY] market_strength_stocks_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\nMarket CLI formal sequence completed.

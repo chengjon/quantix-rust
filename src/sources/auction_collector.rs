@@ -151,7 +151,7 @@ impl AuctionCollector {
         let minute = now.minute();
 
         // 竞价时段：9:15-9:25
-        hour == 9 && minute >= 15 && minute < 25
+        hour == 9 && (15..25).contains(&minute)
     }
 
     /// 计算封单金额
@@ -185,7 +185,7 @@ impl AuctionCollector {
 
         let score = (price_rise * 40.0) + (buy_ratio * 30.0) + (volume_ratio * 30.0);
 
-        score.min(100.0).max(0.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// 采集单只股票的竞价数据

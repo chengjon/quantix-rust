@@ -17,6 +17,6 @@ pub use csv_parser::CsvParser;
 pub use image_extractor::ImageExtractor;
 pub use text_parser::TextParser;
 pub use types::{
-    CodeResolveResult, ImportItem, ImportResult, ImportSource, MatchMethod,
-    is_code_like, normalize_code,
+    CodeResolveResult, ImportItem, ImportResult, ImportSource, MatchMethod, is_code_like,
+    normalize_code,
 };

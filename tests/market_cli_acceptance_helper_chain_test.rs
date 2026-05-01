@@ -27,7 +27,7 @@ fn market_cli_acceptance_orchestrator_output_feeds_report_generator() {
     fs::write(
         &fake_precheck,
         format!(
-            "#!/usr/bin/env bash\nset -euo pipefail\ncat <<'EOF' | tee \"{}\"\n[FAKE] precheck\nPASS : 2\nWARN : 1\nFAIL : 0\nEOF\n",
+            "#!/usr/bin/env bash\nset -euo pipefail\ncat <<'EOF' | tee \"{}\"\n[FAKE] precheck\nPASS : 2\nWARN : 1\nFAIL : 0\n[FIELD] precheck_market_fundamentals_state=empty\n[FIELD] precheck_market_fundamentals_rows=0\n[FIELD] precheck_market_fundamentals_latest_snapshot=N/A\nEOF\n",
             precheck_log.display()
         ),
     )
@@ -136,6 +136,9 @@ fn market_cli_acceptance_orchestrator_output_feeds_report_generator() {
     assert!(report.contains(&format!("- smoke: {}", smoke_log.display())));
     assert!(report.contains(&format!("- formal sequence: {}", formal_log.display())));
     assert!(report.contains("- precheck: PASS=2 WARN=1 FAIL=0"));
+    assert!(report.contains("fundamentals_state: empty"));
+    assert!(report.contains("fundamentals_rows: 0"));
+    assert!(report.contains("fundamentals_latest_snapshot: N/A"));
     assert!(report.contains("- smoke: PASS=3 WARN=2 FAIL=0"));
     assert!(report.contains("market strength-stocks exit=0"));
     assert!(report.contains("sector_filter: 银行"));

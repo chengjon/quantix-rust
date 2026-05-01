@@ -74,6 +74,7 @@ struct YearHolidays {
 }
 
 /// A股交易日历管理器
+#[derive(Default)]
 pub struct TradingCalendar {
     /// 每年的节假日缓存，key为年份，value为节假日日期集合
     holidays: HashMap<i32, HashSet<NaiveDate>>,
@@ -143,18 +144,17 @@ impl TradingCalendar {
             return Ok(());
         }
 
-        let content = tokio::fs::read_to_string(&path).await.map_err(|e| {
-            QuantixError::Other(format!("读取节假日配置失败: {}", e))
-        })?;
+        let content = tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|e| QuantixError::Other(format!("读取节假日配置失败: {}", e)))?;
 
-        let config: HolidayConfig = serde_json::from_str(&content).map_err(|e| {
-            QuantixError::Other(format!("解析节假日配置失败: {}", e))
-        })?;
+        let config: HolidayConfig = serde_json::from_str(&content)
+            .map_err(|e| QuantixError::Other(format!("解析节假日配置失败: {}", e)))?;
 
         for (year_str, year_data) in config.years {
-            let year: i32 = year_str.parse().map_err(|_| {
-                QuantixError::Other(format!("无效的年份: {}", year_str))
-            })?;
+            let year: i32 = year_str
+                .parse()
+                .map_err(|_| QuantixError::Other(format!("无效的年份: {}", year_str)))?;
 
             // 解析节假日
             let mut holiday_set = HashSet::new();
@@ -175,10 +175,7 @@ impl TradingCalendar {
             self.workdays_on_weekend.insert(year, workday_set);
         }
 
-        tracing::info!(
-            "已加载 {} 年的节假日数据",
-            self.holidays.len()
-        );
+        tracing::info!("已加载 {} 年的节假日数据", self.holidays.len());
 
         Ok(())
     }
@@ -338,7 +335,7 @@ impl TradingCalendar {
         if !self.is_trading_day(date).await {
             let mut next_date = date + Duration::days(1);
             while !self.is_trading_day(next_date).await {
-                next_date = next_date + Duration::days(1);
+                next_date += Duration::days(1);
             }
             return Local
                 .with_ymd_and_hms(
@@ -365,7 +362,7 @@ impl TradingCalendar {
             // 已收盘，返回明天的开盘时间
             let mut next_date = date + Duration::days(1);
             while !self.is_trading_day(next_date).await {
-                next_date = next_date + Duration::days(1);
+                next_date += Duration::days(1);
             }
             Local
                 .with_ymd_and_hms(
@@ -381,8 +378,6 @@ impl TradingCalendar {
             // 交易时段内，返回下一个交易时段的开始时间
             let morning_start = NaiveTime::from_hms_opt(9, 30, 0).unwrap();
             let morning_end = NaiveTime::from_hms_opt(11, 30, 0).unwrap();
-            let afternoon_start = NaiveTime::from_hms_opt(13, 0, 0).unwrap();
-
             if current_time >= morning_start && current_time < morning_end {
                 // 上午交易时段，返回下午开盘
                 Local
@@ -392,7 +387,7 @@ impl TradingCalendar {
                 // 下午交易时段，返回明天的开盘
                 let mut next_date = date + Duration::days(1);
                 while !self.is_trading_day(next_date).await {
-                    next_date = next_date + Duration::days(1);
+                    next_date += Duration::days(1);
                 }
                 Local
                     .with_ymd_and_hms(
@@ -469,43 +464,5 @@ impl TradingCalendar {
     }
 }
 
-impl Default for TradingCalendar {
-    fn default() -> Self {
-        Self {
-            holidays: HashMap::new(),
-            workdays_on_weekend: HashMap::new(),
-            config_path: None,
-        }
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_trading_calendar_creation() {
-        let calendar = TradingCalendar::new().await;
-        assert!(calendar.is_ok());
-    }
-
-    #[test]
-    fn test_is_weekend() {
-        let calendar = TradingCalendar::default();
-        // 2026-03-01 是周六
-        let date = NaiveDate::from_ymd_opt(2026, 2, 1).unwrap();
-        assert!(calendar.is_weekend(date));
-
-        // 2026-03-03 是周一
-        let date = NaiveDate::from_ymd_opt(2026, 2, 2).unwrap();
-        assert!(!calendar.is_weekend(date));
-    }
-
-    #[test]
-    fn test_trading_session_display() {
-        assert_eq!(TradingSession::Morning.as_str(), "morning");
-        assert_eq!(TradingSession::Afternoon.as_str(), "afternoon");
-        assert_eq!(TradingSession::Auction.as_str(), "auction");
-        assert_eq!(TradingSession::Closed.as_str(), "closed");
-    }
-}
+mod tests;

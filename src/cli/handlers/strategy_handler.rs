@@ -74,9 +74,7 @@ where
     }
 
     let symbol = code.ok_or_else(|| {
-        QuantixError::Other(format!(
-            "strategy run --mode {mode} 需要显式指定 --code"
-        ))
+        QuantixError::Other(format!("strategy run --mode {mode} 需要显式指定 --code"))
     })?;
 
     let account = load_initialized_trade_account(&trade_store).await?;

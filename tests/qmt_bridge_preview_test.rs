@@ -9,7 +9,7 @@ fn sample_request() -> ExecutionRequestRecord {
     ExecutionRequestRecord {
         request_id: "req-1".to_string(),
         signal_id: "sig-1".to_string(),
-        target_mode: "live".to_string(),
+        target_mode: "qmt_live".to_string(),
         target_account: "default".to_string(),
         request_status: quantix_cli::execution::models::ExecutionRequestStatus::Pending,
         approved_by: Some("cli".to_string()),

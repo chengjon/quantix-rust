@@ -1,5 +1,7 @@
 use super::*;
 use crate::cli::handlers::market_output::print_market_strength_stock_ranking;
+use rust_decimal::Decimal;
+use std::cmp::Ordering;
 use std::path::Path;
 
 pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
@@ -86,11 +88,12 @@ where
             strong_top,
             sector,
             metric,
+            top,
             ..
         } => strength_report
             .map(|report| {
                 MarketCommandOutput::StrengthStocks(build_market_strength_stock_ranking_output(
-                    report, metric, strong_top, sector,
+                    report, metric, strong_top, sector, top,
                 ))
             })
             .ok_or_else(|| QuantixError::Other("缺少 strength 测试载荷".to_string())),
@@ -210,7 +213,7 @@ where
             )
             .await?;
             Ok(MarketCommandOutput::StrengthStocks(
-                build_market_strength_stock_ranking_output(report, metric, strong_top, sector),
+                build_market_strength_stock_ranking_output(report, metric, strong_top, sector, top),
             ))
         }
     }
@@ -221,27 +224,39 @@ fn build_market_strength_stock_ranking_output(
     metric: StrengthStockMetric,
     strong_top: usize,
     sector_filter: Option<String>,
+    top: usize,
 ) -> MarketStrengthStockRankingOutput {
-    let (rows, covered_count) = match metric {
-        StrengthStockMetric::MarketCap => {
-            (report.top_by_market_cap, report.market_cap_coverage_count)
-        }
-        StrengthStockMetric::Profit => (report.top_by_profit, report.profit_coverage_count),
-    };
+    let top = top.max(1);
     let (candidate_stock_count, covered_count, rows) = match sector_filter.as_ref() {
         Some(sector_name) => {
-            let filtered_rows = rows
+            let candidate_rows = report
+                .candidate_stocks
                 .into_iter()
                 .filter(|row| row.sector_name == *sector_name)
                 .collect::<Vec<_>>();
-            let filtered_count = filtered_rows.len();
-            (
-                filtered_count,
-                covered_count.min(filtered_count),
-                filtered_rows,
-            )
+            let covered_count = candidate_rows
+                .iter()
+                .filter(|row| has_metric_value(row, metric))
+                .count();
+            let mut rows = candidate_rows
+                .iter()
+                .filter(|row| has_metric_value(row, metric))
+                .cloned()
+                .collect::<Vec<_>>();
+            rows.sort_by(|left, right| compare_metric_rows_desc(left, right, metric));
+            rows.truncate(top);
+
+            (candidate_rows.len(), covered_count, rows)
         }
-        None => (report.candidate_stock_count, covered_count, rows),
+        None => {
+            let (rows, covered_count) = match metric {
+                StrengthStockMetric::MarketCap => {
+                    (report.top_by_market_cap, report.market_cap_coverage_count)
+                }
+                StrengthStockMetric::Profit => (report.top_by_profit, report.profit_coverage_count),
+            };
+            (report.candidate_stock_count, covered_count, rows)
+        }
     };
 
     MarketStrengthStockRankingOutput {
@@ -252,6 +267,46 @@ fn build_market_strength_stock_ranking_output(
         covered_count,
         rows,
     }
+}
+
+fn has_metric_value(row: &StrongSectorStockRow, metric: StrengthStockMetric) -> bool {
+    match metric {
+        StrengthStockMetric::MarketCap => row.market_cap.is_some(),
+        StrengthStockMetric::Profit => row.latest_report_profit.is_some(),
+    }
+}
+
+fn compare_metric_rows_desc(
+    left: &StrongSectorStockRow,
+    right: &StrongSectorStockRow,
+    metric: StrengthStockMetric,
+) -> Ordering {
+    let metric_ordering = match metric {
+        StrengthStockMetric::MarketCap => {
+            compare_optional_decimal_desc(left.market_cap.as_ref(), right.market_cap.as_ref())
+        }
+        StrengthStockMetric::Profit => compare_optional_decimal_desc(
+            left.latest_report_profit.as_ref(),
+            right.latest_report_profit.as_ref(),
+        ),
+    };
+
+    metric_ordering
+        .then_with(|| compare_f64_desc(left.latest_change_pct, right.latest_change_pct))
+        .then_with(|| left.code.cmp(&right.code))
+}
+
+fn compare_optional_decimal_desc(left: Option<&Decimal>, right: Option<&Decimal>) -> Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => right.cmp(left),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => Ordering::Equal,
+    }
+}
+
+fn compare_f64_desc(left: f64, right: f64) -> Ordering {
+    right.partial_cmp(&left).unwrap_or(Ordering::Equal)
 }
 
 fn require_risk_state_path<'a>(risk_state_path: Option<&'a Path>) -> Result<&'a Path> {

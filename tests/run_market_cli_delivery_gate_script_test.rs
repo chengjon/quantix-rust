@@ -15,6 +15,9 @@ fn delivery_gate_script_references_acceptance_formal_and_report_steps() {
         "Acceptance report generation",
         "assert_formal_success",
         "Formal sequence gate verdict",
+        "run_market_cli_import_fundamentals_rehearsal.sh",
+        "quantix data validate-fundamentals --input",
+        "quantix data import-fundamentals --input",
         "Market CLI delivery gate completed.",
         "Report path:",
     ] {
@@ -90,8 +93,14 @@ fn delivery_gate_script_runs_fake_acceptance_formal_and_report_scripts() {
     assert!(log.contains("[STEP] Formal sequence"));
     assert!(log.contains(&format!("[FAKE] formal LOG_DIR={}", log_dir.display())));
     assert!(log.contains("[STEP] Acceptance report generation"));
-    assert!(log.contains(&format!("[FAKE] report REPORT_PATH={}", report_path.display())));
+    assert!(log.contains(&format!(
+        "[FAKE] report REPORT_PATH={}",
+        report_path.display()
+    )));
     assert!(log.contains(&format!("Report path: {}", report_path.display())));
+    assert!(log.contains("run_market_cli_import_fundamentals_rehearsal.sh"));
+    assert!(log.contains("quantix data validate-fundamentals --input"));
+    assert!(log.contains("quantix data import-fundamentals --input"));
 
     let report = fs::read_to_string(&report_path).expect("should read generated report");
     assert!(report.contains("# fake report"));

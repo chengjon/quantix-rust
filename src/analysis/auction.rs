@@ -185,10 +185,7 @@ impl AuctionAnalyzer {
         for quote in quotes {
             // 简化的板块分组（实际应从数据库读取）
             let sector = Self::classify_sector(&quote.code);
-            sector_map
-                .entry(sector)
-                .or_insert_with(Vec::new)
-                .push(quote);
+            sector_map.entry(sector).or_default().push(quote);
         }
 
         let mut stats = Vec::new();

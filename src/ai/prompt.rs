@@ -78,7 +78,11 @@ impl PromptRegistry {
     }
 
     /// Render a template with variables
-    pub fn render(&self, name: &str, variables: &HashMap<String, String>) -> Option<(String, String)> {
+    pub fn render(
+        &self,
+        name: &str,
+        variables: &HashMap<String, String>,
+    ) -> Option<(String, String)> {
         self.templates.get(name).map(|t| {
             let system = t.render_system(variables);
             let user = t.render_user(variables);

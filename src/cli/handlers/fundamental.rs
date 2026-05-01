@@ -7,18 +7,12 @@ use super::*;
 /// 处理基本面命令
 pub async fn run_fundamental_command(cmd: FundamentalCommands) -> Result<()> {
     match cmd {
-        FundamentalCommands::Show { code } => {
-            run_fundamental_show(&code).await
-        }
-        FundamentalCommands::Valuation { code } => {
-            run_fundamental_valuation(&code).await
-        }
+        FundamentalCommands::Show { code } => run_fundamental_show(&code).await,
+        FundamentalCommands::Valuation { code } => run_fundamental_valuation(&code).await,
         FundamentalCommands::Earnings { code, years } => {
             run_fundamental_earnings(&code, years).await
         }
-        FundamentalCommands::Institution { code } => {
-            run_fundamental_institution(&code).await
-        }
+        FundamentalCommands::Institution { code } => run_fundamental_institution(&code).await,
         FundamentalCommands::DragonTiger { code, days } => {
             run_fundamental_dragon_tiger(code.as_deref(), days).await
         }
@@ -78,17 +72,19 @@ async fn run_fundamental_show(code: &str) -> Result<()> {
             if !data.institution_holdings.is_empty() {
                 println!("🏛️ 机构持仓 (共 {} 家):", data.institution_holdings.len());
                 for holding in data.institution_holdings.iter().take(5) {
-                    println!("   - {} [{}]: {:.2} 万股",
-                        holding.institution_name,
-                        holding.institution_type,
-                        holding.shares
+                    println!(
+                        "   - {} [{}]: {:.2} 万股",
+                        holding.institution_name, holding.institution_type, holding.shares
                     );
                 }
                 println!();
             }
 
             println!("📁 数据来源: {}", data.source);
-            println!("🕐 更新时间: {}", data.updated_at.format("%Y-%m-%d %H:%M:%S"));
+            println!(
+                "🕐 更新时间: {}",
+                data.updated_at.format("%Y-%m-%d %H:%M:%S")
+            );
         }
         Err(e) => {
             println!("❌ 获取数据失败: {}", e);
@@ -120,13 +116,25 @@ async fn run_fundamental_valuation(code: &str) -> Result<()> {
             println!("│ 市盈率 (静态)   │ {} │", format_decimal(&val.pe_static));
             println!("│ 市净率          │ {} │", format_decimal(&val.pb));
             println!("│ 市销率          │ {} │", format_decimal(&val.ps));
-            println!("│ 总市值          │ {} 亿 │", format_decimal(&val.market_cap));
-            println!("│ 流通市值        │ {} 亿 │", format_decimal(&val.float_market_cap));
-            println!("│ 股息率          │ {}% │", format_decimal(&val.dividend_yield));
+            println!(
+                "│ 总市值          │ {} 亿 │",
+                format_decimal(&val.market_cap)
+            );
+            println!(
+                "│ 流通市值        │ {} 亿 │",
+                format_decimal(&val.float_market_cap)
+            );
+            println!(
+                "│ 股息率          │ {}% │",
+                format_decimal(&val.dividend_yield)
+            );
             println!("│ 每股收益        │ {} │", format_decimal(&val.eps));
             println!("│ 每股净资产      │ {} │", format_decimal(&val.bvps));
             println!("│ 净资产收益率    │ {}% │", format_decimal(&val.roe));
-            println!("│ 毛利率          │ {}% │", format_decimal(&val.gross_margin));
+            println!(
+                "│ 毛利率          │ {}% │",
+                format_decimal(&val.gross_margin)
+            );
             println!("│ 净利率          │ {}% │", format_decimal(&val.net_margin));
             println!("└─────────────────┴─────────────┘");
             println!();
@@ -165,17 +173,50 @@ async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
                 println!("┌─────────────────┬─────────────┐");
                 println!("│ 指标            │ 数值        │");
                 println!("├─────────────────┼─────────────┤");
-                println!("│ 营业收入        │ {} 亿 │", format_decimal(&report.revenue));
-                println!("│ 营收同比        │ {}% │", format_decimal(&report.revenue_yoy));
-                println!("│ 净利润          │ {} 亿 │", format_decimal(&report.net_profit));
-                println!("│ 净利润同比      │ {}% │", format_decimal(&report.net_profit_yoy));
-                println!("│ 扣非净利润      │ {} 亿 │", format_decimal(&report.net_profit_deducted));
-                println!("│ 经营现金流      │ {} 亿 │", format_decimal(&report.operating_cash_flow));
-                println!("│ 总资产          │ {} 亿 │", format_decimal(&report.total_assets));
-                println!("│ 净资产          │ {} 亿 │", format_decimal(&report.net_assets));
-                println!("│ 资产负债率      │ {}% │", format_decimal(&report.debt_ratio));
-                println!("│ 毛利率          │ {}% │", format_decimal(&report.gross_margin));
-                println!("│ 净利率          │ {}% │", format_decimal(&report.net_margin));
+                println!(
+                    "│ 营业收入        │ {} 亿 │",
+                    format_decimal(&report.revenue)
+                );
+                println!(
+                    "│ 营收同比        │ {}% │",
+                    format_decimal(&report.revenue_yoy)
+                );
+                println!(
+                    "│ 净利润          │ {} 亿 │",
+                    format_decimal(&report.net_profit)
+                );
+                println!(
+                    "│ 净利润同比      │ {}% │",
+                    format_decimal(&report.net_profit_yoy)
+                );
+                println!(
+                    "│ 扣非净利润      │ {} 亿 │",
+                    format_decimal(&report.net_profit_deducted)
+                );
+                println!(
+                    "│ 经营现金流      │ {} 亿 │",
+                    format_decimal(&report.operating_cash_flow)
+                );
+                println!(
+                    "│ 总资产          │ {} 亿 │",
+                    format_decimal(&report.total_assets)
+                );
+                println!(
+                    "│ 净资产          │ {} 亿 │",
+                    format_decimal(&report.net_assets)
+                );
+                println!(
+                    "│ 资产负债率      │ {}% │",
+                    format_decimal(&report.debt_ratio)
+                );
+                println!(
+                    "│ 毛利率          │ {}% │",
+                    format_decimal(&report.gross_margin)
+                );
+                println!(
+                    "│ 净利率          │ {}% │",
+                    format_decimal(&report.net_margin)
+                );
                 println!("└─────────────────┴─────────────┘");
 
                 if let Some(announce_date) = report.announce_date {
@@ -198,7 +239,10 @@ async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
 
                 for report in reports {
                     println!("┌─────────────────────────────────────┐");
-                    println!("│ 报告期: {} ({})          │", report.report_date, report.report_type);
+                    println!(
+                        "│ 报告期: {} ({})          │",
+                        report.report_date, report.report_type
+                    );
                     println!("├─────────────────────────────────────┤");
                     if let Some(rev) = report.revenue {
                         println!("│ 营业收入: {:.2} 亿", rev);
@@ -207,7 +251,13 @@ async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
                         println!("│ 净利润: {:.2} 亿", profit);
                     }
                     if let Some(yoy) = report.net_profit_yoy {
-                        let arrow = if yoy > Decimal::ZERO { "↑" } else if yoy < Decimal::ZERO { "↓" } else { "→" };
+                        let arrow = if yoy > Decimal::ZERO {
+                            "↑"
+                        } else if yoy < Decimal::ZERO {
+                            "↓"
+                        } else {
+                            "→"
+                        };
                         println!("│ 净利润同比: {} {:.2}%", arrow, yoy);
                     }
                     println!("└─────────────────────────────────────┘");
@@ -265,7 +315,8 @@ async fn run_fundamental_institution(code: &str) -> Result<()> {
                 println!("├────────────────────────────────────────────────────────────────┤");
 
                 for holding in holdings.iter().take(10) {
-                    println!("│ {:<36} │ {:<6} │ {:>10.2} │",
+                    println!(
+                        "│ {:<36} │ {:<6} │ {:>10.2} │",
                         truncate_str(&holding.institution_name, 36),
                         truncate_str(&holding.institution_type, 6),
                         holding.shares
@@ -328,12 +379,22 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
 
                 for item in items {
                     println!("┌─────────────────────────────────────────────────────────┐");
-                    println!("│ {} ({})                                    ", truncate_str(&item.name, 20), item.code);
+                    println!(
+                        "│ {} ({})                                    ",
+                        truncate_str(&item.name, 20),
+                        item.code
+                    );
                     println!("├─────────────────────────────────────────────────────────┤");
-                    println!("│ 交易日期: {}  收盘价: {:.2}  涨跌幅: {:.2}%", item.trade_date, item.close_price, item.change_pct);
+                    println!(
+                        "│ 交易日期: {}  收盘价: {:.2}  涨跌幅: {:.2}%",
+                        item.trade_date, item.close_price, item.change_pct
+                    );
                     println!("│ 上榜原因: {}", truncate_str(&item.reason, 45));
                     println!("├─────────────────────────────────────────────────────────┤");
-                    println!("│ 买入金额: {:>12.2} 万元    卖出金额: {:>12.2} 万元", item.buy_amount, item.sell_amount);
+                    println!(
+                        "│ 买入金额: {:>12.2} 万元    卖出金额: {:>12.2} 万元",
+                        item.buy_amount, item.sell_amount
+                    );
                     println!("│ 净买入:   {:>12.2} 万元", item.net_buy);
                     println!("└─────────────────────────────────────────────────────────┘");
                     println!();
@@ -343,7 +404,11 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                         println!("   📈 买入前5营业部:");
                         for buyer in item.top_buyers.iter().take(5) {
                             if let Some(amount) = buyer.buy_amount {
-                                println!("      - {} ({:.2} 万)", truncate_str(&buyer.broker_name, 30), amount);
+                                println!(
+                                    "      - {} ({:.2} 万)",
+                                    truncate_str(&buyer.broker_name, 30),
+                                    amount
+                                );
                             }
                         }
                     }
@@ -352,7 +417,11 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                         println!("   📉 卖出前5营业部:");
                         for seller in item.top_sellers.iter().take(5) {
                             if let Some(amount) = seller.sell_amount {
-                                println!("      - {} ({:.2} 万)", truncate_str(&seller.broker_name, 30), amount);
+                                println!(
+                                    "      - {} ({:.2} 万)",
+                                    truncate_str(&seller.broker_name, 30),
+                                    amount
+                                );
                             }
                         }
                     }

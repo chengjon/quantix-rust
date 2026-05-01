@@ -7,6 +7,10 @@ authors = ["MyStocks Team"]
 repository = "https://github.com/chengjon/quantix-rust"
 license = "MIT"
 
+# sqlx-postgres v0.7.4 的 never 类型回退问题在 Rust 2024 中为已知上游警告，
+# 暂不影响编译和运行。待 sqlx 0.8+ 稳定后统一升级。
+# 参考: cargo report future-incompatibilities --id 1
+
 [lib]
 name = "quantix_cli"
 path = "src/lib.rs"
@@ -116,6 +120,18 @@ path = "src/main.rs"
 [[bench]]
 name = "bench_main"
 harness = false
+
+[profile.dev]
+debug = 1
+
+[profile.dev.package."*"]
+debug = 0
+
+[profile.test]
+debug = 1
+
+[profile.test.package."*"]
+debug = 0
 
 [profile.release]
 opt-level = 3

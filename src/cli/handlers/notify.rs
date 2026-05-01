@@ -2,33 +2,21 @@ use super::*;
 
 /// 处理通知命令
 pub async fn run_notify_command(cmd: NotifyCommands) -> Result<()> {
-
-
     match cmd {
-        NotifyCommands::Test { channel, message } => {
-            run_notify_test(channel, message).await
-        }
+        NotifyCommands::Test { channel, message } => run_notify_test(channel, message).await,
         NotifyCommands::Send {
             title,
             message,
             level,
             channel,
-        } => {
-            run_notify_send(title, message, level, channel).await
-        }
-        NotifyCommands::List => {
-            run_notify_list().await
-        }
-        NotifyCommands::Check { channel } => {
-            run_notify_check(channel).await
-        }
+        } => run_notify_send(title, message, level, channel).await,
+        NotifyCommands::List => run_notify_list().await,
+        NotifyCommands::Check { channel } => run_notify_check(channel).await,
     }
 }
 
 async fn run_notify_test(channel: String, message: Option<String>) -> Result<()> {
-    use crate::monitoring::{
-        AlertLevel, Notification, NotificationConfig, NotificationService,
-    };
+    use crate::monitoring::{AlertLevel, Notification, NotificationConfig, NotificationService};
 
     let test_message = message.unwrap_or_else(|| "这是一条测试通知".to_string());
     println!("📤 发送测试通知...");
@@ -38,11 +26,7 @@ async fn run_notify_test(channel: String, message: Option<String>) -> Result<()>
     let config = NotificationConfig::from_env();
     let mut service = NotificationService::new(config);
 
-    let notification = Notification::new(
-        "测试通知",
-        &test_message,
-        AlertLevel::Info,
-    );
+    let notification = Notification::new("测试通知", &test_message, AlertLevel::Info);
 
     match service.notify(notification).await {
         Ok(()) => {
@@ -63,7 +47,7 @@ async fn run_notify_send(
     channel: Option<String>,
 ) -> Result<()> {
     use crate::monitoring::{
-        AlertLevel, Notification, NotificationConfig, NotificationChannel, NotificationService,
+        AlertLevel, Notification, NotificationChannel, NotificationConfig, NotificationService,
     };
 
     let alert_level = match level.to_lowercase().as_str() {
@@ -102,10 +86,7 @@ async fn run_notify_send(
             "webhook" => NotificationChannel::Webhook,
             "log" => NotificationChannel::Log,
             _ => {
-                return Err(QuantixError::Other(format!(
-                    "不支持的渠道: {}",
-                    ch
-                )));
+                return Err(QuantixError::Other(format!("不支持的渠道: {}", ch)));
             }
         };
         config.enabled_channels = vec![target_channel];
@@ -127,18 +108,28 @@ async fn run_notify_send(
 }
 
 async fn run_notify_list() -> Result<()> {
-
-
     println!("📋 可用通知渠道:");
     println!();
 
     let channels = [
-        ("telegram", "Telegram Bot", "需要配置 TELEGRAM_BOT_TOKEN 和 TELEGRAM_CHAT_ID"),
-        ("wechat_work", "企业微信", "需要配置 WECHAT_WORK_WEBHOOK_URL"),
+        (
+            "telegram",
+            "Telegram Bot",
+            "需要配置 TELEGRAM_BOT_TOKEN 和 TELEGRAM_CHAT_ID",
+        ),
+        (
+            "wechat_work",
+            "企业微信",
+            "需要配置 WECHAT_WORK_WEBHOOK_URL",
+        ),
         ("feishu", "飞书", "需要配置 FEISHU_WEBHOOK_URL"),
         ("discord", "Discord", "需要配置 DISCORD_WEBHOOK_URL"),
         ("slack", "Slack", "需要配置 SLACK_WEBHOOK_URL"),
-        ("dingtalk", "钉钉", "需要配置 DINGTALK_WEBHOOK_URL 和 DINGTALK_SECRET"),
+        (
+            "dingtalk",
+            "钉钉",
+            "需要配置 DINGTALK_WEBHOOK_URL 和 DINGTALK_SECRET",
+        ),
         ("pushplus", "PushPlus", "需要配置 PUSHPLUS_TOKEN"),
         ("desktop", "桌面通知", "系统原生桌面通知"),
         ("webhook", "自定义 Webhook", "需要配置 WEBHOOK_URL"),
@@ -158,7 +149,7 @@ async fn run_notify_list() -> Result<()> {
 
 async fn run_notify_check(channel: String) -> Result<()> {
     use crate::monitoring::{
-        AlertLevel, Notification, NotificationConfig, NotificationChannel, NotificationService,
+        AlertLevel, Notification, NotificationChannel, NotificationConfig, NotificationService,
     };
 
     println!("🔍 检查渠道连通性: {}", channel);
@@ -175,10 +166,7 @@ async fn run_notify_check(channel: String) -> Result<()> {
         "webhook" => NotificationChannel::Webhook,
         "log" => NotificationChannel::Log,
         _ => {
-            return Err(QuantixError::Other(format!(
-                "不支持的渠道: {}",
-                channel
-            )));
+            return Err(QuantixError::Other(format!("不支持的渠道: {}", channel)));
         }
     };
 
@@ -188,24 +176,12 @@ async fn run_notify_check(channel: String) -> Result<()> {
         NotificationChannel::Telegram => {
             std::env::var("TELEGRAM_BOT_TOKEN").is_ok() && std::env::var("TELEGRAM_CHAT_ID").is_ok()
         }
-        NotificationChannel::WechatWork => {
-            std::env::var("WECHAT_WORK_WEBHOOK_URL").is_ok()
-        }
-        NotificationChannel::Feishu => {
-            std::env::var("FEISHU_WEBHOOK_URL").is_ok()
-        }
-        NotificationChannel::Discord => {
-            std::env::var("DISCORD_WEBHOOK_URL").is_ok()
-        }
-        NotificationChannel::Slack => {
-            std::env::var("SLACK_WEBHOOK_URL").is_ok()
-        }
-        NotificationChannel::Dingtalk => {
-            std::env::var("DINGTALK_WEBHOOK_URL").is_ok()
-        }
-        NotificationChannel::Pushplus => {
-            std::env::var("PUSHPLUS_TOKEN").is_ok()
-        }
+        NotificationChannel::WechatWork => std::env::var("WECHAT_WORK_WEBHOOK_URL").is_ok(),
+        NotificationChannel::Feishu => std::env::var("FEISHU_WEBHOOK_URL").is_ok(),
+        NotificationChannel::Discord => std::env::var("DISCORD_WEBHOOK_URL").is_ok(),
+        NotificationChannel::Slack => std::env::var("SLACK_WEBHOOK_URL").is_ok(),
+        NotificationChannel::Dingtalk => std::env::var("DINGTALK_WEBHOOK_URL").is_ok(),
+        NotificationChannel::Pushplus => std::env::var("PUSHPLUS_TOKEN").is_ok(),
         NotificationChannel::Desktop => true,
         NotificationChannel::Webhook => config.webhook_url.is_some(),
         NotificationChannel::Log => true,
@@ -220,11 +196,8 @@ async fn run_notify_check(channel: String) -> Result<()> {
         test_config.enabled_channels = vec![target_channel];
         let mut service = NotificationService::new(test_config);
 
-        let notification = Notification::new(
-            "连通性测试",
-            "这是一条连通性测试通知",
-            AlertLevel::Info,
-        );
+        let notification =
+            Notification::new("连通性测试", "这是一条连通性测试通知", AlertLevel::Info);
 
         match service.notify(notification).await {
             Ok(()) => {
@@ -246,7 +219,9 @@ async fn run_notify_check(channel: String) -> Result<()> {
                 println!("  TELEGRAM_CHAT_ID=your_chat_id");
             }
             NotificationChannel::WechatWork => {
-                println!("  WECHAT_WORK_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx");
+                println!(
+                    "  WECHAT_WORK_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+                );
             }
             NotificationChannel::Feishu => {
                 println!("  FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx");
@@ -258,7 +233,9 @@ async fn run_notify_check(channel: String) -> Result<()> {
                 println!("  SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx");
             }
             NotificationChannel::Dingtalk => {
-                println!("  DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx");
+                println!(
+                    "  DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx"
+                );
                 println!("  DINGTALK_SECRET=your_secret");
             }
             NotificationChannel::Pushplus => {

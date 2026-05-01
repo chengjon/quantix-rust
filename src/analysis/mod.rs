@@ -4,17 +4,17 @@ pub mod candle_patterns;
 pub mod indicator_cache;
 pub mod indicator_config;
 pub mod indicator_registry;
-pub mod pipeline;
 /// 分析模块
 ///
 /// 技术指标计算、回测引擎、竞价分析、投资组合管理、性能计算
 pub mod indicators;
 pub mod indicators_benches;
 pub mod performance;
+pub mod pipeline;
 pub mod polars_adapter;
 pub mod portfolio;
-pub use indicator_config::{IndicatorInstanceId, IndicatorPipelineConfig, IndicatorSpec};
 pub use indicator_cache::{IndicatorCache, IndicatorCacheKey};
+pub use indicator_config::{IndicatorInstanceId, IndicatorPipelineConfig, IndicatorSpec};
 pub use indicator_registry::{
     IndicatorDescriptor, IndicatorInput, IndicatorMeta, IndicatorRegistry, IndicatorSeries,
     IndicatorSeriesKind,

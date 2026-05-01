@@ -5,8 +5,8 @@ use rust_decimal::Decimal;
 
 use crate::core::{QuantixError, Result};
 use crate::risk::{
-    LiveImportCashBusinessType, LiveImportMirrorAccount, LiveImportMirrorPosition, LiveImportRecord,
-    LiveImportRecordType, LiveImportTradeSide, SqliteLiveImportStore,
+    LiveImportCashBusinessType, LiveImportMirrorAccount, LiveImportMirrorPosition,
+    LiveImportRecord, LiveImportRecordType, LiveImportTradeSide, SqliteLiveImportStore,
 };
 
 #[derive(Debug, Clone)]
@@ -228,9 +228,7 @@ fn current_total_assets(
     positions: &BTreeMap<String, LiveImportMirrorPosition>,
 ) -> Decimal {
     cash_balance
-        + positions
-            .values()
-            .fold(Decimal::ZERO, |acc, position| {
-                acc + Decimal::from(position.volume) * position.avg_cost
-            })
+        + positions.values().fold(Decimal::ZERO, |acc, position| {
+            acc + Decimal::from(position.volume) * position.avg_cost
+        })
 }

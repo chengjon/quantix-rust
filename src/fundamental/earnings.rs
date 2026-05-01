@@ -66,7 +66,9 @@ impl EarningsFetcher {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(30))
+                .http1_only()
+                .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
                 .unwrap_or_default(),
         }

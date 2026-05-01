@@ -118,7 +118,7 @@ impl DataExporter {
 
         // 写入表头
         if self.config.include_header {
-            wtr.write_record(&[
+            wtr.write_record([
                 "code",
                 "date",
                 "open",
@@ -134,7 +134,7 @@ impl DataExporter {
 
         // 写入数据
         for kline in klines {
-            wtr.write_record(&[
+            wtr.write_record([
                 &kline.code,
                 &kline.date.to_string(),
                 &format!(
@@ -288,7 +288,6 @@ mod tests {
     use super::*;
     use crate::data::models::AdjustType;
     use chrono::NaiveDate;
-    use rust_decimal_macros::dec;
     use std::fs;
     use tempfile::tempdir;
 

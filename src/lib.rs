@@ -1,4 +1,3 @@
-pub mod analysis;
 /// quantix-cli - A股量化交易 CLI 工具
 ///
 /// 与 Python quantix 项目共享数据源和数据库
@@ -17,12 +16,13 @@ pub mod analysis;
 /// - `news`: 新闻搜索模块 (Phase 3)
 pub mod account;
 pub mod ai;
+pub mod analysis;
 pub mod anomaly;
+pub mod bridge;
 pub mod cli;
 pub mod core;
 pub mod data;
 pub mod db;
-pub mod bridge;
 pub mod execution;
 pub mod fundamental;
 pub mod import;

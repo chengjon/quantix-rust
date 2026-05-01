@@ -10,6 +10,7 @@ use quantix_cli::execution::models::{
     ExecutionPolicy, FillDeltaContext, FillDeltaResult, MockLiveFillStep, MockLiveOrderState,
     OrderIntent, OrderSide, OrderStatus,
 };
+use quantix_cli::execution::reconciliation::ReconciliationService;
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use quantix_cli::strategy::trait_def::Signal;
@@ -463,4 +464,103 @@ async fn mock_live_recovery_applies_only_new_fill_deltas_to_account() {
         100
     );
     assert_eq!(after_second.trade_records.len(), 2);
+}
+
+#[tokio::test]
+async fn mock_live_reconciliation_updates_runtime_order_without_mutating_account() {
+    let dir = tempdir().unwrap();
+    let trade_store = JsonPaperTradeStore::new(dir.path().join("paper_trade.json"));
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+
+    let trade_service = TradeService::new(trade_store.clone());
+    trade_service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let loader = FakeBarLoader {
+        bars: buy_fixture(),
+    };
+    let envelope = StrategyRuntime::new(loader)
+        .run_ma_cross_once("000001", 5, 10)
+        .await
+        .unwrap();
+
+    let kernel = ExecutionKernel::new(
+        runtime_store.clone(),
+        MockLiveExecutionAdapter::with_state_template(
+            runtime_store.clone(),
+            FixedClock,
+            MockLiveOrderState {
+                fill_plan: vec![
+                    MockLiveFillStep {
+                        quantity: 40,
+                        delay_secs: 0,
+                    },
+                    MockLiveFillStep {
+                        quantity: 60,
+                        delay_secs: 0,
+                    },
+                ],
+                next_step_index: 1,
+                simulated_fill_price: Some(dec!(12)),
+                ..Default::default()
+            },
+        ),
+        FixedRisk {
+            decision: RiskDecision::Allow,
+        },
+    );
+
+    let result = kernel
+        .execute_once(
+            sample_request(
+                "run-mock-reconcile-1",
+                "run-mock-reconcile-1_000001_1",
+                fixed_ts(),
+            ),
+            envelope,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.order_status, Some(OrderStatus::Accepted));
+
+    let order = runtime_store
+        .find_order_by_client_order_id("run-mock-reconcile-1_000001_1")
+        .await
+        .unwrap()
+        .unwrap();
+    runtime_store
+        .update_order(&order.order_id, OrderStatus::Unknown, 0, None, fixed_ts())
+        .await
+        .unwrap();
+
+    let before = trade_store.load_state().await.unwrap().unwrap();
+    assert!(before.account.as_ref().unwrap().positions.is_empty());
+    assert_eq!(before.trade_records.len(), 0);
+
+    let service = ReconciliationService::new(runtime_store.clone());
+    let report = service.reconcile_all().await.unwrap();
+
+    assert_eq!(report.summary.total_open_orders, 1);
+    assert_eq!(report.summary.recovered_orders, 1);
+
+    let saved = runtime_store
+        .find_order_by_client_order_id("run-mock-reconcile-1_000001_1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.status, OrderStatus::PartiallyFilled);
+    assert_eq!(saved.filled_quantity, 40);
+    assert_eq!(saved.remaining_quantity, saved.requested_quantity - 40);
+    assert_eq!(saved.avg_fill_price, Some(dec!(12)));
+
+    let after = trade_store.load_state().await.unwrap().unwrap();
+    assert!(after.account.as_ref().unwrap().positions.is_empty());
+    assert_eq!(after.trade_records.len(), 0);
 }

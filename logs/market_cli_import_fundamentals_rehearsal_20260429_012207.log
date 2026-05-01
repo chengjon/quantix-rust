@@ -1,0 +1,44 @@
+[INFO] Market fundamentals import rehearsal log: /opt/claude/quantix-rust/logs/market_cli_import_fundamentals_rehearsal_20260429_012207.log
+[WARN] No explicit fundamentals JSON configured; using smoke fixture in scratch DB only: /tmp/quantix_market_fundamentals_smoke.json
+[INFO] Using scratch ClickHouse database: quantix_mf_rehearsal_20260429_012207
+[INFO] Using rehearsal input mode: smoke_fixture
+[INFO] Using rehearsal input file: /tmp/quantix_market_fundamentals_smoke.json
+[INFO] Import step log: /opt/claude/quantix-rust/logs/market_cli_import_fundamentals_step_20260429_012207.log
+📥 导入市场基础面快照
+  文件: /tmp/quantix_market_fundamentals_smoke.json
+  记录数: 1
+2026-04-28T17:22:07.356256Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix_mf_rehearsal_20260429_012207 (user: default)
+2026-04-28T17:22:07.357674Z  INFO quantix_cli::sync::etl: 数据同步器初始化完成
+2026-04-28T17:22:07.358171Z  INFO quantix_cli::sync::etl: 开始同步市场基础面快照: 1 条记录
+2026-04-28T17:22:07.358651Z  INFO quantix_cli::db::clickhouse::schema: 初始化 ClickHouse 数据库和表...
+2026-04-28T17:22:07.945086Z  INFO quantix_cli::db::clickhouse::schema: 数据库 quantix_mf_rehearsal_20260429_012207 创建成功
+2026-04-28T17:22:08.356797Z  INFO quantix_cli::db::clickhouse::schema: stock_info 表创建成功
+2026-04-28T17:22:08.476768Z  INFO quantix_cli::db::clickhouse::schema: stock_realtime_quotes 表创建成功
+2026-04-28T17:22:08.538074Z  INFO quantix_cli::db::clickhouse::schema: kline_data 表创建成功
+2026-04-28T17:22:08.660052Z  INFO quantix_cli::db::clickhouse::schema: limit_up_events 表创建成功
+2026-04-28T17:22:08.768398Z  INFO quantix_cli::db::clickhouse::schema: gbbq_events 表创建成功
+2026-04-28T17:22:08.878704Z  INFO quantix_cli::db::clickhouse::schema: sector_daily 表创建成功
+2026-04-28T17:22:08.954355Z  INFO quantix_cli::db::clickhouse::schema: north_flow_daily 表创建成功
+2026-04-28T17:22:09.019495Z  INFO quantix_cli::db::clickhouse::schema: market_sentiment_daily 表创建成功
+2026-04-28T17:22:09.097821Z  INFO quantix_cli::db::clickhouse::schema: market_fundamentals_daily 表创建成功
+2026-04-28T17:22:09.097898Z  INFO quantix_cli::db::clickhouse::schema: 所有 ClickHouse 表创建成功
+✅ 市场基础面快照导入完成
+  已写入: 1
+  耗时(秒): 1
+[RESULT] import_exit=0
+state=populated
+rows=1
+latest_snapshot=2026-03-14
+[FIELD] rehearsal_input=/tmp/quantix_market_fundamentals_smoke.json
+[FIELD] rehearsal_input_mode=smoke_fixture
+[FIELD] rehearsal_clickhouse_url=http://192.168.123.104:8123
+[FIELD] rehearsal_clickhouse_db=quantix_mf_rehearsal_20260429_012207
+[FIELD] rehearsal_import_records=1
+[FIELD] rehearsal_import_written=1
+[FIELD] rehearsal_import_elapsed_seconds=1
+[FIELD] rehearsal_table_state=populated
+[FIELD] rehearsal_table_rows=1
+[FIELD] rehearsal_latest_snapshot=2026-03-14
+[INFO] Scratch DB retained for inspection: quantix_mf_rehearsal_20260429_012207
+[INFO] Production quantix DB was not modified.
+Market fundamentals import rehearsal completed.

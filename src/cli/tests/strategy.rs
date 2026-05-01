@@ -1,6 +1,62 @@
 use super::*;
 
 #[test]
+fn parses_strategy_instance_management_commands() {
+    let cli = Cli::try_parse_from([
+        "quantix", "strategy", "create", "--id", "ma_demo", "--name", "ma_cross", "--code",
+        "000001", "--param", "fast=5", "--param", "slow=20",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Create {
+            id,
+            name,
+            code,
+            params,
+            disabled,
+        }) => {
+            assert_eq!(id, "ma_demo");
+            assert_eq!(name, "ma_cross");
+            assert_eq!(code, "000001");
+            assert_eq!(params, vec!["fast=5", "slow=20"]);
+            assert!(!disabled);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix", "strategy", "update", "--id", "ma_demo", "--code", "600519", "--param",
+        "fast=10", "--enable",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Update {
+            id,
+            code,
+            params,
+            enable,
+            disable,
+            ..
+        }) => {
+            assert_eq!(id, "ma_demo");
+            assert_eq!(code.as_deref(), Some("600519"));
+            assert_eq!(params, vec!["fast=10"]);
+            assert!(enable);
+            assert!(!disable);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "strategy", "delete", "--id", "ma_demo"]).unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Delete { id }) => {
+            assert_eq!(id, "ma_demo");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_strategy_run_modes() {
     let cli = Cli::try_parse_from([
         "quantix", "strategy", "run", "-n", "ma_cross", "--mode", "paper", "-c", "000001",
@@ -71,6 +127,27 @@ fn parses_strategy_config_commands() {
     let cli = Cli::try_parse_from(["quantix", "strategy", "config", "show"]).unwrap();
     match cli.command {
         Commands::Strategy(StrategyCommands::Config(StrategyConfigCommands::Show)) => {}
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_strategy_show_commands() {
+    let cli = Cli::try_parse_from(["quantix", "strategy", "show", "--name", "ma_cross"]).unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Show { name, id }) => {
+            assert_eq!(name.as_deref(), Some("ma_cross"));
+            assert_eq!(id, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from(["quantix", "strategy", "show", "--id", "ma_demo"]).unwrap();
+    match cli.command {
+        Commands::Strategy(StrategyCommands::Show { name, id }) => {
+            assert_eq!(name, None);
+            assert_eq!(id.as_deref(), Some("ma_demo"));
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 }

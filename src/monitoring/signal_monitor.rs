@@ -232,10 +232,7 @@ impl SignalMonitor {
             None
         };
 
-        let stats = self
-            .code_stats
-            .entry(event.code.clone())
-            .or_default();
+        let stats = self.code_stats.entry(event.code.clone()).or_default();
 
         // Update counts
         match signal {

@@ -1,0 +1,49 @@
+[INFO] Market CLI prerequisite log: /opt/claude/quantix-rust/logs/check_market_cli_prereqs_20260428_233541.log
+\n[CHECK] Quantix binary exists
+[PASS] Quantix binary exists
+\n[CHECK] Market command tree reachable
+[PASS] Market command tree reachable
+\n[CHECK] Risk command tree reachable
+[PASS] Risk command tree reachable
+\n[CHECK] Shenwan SQLite reference DB present
+
+[PASS] Shenwan SQLite reference DB present
+\n[CHECK] Upstream MySQL env configured for risk sync
+
+[PASS] Upstream MySQL env configured for risk sync
+\n[CHECK] ClickHouse env resolved for market strength
+
+[PASS] ClickHouse env resolved for market strength
+\n[CHECK] Local market fundamentals table ready for TopN ranking
+state=empty
+rows=0
+latest_snapshot=1970-01-01
+[FIELD] precheck_market_fundamentals_state=empty
+[FIELD] precheck_market_fundamentals_rows=0
+[FIELD] precheck_market_fundamentals_latest_snapshot=N/A
+[WARN] Local market fundamentals table ready for TopN ranking
+\n[CHECK] EastMoney A-share snapshot upstream reachable
+[INFO] QUANTIX_MARKET_SNAPSHOT_SOURCE=tdx：跳过 EastMoney 连通性探测，运行时将直接使用 TDX 快照
+[PASS] EastMoney A-share snapshot upstream reachable
+\n[INFO] Expected runtime endpoints
+  ClickHouse URL : http://192.168.123.104:8123
+  ClickHouse DB  : quantix
+  ClickHouse user: default
+  Market snapshot mode : tdx
+  Snapshot probe : https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f2,f3,f5,f6
+  Fundamentals   : unset
+  Industry SQLite: /root/.quantix/risk/industry_reference.db
+  TDX root       : /mnt/d/mystocks/tdx/tdx-quant
+  TDX market     : sh
+  TDX quote mode : direct TDX quote-server fallback for market foundation/strength; GUI not required
+  Env template   : /opt/claude/quantix-rust/scripts/dev/market_cli_env.example.sh
+  Local env file : /opt/claude/quantix-rust/.env.market.local
+  Upstream MySQL : configured
+  TopN bootstrap : quantix data import-fundamentals --input /abs/path/market_fundamentals.json
+\n[REMEDIATION]
+  - 本地 market_fundamentals_daily 已建表但仍为空：如已准备 MarketFundamentalSyncRecord JSON，请运行 quantix data import-fundamentals --input /abs/path/market_fundamentals.json 以补齐总市值/净利润 TopN
+\n================ SUMMARY ================
+PASS : 7
+WARN : 1
+FAIL : 0
+Market CLI prerequisite checks passed (or warned on missing external prerequisites).

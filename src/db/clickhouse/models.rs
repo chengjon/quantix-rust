@@ -206,6 +206,21 @@ pub struct MarketFundamentalSnapshotCH {
     pub updated_at: String,
 }
 
+/// 市场基础面快照写入行。
+///
+/// ClickHouse RowBinary `Date` / `DateTime` 需要使用自 1970-01-01 起的天数/秒数编码，
+/// 不能直接复用查询侧的 `chrono::NaiveDate` / `String` 视图模型。
+#[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
+pub struct MarketFundamentalSnapshotInsertCH {
+    pub code: String,
+    pub snapshot_date: u16,
+    pub market_cap: Option<f64>,
+    pub latest_report_profit: Option<f64>,
+    pub profit_source: String,
+    pub pe_dynamic: Option<f64>,
+    pub updated_at: u32,
+}
+
 pub(super) fn market_table_sqls() -> Vec<(&'static str, &'static str)> {
     vec![
         (

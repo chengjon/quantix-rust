@@ -7,7 +7,7 @@ impl ClickHouseClient {
     /// 该表作为本地 ETL 落盘层，为后续强弱板块内个股排序提供稳定数据源。
     pub async fn insert_market_fundamental_snapshots(
         &self,
-        snapshots: &[MarketFundamentalSnapshotCH],
+        snapshots: &[MarketFundamentalSnapshotInsertCH],
     ) -> Result<()> {
         if snapshots.is_empty() {
             return Ok(());
@@ -49,21 +49,31 @@ impl ClickHouseClient {
             return Ok(Vec::new());
         }
 
-        let code_list = codes
-            .iter()
-            .map(|code| format!("'{}'", code.replace('\'', "''")))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let sql = build_latest_market_fundamental_snapshots_sql(codes, as_of);
 
-        let date_clause = as_of
-            .map(|date| format!(" AND snapshot_date <= '{date}'"))
-            .unwrap_or_default();
+        self.query_json(&sql).await
+    }
+}
 
-        let sql = format!(
-            r#"
+fn build_latest_market_fundamental_snapshots_sql(
+    codes: &[String],
+    as_of: Option<NaiveDate>,
+) -> String {
+    let code_list = codes
+        .iter()
+        .map(|code| format!("'{}'", code.replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let date_clause = as_of
+        .map(|date| format!(" AND snapshot_date <= '{date}'"))
+        .unwrap_or_default();
+
+    format!(
+        r#"
             SELECT
                 code,
-                max(snapshot_date) AS snapshot_date,
+                max(snapshot_date) AS latest_snapshot_date,
                 argMax(market_cap, snapshot_date) AS market_cap,
                 argMax(latest_report_profit, snapshot_date) AS latest_report_profit,
                 argMax(profit_source, snapshot_date) AS profit_source,
@@ -73,8 +83,26 @@ impl ClickHouseClient {
             WHERE code IN ({code_list}){date_clause}
             GROUP BY code
             "#
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_latest_market_fundamental_snapshots_sql;
+    use chrono::NaiveDate;
+
+    #[test]
+    fn latest_market_fundamentals_sql_avoids_snapshot_date_alias_collision() {
+        let sql = build_latest_market_fundamental_snapshots_sql(
+            &["600519".to_string(), "601398".to_string()],
+            Some(NaiveDate::from_ymd_opt(2026, 3, 14).unwrap()),
         );
 
-        self.query_json(&sql).await
+        assert!(sql.contains("max(snapshot_date) AS latest_snapshot_date"));
+        assert!(sql.contains("argMax(market_cap, snapshot_date) AS market_cap"));
+        assert!(
+            sql.contains("WHERE code IN ('600519', '601398') AND snapshot_date <= '2026-03-14'")
+        );
+        assert!(!sql.contains("max(snapshot_date) AS snapshot_date"));
     }
 }

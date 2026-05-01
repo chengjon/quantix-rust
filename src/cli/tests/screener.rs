@@ -11,6 +11,16 @@ fn parses_screener_preset_list_command() {
 }
 
 #[test]
+fn parses_screener_presets_alias_command() {
+    let cli = Cli::try_parse_from(["quantix", "analyze", "screener", "presets"]).unwrap();
+
+    match cli.command {
+        Commands::Analyze(AnalyzeCommands::Screener(ScreenerCommands::PresetList)) => {}
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_screener_run_command_with_codes_and_preset() {
     let cli = Cli::try_parse_from([
         "quantix",

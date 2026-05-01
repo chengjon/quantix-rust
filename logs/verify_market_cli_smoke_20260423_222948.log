@@ -1,0 +1,67 @@
+[INFO] Market CLI smoke log: /opt/claude/quantix-rust/logs/verify_market_cli_smoke_20260423_222948.log
+\n[CHECK] Build quantix binary
+[PASS] Build quantix binary
+\n[CHECK] Market help
+市场分析命令
+
+Usage: quantix market <COMMAND>
+
+Commands:
+  foundation  获取全市场 A 股与行业分类基础数据摘要
+  sector      行业板块排名
+  concept     概念板块排名
+  north       北向资金概览
+  sentiment   市场情绪概览
+  leader      龙头股识别
+  overview    市场综合概览
+  strength    分析强势/弱势行业板块，并输出强势板块个股 Top10
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+[PASS] Market help
+\n[CHECK] Market foundation help
+获取全市场 A 股与行业分类基础数据摘要
+
+Usage: quantix market foundation
+
+Options:
+  -h, --help  Print help
+[PASS] Market foundation help
+\n[CHECK] Market strength help
+分析强势/弱势行业板块，并输出强势板块个股 Top10
+
+Usage: quantix market strength [OPTIONS]
+
+Options:
+      --date <DATE>              指定交易日期
+      --strong-top <STRONG_TOP>  强势板块数量 [default: 3]
+      --weak-top <WEAK_TOP>      弱势板块数量 [default: 3]
+      --stock-top <STOCK_TOP>    强势板块内个股 TopN [default: 10]
+  -h, --help                     Print help
+[PASS] Market strength help
+\n[CHECK] Risk sync industry Shenwan (external dependency)
+Error: DatabaseConnection("upstream mysql 连接失败: error returned from database: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)")
+[WARN-EXPECTED] Risk sync industry Shenwan (external dependency)
+\n[CHECK] Market foundation (external dependency)
+2026-04-23T14:30:26.790828Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T14:30:27.333876Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+Error: Other("未找到行业分类数据，请先运行 quantix risk sync industry --standard shenwan")
+[WARN-EXPECTED] Market foundation (external dependency)
+\n[CHECK] Market strength (external dependency)
+2026-04-23T14:30:27.378591Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+2026-04-23T14:30:27.437033Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T14:30:28.627048Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+Error: Other("未找到行业分类数据，请先运行 quantix risk sync industry --standard shenwan")
+[WARN-EXPECTED] Market strength (external dependency)
+\n================ SUMMARY ================
+PASS : 4
+WARN : 3
+FAIL : 0
+LOCAL PASS : 4
+LOCAL WARN : 0
+LOCAL FAIL : 0
+EXTERNAL PASS : 0
+EXTERNAL WARN : 3
+EXTERNAL FAIL : 0
+Market CLI smoke checks passed (or expected-warn).

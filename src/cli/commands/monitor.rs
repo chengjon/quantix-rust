@@ -84,7 +84,7 @@ pub enum MonitorConfigCommands {
     /// 修改监控配置
     #[command(group(
         ArgGroup::new("monitor_config_mutation")
-            .args(["interval_seconds", "group", "persist_events"])
+            .args(["interval_seconds", "group", "persist_events", "notify"])
             .required(true)
             .multiple(false)
     ))]
@@ -100,6 +100,10 @@ pub enum MonitorConfigCommands {
         /// 是否持久化业务事件
         #[arg(long)]
         persist_events: Option<bool>,
+
+        /// 是否启用监控事件自动通知
+        #[arg(long)]
+        notify: Option<bool>,
     },
 
     /// 清除分组限制

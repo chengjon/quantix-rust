@@ -30,7 +30,7 @@
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use crate::bridge::client::BridgeHttpClient;
 use crate::bridge::models::{BridgeQmtOrderRequest, BridgeQmtOrderResponse};
@@ -38,6 +38,7 @@ use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
+use crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode;
 
 /// QMT Live Execution Adapter
 ///
@@ -77,11 +78,7 @@ impl QmtLiveExecutionAdapter {
     /// Convert order type to bridge format
     fn order_type_to_bridge(price: &Decimal) -> &'static str {
         // If price is zero, it's a market order
-        if price.is_zero() {
-            "market"
-        } else {
-            "limit"
-        }
+        if price.is_zero() { "market" } else { "limit" }
     }
 
     /// Parse bridge response status to OrderStatus
@@ -99,40 +96,45 @@ impl QmtLiveExecutionAdapter {
     }
 
     /// Convert bridge response to OrderInitialResponse
-    fn response_to_initial(response: BridgeQmtOrderResponse) -> Result<OrderInitialResponse, AdapterError> {
-        let avg_price = response.avg_fill_price
+    fn response_to_initial(
+        response: BridgeQmtOrderResponse,
+    ) -> Result<OrderInitialResponse, AdapterError> {
+        let avg_price = response
+            .avg_fill_price
             .as_ref()
             .and_then(|p| p.parse::<Decimal>().ok());
 
         let fill_details = response.fill_details.as_ref().map(|d| FillDetails {
-            fill_id: d.get("fill_id")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0),
+            fill_id: d.get("fill_id").and_then(|v| v.as_u64()).unwrap_or(0),
             fill_quantity: response.filled_quantity,
             fill_price: avg_price.unwrap_or(Decimal::ZERO),
-            last_fill_price: d.get("last_fill_price")
+            last_fill_price: d
+                .get("last_fill_price")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(Decimal::ZERO),
-            last_fill_quantity: d.get("last_fill_quantity")
+            last_fill_quantity: d
+                .get("last_fill_quantity")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0),
-            total_fills: d.get("total_fills")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0),
-            commission: d.get("commission")
+            total_fills: d.get("total_fills").and_then(|v| v.as_i64()).unwrap_or(0),
+            commission: d
+                .get("commission")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(Decimal::ZERO),
-            fees: d.get("fees")
+            fees: d
+                .get("fees")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(Decimal::ZERO),
-            venue: d.get("venue")
+            venue: d
+                .get("venue")
                 .and_then(|v| v.as_str())
                 .unwrap_or("qmt")
                 .to_string(),
-            broker_fill_id: d.get("broker_fill_id")
+            broker_fill_id: d
+                .get("broker_fill_id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string(),
@@ -159,6 +161,10 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
         &self,
         request: AdapterOrderRequest,
     ) -> Result<OrderInitialResponse, AdapterError> {
+        ensure_bridge_qmt_live_mode(&self.client)
+            .await
+            .map_err(|err| AdapterError::Execution(err.to_string()))?;
+
         info!(
             adapter = self.adapter_name,
             symbol = %request.symbol,
@@ -217,10 +223,7 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
         }
     }
 
-    async fn query_order(
-        &self,
-        order_id: &str,
-    ) -> Result<OrderQueryResponse, AdapterError> {
+    async fn query_order(&self, order_id: &str) -> Result<OrderQueryResponse, AdapterError> {
         info!(
             adapter = self.adapter_name,
             order_id = %order_id,
@@ -229,39 +232,42 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
 
         match self.client.qmt_query_order(order_id).await {
             Ok(response) => {
-                let avg_price = response.avg_fill_price
+                let avg_price = response
+                    .avg_fill_price
                     .as_ref()
                     .and_then(|p| p.parse::<Decimal>().ok());
 
                 let fill_details = response.fill_details.map(|d| FillDetails {
-                    fill_id: d.get("fill_id")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0),
+                    fill_id: d.get("fill_id").and_then(|v| v.as_u64()).unwrap_or(0),
                     fill_quantity: response.filled_quantity,
                     fill_price: avg_price.unwrap_or(Decimal::ZERO),
-                    last_fill_price: d.get("last_fill_price")
+                    last_fill_price: d
+                        .get("last_fill_price")
                         .and_then(|v| v.as_str())
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(Decimal::ZERO),
-                    last_fill_quantity: d.get("last_fill_quantity")
+                    last_fill_quantity: d
+                        .get("last_fill_quantity")
                         .and_then(|v| v.as_i64())
                         .unwrap_or(0),
-                    total_fills: d.get("total_fills")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0),
-                    commission: d.get("commission")
+                    total_fills: d.get("total_fills").and_then(|v| v.as_i64()).unwrap_or(0),
+                    commission: d
+                        .get("commission")
                         .and_then(|v| v.as_str())
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(Decimal::ZERO),
-                    fees: d.get("fees")
+                    fees: d
+                        .get("fees")
                         .and_then(|v| v.as_str())
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(Decimal::ZERO),
-                    venue: d.get("venue")
+                    venue: d
+                        .get("venue")
                         .and_then(|v| v.as_str())
                         .unwrap_or("qmt")
                         .to_string(),
-                    broker_fill_id: d.get("broker_fill_id")
+                    broker_fill_id: d
+                        .get("broker_fill_id")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string(),
@@ -312,8 +318,9 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
                         "Cancel failed"
                     );
                     Err(AdapterError::Execution(
-                        response.error_message
-                            .unwrap_or_else(|| "Cancel failed".to_string())
+                        response
+                            .error_message
+                            .unwrap_or_else(|| "Cancel failed".to_string()),
                     ))
                 }
             }
@@ -336,16 +343,34 @@ mod tests {
 
     #[test]
     fn test_side_to_bridge() {
-        assert_eq!(QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Buy), "buy");
-        assert_eq!(QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Sell), "sell");
+        assert_eq!(
+            QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Buy),
+            "buy"
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Sell),
+            "sell"
+        );
     }
 
     #[test]
     fn test_parse_status() {
-        assert_eq!(QmtLiveExecutionAdapter::parse_status("submitted"), OrderStatus::Submitted);
-        assert_eq!(QmtLiveExecutionAdapter::parse_status("filled"), OrderStatus::Filled);
-        assert_eq!(QmtLiveExecutionAdapter::parse_status("rejected"), OrderStatus::Rejected);
-        assert_eq!(QmtLiveExecutionAdapter::parse_status("unknown_value"), OrderStatus::Unknown);
+        assert_eq!(
+            QmtLiveExecutionAdapter::parse_status("submitted"),
+            OrderStatus::Submitted
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::parse_status("filled"),
+            OrderStatus::Filled
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::parse_status("rejected"),
+            OrderStatus::Rejected
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::parse_status("unknown_value"),
+            OrderStatus::Unknown
+        );
     }
 
     #[test]
@@ -353,7 +378,13 @@ mod tests {
         let limit_price = Decimal::new(1050, 2); // 10.50
         let market_price = Decimal::ZERO;
 
-        assert_eq!(QmtLiveExecutionAdapter::order_type_to_bridge(&limit_price), "limit");
-        assert_eq!(QmtLiveExecutionAdapter::order_type_to_bridge(&market_price), "market");
+        assert_eq!(
+            QmtLiveExecutionAdapter::order_type_to_bridge(&limit_price),
+            "limit"
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::order_type_to_bridge(&market_price),
+            "market"
+        );
     }
 }

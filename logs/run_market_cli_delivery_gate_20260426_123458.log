@@ -1,0 +1,165 @@
+[INFO] Market CLI delivery gate log: /opt/claude/quantix-rust/logs/run_market_cli_delivery_gate_20260426_123458.log
+[INFO] Acceptance script: /opt/claude/quantix-rust/scripts/dev/run_market_cli_acceptance.sh
+[INFO] Formal sequence script: /opt/claude/quantix-rust/scripts/dev/run_market_cli_formal_sequence.sh
+[INFO] Report script: /opt/claude/quantix-rust/scripts/dev/generate_market_cli_acceptance_report.sh
+[INFO] Report path: /opt/claude/quantix-rust/logs/market_cli_delivery_gate_report_20260426_123458.md
+\n[STEP] Acceptance orchestration
+[INFO] Market CLI acceptance log: /opt/claude/quantix-rust/logs/run_market_cli_acceptance_20260426_123458.log
+[INFO] Suggested first step: source /opt/claude/quantix-rust/scripts/dev/market_cli_env.example.sh
+[INFO] Local-only override file: /opt/claude/quantix-rust/.env.market.local
+[INFO] local env already exists: /opt/claude/quantix-rust/.env.market.local
+[PASS] local market env ready: /opt/claude/quantix-rust/.env.market.local
+[INFO] Loading local market env overrides from /opt/claude/quantix-rust/.env.market.local
+\n[STEP] Environment precheck
+[INFO] Market CLI prerequisite log: /opt/claude/quantix-rust/logs/check_market_cli_prereqs_20260426_123458.log
+\n[CHECK] Quantix binary exists
+[PASS] Quantix binary exists
+\n[CHECK] Market command tree reachable
+[PASS] Market command tree reachable
+\n[CHECK] Risk command tree reachable
+[PASS] Risk command tree reachable
+\n[CHECK] Shenwan SQLite reference DB present
+
+[PASS] Shenwan SQLite reference DB present
+\n[CHECK] Upstream MySQL env configured for risk sync
+
+[PASS] Upstream MySQL env configured for risk sync
+\n[CHECK] ClickHouse env resolved for market strength
+
+[PASS] ClickHouse env resolved for market strength
+\n[INFO] Expected runtime endpoints
+  ClickHouse URL : http://192.168.123.104:8123
+  ClickHouse DB  : quantix
+  Industry SQLite: /root/.quantix/risk/industry_reference.db
+  Env template   : /opt/claude/quantix-rust/scripts/dev/market_cli_env.example.sh
+  Local env file : /opt/claude/quantix-rust/.env.market.local
+  Upstream MySQL : configured
+\n================ SUMMARY ================
+PASS : 6
+WARN : 0
+FAIL : 0
+Market CLI prerequisite checks passed (or warned on missing external prerequisites).
+\n[STEP] Smoke verification
+[INFO] Market CLI smoke log: /opt/claude/quantix-rust/logs/verify_market_cli_smoke_20260426_123459.log
+\n[CHECK] Build quantix binary
+[PASS] Build quantix binary
+\n[CHECK] Market help
+市场分析命令
+
+Usage: quantix market <COMMAND>
+
+Commands:
+  foundation       获取全市场 A 股与行业分类基础数据摘要
+  sector           行业板块排名
+  concept          概念板块排名
+  north            北向资金概览
+  sentiment        市场情绪概览
+  leader           龙头股识别
+  overview         市场综合概览
+  strength         分析强势/弱势行业板块，并输出强势板块个股 Top10
+  strength-stocks  仅输出强势板块个股排行
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+[PASS] Market help
+\n[CHECK] Market foundation help
+获取全市场 A 股与行业分类基础数据摘要
+
+Usage: quantix market foundation
+
+Options:
+  -h, --help  Print help
+[PASS] Market foundation help
+\n[CHECK] Market strength help
+分析强势/弱势行业板块，并输出强势板块个股 Top10
+
+Usage: quantix market strength [OPTIONS]
+
+Options:
+      --date <DATE>              指定交易日期
+      --strong-top <STRONG_TOP>  强势板块数量 [default: 3]
+      --weak-top <WEAK_TOP>      弱势板块数量 [default: 3]
+      --stock-top <STOCK_TOP>    强势板块内个股 TopN [default: 10]
+  -h, --help                     Print help
+[PASS] Market strength help
+\n[CHECK] Market strength-stocks help
+仅输出强势板块个股排行
+
+Usage: quantix market strength-stocks [OPTIONS]
+
+Options:
+      --date <DATE>              指定交易日期
+      --strong-top <STRONG_TOP>  强势板块数量 [default: 3]
+      --sector <SECTOR>          仅查看指定强势行业
+      --metric <METRIC>          排名字段 [default: market-cap] [possible values: market-cap, profit]
+      --top <TOP>                返回条数 [default: 10]
+  -h, --help                     Print help
+[PASS] Market strength-stocks help
+\n[CHECK] Risk sync industry Shenwan (external dependency)
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-26T04:35:00.128646280+00:00
+[PASS] Risk sync industry Shenwan (external dependency)
+\n[CHECK] Market foundation (external dependency)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[WARN-EXPECTED] Market foundation (external dependency)
+\n[CHECK] Market strength (external dependency)
+2026-04-26T04:35:04.601833Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[WARN-EXPECTED] Market strength (external dependency)
+\n[CHECK] Market strength-stocks (external dependency)
+2026-04-26T04:35:07.749447Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[WARN-EXPECTED] Market strength-stocks (external dependency)
+\n================ SUMMARY ================
+PASS : 6
+WARN : 3
+FAIL : 0
+LOCAL PASS : 5
+LOCAL WARN : 0
+LOCAL FAIL : 0
+EXTERNAL PASS : 1
+EXTERNAL WARN : 3
+EXTERNAL FAIL : 0
+Market CLI smoke checks passed (or expected-warn).
+\n[NEXT]
+  - 若 precheck / smoke 只出现 expected-warn，先按 [REMEDIATION] 补环境
+  - 然后重跑本脚本，直到环境 warning 收敛到可接受范围
+  - 如需本机持久复用成功配置，可复制 .env.market.local.example 为 .env.market.local 并填写真实值
+  - 最后再执行正式命令链路：
+      quantix risk sync industry --standard shenwan
+      quantix market foundation
+      quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10
+      quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10
+\nMarket CLI acceptance orchestration completed.
+\n[STEP] Formal sequence
+[INFO] Market CLI formal sequence log: /opt/claude/quantix-rust/logs/market_cli_formal_sequence_20260426_123458.log
+[INFO] local env already exists: /opt/claude/quantix-rust/.env.market.local
+[PASS] local market env ready: /opt/claude/quantix-rust/.env.market.local
+[INFO] Loading local market env overrides from /opt/claude/quantix-rust/.env.market.local
+\n[STEP] Risk sync industry Shenwan
+[LOG] sync_industry_log=/opt/claude/quantix-rust/logs/market_cli_sync_industry_20260426_123510.log
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-26T04:35:11.009912792+00:00
+[RESULT] sync_industry_exit=0
+[SUMMARY] sync_industry_summary=exit=0 completed; see log for refreshed industry reference details
+\n[STEP] Market foundation
+[LOG] market_foundation_log=/opt/claude/quantix-rust/logs/market_cli_market_foundation_20260426_123510.log
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_foundation_exit=1
+[SUMMARY] market_foundation_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\n[STEP] Market strength
+[LOG] market_strength_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_20260426_123510.log
+2026-04-26T04:35:16.729740Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_exit=1
+[SUMMARY] market_strength_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\n[STEP] Market strength-stocks
+[LOG] market_strength_stocks_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_stocks_20260426_123510.log
+2026-04-26T04:35:19.929057Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_stocks_exit=1
+[SUMMARY] market_strength_stocks_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\nMarket CLI formal sequence completed.
+[GATE-FAIL] Formal sequence contains non-zero step exits:
+[RESULT] market_foundation_exit=1
+[RESULT] market_strength_exit=1
+[RESULT] market_strength_stocks_exit=1

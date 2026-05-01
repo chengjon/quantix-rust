@@ -17,7 +17,7 @@ pub struct EastMoneySource {
     /// 基础 URL
     base_url: String,
     /// Cookie 存储
-    cookies: Arc<RwLock<String>>,
+    _cookies: Arc<RwLock<String>>,
 }
 
 impl EastMoneySource {
@@ -31,12 +31,12 @@ impl EastMoneySource {
         Self {
             client,
             base_url: "https://push2.eastmoney.com".to_string(),
-            cookies: Arc::new(RwLock::new(String::new())),
+            _cookies: Arc::new(RwLock::new(String::new())),
         }
     }
 
     /// 获取股票列表（支持板块分类）
-    pub async fn get_stock_list(&self, board: &str) -> Result<Vec<StockInfo>> {
+    pub async fn get_stock_list(&self, _board: &str) -> Result<Vec<StockInfo>> {
         // board: sz50 (深证50), hs300 (沪深300), zx (中小板), cyb (创业板) 等
         let url = format!("{}/api/qt/clist/getlist?", self.base_url);
 
@@ -59,7 +59,7 @@ impl EastMoneySource {
             .header("Referer", format!("{}/data/trading/center/", self.base_url))
             .send()
             .await
-            .map_err(|e| crate::core::QuantixError::Http(e))?;
+            .map_err(crate::core::QuantixError::Http)?;
 
         debug!("东方财富股票列表响应状态: {}", response.status());
 
@@ -69,7 +69,7 @@ impl EastMoneySource {
     }
 
     /// 解析股票列表
-    fn parse_stock_list(&self, text: &str) -> Result<Vec<StockInfo>> {
+    fn parse_stock_list(&self, _text: &str) -> Result<Vec<StockInfo>> {
         // 东方财富返回的是 JavaScript 格式，需要解析
         // 这里简化处理，返回空列表
         // 实际应用中需要使用正则或专用解析器
@@ -97,7 +97,7 @@ impl EastMoneySource {
             ])
             .send()
             .await
-            .map_err(|e| crate::core::QuantixError::Http(e))?;
+            .map_err(crate::core::QuantixError::Http)?;
 
         let text = response.text().await.unwrap_or_default();
         self.parse_realtime_quotes(&text, codes)
@@ -106,7 +106,7 @@ impl EastMoneySource {
     /// 解析实时行情
     fn parse_realtime_quotes(
         &self,
-        text: &str,
+        _text: &str,
         codes: &[String],
     ) -> Result<HashMap<String, Quote>> {
         let mut result = HashMap::new();
@@ -154,14 +154,14 @@ impl EastMoneySource {
             ])
             .send()
             .await
-            .map_err(|e| crate::core::QuantixError::Http(e))?;
+            .map_err(crate::core::QuantixError::Http)?;
 
         let text = response.text().await.unwrap_or_default();
         self.parse_money_flow(&text)
     }
 
     /// 解析资金流向
-    fn parse_money_flow(&self, text: &str) -> Result<MoneyFlowData> {
+    fn parse_money_flow(&self, _text: &str) -> Result<MoneyFlowData> {
         // 简化实现
         Ok(MoneyFlowData {
             code: String::new(),
@@ -175,7 +175,11 @@ impl EastMoneySource {
     }
 
     /// 获取财务数据
-    pub async fn get_financial_data(&self, code: &str, report_type: &str) -> Result<FinancialData> {
+    pub async fn get_financial_data(
+        &self,
+        _code: &str,
+        _report_type: &str,
+    ) -> Result<FinancialData> {
         // report_type: profit (利润表), balance (资产负债表), cash (现金流量表)
         Ok(FinancialData::default())
     }

@@ -8,10 +8,9 @@
 //! - Result output
 
 use crate::anomaly::config::AnomalyConfig;
-use crate::anomaly::features::{FeatureExtractor, OHLCVSeries, OHLCVCandle};
+use crate::anomaly::features::{FeatureExtractor, OHLCVCandle, OHLCVSeries};
 use crate::anomaly::filter::{StockFilter, StockInfo};
 use crate::anomaly::forest::{AnomalyScore, IsolationForest};
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
@@ -82,14 +81,20 @@ pub struct AnomalyDetector {
 impl AnomalyDetector {
     /// Create a new anomaly detector with configuration and data source
     pub fn new(config: AnomalyConfig, data_source: std::sync::Arc<dyn DataSource>) -> Self {
-        Self { config, data_source }
+        Self {
+            config,
+            data_source,
+        }
     }
 
     /// Run the complete anomaly detection pipeline
     pub async fn detect(&self) -> Result<AnomalyResult, String> {
         let start_time = chrono::Utc::now();
 
-        info!("Starting anomaly detection with period={}min", self.config.data.kline_period);
+        info!(
+            "Starting anomaly detection with period={}min",
+            self.config.data.kline_period
+        );
 
         // 1. Fetch stock list
         info!("Fetching stock list...");
@@ -117,18 +122,24 @@ impl AnomalyDetector {
         }
 
         // 5. Train Isolation Forest
-        info!("Training Isolation Forest with {} trees...", self.config.forest.n_estimators);
+        info!(
+            "Training Isolation Forest with {} trees...",
+            self.config.forest.n_estimators
+        );
         let mut forest = IsolationForest::new()
             .n_estimators(self.config.forest.n_estimators)
             .max_samples(self.config.forest.max_samples)
             .random_state(self.config.forest.random_state)
             .contamination(self.config.forest.contamination);
 
-        forest.fit(&features).map_err(|e| format!("Failed to fit Isolation Forest: {}", e))?;
+        forest
+            .fit(&features)
+            .map_err(|e| format!("Failed to fit Isolation Forest: {}", e))?;
 
         // 6. Find anomalies
         info!("Finding top {} anomalies...", self.config.forest.top_n);
-        let mut anomalies = forest.find_anomalies(&features, &codes, &names, self.config.forest.top_n);
+        let mut anomalies =
+            forest.find_anomalies(&features, &codes, &names, self.config.forest.top_n);
 
         // 7. Enrich with additional statistics
         self.enrich_anomalies(&mut anomalies, &klines);
@@ -147,7 +158,10 @@ impl AnomalyDetector {
             anomalies,
         };
 
-        info!("Detection complete. Found {} anomalies.", result.anomalies.len());
+        info!(
+            "Detection complete. Found {} anomalies.",
+            result.anomalies.len()
+        );
         Ok(result)
     }
 
@@ -195,10 +209,8 @@ impl AnomalyDetector {
 
     /// Enrich anomaly scores with additional statistics
     fn enrich_anomalies(&self, anomalies: &mut [AnomalyScore], klines: &[OHLCVSeries]) {
-        let kline_map: HashMap<&str, &OHLCVSeries> = klines
-            .iter()
-            .map(|k| (k.code.as_str(), k))
-            .collect();
+        let kline_map: HashMap<&str, &OHLCVSeries> =
+            klines.iter().map(|k| (k.code.as_str(), k)).collect();
 
         for anomaly in anomalies.iter_mut() {
             if let Some(series) = kline_map.get(anomaly.code.as_str()) {
@@ -246,12 +258,19 @@ impl AnomalyDetector {
     /// Output in CLI format
     fn output_cli(&self, result: &AnomalyResult) {
         println!("{}", "=".repeat(80));
-        println!("📊 TOP {} ANOMALOUS STOCKS (Isolation Forest)", result.anomalies.len());
+        println!(
+            "📊 TOP {} ANOMALOUS STOCKS (Isolation Forest)",
+            result.anomalies.len()
+        );
         println!("{}", "=".repeat(80));
         println!();
 
         for (i, anomaly) in result.anomalies.iter().enumerate() {
-            let anomaly_marker = if anomaly.is_anomaly { "⚠️ 异常" } else { "" };
+            let anomaly_marker = if anomaly.is_anomaly {
+                "⚠️ 异常"
+            } else {
+                ""
+            };
             println!("[{}] {} {}", i + 1, anomaly.code, anomaly.name);
             println!("  异常分数: {:.4} {}", anomaly.score, anomaly_marker);
 
@@ -282,7 +301,10 @@ impl AnomalyDetector {
         println!();
         println!("📊 统计:");
         println!("  - 总股票数: {}", result.total_stocks);
-        println!("  - 过滤后: {} (过滤掉 {})", result.valid_features, result.filtered_stocks);
+        println!(
+            "  - 过滤后: {} (过滤掉 {})",
+            result.valid_features, result.filtered_stocks
+        );
         println!("  - K线周期: {}分钟", result.config.period);
         println!("  - 树数量: {}", result.config.n_estimators);
     }
@@ -326,7 +348,14 @@ impl MockDataSource {
             .map(|i| {
                 let code = format!("{:06}", i);
                 let name = format!("测试股票{}", i);
-                StockInfo::new(&code, &name, 10.0 + i as f64 % 100.0, 0.0, 100000.0, 1000000.0)
+                StockInfo::new(
+                    &code,
+                    &name,
+                    10.0 + i as f64 % 100.0,
+                    0.0,
+                    100000.0,
+                    1000000.0,
+                )
             })
             .collect();
 
@@ -381,9 +410,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detector_with_mock_data() {
-        let config = AnomalyConfig::default()
-            .with_top_n(10)
-            .with_period(15);
+        let config = AnomalyConfig::default().with_top_n(10).with_period(15);
 
         let data_source = std::sync::Arc::new(MockDataSource::new(100));
         let detector = AnomalyDetector::new(config, data_source);
@@ -400,9 +427,7 @@ mod tests {
 
     #[test]
     fn test_result_config_from_anomaly_config() {
-        let config = AnomalyConfig::default()
-            .with_top_n(50)
-            .with_period(5);
+        let config = AnomalyConfig::default().with_top_n(50).with_period(5);
 
         let result_config = ResultConfig::from(&config);
 

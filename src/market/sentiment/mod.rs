@@ -2,10 +2,10 @@
 //!
 //! 提供美股/港股情绪分析能力
 
-pub mod types;
-pub mod provider;
 pub mod aggregator;
+pub mod provider;
+pub mod types;
 
-pub use types::{SentimentData, SentimentScore, SocialMention};
-pub use provider::SentimentProvider;
 pub use aggregator::SentimentAggregator;
+pub use provider::SentimentProvider;
+pub use types::{SentimentData, SentimentScore, SocialMention};

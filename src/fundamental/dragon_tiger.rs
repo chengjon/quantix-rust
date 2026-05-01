@@ -1,10 +1,9 @@
 //! 龙虎榜数据获取
 
+use super::types::DragonTigerItem;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
-use super::types::{DragonTigerItem, BrokerActivity};
 
 /// EastMoney 龙虎榜 API 响应
 #[derive(Debug, Deserialize)]
@@ -45,7 +44,7 @@ struct DragonTigerItemRaw {
     sell_amount: Option<serde_json::Value>,
     /// 净买入
     #[serde(rename = "NetBuy")]
-    net_buy: Option<serde_json::Value>,
+    _net_buy: Option<serde_json::Value>,
 }
 
 fn value_to_f64(v: &Option<serde_json::Value>) -> Option<f64> {
@@ -88,7 +87,8 @@ impl DragonTigerFetcher {
             code
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Referer", "https://data.eastmoney.com/")
             .send()
@@ -96,7 +96,10 @@ impl DragonTigerFetcher {
             .map_err(|e| QuantixError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(QuantixError::Other(format!("EastMoney API error: {}", response.status())));
+            return Err(QuantixError::Other(format!(
+                "EastMoney API error: {}",
+                response.status()
+            )));
         }
 
         let resp: DragonTigerResponse = response
@@ -104,33 +107,34 @@ impl DragonTigerFetcher {
             .await
             .map_err(|e| QuantixError::Other(format!("解析龙虎榜响应失败: {}", e)))?;
 
-        let items = resp.result
-            .and_then(|r| r.data)
-            .unwrap_or_default();
+        let items = resp.result.and_then(|r| r.data).unwrap_or_default();
 
-        let result: Vec<DragonTigerItem> = items.into_iter().filter_map(|item| {
-            let code = item.s_code.clone().unwrap_or_default();
-            let name = item.s_name.clone().unwrap_or_else(|| code.clone());
-            let close = value_to_f64(&item.close_price)?;
-            let change = value_to_f64(&item.change_pct).unwrap_or(0.0);
-            let buy = value_to_f64(&item.buy_amount).unwrap_or(0.0) / 10000.0;
-            let sell = value_to_f64(&item.sell_amount).unwrap_or(0.0) / 10000.0;
-            let net = buy - sell;
+        let result: Vec<DragonTigerItem> = items
+            .into_iter()
+            .filter_map(|item| {
+                let code = item.s_code.clone().unwrap_or_default();
+                let name = item.s_name.clone().unwrap_or_else(|| code.clone());
+                let close = value_to_f64(&item.close_price)?;
+                let change = value_to_f64(&item.change_pct).unwrap_or(0.0);
+                let buy = value_to_f64(&item.buy_amount).unwrap_or(0.0) / 10000.0;
+                let sell = value_to_f64(&item.sell_amount).unwrap_or(0.0) / 10000.0;
+                let net = buy - sell;
 
-            Some(DragonTigerItem {
-                code,
-                name,
-                trade_date: parse_date(&item.trade_date),
-                close_price: to_decimal(close).unwrap_or(Decimal::ZERO),
-                change_pct: to_decimal(change).unwrap_or(Decimal::ZERO),
-                reason: item.reason.unwrap_or_default(),
-                buy_amount: to_decimal(buy).unwrap_or(Decimal::ZERO),
-                sell_amount: to_decimal(sell).unwrap_or(Decimal::ZERO),
-                net_buy: to_decimal(net).unwrap_or(Decimal::ZERO),
-                top_buyers: Vec::new(),
-                top_sellers: Vec::new(),
+                Some(DragonTigerItem {
+                    code,
+                    name,
+                    trade_date: parse_date(&item.trade_date),
+                    close_price: to_decimal(close).unwrap_or(Decimal::ZERO),
+                    change_pct: to_decimal(change).unwrap_or(Decimal::ZERO),
+                    reason: item.reason.unwrap_or_default(),
+                    buy_amount: to_decimal(buy).unwrap_or(Decimal::ZERO),
+                    sell_amount: to_decimal(sell).unwrap_or(Decimal::ZERO),
+                    net_buy: to_decimal(net).unwrap_or(Decimal::ZERO),
+                    top_buyers: Vec::new(),
+                    top_sellers: Vec::new(),
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(result)
     }
@@ -139,7 +143,8 @@ impl DragonTigerFetcher {
     pub async fn fetch_today(&self) -> Result<Vec<DragonTigerItem>> {
         let url = "https://data.eastmoney.com/DataCenter_V3/stock2016/TradeDetail/pagesize=50,page=1,sortrule=-1,sorttype=,.js";
 
-        let response = self.client
+        let response = self
+            .client
             .get(url)
             .header("Referer", "https://data.eastmoney.com/")
             .send()
@@ -147,7 +152,10 @@ impl DragonTigerFetcher {
             .map_err(|e| QuantixError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(QuantixError::Other(format!("EastMoney API error: {}", response.status())));
+            return Err(QuantixError::Other(format!(
+                "EastMoney API error: {}",
+                response.status()
+            )));
         }
 
         let resp: DragonTigerResponse = response
@@ -155,32 +163,33 @@ impl DragonTigerFetcher {
             .await
             .map_err(|e| QuantixError::Other(format!("解析龙虎榜响应失败: {}", e)))?;
 
-        let items = resp.result
-            .and_then(|r| r.data)
-            .unwrap_or_default();
+        let items = resp.result.and_then(|r| r.data).unwrap_or_default();
 
-        let result: Vec<DragonTigerItem> = items.into_iter().filter_map(|item| {
-            let code = item.s_code.clone().unwrap_or_default();
-            let name = item.s_name.clone().unwrap_or_else(|| code.clone());
-            let close = value_to_f64(&item.close_price)?;
-            let change = value_to_f64(&item.change_pct).unwrap_or(0.0);
-            let buy = value_to_f64(&item.buy_amount).unwrap_or(0.0) / 10000.0;
-            let sell = value_to_f64(&item.sell_amount).unwrap_or(0.0) / 10000.0;
+        let result: Vec<DragonTigerItem> = items
+            .into_iter()
+            .filter_map(|item| {
+                let code = item.s_code.clone().unwrap_or_default();
+                let name = item.s_name.clone().unwrap_or_else(|| code.clone());
+                let close = value_to_f64(&item.close_price)?;
+                let change = value_to_f64(&item.change_pct).unwrap_or(0.0);
+                let buy = value_to_f64(&item.buy_amount).unwrap_or(0.0) / 10000.0;
+                let sell = value_to_f64(&item.sell_amount).unwrap_or(0.0) / 10000.0;
 
-            Some(DragonTigerItem {
-                code,
-                name,
-                trade_date: parse_date(&item.trade_date),
-                close_price: to_decimal(close).unwrap_or(Decimal::ZERO),
-                change_pct: to_decimal(change).unwrap_or(Decimal::ZERO),
-                reason: item.reason.unwrap_or_default(),
-                buy_amount: to_decimal(buy).unwrap_or(Decimal::ZERO),
-                sell_amount: to_decimal(sell).unwrap_or(Decimal::ZERO),
-                net_buy: to_decimal(buy - sell).unwrap_or(Decimal::ZERO),
-                top_buyers: Vec::new(),
-                top_sellers: Vec::new(),
+                Some(DragonTigerItem {
+                    code,
+                    name,
+                    trade_date: parse_date(&item.trade_date),
+                    close_price: to_decimal(close).unwrap_or(Decimal::ZERO),
+                    change_pct: to_decimal(change).unwrap_or(Decimal::ZERO),
+                    reason: item.reason.unwrap_or_default(),
+                    buy_amount: to_decimal(buy).unwrap_or(Decimal::ZERO),
+                    sell_amount: to_decimal(sell).unwrap_or(Decimal::ZERO),
+                    net_buy: to_decimal(buy - sell).unwrap_or(Decimal::ZERO),
+                    top_buyers: Vec::new(),
+                    top_sellers: Vec::new(),
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(result)
     }

@@ -18,6 +18,15 @@ use tracing::{debug, info, warn};
 
 use crate::data::fetcher::Fetcher;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct TdxSnapshotPriceFields {
+    price: f64,
+    preclose: f64,
+    open: f64,
+    high: f64,
+    low: f64,
+}
+
 /// 股票实时行情数据
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StockQuote {
@@ -50,7 +59,7 @@ pub struct StockQuote {
 impl StockQuote {
     /// 计算涨跌幅
     pub fn calculate_change_percent(price: f64, preclose: f64) -> f64 {
-        if preclose > 0.0 {
+        if price.is_finite() && preclose.is_finite() && preclose > 0.0 {
             ((price - preclose) / preclose) * 100.0
         } else {
             0.0
@@ -87,6 +96,98 @@ impl StockQuote {
             market,
         }
     }
+}
+
+fn decode_tdx_price(data: &[u8], pos: &mut usize) -> i32 {
+    let mut shl = 6;
+    let mut bit = data[*pos] as i32;
+    let mut value = bit & 0x3f;
+    let positive = (bit & 0x40) == 0;
+
+    while (bit & 0x80) != 0 {
+        *pos += 1;
+        bit = data[*pos] as i32;
+        value += (bit & 0x7f) << shl;
+        shl += 7;
+    }
+    *pos += 1;
+
+    if positive { value } else { -value }
+}
+
+fn decode_tdx_u16(data: &[u8], pos: usize) -> u16 {
+    u16::from_le_bytes([data[pos], data[pos + 1]])
+}
+
+fn decode_tdx_price_value(base_price: i32, diff: i32) -> f64 {
+    (base_price + diff) as f64 / 100.0
+}
+
+fn parse_tdx_snapshot_price_fields(response: &[u8]) -> Vec<TdxSnapshotPriceFields> {
+    if response.len() < 4 {
+        return Vec::new();
+    }
+
+    let mut pos = 2;
+    let stock_count = decode_tdx_u16(response, pos) as usize;
+    pos += 2;
+
+    let mut parsed = Vec::with_capacity(stock_count);
+    for _ in 0..stock_count {
+        if pos + 70 > response.len() {
+            break;
+        }
+
+        pos += 1; // market
+        pos += 6; // code
+        pos += 2; // active1
+
+        let base_price = decode_tdx_price(response, &mut pos);
+        let last_close_diff = decode_tdx_price(response, &mut pos);
+        let open_diff = decode_tdx_price(response, &mut pos);
+        let high_diff = decode_tdx_price(response, &mut pos);
+        let low_diff = decode_tdx_price(response, &mut pos);
+
+        let price = decode_tdx_price_value(base_price, 0);
+        let preclose = decode_tdx_price_value(base_price, last_close_diff);
+        let open = decode_tdx_price_value(base_price, open_diff);
+        let high = decode_tdx_price_value(base_price, high_diff);
+        let low = decode_tdx_price_value(base_price, low_diff);
+
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        pos += 4; // amount
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+
+        for _ in 0..5 {
+            let _ = decode_tdx_price(response, &mut pos);
+            let _ = decode_tdx_price(response, &mut pos);
+            let _ = decode_tdx_price(response, &mut pos);
+            let _ = decode_tdx_price(response, &mut pos);
+        }
+
+        pos += 2; // reversed_bytes4
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        let _ = decode_tdx_price(response, &mut pos);
+        pos += 4; // reversed_bytes9 + active2
+
+        parsed.push(TdxSnapshotPriceFields {
+            price,
+            preclose,
+            open,
+            high,
+            low,
+        });
+    }
+
+    parsed
 }
 
 /// 通达信数据源（完整版，支持实时行情采集）
@@ -201,19 +302,38 @@ impl TdxSource {
                     crate::core::QuantixError::DataSource(format!("TDX 接收失败: {}", e))
                 })?;
 
+                let parsed_price_fields = parse_tdx_snapshot_price_fields(&quotes.response);
+                if parsed_price_fields.len() != quotes.result().len() {
+                    warn!(
+                        "TDX 原始响应价格字段重算数量不匹配: parsed={} result={}",
+                        parsed_price_fields.len(),
+                        quotes.result().len()
+                    );
+                }
+
                 // 提取行情数据
                 let result: Vec<(String, String, f64, f64, f64, f64, f64, f64, f64)> = quotes
                     .result()
                     .iter()
-                    .map(|q| {
+                    .enumerate()
+                    .map(|(index, q)| {
+                        let fields = parsed_price_fields.get(index).copied().unwrap_or(
+                            TdxSnapshotPriceFields {
+                                price: q.price,
+                                preclose: q.preclose,
+                                open: q.open,
+                                high: q.high,
+                                low: q.low,
+                            },
+                        );
                         (
                             q.code.clone(),
                             q.name.clone(),
-                            q.price,
-                            q.preclose,
-                            q.open,
-                            q.high,
-                            q.low,
+                            fields.price,
+                            fields.preclose,
+                            fields.open,
+                            fields.high,
+                            fields.low,
                             q.vol,
                             q.amount,
                         )
@@ -335,6 +455,22 @@ mod tests {
         assert_eq!(quote.price, 10.5);
         assert_eq!(quote.preclose, 10.0);
         assert!((quote.change_percent - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_tdx_snapshot_price_fields_matches_pytdx_sample() {
+        let mut response = vec![0x00, 0x00, 0x01, 0x00];
+        response.extend_from_slice(
+            b"\x00000001\x95\x0a\x87\x0e\x01\x01\x05\x00\xb1\xb9\xd6\x0d\xc7\x0e\x8d\xd7\x1a\x84\x04S\x9c<M\xb6\xc8\x0e\x97\x8e\x0c\x00\xae\x0a\x00\x01\xa0\x1e\x9e\xb3\x03A\x02\x84\xf9\x01\xa8|B\x03\x8c\xd6\x01\xb0lC\x04\xb7\xdb\x02\xac\x7fD\x05\xbb\xb0\x01\xbe\xa0\x01y\x08\x01GC\x04\x00\x00\x95\x0a",
+        );
+
+        let fields = parse_tdx_snapshot_price_fields(&response);
+        assert_eq!(fields.len(), 1);
+        assert!((fields[0].price - 9.03).abs() < 0.01);
+        assert!((fields[0].preclose - 9.04).abs() < 0.01);
+        assert!((fields[0].open - 9.04).abs() < 0.01);
+        assert!((fields[0].high - 9.08).abs() < 0.01);
+        assert!((fields[0].low - 9.03).abs() < 0.01);
     }
 
     #[tokio::test]

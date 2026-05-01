@@ -34,7 +34,11 @@ impl IndicatorCache {
         Self::default()
     }
 
-    pub fn get_or_compute<F>(&mut self, key: IndicatorCacheKey, compute: F) -> Result<IndicatorSeries>
+    pub fn get_or_compute<F>(
+        &mut self,
+        key: IndicatorCacheKey,
+        compute: F,
+    ) -> Result<IndicatorSeries>
     where
         F: FnOnce() -> Result<IndicatorSeries>,
     {
@@ -49,5 +53,9 @@ impl IndicatorCache {
 
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 }

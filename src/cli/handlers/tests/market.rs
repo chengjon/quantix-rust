@@ -362,6 +362,26 @@ async fn test_execute_market_strength_returns_injected_report() {
                 market_cap: Some(Decimal::new(700000, 2)),
                 latest_report_profit: Some(Decimal::new(10000, 2)),
             }],
+            candidate_stocks: vec![
+                StrongSectorStockRow {
+                    sector_name: "计算机".to_string(),
+                    code: "300024".to_string(),
+                    name: "机器人".to_string(),
+                    latest_price: 15.0,
+                    latest_change_pct: 4.2,
+                    market_cap: Some(Decimal::new(200000, 2)),
+                    latest_report_profit: Some(Decimal::new(3000, 2)),
+                },
+                StrongSectorStockRow {
+                    sector_name: "银行".to_string(),
+                    code: "601398".to_string(),
+                    name: "工商银行".to_string(),
+                    latest_price: 7.0,
+                    latest_change_pct: 1.5,
+                    market_cap: Some(Decimal::new(700000, 2)),
+                    latest_report_profit: Some(Decimal::new(10000, 2)),
+                },
+            ],
             candidate_stock_count: 12,
             market_cap_coverage_count: 8,
             profit_coverage_count: 6,
@@ -426,6 +446,26 @@ async fn test_execute_market_strength_stocks_returns_profit_ranking() {
                 market_cap: Some(Decimal::new(700000, 2)),
                 latest_report_profit: Some(Decimal::new(10000, 2)),
             }],
+            candidate_stocks: vec![
+                StrongSectorStockRow {
+                    sector_name: "计算机".to_string(),
+                    code: "300024".to_string(),
+                    name: "机器人".to_string(),
+                    latest_price: 15.0,
+                    latest_change_pct: 4.2,
+                    market_cap: Some(Decimal::new(200000, 2)),
+                    latest_report_profit: Some(Decimal::new(3000, 2)),
+                },
+                StrongSectorStockRow {
+                    sector_name: "银行".to_string(),
+                    code: "601398".to_string(),
+                    name: "工商银行".to_string(),
+                    latest_price: 7.0,
+                    latest_change_pct: 1.5,
+                    market_cap: Some(Decimal::new(700000, 2)),
+                    latest_report_profit: Some(Decimal::new(10000, 2)),
+                },
+            ],
             candidate_stock_count: 12,
             market_cap_coverage_count: 8,
             profit_coverage_count: 6,
@@ -472,7 +512,17 @@ async fn test_execute_market_strength_stocks_filters_selected_sector() {
             },
             strong_sectors: vec![],
             weak_sectors: vec![],
-            top_by_market_cap: vec![
+            top_by_market_cap: vec![StrongSectorStockRow {
+                sector_name: "计算机".to_string(),
+                code: "300024".to_string(),
+                name: "机器人".to_string(),
+                latest_price: 15.0,
+                latest_change_pct: 4.2,
+                market_cap: Some(Decimal::new(200000, 2)),
+                latest_report_profit: Some(Decimal::new(3000, 2)),
+            }],
+            top_by_profit: vec![],
+            candidate_stocks: vec![
                 StrongSectorStockRow {
                     sector_name: "银行".to_string(),
                     code: "601398".to_string(),
@@ -492,9 +542,8 @@ async fn test_execute_market_strength_stocks_filters_selected_sector() {
                     latest_report_profit: Some(Decimal::new(3000, 2)),
                 },
             ],
-            top_by_profit: vec![],
-            candidate_stock_count: 12,
-            market_cap_coverage_count: 8,
+            candidate_stock_count: 2,
+            market_cap_coverage_count: 2,
             profit_coverage_count: 6,
             valuation_error_count: 0,
             earnings_error_count: 0,
@@ -513,6 +562,81 @@ async fn test_execute_market_strength_stocks_filters_selected_sector() {
             assert_eq!(ranking.rows.len(), 1);
             assert_eq!(ranking.rows[0].sector_name, "银行");
             assert_eq!(ranking.rows[0].code, "601398");
+        }
+        other => panic!("unexpected output: {:?}", other),
+    }
+}
+
+#[tokio::test]
+async fn test_execute_market_strength_stocks_keeps_sector_candidate_count_when_metric_has_no_coverage()
+ {
+    let output = execute_market_command_with_test_payloads(
+        MarketCommands::StrengthStocks {
+            date: Some("2026-03-09".to_string()),
+            strong_top: 3,
+            sector: Some("银行".to_string()),
+            metric: StrengthStockMetric::Profit,
+            top: 10,
+        },
+        FakeMarketReader::new(),
+        None,
+        Some(MarketStrengthReport {
+            foundation: MarketFoundationSummary {
+                total_stocks: 5300,
+                classified_stocks: 5200,
+                unclassified_stocks: 100,
+                sector_count: 31,
+                top_sectors: vec![],
+            },
+            strong_sectors: vec![],
+            weak_sectors: vec![],
+            top_by_market_cap: vec![],
+            top_by_profit: vec![StrongSectorStockRow {
+                sector_name: "计算机".to_string(),
+                code: "300024".to_string(),
+                name: "机器人".to_string(),
+                latest_price: 15.0,
+                latest_change_pct: 4.2,
+                market_cap: Some(Decimal::new(200000, 2)),
+                latest_report_profit: Some(Decimal::new(3000, 2)),
+            }],
+            candidate_stocks: vec![
+                StrongSectorStockRow {
+                    sector_name: "银行".to_string(),
+                    code: "601398".to_string(),
+                    name: "工商银行".to_string(),
+                    latest_price: 7.0,
+                    latest_change_pct: 1.5,
+                    market_cap: Some(Decimal::new(700000, 2)),
+                    latest_report_profit: None,
+                },
+                StrongSectorStockRow {
+                    sector_name: "计算机".to_string(),
+                    code: "300024".to_string(),
+                    name: "机器人".to_string(),
+                    latest_price: 15.0,
+                    latest_change_pct: 4.2,
+                    market_cap: Some(Decimal::new(200000, 2)),
+                    latest_report_profit: Some(Decimal::new(3000, 2)),
+                },
+            ],
+            candidate_stock_count: 2,
+            market_cap_coverage_count: 1,
+            profit_coverage_count: 1,
+            valuation_error_count: 0,
+            earnings_error_count: 0,
+        }),
+    )
+    .await
+    .unwrap();
+
+    match output {
+        MarketCommandOutput::StrengthStocks(ranking) => {
+            assert_eq!(ranking.metric, StrengthStockMetric::Profit);
+            assert_eq!(ranking.sector_filter.as_deref(), Some("银行"));
+            assert_eq!(ranking.candidate_stock_count, 1);
+            assert_eq!(ranking.covered_count, 0);
+            assert!(ranking.rows.is_empty());
         }
         other => panic!("unexpected output: {:?}", other),
     }
@@ -542,6 +666,15 @@ async fn test_execute_market_strength_stocks_returns_empty_ranking_when_sector_h
             weak_sectors: vec![],
             top_by_market_cap: vec![],
             top_by_profit: vec![StrongSectorStockRow {
+                sector_name: "计算机".to_string(),
+                code: "300024".to_string(),
+                name: "机器人".to_string(),
+                latest_price: 15.0,
+                latest_change_pct: 4.2,
+                market_cap: Some(Decimal::new(200000, 2)),
+                latest_report_profit: Some(Decimal::new(3000, 2)),
+            }],
+            candidate_stocks: vec![StrongSectorStockRow {
                 sector_name: "计算机".to_string(),
                 code: "300024".to_string(),
                 name: "机器人".to_string(),

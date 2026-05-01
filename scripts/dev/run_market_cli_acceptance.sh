@@ -12,6 +12,7 @@ LOCAL_ENV_PATH="${LOCAL_ENV_PATH:-$ROOT_DIR/.env.market.local}"
 INIT_LOCAL_ENV_SCRIPT="${INIT_LOCAL_ENV_SCRIPT:-$ROOT_DIR/scripts/dev/init_market_cli_local_env.sh}"
 PRECHECK_SCRIPT="${PRECHECK_SCRIPT:-$ROOT_DIR/scripts/dev/check_market_cli_prereqs.sh}"
 SMOKE_SCRIPT="${SMOKE_SCRIPT:-$ROOT_DIR/scripts/dev/verify_market_cli_smoke.sh}"
+REHEARSAL_SCRIPT="${REHEARSAL_SCRIPT:-$ROOT_DIR/scripts/dev/run_market_cli_import_fundamentals_rehearsal.sh}"
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -42,11 +43,15 @@ run_step "Smoke verification" "\"$SMOKE_SCRIPT\""
 echo "\n[NEXT]"
 echo "  - 若 precheck / smoke 只出现 expected-warn，先按 [REMEDIATION] 补环境"
 echo "  - 然后重跑本脚本，直到环境 warning 收敛到可接受范围"
+echo "  - 若 warning 集中在 market_fundamentals_daily 缺失或为空，先运行："
+echo "      $REHEARSAL_SCRIPT"
 echo "  - 如需本机持久复用成功配置，可复制 .env.market.local.example 为 .env.market.local 并填写真实值"
 echo "  - 最后再执行正式命令链路："
 echo "      quantix risk sync industry --standard shenwan"
 echo "      quantix market foundation"
 echo "      quantix market strength --date 2026-03-09 --strong-top 3 --weak-top 3 --stock-top 10"
 echo "      quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 --metric profit --top 10"
+echo "      quantix data validate-fundamentals --input /abs/path/market_fundamentals.json"
+echo "      quantix data import-fundamentals --input /abs/path/market_fundamentals.json"
 
 echo "\nMarket CLI acceptance orchestration completed."

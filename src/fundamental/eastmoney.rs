@@ -2,17 +2,17 @@
 //!
 //! 实现 FundamentalProvider trait，委托给各个专门的获取器
 
-use async_trait::async_trait;
-use crate::core::{QuantixError, Result};
-use super::provider::FundamentalProvider;
-use super::types::{
-    ValuationMetrics, EarningsReport,
-    InstitutionHolding, DragonTigerItem, DividendInfo, CapitalFlow,
-};
-use super::valuation::ValuationFetcher;
+use super::dragon_tiger::DragonTigerFetcher;
 use super::earnings::EarningsFetcher;
 use super::institution::InstitutionFetcher;
-use super::dragon_tiger::DragonTigerFetcher;
+use super::provider::FundamentalProvider;
+use super::types::{
+    CapitalFlow, DividendInfo, DragonTigerItem, EarningsReport, InstitutionHolding,
+    ValuationMetrics,
+};
+use super::valuation::ValuationFetcher;
+use crate::core::{QuantixError, Result};
+use async_trait::async_trait;
 
 /// 东方财富基本面数据提供商
 pub struct EastMoneyFundamentalProvider {
@@ -68,11 +68,15 @@ impl FundamentalProvider for EastMoneyFundamentalProvider {
 
     async fn get_dividend_history(&self, _code: &str, _years: u32) -> Result<Vec<DividendInfo>> {
         // 分红数据获取器尚未实现
-        Err(QuantixError::Unsupported("分红数据获取功能尚未实现".to_string()))
+        Err(QuantixError::Unsupported(
+            "分红数据获取功能尚未实现".to_string(),
+        ))
     }
 
     async fn get_capital_flow(&self, _code: &str, _days: u32) -> Result<Vec<CapitalFlow>> {
         // 资金流向获取器尚未实现
-        Err(QuantixError::Unsupported("资金流向获取功能尚未实现".to_string()))
+        Err(QuantixError::Unsupported(
+            "资金流向获取功能尚未实现".to_string(),
+        ))
     }
 }

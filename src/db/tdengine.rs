@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 /// TDengine REST API 客户端
 ///
 /// 通过 REST API 连接原 quantix 项目的 TDengine 数据库

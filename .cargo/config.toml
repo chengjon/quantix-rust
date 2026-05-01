@@ -1,0 +1,10 @@
+# 在仓库根共享 target/，让嵌套在 .worktrees/ 下的本地 worktree
+# 也复用同一套构建产物，避免每个 worktree 各自产生一份 target。
+[build]
+target-dir = "target"
+
+# 抑制 sqlx-postgres v0.7.4 的 future-incompat 警告
+# 该警告来自上游依赖，暂不影响编译和运行。
+# 待 sqlx 0.8+ 稳定后统一升级再移除此配置。
+[future-incompat-report]
+frequency = "never"

@@ -32,6 +32,52 @@ A 股量化交易 CLI 工具 - Rust 实现
 3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
 4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
 
+## 构建产物大小管控
+
+Rust debug 构建默认 `debug = 2`（完整 DWARF 调试信息），会导致 `target/debug/deps` 膨胀至 50GB+。项目通过三道防线控制：
+
+### 1. Profile 配置（根因层，Cargo.toml）
+
+```toml
+[profile.dev]
+debug = 1                        # 仅保留行号表，backtrace 仍可用
+
+[profile.dev.package."*"]
+debug = 0                        # 依赖库不生成 debug info
+
+[profile.test]
+debug = 1
+
+[profile.test.package."*"]
+debug = 0
+```
+
+效果：`target/debug/` 从 ~50GB 降至 ~2-3GB（cargo build）或 ~5-7GB（cargo test）。
+
+### 2. 阈值监控脚本
+
+```bash
+# 查看当前状态和 top 大文件
+scripts/dev/guard_target_size.sh --status
+
+# 检查是否超阈值（warn: 8GB, max: 15GB）
+scripts/dev/guard_target_size.sh
+
+# 超阈值自动清理
+scripts/dev/guard_target_size.sh --clean
+
+# 自定义阈值
+TARGET_WARN_GB=5 TARGET_MAX_GB=10 scripts/dev/guard_target_size.sh
+```
+
+### 3. 异常排查
+
+如果 `target/` 超过 8GB，常见原因：
+
+- 执行了 `cargo build` 而非 `cargo build --release`，且修改了 profile 设置
+- 依赖版本冲突导致同一 crate 被编译多次（检查 `cargo tree --duplicates`）
+- 长期未清理的陈旧构建产物（脚本会标记 >7 天的 stale 文件）
+
 ## 当前完成状态
 
 截至 2026-03-27，当前已经完成并落地的任务可概括为：

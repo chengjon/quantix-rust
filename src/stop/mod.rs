@@ -3,9 +3,9 @@ pub mod service;
 pub mod storage;
 
 pub use models::{
-    StopAnchorSource, StopEvaluationResult, StopEvalState, StopHistoryEvent,
-    StopHistoryEventType, StopHistoryFilter, StopHistoryTriggerKind, StopRule, StopRuleUpdate,
-    StopStatusRow, StopTriggerKind, TriggeredStop,
+    StopAnchorSource, StopEvalState, StopEvaluationResult, StopHistoryEvent, StopHistoryEventType,
+    StopHistoryFilter, StopHistoryTriggerKind, StopRule, StopRuleUpdate, StopStatusRow,
+    StopTriggerKind, TriggeredStop,
 };
 pub use service::{StopRuleStore, StopService};
 pub use storage::SqliteStopRuleStore;

@@ -8,8 +8,9 @@ mod schema;
 mod tests;
 
 pub use self::models::{
-    GbbqEventCH, KlineDataCH, LimitUpEventCH, MarketFundamentalSnapshotCH, MarketSentimentDailyCH,
-    NorthFlowDailyCH, SectorDailyCH, StockInfoCH, StockQuoteCH,
+    GbbqEventCH, KlineDataCH, LimitUpEventCH, MarketFundamentalSnapshotCH,
+    MarketFundamentalSnapshotInsertCH, MarketSentimentDailyCH, NorthFlowDailyCH, SectorDailyCH,
+    StockInfoCH, StockQuoteCH,
 };
 
 use crate::core::runtime::ClickHouseSettings;

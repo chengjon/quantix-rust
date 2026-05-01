@@ -19,7 +19,7 @@ struct CacheEntry {
 pub struct NewsCache {
     cache: RwLock<HashMap<String, CacheEntry>>,
     max_size: usize,
-    default_ttl: Duration,
+    _default_ttl: Duration,
 }
 
 impl NewsCache {
@@ -28,7 +28,7 @@ impl NewsCache {
         Self {
             cache: RwLock::new(HashMap::new()),
             max_size,
-            default_ttl: Duration::from_secs(default_ttl_seconds),
+            _default_ttl: Duration::from_secs(default_ttl_seconds),
         }
     }
 

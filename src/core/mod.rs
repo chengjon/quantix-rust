@@ -12,6 +12,4 @@ pub use error::{QuantixError, Result};
 pub use performance_utils::{
     BatchOptimizationConfig, MemoryTracker, OptimizationSuggestion, PerfTimer, analyze_performance,
 };
-pub use runtime::{
-    BridgeRuntimeSettings, CliRuntime, ClickHouseSettings, UpstreamMySqlSettings,
-};
+pub use runtime::{BridgeRuntimeSettings, CliRuntime, ClickHouseSettings, UpstreamMySqlSettings};

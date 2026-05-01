@@ -1,0 +1,99 @@
+[INFO] Market CLI smoke log: /opt/claude/quantix-rust/logs/verify_market_cli_smoke_20260424_031256.log
+\n[CHECK] Build quantix binary
+[PASS] Build quantix binary
+\n[CHECK] Market help
+市场分析命令
+
+Usage: quantix market <COMMAND>
+
+Commands:
+  foundation  获取全市场 A 股与行业分类基础数据摘要
+  sector      行业板块排名
+  concept     概念板块排名
+  north       北向资金概览
+  sentiment   市场情绪概览
+  leader      龙头股识别
+  overview    市场综合概览
+  strength    分析强势/弱势行业板块，并输出强势板块个股 Top10
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+[PASS] Market help
+\n[CHECK] Market foundation help
+获取全市场 A 股与行业分类基础数据摘要
+
+Usage: quantix market foundation
+
+Options:
+  -h, --help  Print help
+[PASS] Market foundation help
+\n[CHECK] Market strength help
+分析强势/弱势行业板块，并输出强势板块个股 Top10
+
+Usage: quantix market strength [OPTIONS]
+
+Options:
+      --date <DATE>              指定交易日期
+      --strong-top <STRONG_TOP>  强势板块数量 [default: 3]
+      --weak-top <WEAK_TOP>      弱势板块数量 [default: 3]
+      --stock-top <STOCK_TOP>    强势板块内个股 TopN [default: 10]
+  -h, --help                     Print help
+[PASS] Market strength help
+\n[CHECK] Risk sync industry Shenwan (external dependency)
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-23T19:12:59.164596614+00:00
+[PASS] Risk sync industry Shenwan (external dependency)
+\n[CHECK] Market foundation (external dependency)
+2026-04-23T19:13:01.706402Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T19:13:01.908106Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+== 市场基础数据 ==
+A股总数: 100
+已匹配行业: 85
+未匹配行业: 15
+行业数: 23
+
+行业覆盖 Top10:
+排名   行业               成分股数
+----------------------------------------
+1    机械设备             13
+2    公用事业             12
+3    家用电器             5
+4    电力设备             5
+5    电子               5
+6    医药生物             4
+7    基础化工             4
+8    通信               4
+9    传媒               3
+10   建筑装饰             3
+[PASS] Market foundation (external dependency)
+\n[CHECK] Market strength (external dependency)
+2026-04-23T19:13:02.025292Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+2026-04-23T19:13:02.087808Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T19:13:02.249038Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+== 强弱板块分析 ==
+基础数据: A股=100 行业覆盖=85 未覆盖=15
+强势板块候选股数: 0
+
+强势板块:
+📭 没有可展示的板块数据
+
+弱势板块:
+📭 没有可展示的板块数据
+
+强势板块个股 Top10 总市值:
+📭 没有可展示的个股数据
+
+强势板块个股 Top10 最新净利润:
+📭 没有可展示的个股数据
+[PASS] Market strength (external dependency)
+\n================ SUMMARY ================
+PASS : 7
+WARN : 0
+FAIL : 0
+LOCAL PASS : 4
+LOCAL WARN : 0
+LOCAL FAIL : 0
+EXTERNAL PASS : 3
+EXTERNAL WARN : 0
+EXTERNAL FAIL : 0
+Market CLI smoke checks passed (or expected-warn).

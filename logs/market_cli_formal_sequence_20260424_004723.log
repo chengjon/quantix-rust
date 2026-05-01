@@ -1,0 +1,19 @@
+[INFO] Market CLI formal sequence log: /opt/claude/quantix-rust/logs/market_cli_formal_sequence_20260424_004723.log
+\n[STEP] Risk sync industry Shenwan
+[LOG] sync_industry_log=/opt/claude/quantix-rust/logs/market_cli_sync_industry_20260424_004723.log
+Error: DatabaseConnection("upstream mysql 连接失败: error returned from database: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)")
+[RESULT] sync_industry_exit=1
+\n[STEP] Market foundation
+[LOG] market_foundation_log=/opt/claude/quantix-rust/logs/market_cli_market_foundation_20260424_004723.log
+2026-04-23T16:47:23.421248Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T16:47:23.552494Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+Error: Other("未找到行业分类数据，请先运行 quantix risk sync industry --standard shenwan")
+[RESULT] market_foundation_exit=1
+\n[STEP] Market strength
+[LOG] market_strength_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_20260424_004723.log
+2026-04-23T16:47:23.603924Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+2026-04-23T16:47:23.656244Z  INFO quantix_cli::anomaly::eastmoney_source: Fetching stock list from East Money API
+2026-04-23T16:47:23.771937Z  INFO quantix_cli::anomaly::eastmoney_source: Fetched 100 stocks from East Money
+Error: Other("未找到行业分类数据，请先运行 quantix risk sync industry --standard shenwan")
+[RESULT] market_strength_exit=1
+\nMarket CLI formal sequence completed.

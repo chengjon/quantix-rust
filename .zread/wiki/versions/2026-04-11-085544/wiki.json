@@ -1,0 +1,252 @@
+{
+  "id": "2026-04-11-085544",
+  "generated_at": "2026-04-11T00:55:44.839177165Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-xiang-mu-gai-shu-yu-ding-wei",
+      "title": "项目概述与定位",
+      "file": "1-xiang-mu-gai-shu-yu-ding-wei.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-da-jian-yu-yun-xing",
+      "title": "快速搭建与运行",
+      "file": "2-kuai-su-da-jian-yu-yun-xing.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-huan-jing-bian-liang-yu-pei-zhi-guan-li",
+      "title": "环境变量与配置管理",
+      "file": "3-huan-jing-bian-liang-yu-pei-zhi-guan-li.md",
+      "section": "入门指南",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "4-fen-ceng-jia-gou-she-ji-yu-mo-kuai-yi-lai-guan-xi",
+      "title": "分层架构设计与模块依赖关系",
+      "file": "4-fen-ceng-jia-gou-she-ji-yu-mo-kuai-yi-lai-guan-xi.md",
+      "section": "深度解析",
+      "group": "核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "5-tong-cuo-wu-chu-li-yu-quantixerror-ti-xi",
+      "title": "统一错误处理与 QuantixError 体系",
+      "file": "5-tong-cuo-wu-chu-li-yu-quantixerror-ti-xi.md",
+      "section": "深度解析",
+      "group": "核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "6-cli-ming-ling-ti-xi-yu-clap-zi-ming-ling-fen-fa",
+      "title": "CLI 命令体系与 Clap 子命令分发",
+      "file": "6-cli-ming-ling-ti-xi-yu-clap-zi-ming-ling-fen-fa.md",
+      "section": "深度解析",
+      "group": "核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-duo-shu-ju-yuan-gua-pei-qi-tdx-akshare-dong-fang-cai-fu-websocket",
+      "title": "多数据源适配器（TDX / AkShare / 东方财富 / WebSocket）",
+      "file": "7-duo-shu-ju-yuan-gua-pei-qi-tdx-akshare-dong-fang-cai-fu-websocket.md",
+      "section": "深度解析",
+      "group": "数据层",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "8-shu-ju-ku-ke-hu-duan-ceng-clickhouse-postgresql-tdengine",
+      "title": "数据库客户端层（ClickHouse / PostgreSQL / TDengine）",
+      "file": "8-shu-ju-ku-ke-hu-duan-ceng-clickhouse-postgresql-tdengine.md",
+      "section": "深度解析",
+      "group": "数据层",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "9-kxian-ju-he-shu-ju-tong-bu-yu-tong-da-xin-wen-jian-jie-xi",
+      "title": "K线聚合、数据同步与通达信文件解析",
+      "file": "9-kxian-ju-he-shu-ju-tong-bu-yu-tong-da-xin-wen-jian-jie-xi.md",
+      "section": "深度解析",
+      "group": "数据层",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "10-strategy-trait-ce-lue-jie-kou-yu-nei-zhi-ce-lue-shi-xian",
+      "title": "Strategy Trait 策略接口与内置策略实现",
+      "file": "10-strategy-trait-ce-lue-jie-kou-yu-nei-zhi-ce-lue-shi-xian.md",
+      "section": "深度解析",
+      "group": "策略与执行",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "11-executionkernel-zhi-xing-jue-ce-he-xin-yu-ding-dan-sheng-ming-zhou-qi",
+      "title": "ExecutionKernel 执行决策核心与订单生命周期",
+      "file": "11-executionkernel-zhi-xing-jue-ce-he-xin-yu-ding-dan-sheng-ming-zhou-qi.md",
+      "section": "深度解析",
+      "group": "策略与执行",
+      "level": "Advanced"
+    },
+    {
+      "slug": "12-zhi-xing-gua-pei-qi-jia-gou-paper-mocklive-qmt-bridge",
+      "title": "执行适配器架构（Paper / MockLive / QMT Bridge）",
+      "file": "12-zhi-xing-gua-pei-qi-jia-gou-paper-mocklive-qmt-bridge.md",
+      "section": "深度解析",
+      "group": "策略与执行",
+      "level": "Advanced"
+    },
+    {
+      "slug": "13-ce-lue-shou-hu-jin-cheng-signal-daemon-yu-systemd-fu-wu-guan-li",
+      "title": "策略守护进程、Signal Daemon 与 systemd 服务管理",
+      "file": "13-ce-lue-shou-hu-jin-cheng-signal-daemon-yu-systemd-fu-wu-guan-li.md",
+      "section": "深度解析",
+      "group": "策略与执行",
+      "level": "Advanced"
+    },
+    {
+      "slug": "14-ce-lue-yun-xing-shi-cun-chu-sqlite-runtime-db-yu-dong-jie-kuai-zhao-ji-zhi",
+      "title": "策略运行时存储（SQLite runtime.db）与冻结快照机制",
+      "file": "14-ce-lue-yun-xing-shi-cun-chu-sqlite-runtime-db-yu-dong-jie-kuai-zhao-ji-zhi.md",
+      "section": "深度解析",
+      "group": "策略与执行",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "15-duo-zhang-hu-guan-li-zhi-neng-lu-you-yu-zi-jin-fen-pei-ce-lue",
+      "title": "多账户管理、智能路由与资金分配策略",
+      "file": "15-duo-zhang-hu-guan-li-zhi-neng-lu-you-yu-zi-jin-fen-pei-ce-lue.md",
+      "section": "深度解析",
+      "group": "交易与风控",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "16-feng-kong-fu-wu-gui-ze-yin-qing-xing-ye-ji-zhong-du-yu-bo-dong-lu-jian-cha",
+      "title": "风控服务：规则引擎、行业集中度与波动率检查",
+      "file": "16-feng-kong-fu-wu-gui-ze-yin-qing-xing-ye-ji-zhong-du-yu-bo-dong-lu-jian-cha.md",
+      "section": "深度解析",
+      "group": "交易与风控",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "17-mo-ni-jiao-yi-fei-yong-ji-suan-yu-jiao-yi-bao-gao",
+      "title": "模拟交易、费用计算与交易报告",
+      "file": "17-mo-ni-jiao-yi-fei-yong-ji-suan-yu-jiao-yi-bao-gao.md",
+      "section": "深度解析",
+      "group": "交易与风控",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "18-zhi-ying-zhi-sun-gui-ze-guan-li-yu-shi-shi-ping-gu",
+      "title": "止盈止损规则管理与实时评估",
+      "file": "18-zhi-ying-zhi-sun-gui-ze-guan-li-yu-shi-shi-ping-gu.md",
+      "section": "深度解析",
+      "group": "交易与风控",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "19-shi-chang-fen-xi-fu-wu-ban-kuai-pai-ming-bei-xiang-zi-jin-long-tou-gu-yu-qing-xu-zhi-shu",
+      "title": "市场分析服务：板块排名、北向资金、龙头股与情绪指数",
+      "file": "19-shi-chang-fen-xi-fu-wu-ban-kuai-pai-ming-bei-xiang-zi-jin-long-tou-gu-yu-qing-xu-zhi-shu.md",
+      "section": "深度解析",
+      "group": "市场与选股",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "20-xuan-gu-qi-tiao-jian-jie-xi-ping-gu-yin-qing-yu-yu-she-shai-xuan",
+      "title": "选股器：条件解析、评估引擎与预设筛选",
+      "file": "20-xuan-gu-qi-tiao-jian-jie-xi-ping-gu-yin-qing-yu-yu-she-shai-xuan.md",
+      "section": "深度解析",
+      "group": "市场与选股",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "21-zi-xuan-chi-guan-li-fen-zu-biao-qian-yu-duo-yuan-xing-qing-jie-xi",
+      "title": "自选池管理：分组、标签与多源行情解析",
+      "file": "21-zi-xuan-chi-guan-li-fen-zu-biao-qian-yu-duo-yuan-xing-qing-jie-xi.md",
+      "section": "深度解析",
+      "group": "市场与选股",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "22-ai-jue-ce-yin-qing-llm-duo-mo-xing-gua-pei-yu-jue-ce-yi-biao-pan",
+      "title": "AI 决策引擎：LLM 多模型适配与决策仪表盘",
+      "file": "22-ai-jue-ce-yin-qing-llm-duo-mo-xing-gua-pei-yu-jue-ce-yi-biao-pan.md",
+      "section": "深度解析",
+      "group": "AI 与新闻",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-xin-wen-sou-suo-mo-kuai-duo-yuan-ju-he-fallback-ce-lue-yu-huan-cun",
+      "title": "新闻搜索模块：多源聚合、Fallback 策略与缓存",
+      "file": "23-xin-wen-sou-suo-mo-kuai-duo-yuan-ju-he-fallback-ce-lue-yu-huan-cun.md",
+      "section": "深度解析",
+      "group": "AI 与新闻",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "24-yi-chang-jian-ce-isolation-forest-suan-fa-yu-a-gu-guo-lu-qi",
+      "title": "异常检测：Isolation Forest 算法与 A 股过滤器",
+      "file": "24-yi-chang-jian-ce-isolation-forest-suan-fa-yu-a-gu-guo-lu-qi.md",
+      "section": "深度解析",
+      "group": "AI 与新闻",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "25-jian-kong-xi-tong-gao-jing-jian-kang-jian-cha-zhi-biao-shou-ji-yu-tong-zhi",
+      "title": "监控系统：告警、健康检查、指标收集与通知",
+      "file": "25-jian-kong-xi-tong-gao-jing-jian-kang-jian-cha-zhi-biao-shou-ji-yu-tong-zhi.md",
+      "section": "深度解析",
+      "group": "监控与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "26-monitor-fu-wu-jie-ge-gao-jing-shi-jian-cun-chu-yu-systemd-ji-cheng",
+      "title": "Monitor 服务：价格告警、事件存储与 systemd 集成",
+      "file": "26-monitor-fu-wu-jie-ge-gao-jing-shi-jian-cun-chu-yu-systemd-ji-cheng.md",
+      "section": "深度解析",
+      "group": "监控与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "27-windows-bridge-jia-gou-wsl2-yu-tong-da-xin-qmt-shu-ju-qiao-jie",
+      "title": "Windows Bridge 架构：WSL2 与通达信/QMT 数据桥接",
+      "file": "27-windows-bridge-jia-gou-wsl2-yu-tong-da-xin-qmt-shu-ju-qiao-jie.md",
+      "section": "深度解析",
+      "group": "监控与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "28-rust-bian-ma-gui-fan-wen-jian-xian-zhi-mo-kuai-zu-zhi-yu-lei-xing-an-quan",
+      "title": "Rust 编码规范：文件限制、模块组织与类型安全",
+      "file": "28-rust-bian-ma-gui-fan-wen-jian-xian-zhi-mo-kuai-zu-zhi-yu-lei-xing-an-quan.md",
+      "section": "深度解析",
+      "group": "工程实践",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "29-docker-rong-qi-hua-bu-shu-yu-jian-kong-zhan-prometheus-grafana-loki",
+      "title": "Docker 容器化部署与监控栈（Prometheus / Grafana / Loki）",
+      "file": "29-docker-rong-qi-hua-bu-shu-yu-jian-kong-zhan-prometheus-grafana-loki.md",
+      "section": "深度解析",
+      "group": "工程实践",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "30-ci-cd-liu-shui-xian-ce-shi-ce-lue-yu-xing-neng-ji-zhun-ce-shi",
+      "title": "CI/CD 流水线、测试策略与性能基准测试",
+      "file": "30-ci-cd-liu-shui-xian-ce-shi-ce-lue-yu-xing-neng-ji-zhun-ce-shi.md",
+      "section": "深度解析",
+      "group": "工程实践",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "31-ji-zhu-zhi-biao-ji-suan-yin-qing-yu-polars-pi-liang-shu-ju-ceng",
+      "title": "技术指标计算引擎与 Polars 批量数据层",
+      "file": "31-ji-zhu-zhi-biao-ji-suan-yin-qing-yu-polars-pi-liang-shu-ju-ceng.md",
+      "section": "深度解析",
+      "group": "工程实践",
+      "level": "Intermediate"
+    }
+  ]
+}

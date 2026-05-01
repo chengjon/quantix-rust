@@ -2,6 +2,63 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum StrategyCommands {
+    /// 创建策略实例
+    Create {
+        /// 策略实例 ID
+        #[arg(long)]
+        id: String,
+
+        /// 内置策略名称
+        #[arg(short, long)]
+        name: String,
+
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 参数，格式 key=value，可重复指定
+        #[arg(long = "param")]
+        params: Vec<String>,
+
+        /// 创建后禁用该实例
+        #[arg(long)]
+        disabled: bool,
+    },
+
+    /// 更新策略实例
+    Update {
+        /// 策略实例 ID
+        #[arg(long)]
+        id: String,
+
+        /// 内置策略名称
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// 股票代码
+        #[arg(short, long)]
+        code: Option<String>,
+
+        /// 参数，格式 key=value，可重复指定
+        #[arg(long = "param")]
+        params: Vec<String>,
+
+        /// 启用该实例
+        #[arg(long, conflicts_with = "disable")]
+        enable: bool,
+
+        /// 禁用该实例
+        #[arg(long, conflicts_with = "enable")]
+        disable: bool,
+    },
+
+    /// 删除策略实例
+    Delete {
+        /// 策略实例 ID
+        #[arg(long)]
+        id: String,
+    },
+
     /// 运行策略
     Run {
         /// 策略名称
@@ -22,9 +79,13 @@ pub enum StrategyCommands {
 
     /// 显示策略详情
     Show {
-        /// 策略名称
+        /// 策略名称或策略实例 ID
         #[arg(short, long)]
-        name: String,
+        name: Option<String>,
+
+        /// 显式按实例 ID 查询
+        #[arg(long, conflicts_with = "name")]
+        id: Option<String>,
     },
 
     /// 策略调度配置

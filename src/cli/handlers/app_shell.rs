@@ -282,6 +282,9 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
         DataCommands::ImportFundamentals { input } => {
             import_market_fundamentals(input).await?;
         }
+        DataCommands::ValidateFundamentals { input } => {
+            validate_market_fundamentals(input)?;
+        }
         DataCommands::Query {
             code,
             start,

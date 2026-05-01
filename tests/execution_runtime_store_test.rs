@@ -724,6 +724,10 @@ async fn execution_request_can_transition_from_pending_to_completed_once() {
         saved.payload_json["execution_result"]["order_status"],
         "accepted"
     );
+    assert_eq!(
+        saved.payload_json["execution_result"]["client_order_id"],
+        "req-order-1"
+    );
 }
 
 #[tokio::test]
@@ -755,7 +759,8 @@ async fn execution_request_can_transition_from_pending_to_failed_or_canceled() {
             &failed_request.request_id,
             json!({
                 "execution_error": {
-                    "message": "quote lookup failed"
+                    "message": "quote lookup failed",
+                    "failed_at": "2026-03-17T09:31:00Z"
                 }
             }),
             fixed_ts(),
@@ -784,7 +789,8 @@ async fn execution_request_can_transition_from_pending_to_failed_or_canceled() {
             &canceled_request.request_id,
             json!({
                 "cancellation": {
-                    "reason": "manual cancel"
+                    "reason": "manual cancel",
+                    "canceled_at": "2026-03-17T09:32:00Z"
                 }
             }),
             fixed_ts(),
@@ -803,6 +809,10 @@ async fn execution_request_can_transition_from_pending_to_failed_or_canceled() {
         failed_saved.payload_json["execution_error"]["message"],
         "quote lookup failed"
     );
+    assert_eq!(
+        failed_saved.payload_json["execution_error"]["failed_at"],
+        "2026-03-17T09:31:00Z"
+    );
 
     let canceled_saved = store
         .get_execution_request(&canceled_request.request_id)
@@ -816,6 +826,10 @@ async fn execution_request_can_transition_from_pending_to_failed_or_canceled() {
     assert_eq!(
         canceled_saved.payload_json["cancellation"]["reason"],
         "manual cancel"
+    );
+    assert_eq!(
+        canceled_saved.payload_json["cancellation"]["canceled_at"],
+        "2026-03-17T09:32:00Z"
     );
 }
 
@@ -866,6 +880,11 @@ async fn execution_request_can_transition_from_pending_to_in_progress_once() {
         .unwrap()
         .unwrap();
     assert_eq!(saved.request_status, ExecutionRequestStatus::InProgress);
+    assert_eq!(
+        saved.payload_json["executor"]["started_at"],
+        fixed_ts().to_rfc3339()
+    );
+    assert_eq!(saved.updated_at, fixed_ts());
 }
 
 #[tokio::test]

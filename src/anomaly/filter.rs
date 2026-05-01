@@ -32,7 +32,14 @@ pub struct StockInfo {
 
 impl StockInfo {
     /// Create a new stock info
-    pub fn new(code: &str, name: &str, price: f64, change_pct: f64, volume: f64, amount: f64) -> Self {
+    pub fn new(
+        code: &str,
+        name: &str,
+        price: f64,
+        change_pct: f64,
+        volume: f64,
+        amount: f64,
+    ) -> Self {
         Self {
             code: code.to_string(),
             name: name.to_string(),
@@ -179,7 +186,9 @@ impl StockFilter {
         let last_closes: Vec<f64> = closes.iter().rev().take(5).cloned().collect();
         let first = last_closes[0];
 
-        last_closes.iter().all(|&c| (c - first).abs() < f64::EPSILON)
+        last_closes
+            .iter()
+            .all(|&c| (c - first).abs() < f64::EPSILON)
     }
 
     /// Check if the last candle is at limit
@@ -323,7 +332,16 @@ mod tests {
         let filter = StockFilter::new(config);
 
         let stocks: Vec<StockInfo> = (0..10)
-            .map(|i| StockInfo::new(&format!("{:06}", i), &format!("股票{}", i), 10.0, 0.0, 50000.0, 500000.0))
+            .map(|i| {
+                StockInfo::new(
+                    &format!("{:06}", i),
+                    &format!("股票{}", i),
+                    10.0,
+                    0.0,
+                    50000.0,
+                    500000.0,
+                )
+            })
             .collect();
 
         let filtered = filter.filter_stock_list(&stocks);

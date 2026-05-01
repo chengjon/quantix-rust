@@ -7,9 +7,9 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::time::Instant;
 
-use crate::core::{QuantixError, Result};
 use super::super::provider::NewsProvider;
 use super::super::types::{NewsArticle, NewsProviderConfig, NewsSearchRequest, NewsSearchResult};
+use crate::core::{QuantixError, Result};
 
 /// 博查提供商
 pub struct BochaProvider {
@@ -28,7 +28,8 @@ struct BochaResponse {
 #[derive(Deserialize)]
 struct BochaData {
     list: Option<Vec<BochaNewsItem>>,
-    total: Option<i32>,
+    #[serde(rename = "total")]
+    _total: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -37,7 +38,8 @@ struct BochaNewsItem {
     url: Option<String>,
     content: Option<String>,
     source: Option<String>,
-    pub_time: Option<String>,
+    #[serde(rename = "pub_time")]
+    _pub_time: Option<String>,
     img_url: Option<String>,
 }
 
@@ -80,9 +82,11 @@ impl NewsProvider for BochaProvider {
 
     async fn search(&self, request: &NewsSearchRequest) -> Result<NewsSearchResult> {
         let start = Instant::now();
-        let api_key = self.config.api_key.as_ref().ok_or_else(|| {
-            QuantixError::Config("Bocha API key not configured".to_string())
-        })?;
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| QuantixError::Config("Bocha API key not configured".to_string()))?;
 
         let query = if !request.codes.is_empty() {
             format!("{} {}", request.query, request.codes.join(" "))
@@ -92,12 +96,16 @@ impl NewsProvider for BochaProvider {
 
         let url = format!(
             "{}/news/search?keyword={}&count={}",
-            self.config.base_url.as_deref().unwrap_or("https://api.bocha.io"),
+            self.config
+                .base_url
+                .as_deref()
+                .unwrap_or("https://api.bocha.io"),
             urlencoding::encode(&query),
             request.max_results
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", api_key))
             .send()
@@ -107,7 +115,10 @@ impl NewsProvider for BochaProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(QuantixError::Other(format!("Bocha API error: {} - {}", status, body)));
+            return Err(QuantixError::Other(format!(
+                "Bocha API error: {} - {}",
+                status, body
+            )));
         }
 
         let bocha_response: BochaResponse = response
@@ -118,7 +129,9 @@ impl NewsProvider for BochaProvider {
         if bocha_response.code.map(|c| c != 0).unwrap_or(false) {
             return Err(QuantixError::Other(format!(
                 "Bocha API error: {}",
-                bocha_response.message.unwrap_or_else(|| "Unknown error".to_string())
+                bocha_response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
             )));
         }
 
@@ -130,7 +143,11 @@ impl NewsProvider for BochaProvider {
             .filter_map(|item| {
                 let title = item.title?;
                 let url = item.url?;
-                let mut article = NewsArticle::new(title, url, item.source.unwrap_or_else(|| "unknown".to_string()));
+                let mut article = NewsArticle::new(
+                    title,
+                    url,
+                    item.source.unwrap_or_else(|| "unknown".to_string()),
+                );
                 article.summary = item.content;
                 article.image_url = item.img_url;
                 // Parse pub_time if available

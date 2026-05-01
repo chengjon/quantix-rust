@@ -164,7 +164,7 @@ pub(crate) use self::backtest_handler::{
 pub(crate) use self::backtest_handler::{run_backtest_command, show_backtest_report};
 use self::data_handler::{
     add_data_source, export_data, import_market_fundamentals, list_data_sources, query_kline_data,
-    set_default_data_source, test_data_source,
+    set_default_data_source, test_data_source, validate_market_fundamentals,
 };
 pub(crate) use self::execution_handler::*;
 pub use self::fundamental::run_fundamental_command;

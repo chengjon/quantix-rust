@@ -66,6 +66,7 @@ run_step "Acceptance report generation" "\"$REPORT_SCRIPT\""
 echo "\n[NEXT]"
 echo "  - 打开最终报告确认 precheck / smoke / formal 三层结果是否一致"
 echo "  - 若 formal sequence 中 sync industry 或 market 命令 exit 非 0，先修复环境或依赖后再重跑"
+echo "  - 若报告显示 fundamentals_state=missing 或 empty，先运行 scripts/dev/run_market_cli_import_fundamentals_rehearsal.sh 验证 JSON 与 ClickHouse scratch 导入链路，再执行 quantix data validate-fundamentals --input /abs/path/market_fundamentals.json 与 quantix data import-fundamentals --input /abs/path/market_fundamentals.json"
 echo "  - 若只有 warning，结合 acceptance report 中的 remediation 和 formal 摘要做收口判断"
 echo "  - 默认报告位置: $REPORT_PATH"
 

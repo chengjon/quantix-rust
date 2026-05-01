@@ -15,7 +15,7 @@ pub use state::{AlgoState, AlgoStatus, ChildOrder, ChildOrderStatus};
 pub use context::{AlgoContext, AlgoParams};
 
 // Re-export from executor
-pub use executor::{AlgorithmExecutor, AlgoError, AlgoResult, Slice, SlicePlan};
+pub use executor::{AlgoError, AlgoResult, AlgorithmExecutor, Slice, SlicePlan};
 
 // Re-export algorithm executors
 pub use twap::TwapExecutor;

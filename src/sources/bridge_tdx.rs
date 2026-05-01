@@ -27,7 +27,11 @@ impl BridgeTdxSource {
             .iter()
             .map(|(market, code)| format_symbol(*market, code))
             .collect();
-        let response = self.client.fetch_tdx_quotes(&symbols).await.map_err(map_bridge_err)?;
+        let response = self
+            .client
+            .fetch_tdx_quotes(&symbols)
+            .await
+            .map_err(map_bridge_err)?;
 
         response
             .quotes

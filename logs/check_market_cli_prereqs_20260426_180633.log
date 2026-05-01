@@ -1,0 +1,34 @@
+[INFO] Market CLI prerequisite log: /opt/claude/quantix-rust/logs/check_market_cli_prereqs_20260426_180633.log
+\n[CHECK] Quantix binary exists
+[PASS] Quantix binary exists
+\n[CHECK] Market command tree reachable
+[PASS] Market command tree reachable
+\n[CHECK] Risk command tree reachable
+[PASS] Risk command tree reachable
+\n[CHECK] Shenwan SQLite reference DB present
+
+[PASS] Shenwan SQLite reference DB present
+\n[CHECK] Upstream MySQL env configured for risk sync
+
+[PASS] Upstream MySQL env configured for risk sync
+\n[CHECK] ClickHouse env resolved for market strength
+
+[PASS] ClickHouse env resolved for market strength
+\n[CHECK] EastMoney A-share snapshot upstream reachable
+curl: (52) Empty reply from server
+[WARN] EastMoney A-share snapshot upstream reachable
+\n[INFO] Expected runtime endpoints
+  ClickHouse URL : http://192.168.123.104:8123
+  ClickHouse DB  : quantix
+  Snapshot probe : https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f12,f14,f2,f3,f5,f6
+  Industry SQLite: /root/.quantix/risk/industry_reference.db
+  Env template   : /opt/claude/quantix-rust/scripts/dev/market_cli_env.example.sh
+  Local env file : /opt/claude/quantix-rust/.env.market.local
+  Upstream MySQL : configured
+\n[REMEDIATION]
+  - A股全市场快照上游当前不可达：market foundation / strength / strength-stocks 将因实时列表拉取失败而无法通过；请检查出口网络、目标站点可达性，或切换到可用的 A 股快照来源
+\n================ SUMMARY ================
+PASS : 6
+WARN : 1
+FAIL : 0
+Market CLI prerequisite checks passed (or warned on missing external prerequisites).

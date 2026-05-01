@@ -3,6 +3,7 @@ use clap::{ArgGroup, Subcommand};
 #[derive(Subcommand, Debug)]
 pub enum TaskCommands {
     /// 添加定时任务（Foundation P0 不支持）
+    #[command(hide = true)]
     Add {
         /// 任务名称
         #[arg(short, long)]
@@ -23,7 +24,7 @@ pub enum TaskCommands {
     /// 启动任务调度器（仅支持前台模式）
     Start {
         /// 后台运行（Foundation P0 不支持）
-        #[arg(long)]
+        #[arg(long, hide = true)]
         daemon: bool,
     },
 
@@ -121,6 +122,7 @@ pub enum AnalyzeCommands {
 #[derive(Subcommand, Debug)]
 pub enum ScreenerCommands {
     /// 列出内置筛选条件模板
+    #[command(visible_alias = "presets")]
     PresetList,
 
     /// 运行选股筛选

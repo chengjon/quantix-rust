@@ -157,9 +157,9 @@ impl DataImporter {
                     if self.config.skip_invalid {
                         skipped += 1;
                     } else {
-                        return Err(crate::core::QuantixError::Other(format!(
-                            "无效的 JSON 行数据"
-                        )));
+                        return Err(crate::core::QuantixError::Other(
+                            "无效的 JSON 行数据".to_string(),
+                        ));
                     }
                 }
             }
@@ -172,7 +172,6 @@ impl DataImporter {
     async fn import_parquet(&self, path: &Path) -> Result<(Vec<Kline>, usize, usize)> {
         use arrow::array::*;
         use arrow::datatypes::*;
-        use arrow::record_batch::RecordBatchReader;
         use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
         let file = File::open(path).map_err(|e| {
@@ -191,12 +190,10 @@ impl DataImporter {
         let mut klines = Vec::new();
 
         loop {
-            let batch_result = reader.next_batch().map_err(|e| {
+            let batch = match reader.next().transpose().map_err(|e| {
                 crate::core::QuantixError::Other(format!("读取 Parquet batch 失败: {}", e))
-            })?;
-
-            let batch = match batch_result {
-                Some(b) => b,
+            })? {
+                Some(batch) => batch,
                 None => break,
             };
 
@@ -287,7 +284,7 @@ impl DataImporter {
                 crate::core::QuantixError::Other(format!("无效的 volume 值: {}", row.volume))
             })?,
             amount: row
-                .amount
+                ._amount
                 .as_ref()
                 .map(|s| {
                     Decimal::from_str(s).map_err(|_| {
@@ -342,9 +339,11 @@ struct CsvKlineRow {
     close: String,
     volume: String,
     #[serde(default)]
-    amount: Option<String>,
+    #[serde(rename = "amount")]
+    _amount: Option<String>,
     #[serde(default)]
-    adjust_type: Option<String>,
+    #[serde(rename = "adjust_type")]
+    _adjust_type: Option<String>,
 }
 
 /// JSON K线行格式
@@ -360,15 +359,16 @@ struct JsonKlineRow {
     close: String,
     volume: i64,
     #[serde(default)]
-    amount: Option<String>,
+    #[serde(rename = "amount")]
+    _amount: Option<String>,
     #[serde(default)]
-    adjust_type: Option<String>,
+    #[serde(rename = "adjust_type")]
+    _adjust_type: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal_macros::dec;
     use std::fs;
     use tempfile::tempdir;
 

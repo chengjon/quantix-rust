@@ -274,7 +274,9 @@ where
         Ok(account
             .positions
             .into_iter()
-            .filter_map(|(code, position)| position.avg_cost.to_f64().map(|avg_cost| (code, avg_cost)))
+            .filter_map(|(code, position)| {
+                position.avg_cost.to_f64().map(|avg_cost| (code, avg_cost))
+            })
             .collect())
     }
 }

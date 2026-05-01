@@ -1,0 +1,31 @@
+[INFO] Market CLI formal sequence log: /opt/claude/quantix-rust/logs/market_cli_formal_sequence_20260428_144303.log
+[INFO] local env already exists: /opt/claude/quantix-rust/.env.market.local
+[PASS] local market env ready: /opt/claude/quantix-rust/.env.market.local
+[INFO] Loading local market env overrides from /opt/claude/quantix-rust/.env.market.local
+[INFO] Market snapshot source mode: tdx
+\n[STEP] Risk sync industry Shenwan
+[LOG] sync_industry_log=/opt/claude/quantix-rust/logs/market_cli_sync_industry_20260428_144303.log
+✅ 已同步 shenwan 行业引用表: current=4430 history=6727 sqlite=/root/.quantix/risk/industry_reference.db at=2026-04-28T06:43:03.541261973+00:00
+[RESULT] sync_industry_exit=0
+[SUMMARY] sync_industry_summary=exit=0 completed; see log for refreshed industry reference details
+[INFO] No market fundamentals input configured; skipping import-fundamentals step
+\n[STEP] Market foundation
+[LOG] market_foundation_log=/opt/claude/quantix-rust/logs/market_cli_market_foundation_20260428_144303.log
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_foundation_exit=1
+[SUMMARY] market_foundation_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[INFO] Using market date for formal sequence: 2026-03-14
+\n[STEP] Market strength
+[LOG] market_strength_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_20260428_144303.log
+2026-04-28T06:43:09.816313Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_exit=1
+[SUMMARY] market_strength_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[INFO] No strong sector extracted from market strength output; running market strength-stocks without sector filter
+\n[STEP] Market strength-stocks
+[LOG] market_strength_stocks_log=/opt/claude/quantix-rust/logs/market_cli_market_strength_stocks_20260428_144303.log
+2026-04-28T06:43:12.157357Z  INFO quantix_cli::db::clickhouse: ClickHouse 客户端初始化: http://192.168.123.104:8123 -> quantix (user: default)
+Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+[RESULT] market_strength_stocks_exit=1
+[SUMMARY] market_strength_stocks_summary=Error: Other("获取全市场 A 股列表失败: 其他错误: curl 拉取全市场快照失败: curl: (52) Empty reply from server")
+\nMarket CLI formal sequence completed.

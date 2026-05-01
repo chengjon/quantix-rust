@@ -19,7 +19,7 @@ pub struct ToolCall {
 }
 
 /// Normalized response from any LLM provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LLMResponse {
     /// Text response (final answer)
     pub content: Option<String>,
@@ -34,19 +34,6 @@ pub struct LLMResponse {
     pub provider: String,
     /// Full model name used (e.g., deepseek/deepseek-chat)
     pub model: String,
-}
-
-impl Default for LLMResponse {
-    fn default() -> Self {
-        Self {
-            content: None,
-            tool_calls: Vec::new(),
-            reasoning_content: None,
-            usage: TokenUsage::default(),
-            provider: String::new(),
-            model: String::new(),
-        }
-    }
 }
 
 /// Token usage statistics
@@ -155,7 +142,11 @@ pub struct ToolDefinition {
 
 impl ToolDefinition {
     /// Create a new tool definition
-    pub fn new(name: impl Into<String>, description: impl Into<String>, parameters: serde_json::Value) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        parameters: serde_json::Value,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -260,8 +251,17 @@ mod tests {
 
     #[test]
     fn test_provider_parsing() {
-        assert_eq!(LLMProvider::from_str("openai").unwrap(), LLMProvider::OpenAI);
-        assert_eq!(LLMProvider::from_str("DeepSeek").unwrap(), LLMProvider::DeepSeek);
-        assert_eq!(LLMProvider::from_str("gemini").unwrap(), LLMProvider::Gemini);
+        assert_eq!(
+            LLMProvider::from_str("openai").unwrap(),
+            LLMProvider::OpenAI
+        );
+        assert_eq!(
+            LLMProvider::from_str("DeepSeek").unwrap(),
+            LLMProvider::DeepSeek
+        );
+        assert_eq!(
+            LLMProvider::from_str("gemini").unwrap(),
+            LLMProvider::Gemini
+        );
     }
 }
