@@ -73,6 +73,8 @@ No schema change is introduced.
     },
     "last_query": {
       "latest_status": "accepted",
+      "filled_quantity": 100,
+      "avg_fill_price": "10.50",
       "broker_event_type": "Acknowledgement",
       "rejection_reason": null,
       "updated_at": "2026-05-02T14:00:00Z"
@@ -101,6 +103,7 @@ No schema change is introduced.
 
 - stores only the latest query summary
 - uses local `OrderStatus` string semantics for `latest_status`
+- preserves the latest observed fill snapshot through `filled_quantity` and `avg_fill_price`
 - keeps `broker_event_type` and `rejection_reason` for operator-facing observability
 - `updated_at` refers to the summary freshness timestamp, not necessarily the order transition time
 
@@ -141,6 +144,8 @@ First-pass reconciliation does not actively target:
 - `PartiallyFilled`
 
 Those either already represent clear states or require a broader workflow and accounting design.
+
+`PartiallyFilled` remains a required visibility state even though it is not part of the first-pass automatic query-based recovery set. CLI/detail surfaces must not silently hide it.
 
 ## Reconciliation State Rules
 
@@ -186,7 +191,7 @@ Behavior:
 Rationale:
 
 - the contract is stable enough to recognize execution as a clear terminal fact
-- precise fill quantity / average fill price recovery is deferred to a later, more focused workflow hardening pass
+- precise fill-accounting reconstruction is deferred to a later, more focused workflow hardening pass, but the latest observed `filled_quantity` and `avg_fill_price` must still be preserved in `last_query`
 
 ### 5. Bridge task result path returns failure
 
@@ -244,6 +249,8 @@ For recoverable `qmt_live` orders, list/status outputs should expose a compact r
 
 Orders missing `task_id` must be clearly labeled as unrecoverable by automatic query-based reconciliation.
 
+`PartiallyFilled` orders that are outside the first-pass automatic recovery path must still remain visible in operator-facing summaries as non-terminal states requiring attention.
+
 ### Detail Views
 
 Order/request/execution detail surfaces should expose full recovery context:
@@ -286,6 +293,30 @@ This work requires extending existing order persistence/update logic so `payload
 - amended during reconciliation for `reconciliation`
 
 This implies the runtime store needs a targeted payload-update path that can safely modify order payload JSON without destroying unrelated payload fields.
+
+### Storage Update Path
+
+The first-pass implementation should use a typed Rust-level read-modify-write path rather than SQLite JSON mutation functions.
+
+Recommended shape:
+
+- add a typed runtime-store helper dedicated to `qmt_live` order metadata updates
+- fetch the current order record
+- deserialize / mutate only the `payload_json.qmt_live` namespace
+- preserve all unrelated `payload_json` fields
+- write the full updated payload back through a dedicated order-payload update method
+
+This design intentionally does not introduce a generic `patch_payload_json(order_id, path, value)` API in first pass. The targeted typed helper keeps the mutation surface narrower and lowers accidental drift risk while the data shape is still stabilizing.
+
+### Concurrency Expectation
+
+First-pass concurrency semantics are last-writer-wins for `qmt_live.last_query` and `qmt_live.reconciliation`.
+
+That is acceptable for this pass because:
+
+- reconciliation stores the latest observed summary, not an append-only audit history
+- the design does not claim precise multi-writer merge semantics
+- later workflow hardening can revisit stronger coordination if overlapping reconciliation runs become a demonstrated problem
 
 ## Test Strategy
 
@@ -357,6 +388,8 @@ cargo test --test repo_hygiene_test -- --nocapture
 ```
 
 If test placement requires more precise commands, implementation may substitute exact suite names while preserving the same narrow verification intent.
+
+When these commands rely on Rust test-name substring filters, the corresponding test names should intentionally include `qmt_live` or `reconciliation` so the acceptance commands remain meaningful and stable.
 
 ## Success Criteria
 
