@@ -13,7 +13,7 @@ A 股量化交易 CLI 工具 - Rust 实现
 ## 路线图与 Backlog
 
 项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
-当前功能树见 [FUNCTION_MAP.md](docs/FUNCTION_MAP.md)。
+当前功能树见 [FUNCTION_TREE.md](FUNCTION_TREE.md)。
 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 开发前置检查
