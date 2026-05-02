@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## 2026-05-02
+
+### Changed
+- **功能树文档统一为单一 canonical 文件** (`FUNCTION_TREE.md`, `README.md`, `tests/repo_hygiene_test.rs`)
+  - 根目录 `FUNCTION_TREE.md` 升级为当前主线唯一功能树与能力边界文档
+  - 历史 `docs/FUNCTION_MAP.md` 停止单独维护并从主线移除
+  - 活跃入口与卫生校验统一切换到 `FUNCTION_TREE.md`
+
+### Fixed
+- **`qmt_live` cancel 路由收口并并入本地主线** (`src/execution/qmt_task_submit_service.rs`, `src/execution/qmt_live_adapter.rs`, `tests/qmt_task_contract_test.rs`, `tests/qmt_live_adapter_test.rs`)
+  - `QmtTaskSubmitService` 新增 `resolve_external_order_id_for_cancel(task_id)`，复用现有 task-result 查询路径解析 broker order identity
+  - `QmtLiveExecutionAdapter::cancel_order` 先执行 `ensure_bridge_qmt_live_mode`，再将 `task_id -> external_order_id` 解析后调用兼容 `qmt_cancel_order`
+  - 补齐 pending、无 `external_order_id`、preview-only gate、compat cancel failure 等聚焦回归覆盖
+
 ## 2026-05-01
 
 ### Added

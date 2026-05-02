@@ -600,8 +600,8 @@ fn mock_usage_policy_documents_current_mock_and_real_boundary() {
 
 #[test]
 fn function_map_and_migration_docs_include_guarded_qmt_live_in_current_capability_summaries() {
-    let function_map = fs::read_to_string(repo_root().join("docs").join("FUNCTION_MAP.md"))
-        .expect("expected FUNCTION_MAP.md to exist");
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md to exist");
     let migration = fs::read_to_string(
         repo_root()
             .join("docs")
@@ -614,8 +614,8 @@ fn function_map_and_migration_docs_include_guarded_qmt_live_in_current_capabilit
         "Bridge v1 已支持受能力门控的 `qmt_live` 真实提交通道",
     ] {
         assert!(
-            function_map.contains(expected),
-            "expected FUNCTION_MAP.md to contain {expected}"
+            function_tree.contains(expected),
+            "expected FUNCTION_TREE.md to contain {expected}"
         );
     }
 
