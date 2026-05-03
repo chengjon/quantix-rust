@@ -1,5 +1,10 @@
 use super::*;
+use crate::execution::adapter::AdapterOrderRequest;
+use crate::execution::models::{
+    OrderRecord, OrderSide, OrderType, QmtLiveRuntimeMetadata, QmtLiveTaskIdentity,
+};
 use crate::execution::qmt_live_gate::QmtLiveGateFailure;
+use crate::execution::qmt_task_submit_service::QmtTaskSubmitService;
 use crate::execution::request_diagnostics::{
     build_bridge_qmt_capability_check_failed_diagnostics,
     build_bridge_qmt_capability_disabled_diagnostics, build_bridge_qmt_mode_not_live_diagnostics,
@@ -187,6 +192,19 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
         .get("order_type")
         .and_then(|v| v.as_str())
         .unwrap_or("limit");
+    let side = OrderSide::from_str(side).ok_or_else(|| {
+        QuantixError::Other(format!("request 包含无效 side: {side}"))
+    })?;
+    let order_type = OrderType::from_str(order_type).ok_or_else(|| {
+        QuantixError::Other(format!("request 包含无效 order_type: {order_type}"))
+    })?;
+    let requested_price = Decimal::from_str(price).map_err(|err| {
+        QuantixError::Other(format!("request 包含无效 requested_price: {price}, {err}"))
+    })?;
+    let signal = runtime_store
+        .get_signal(&request.signal_id)
+        .await?
+        .ok_or_else(|| QuantixError::Other(format!("signal 不存在: {}", request.signal_id)))?;
 
     let started_at = Utc::now();
     let start_payload = merge_execution_request_payload(
@@ -253,21 +271,18 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
         return Err(error);
     }
 
-    let order_request = crate::bridge::models::BridgeQmtOrderRequest {
-        request_id: request_id.to_string(),
+    let submit_service = QmtTaskSubmitService::new(client.clone(), 1, 30_000)
+        .map_err(|err| QuantixError::Other(err.to_string()))?;
+    let order_request = AdapterOrderRequest {
         client_order_id: request.request_id.clone(),
         symbol: normalize_symbol_for_bridge(symbol),
-        side: side.to_lowercase(),
+        side,
         quantity,
-        price: price.to_string(),
-        order_type: order_type.to_string(),
-        strategy_name: Some(strategy_name.to_string()),
-        order_remark: Some("quantix-cli".to_string()),
-        snapshot_metadata: None,
+        price: requested_price,
     };
 
-    let response = match client.qmt_submit_order(&order_request).await {
-        Ok(response) => response,
+    let receipt = match submit_service.submit_order(&order_request).await {
+        Ok(receipt) => receipt,
         Err(err) => {
             let failed_at = Utc::now();
             let payload_json = merge_execution_request_payload(
@@ -298,24 +313,78 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
     };
 
     let finished_at = Utc::now();
+    let client_order_id = request.request_id.clone();
+    let task_id = receipt.task_id.clone();
+    let qmt_live_metadata = QmtLiveRuntimeMetadata {
+        task_identity: Some(QmtLiveTaskIdentity {
+            task_id: task_id.clone(),
+            client_order_id: client_order_id.clone(),
+            local_submission_id: receipt.local_submission_id.clone(),
+            external_order_id: None,
+        }),
+        last_query: None,
+        reconciliation: None,
+    };
+    match runtime_store
+        .find_order_by_client_order_id(&request.request_id)
+        .await?
+    {
+        Some(existing_order) => {
+            let updated = runtime_store
+                .try_update_order_qmt_live_metadata(&existing_order, &qmt_live_metadata, finished_at)
+                .await?;
+            if !updated {
+                return Err(QuantixError::Other(format!(
+                    "related order qmt_live metadata 更新失败: {}",
+                    existing_order.order_id
+                )));
+            }
+        }
+        None => {
+            let related_order = OrderRecord {
+                order_id: client_order_id.clone(),
+                client_order_id: client_order_id.clone(),
+                run_id: signal.run_id,
+                symbol: symbol.to_string(),
+                side,
+                order_type,
+                requested_quantity: quantity,
+                requested_price: order_request.price,
+                filled_quantity: 0,
+                remaining_quantity: quantity,
+                avg_fill_price: None,
+                status: OrderStatus::PendingSubmit,
+                adapter: "qmt_live".to_string(),
+                created_at: finished_at,
+                updated_at: finished_at,
+                last_transition_at: finished_at,
+                version: 1,
+                payload_json: serde_json::json!({
+                    "qmt_live": qmt_live_metadata
+                }),
+            };
+            runtime_store.insert_order(&related_order).await?;
+        }
+    }
+
     let payload_json = merge_execution_request_payload(
         &start_payload,
         "execution_result",
         serde_json::json!({
             "executed_at": finished_at.to_rfc3339(),
-            "client_order_id": request.request_id,
-            "order_status": response.latest_status,
+            "client_order_id": client_order_id,
+            "order_status": OrderStatus::PendingSubmit.as_str(),
             "adapter": "qmt_live",
-            "adapter_order_id": response.adapter_order_id,
-            "filled_quantity": response.filled_quantity,
-            "avg_fill_price": response.avg_fill_price,
-            "rejection_reason": response.rejection_reason,
+            "adapter_order_id": task_id.clone(),
+            "filled_quantity": 0,
+            "avg_fill_price": serde_json::Value::Null,
+            "rejection_reason": serde_json::Value::Null,
         }),
     );
     let payload_json = merge_execution_request_payload(
         &payload_json,
         "execution_diagnostics",
-        build_completion_diagnostics(Some(response.latest_status.as_str())),
+        build_completion_diagnostics(Some(OrderStatus::PendingSubmit.as_str())),
     );
     let updated = runtime_store
         .try_complete_execution_request(&request.request_id, payload_json, finished_at)
@@ -328,28 +397,24 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
     }
 
     println!();
-    println!("✓ 订单已提交");
+    println!("✓ 订单提交任务已受理");
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
             "request_id": request_id,
-            "adapter_order_id": response.adapter_order_id,
-            "latest_status": response.latest_status,
-            "filled_quantity": response.filled_quantity,
-            "avg_fill_price": response.avg_fill_price,
-            "rejection_reason": response.rejection_reason,
+            "adapter_order_id": task_id,
+            "latest_status": OrderStatus::PendingSubmit.as_str(),
+            "local_submission_id": receipt.local_submission_id,
+            "bridge_contract_version": receipt.bridge_contract_version,
+            "source_name": receipt.source_name,
         }))?
     );
 
-    if response.latest_status == "rejected" {
-        println!();
-    } else {
-        println!();
-        println!(
-            "查询订单状态: quantix execution bridge qmt-query --order-id {}",
-            response.adapter_order_id
-        );
-    }
+    println!();
+    println!(
+        "查看 request 与后续收敛状态: quantix strategy request show {} --verbose",
+        request_id
+    );
 
     Ok(())
 }

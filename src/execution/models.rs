@@ -292,6 +292,49 @@ pub struct OrderRecord {
     pub payload_json: Value,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct QmtLiveTaskIdentity {
+    pub task_id: String,
+    pub client_order_id: String,
+    pub local_submission_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct QmtLiveLastQuerySummary {
+    pub latest_status: String,
+    #[serde(default)]
+    pub filled_quantity: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avg_fill_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub broker_event_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rejection_reason: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct QmtLiveReconciliationState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_attempt_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct QmtLiveRuntimeMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_identity: Option<QmtLiveTaskIdentity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_query: Option<QmtLiveLastQuerySummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconciliation: Option<QmtLiveReconciliationState>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FillDetails {
     pub fill_id: u64,

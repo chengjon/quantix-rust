@@ -365,7 +365,7 @@ async fn test_execute_strategy_request_execute_and_cancel() {
 }
 
 #[test]
-fn test_execute_execution_bridge_qmt_live_source_keeps_confirmation_and_query_guidance() {
+fn test_execute_execution_bridge_qmt_live_source_keeps_confirmation_and_request_guidance() {
     let source = std::fs::read_to_string(
         repo_root()
             .join("src")
@@ -380,8 +380,12 @@ fn test_execute_execution_bridge_qmt_live_source_keeps_confirmation_and_query_gu
         "expected manual qmt_live handler to keep explicit YES confirmation"
     );
     assert!(
-        source.contains("查询订单状态: quantix execution bridge qmt-query --order-id"),
-        "expected manual qmt_live handler to keep post-submit qmt-query guidance"
+        source.contains("查看 request 与后续收敛状态: quantix strategy request show"),
+        "expected manual qmt_live handler to guide operators to request/reconciliation visibility"
+    );
+    assert!(
+        !source.contains("查询订单状态: quantix execution bridge qmt-query --order-id"),
+        "expected manual qmt_live handler to drop legacy qmt-query post-submit guidance"
     );
 }
 
@@ -633,6 +637,146 @@ fn test_format_strategy_request_detail_displays_execution_diagnostics_section() 
     assert!(detail.contains("summary: qmt_live 提交被阻止：bridge qmt.mode=preview_only，要求 live"));
     assert!(detail.contains("operator_action: use_live_bridge_mode"));
     assert!(detail.contains("hint_command: quantix execution bridge status"));
+}
+
+#[test]
+fn test_format_strategy_request_detail_displays_qmt_live_recovery_context_from_related_order() {
+    let request = crate::execution::models::ExecutionRequestRecord {
+        request_id: "req-qmt-live-detail".to_string(),
+        signal_id: "signal-qmt-live-detail".to_string(),
+        target_mode: "qmt_live".to_string(),
+        target_account: "default".to_string(),
+        request_status: crate::execution::models::ExecutionRequestStatus::Completed,
+        approved_by: Some("cli".to_string()),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        payload_json: json!({
+            "execution_result": {
+                "client_order_id": "req-qmt-live-detail",
+                "adapter_order_id": "task-1",
+                "order_status": "pending_submit"
+            }
+        }),
+    };
+    let order = crate::execution::models::OrderRecord {
+        order_id: "req-qmt-live-detail".to_string(),
+        client_order_id: "req-qmt-live-detail".to_string(),
+        run_id: "run-1".to_string(),
+        symbol: "000001".to_string(),
+        side: crate::execution::models::OrderSide::Buy,
+        order_type: crate::execution::models::OrderType::Limit,
+        requested_quantity: 100,
+        requested_price: dec!(10.50),
+        filled_quantity: 0,
+        remaining_quantity: 100,
+        avg_fill_price: None,
+        status: crate::execution::models::OrderStatus::Accepted,
+        adapter: "qmt_live".to_string(),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        last_transition_at: fixed_ts(),
+        version: 1,
+        payload_json: json!({
+            "qmt_live": {
+                "task_identity": {
+                    "task_id": "task-1",
+                    "client_order_id": "req-qmt-live-detail",
+                    "local_submission_id": "local-1",
+                    "external_order_id": "broker-1"
+                },
+                "last_query": {
+                    "latest_status": "accepted",
+                    "filled_quantity": 0,
+                    "avg_fill_price": null,
+                    "broker_event_type": "Acknowledgement",
+                    "rejection_reason": null,
+                    "updated_at": "2026-05-03T09:32:00Z"
+                },
+                "reconciliation": {
+                    "last_action": "state_updated",
+                    "last_error": null,
+                    "last_attempt_at": "2026-05-03T09:32:00Z"
+                }
+            }
+        }),
+    };
+
+    let detail = format_strategy_request_detail_with_related_order(&request, Some(&order), false);
+
+    assert!(detail.contains("=== QMT Live Recovery ==="));
+    assert!(detail.contains("task_id: task-1"));
+    assert!(detail.contains("latest_status: accepted"));
+    assert!(detail.contains("broker_event_type: Acknowledgement"));
+    assert!(detail.contains("last_action: state_updated"));
+}
+
+#[test]
+fn test_format_strategy_request_row_appends_compact_qmt_live_recovery_suffix() {
+    let request = crate::execution::models::ExecutionRequestRecord {
+        request_id: "req-qmt-live-row".to_string(),
+        signal_id: "signal-qmt-live-row".to_string(),
+        target_mode: "qmt_live".to_string(),
+        target_account: "default".to_string(),
+        request_status: crate::execution::models::ExecutionRequestStatus::Completed,
+        approved_by: Some("cli".to_string()),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        payload_json: json!({
+            "execution_result": {
+                "client_order_id": "req-qmt-live-row",
+                "adapter_order_id": "task-1",
+                "order_status": "pending_submit"
+            }
+        }),
+    };
+    let order = crate::execution::models::OrderRecord {
+        order_id: "req-qmt-live-row".to_string(),
+        client_order_id: "req-qmt-live-row".to_string(),
+        run_id: "run-1".to_string(),
+        symbol: "000001".to_string(),
+        side: crate::execution::models::OrderSide::Buy,
+        order_type: crate::execution::models::OrderType::Limit,
+        requested_quantity: 100,
+        requested_price: dec!(10.50),
+        filled_quantity: 0,
+        remaining_quantity: 100,
+        avg_fill_price: None,
+        status: crate::execution::models::OrderStatus::PendingSubmit,
+        adapter: "qmt_live".to_string(),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        last_transition_at: fixed_ts(),
+        version: 1,
+        payload_json: json!({
+            "qmt_live": {
+                "task_identity": {
+                    "task_id": "task-1",
+                    "client_order_id": "req-qmt-live-row",
+                    "local_submission_id": "local-1",
+                    "external_order_id": null
+                },
+                "last_query": {
+                    "latest_status": "pending_submit",
+                    "filled_quantity": 0,
+                    "avg_fill_price": null,
+                    "broker_event_type": null,
+                    "rejection_reason": null,
+                    "updated_at": "2026-05-03T09:32:00Z"
+                },
+                "reconciliation": {
+                    "last_action": "no_action",
+                    "last_error": null,
+                    "last_attempt_at": "2026-05-03T09:32:00Z"
+                }
+            }
+        }),
+    };
+
+    let line = format_strategy_request_row_with_related_order(&request, Some(&order));
+
+    assert!(line.contains("qmt_task_id=task-1"));
+    assert!(line.contains("qmt_latest_status=pending_submit"));
+    assert!(line.contains("qmt_last_action=no_action"));
 }
 
 #[test]

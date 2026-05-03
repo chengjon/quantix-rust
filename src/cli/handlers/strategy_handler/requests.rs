@@ -1,4 +1,5 @@
 use super::*;
+use crate::execution::models::OrderRecord;
 use crate::execution::request_diagnostics::{
     diagnostics_code, diagnostics_semantics, should_show_compact_diag,
 };
@@ -184,7 +185,11 @@ pub(crate) async fn execute_strategy_request_list(
     filtered.truncate(limit);
 
     for row in filtered {
-        println!("{}", format_strategy_request_row(&row));
+        let related_order = find_related_order_for_request(&runtime_store, &row).await?;
+        println!(
+            "{}",
+            format_strategy_request_row_with_related_order(&row, related_order.as_ref())
+        );
     }
 
     Ok(())
@@ -199,15 +204,13 @@ pub(crate) async fn execute_strategy_request_show(request_id: &str, verbose: boo
         .await?
         .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
 
-    println!("{}", format_strategy_request_detail(&request, verbose));
+    let related_order = find_related_order_for_request(&store, &request).await?;
+    println!(
+        "{}",
+        format_strategy_request_detail_with_related_order(&request, related_order.as_ref(), verbose)
+    );
 
-    if let Some(client_order_id) = request
-        .payload_json
-        .get("execution_result")
-        .and_then(|r| r.get("client_order_id"))
-        .and_then(|v| v.as_str())
-        && let Some(order) = store.find_order_by_client_order_id(client_order_id).await?
-    {
+    if let Some(order) = related_order.as_ref() {
         println!();
         println!("=== Related Order ===");
         println!("order_id: {}", order.order_id);
@@ -227,6 +230,14 @@ pub(crate) async fn execute_strategy_request_show(request_id: &str, verbose: boo
 
 pub(crate) fn format_strategy_request_detail(
     request: &ExecutionRequestRecord,
+    verbose: bool,
+) -> String {
+    format_strategy_request_detail_with_related_order(request, None, verbose)
+}
+
+pub(crate) fn format_strategy_request_detail_with_related_order(
+    request: &ExecutionRequestRecord,
+    related_order: Option<&OrderRecord>,
     verbose: bool,
 ) -> String {
     let mut lines = vec![
@@ -350,6 +361,8 @@ pub(crate) fn format_strategy_request_detail(
         }
     }
 
+    append_qmt_live_recovery_detail(&mut lines, related_order);
+
     if verbose {
         lines.push(String::new());
         lines.push("=== Full Payload (verbose) ===".to_string());
@@ -472,9 +485,20 @@ pub(crate) fn format_strategy_rejection_result(signal: &StrategySignalRecord) ->
 }
 
 pub(crate) fn format_strategy_request_row(row: &ExecutionRequestRecord) -> String {
+    format_strategy_request_row_with_related_order(row, None)
+}
+
+pub(crate) fn format_strategy_request_row_with_related_order(
+    row: &ExecutionRequestRecord,
+    related_order: Option<&OrderRecord>,
+) -> String {
     let result = format_execution_request_result(&row.payload_json);
     let semantics = compact_semantics_suffix(&row.payload_json, row.request_status);
     let diag = compact_diag_suffix(&row.payload_json);
+    let qmt_suffix = related_order
+        .and_then(qmt_live_compact_summary)
+        .map(|summary| format!(" {summary}"))
+        .unwrap_or_default();
 
     format!(
         "{} signal={} target={}/{} status={}{}{}{} created_at={}",
@@ -485,7 +509,7 @@ pub(crate) fn format_strategy_request_row(row: &ExecutionRequestRecord) -> Strin
         row.request_status.as_str(),
         semantics,
         diag,
-        result,
+        format!("{result}{qmt_suffix}"),
         row.created_at.format("%Y-%m-%dT%H:%M:%SZ")
     )
 }
@@ -578,6 +602,152 @@ pub(crate) fn format_execution_request_result(payload_json: &serde_json::Value) 
             })
         })
         .unwrap_or_default()
+}
+
+async fn find_related_order_for_request(
+    store: &StrategyRuntimeStore,
+    request: &ExecutionRequestRecord,
+) -> Result<Option<OrderRecord>> {
+    let Some(client_order_id) = request
+        .payload_json
+        .get("execution_result")
+        .and_then(|value| value.get("client_order_id"))
+        .and_then(|value| value.as_str())
+    else {
+        return Ok(None);
+    };
+
+    store.find_order_by_client_order_id(client_order_id).await
+}
+
+fn qmt_live_compact_summary(order: &OrderRecord) -> Option<String> {
+    if order.adapter != "qmt_live" {
+        return None;
+    }
+
+    let qmt_live = order.payload_json.get("qmt_live");
+    let task_id = qmt_live
+        .and_then(|value| value.get("task_identity"))
+        .and_then(|value| value.get("task_id"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty());
+    let latest_status = qmt_live
+        .and_then(|value| value.get("last_query"))
+        .and_then(|value| value.get("latest_status"))
+        .and_then(|value| value.as_str());
+    let last_action = qmt_live
+        .and_then(|value| value.get("reconciliation"))
+        .and_then(|value| value.get("last_action"))
+        .and_then(|value| value.as_str());
+
+    let mut parts = Vec::new();
+    match task_id {
+        Some(task_id) => parts.push(format!("qmt_task_id={task_id}")),
+        None => parts.push("qmt_recovery=unavailable".to_string()),
+    }
+    if let Some(latest_status) = latest_status {
+        parts.push(format!("qmt_latest_status={latest_status}"));
+    }
+    if let Some(last_action) = last_action {
+        parts.push(format!("qmt_last_action={last_action}"));
+    }
+
+    Some(parts.join(" "))
+}
+
+fn append_qmt_live_recovery_detail(lines: &mut Vec<String>, related_order: Option<&OrderRecord>) {
+    let Some(order) = related_order else {
+        return;
+    };
+    if order.adapter != "qmt_live" {
+        return;
+    }
+
+    let qmt_live = order.payload_json.get("qmt_live");
+    let task_identity = qmt_live.and_then(|value| value.get("task_identity"));
+    let task_id = task_identity
+        .and_then(|value| value.get("task_id"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty());
+    let last_query = qmt_live.and_then(|value| value.get("last_query"));
+    let reconciliation = qmt_live.and_then(|value| value.get("reconciliation"));
+
+    lines.push(String::new());
+    lines.push("=== QMT Live Recovery ===".to_string());
+    match task_id {
+        Some(task_id) => lines.push(format!("task_id: {task_id}")),
+        None => lines.push("automatic_reconciliation: unavailable".to_string()),
+    }
+    if let Some(client_order_id) = task_identity
+        .and_then(|value| value.get("client_order_id"))
+        .and_then(|value| value.as_str())
+    {
+        lines.push(format!("client_order_id: {client_order_id}"));
+    }
+    if let Some(local_submission_id) = task_identity
+        .and_then(|value| value.get("local_submission_id"))
+        .and_then(|value| value.as_str())
+    {
+        lines.push(format!("local_submission_id: {local_submission_id}"));
+    }
+    if let Some(external_order_id) = task_identity
+        .and_then(|value| value.get("external_order_id"))
+        .and_then(|value| value.as_str())
+    {
+        lines.push(format!("external_order_id: {external_order_id}"));
+    }
+    if let Some(last_query) = last_query {
+        if let Some(latest_status) = last_query.get("latest_status").and_then(|value| value.as_str()) {
+            lines.push(format!("latest_status: {latest_status}"));
+        }
+        if let Some(filled_quantity) = last_query
+            .get("filled_quantity")
+            .and_then(|value| value.as_i64())
+        {
+            lines.push(format!("filled_quantity: {filled_quantity}"));
+        }
+        if let Some(avg_fill_price) = last_query
+            .get("avg_fill_price")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("avg_fill_price: {avg_fill_price}"));
+        }
+        if let Some(broker_event_type) = last_query
+            .get("broker_event_type")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("broker_event_type: {broker_event_type}"));
+        }
+        if let Some(rejection_reason) = last_query
+            .get("rejection_reason")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("rejection_reason: {rejection_reason}"));
+        }
+        if let Some(updated_at) = last_query.get("updated_at").and_then(|value| value.as_str()) {
+            lines.push(format!("last_query_updated_at: {updated_at}"));
+        }
+    }
+    if let Some(reconciliation) = reconciliation {
+        if let Some(last_action) = reconciliation
+            .get("last_action")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("last_action: {last_action}"));
+        }
+        if let Some(last_error) = reconciliation
+            .get("last_error")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("last_error: {last_error}"));
+        }
+        if let Some(last_attempt_at) = reconciliation
+            .get("last_attempt_at")
+            .and_then(|value| value.as_str())
+        {
+            lines.push(format!("last_attempt_at: {last_attempt_at}"));
+        }
+    }
 }
 
 pub(crate) async fn execute_strategy_request_list_with_store(

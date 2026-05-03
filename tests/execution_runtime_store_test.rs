@@ -2,8 +2,9 @@ use chrono::{TimeZone, Utc};
 use quantix_cli::execution::kernel::RecoverySummary;
 use quantix_cli::execution::models::{
     ApprovalStatus, ExecutionRequestStatus, MockLiveOrderState, OrderEventRecord, OrderRecord,
-    OrderSide, OrderStatus, OrderType, RunnerCheckpointRecord, SignalStatus,
-    StrategyDaemonCheckpointRecord, StrategyRunRecord, StrategyRunStatus, StrategySignalRecord,
+    OrderSide, OrderStatus, OrderType, QmtLiveRuntimeMetadata, QmtLiveTaskIdentity,
+    RunnerCheckpointRecord, SignalStatus, StrategyDaemonCheckpointRecord, StrategyRunRecord,
+    StrategyRunStatus, StrategySignalRecord,
 };
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use rust_decimal_macros::dec;
@@ -278,6 +279,58 @@ async fn mock_live_order_state_round_trips_through_store() {
 
     assert_eq!(saved.cancel_requested, true);
     assert_eq!(saved.unknown_retries, 2);
+}
+
+#[tokio::test]
+async fn qmt_live_runtime_metadata_update_preserves_unrelated_payload_keys() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+
+    let mut order = sample_order(&run.run_id, "run_qmt_live_metadata");
+    order.adapter = "qmt_live".to_string();
+    order.payload_json = json!({
+        "reason": "ma_cross_buy",
+        "nested": { "keep": true }
+    });
+    store.insert_order(&order).await.unwrap();
+
+    let metadata = QmtLiveRuntimeMetadata {
+        task_identity: Some(QmtLiveTaskIdentity {
+            task_id: "task-1".to_string(),
+            client_order_id: "run_qmt_live_metadata".to_string(),
+            local_submission_id: "local-1".to_string(),
+            external_order_id: None,
+        }),
+        last_query: None,
+        reconciliation: None,
+    };
+
+    let updated = store
+        .try_update_order_qmt_live_metadata(
+            &order,
+            &metadata,
+            fixed_ts() + chrono::Duration::minutes(1),
+        )
+        .await
+        .unwrap();
+
+    assert!(updated);
+
+    let saved = store
+        .find_order_by_client_order_id("run_qmt_live_metadata")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(saved.payload_json["reason"], "ma_cross_buy");
+    assert_eq!(saved.payload_json["nested"]["keep"], true);
+    assert_eq!(
+        saved.payload_json["qmt_live"]["task_identity"]["task_id"],
+        "task-1"
+    );
 }
 
 #[tokio::test]

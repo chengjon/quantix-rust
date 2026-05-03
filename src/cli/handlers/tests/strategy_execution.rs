@@ -502,7 +502,7 @@ async fn test_execute_execution_bridge_qmt_live_rejects_when_capability_check_fa
 }
 
 #[tokio::test]
-async fn test_execute_execution_bridge_qmt_live_completes_request_when_bridge_is_live() {
+async fn test_execute_execution_bridge_qmt_live_persists_task_identity_into_related_order() {
     let _lock = env_lock();
     let _guard = RuntimeEnvGuard::capture();
     let dir = tempdir().unwrap();
@@ -536,16 +536,15 @@ async fn test_execute_execution_bridge_qmt_live_completes_request_when_bridge_is
         .await;
 
     Mock::given(method("POST"))
-        .and(path("/api/v1/broker/qmt/orders"))
+        .and(path("/api/v1/task/execute"))
+        .and(header("x-bridge-contract-version", "miniqmt.v1"))
         .and(header("x-quantix-api-key", "bridge-test-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "adapter_order_id": "qmt-order-handler-1",
-            "latest_status": "submitted",
-            "filled_quantity": 0,
-            "avg_fill_price": null,
-            "fill_details": null,
-            "rejection_reason": null,
-            "broker_payload": null
+            "task_id": "task-1",
+            "status": "bridge_task_accepted",
+            "receipt_timestamp": "2026-05-01T09:30:00Z",
+            "bridge_contract_version": "miniqmt.v1",
+            "source_name": "miniqmt"
         })))
         .mount(&server)
         .await;
@@ -582,7 +581,7 @@ async fn test_execute_execution_bridge_qmt_live_completes_request_when_bridge_is
     );
     assert_eq!(
         saved.payload_json["execution_result"]["order_status"],
-        "submitted"
+        "pending_submit"
     );
     assert_eq!(
         saved.payload_json["execution_diagnostics"]["code"],
@@ -590,7 +589,30 @@ async fn test_execute_execution_bridge_qmt_live_completes_request_when_bridge_is
     );
     assert_eq!(
         saved.payload_json["execution_result"]["adapter_order_id"],
-        "qmt-order-handler-1"
+        "task-1"
+    );
+    let saved_order = runtime_store
+        .find_order_by_client_order_id(&request.request_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved_order.adapter, "qmt_live");
+    assert_eq!(
+        saved_order.status,
+        crate::execution::models::OrderStatus::PendingSubmit
+    );
+    assert_eq!(
+        saved_order.payload_json["qmt_live"]["task_identity"]["task_id"],
+        "task-1"
+    );
+    assert_eq!(
+        saved_order.payload_json["qmt_live"]["task_identity"]["client_order_id"],
+        request.request_id
+    );
+    assert!(
+        saved_order.payload_json["qmt_live"]["task_identity"]["local_submission_id"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
     );
 }
 

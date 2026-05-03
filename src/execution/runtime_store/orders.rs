@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use super::*;
+use crate::execution::models::QmtLiveRuntimeMetadata;
 
 impl StrategyRuntimeStore {
     pub async fn insert_order(&self, order: &OrderRecord) -> Result<()> {
@@ -324,6 +325,89 @@ WHERE order_id = ? AND version = ?
         .await?;
 
         Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn try_update_order_payload_with_version(
+        &self,
+        order_id: &str,
+        expected_version: i64,
+        payload_json: serde_json::Value,
+        updated_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+UPDATE orders
+SET payload_json = ?,
+    updated_at = ?,
+    version = version + 1
+WHERE order_id = ? AND version = ?
+"#,
+        )
+        .bind(serde_json::to_string(&payload_json)?)
+        .bind(updated_at.to_rfc3339())
+        .bind(order_id)
+        .bind(expected_version)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn try_update_order_state_and_payload_with_version(
+        &self,
+        order_id: &str,
+        expected_version: i64,
+        status: OrderStatus,
+        filled_quantity: i64,
+        remaining_quantity: i64,
+        avg_fill_price: Option<Decimal>,
+        payload_json: serde_json::Value,
+        updated_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+UPDATE orders
+SET status = ?,
+    filled_quantity = ?,
+    remaining_quantity = ?,
+    avg_fill_price = ?,
+    payload_json = ?,
+    updated_at = ?,
+    last_transition_at = ?,
+    version = version + 1
+WHERE order_id = ? AND version = ?
+"#,
+        )
+        .bind(status.as_str())
+        .bind(filled_quantity)
+        .bind(remaining_quantity)
+        .bind(avg_fill_price.map(|value| value.to_string()))
+        .bind(serde_json::to_string(&payload_json)?)
+        .bind(updated_at.to_rfc3339())
+        .bind(updated_at.to_rfc3339())
+        .bind(order_id)
+        .bind(expected_version)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn try_update_order_qmt_live_metadata(
+        &self,
+        order: &OrderRecord,
+        metadata: &QmtLiveRuntimeMetadata,
+        updated_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        let mut payload_json = order.payload_json.clone();
+        payload_json["qmt_live"] = serde_json::to_value(metadata)?;
+        self.try_update_order_payload_with_version(
+            &order.order_id,
+            order.version,
+            payload_json,
+            updated_at,
+        )
+        .await
     }
 
     pub async fn upsert_checkpoint(&self, checkpoint: &RunnerCheckpointRecord) -> Result<()> {
