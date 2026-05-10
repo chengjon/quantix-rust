@@ -7,6 +7,7 @@ mod analyze;
 mod backtest;
 mod data;
 mod execution;
+mod factor;
 mod market;
 mod monitor;
 mod performance;

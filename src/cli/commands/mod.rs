@@ -2,6 +2,7 @@ mod account;
 mod analysis;
 mod backtest;
 mod data;
+mod factor;
 mod info;
 mod market;
 mod monitor;
@@ -14,6 +15,7 @@ pub use account::{AccountCommands, AccountGroupCommands};
 pub use analysis::{AnalyzeCommands, ScreenerCommands, TaskCommands};
 pub use backtest::BacktestCommands;
 pub use data::{DataCommands, DataSourceCommands, DataSourceKind};
+pub use factor::{FactorCommands, FactorOutputFormat};
 pub use info::{
     AiCommands, FundamentalCommands, ImportCommands, NewsCommands, NotifyCommands,
     SentimentCommands,
@@ -92,6 +94,10 @@ pub enum Commands {
     /// 绩效命令
     #[command(subcommand)]
     Performance(PerformanceCommands),
+
+    /// Factor research commands
+    #[command(subcommand)]
+    Factor(FactorCommands),
 
     /// 监控命令
     #[command(subcommand)]
@@ -195,6 +201,11 @@ impl Cli {
             }
             Commands::Performance(cmd) => {
                 handlers::run_performance_command(cmd)?;
+            }
+            Commands::Factor(_) => {
+                return Err(crate::core::QuantixError::Unsupported(
+                    "factor command handler is not wired yet".to_string(),
+                ));
             }
             Commands::Monitor(cmd) => {
                 handlers::run_monitor_command(cmd).await?;
