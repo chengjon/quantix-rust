@@ -38,6 +38,45 @@ fn mock_factor_frame() -> DataFrame {
     .unwrap()
 }
 
+fn mock_factor_frame_10d() -> DataFrame {
+    let mut dates = Vec::new();
+    let mut symbols = Vec::new();
+    let mut open = Vec::new();
+    let mut high = Vec::new();
+    let mut low = Vec::new();
+    let mut close = Vec::new();
+    let mut volume = Vec::new();
+    let universe = ["000001.SZ", "600000.SH", "000002.SZ"];
+
+    for day in 1..=10 {
+        for (idx, symbol) in universe.iter().enumerate() {
+            let base = 10.0 + idx as f64 * 10.0 + day as f64;
+            dates.push(format!("2026-01-{day:02}"));
+            symbols.push((*symbol).to_string());
+            open.push(base);
+            high.push(base + 0.5);
+            low.push(base - 0.5);
+            close.push(if day == 5 && idx == 1 {
+                None
+            } else {
+                Some(base + 0.2)
+            });
+            volume.push(1000i64 + day as i64 * 10 + idx as i64);
+        }
+    }
+
+    df!(
+        "date" => dates,
+        "symbol" => symbols,
+        "open" => open,
+        "high" => high,
+        "low" => low,
+        "close" => close,
+        "volume" => volume,
+    )
+    .unwrap()
+}
+
 #[test]
 fn factor_core_types_have_first_slice_fields() {
     let meta = FactorMeta {
@@ -155,4 +194,32 @@ async fn factor_result_exports_csv_and_json_strings() {
 
     let json = factor_result_to_json_string(&result).unwrap();
     assert!(json.contains("rank_close"));
+}
+
+#[tokio::test]
+async fn p1_pipeline_computes_rank_close_with_mock_loader() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame_10d(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 10).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    dataset.ensure_time_aligned().unwrap();
+    dataset.validate_no_lookahead_basic().unwrap();
+
+    let result = builtin_factor_catalog()
+        .compute("rank_close", &dataset)
+        .unwrap();
+    assert_eq!(result.factor_id, "rank_close");
+    assert_eq!(result.frame.height(), 30);
+    assert_eq!(result.frame.get_column_names(), vec!["date", "symbol", "value"]);
 }

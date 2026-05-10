@@ -1,9 +1,9 @@
 pub(crate) use super::{
     AiCommands, AlgoCommands, AnalyzeCommands, AnomalyCommands, DataCommands, DataSourceCommands,
     DataSourceKind, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
-    ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FundamentalCommands,
-    ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
-    MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FactorOutputFormat,
+    FundamentalCommands, ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
+    MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
