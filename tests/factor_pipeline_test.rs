@@ -4,7 +4,7 @@ use polars::prelude::*;
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
-    FactorMeta, MissingPolicy,
+    FactorMeta, MissingPolicy, builtin_factor_catalog, cs_rank, ts_delay, ts_delta,
 };
 
 struct MockFactorLoader {
@@ -89,4 +89,42 @@ async fn dataset_from_loader_normalizes_and_checks_schema() {
     assert_eq!(dataset.frame().height(), 6);
     dataset.ensure_time_aligned().unwrap();
     dataset.validate_no_lookahead_basic().unwrap();
+}
+
+#[test]
+fn operators_compute_aligned_series() {
+    let df = mock_factor_frame();
+
+    let rank = cs_rank(&df, "close").unwrap();
+    assert_eq!(rank.len(), df.height());
+
+    let delay = ts_delay(&df, "close", 1).unwrap();
+    assert_eq!(delay.len(), df.height());
+
+    let delta = ts_delta(&df, "close", 1).unwrap();
+    assert_eq!(delta.len(), df.height());
+}
+
+#[tokio::test]
+async fn catalog_lists_and_computes_rank_close() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 2).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+
+    assert!(catalog.list().iter().any(|meta| meta.id == "rank_close"));
+    let result = catalog.compute("rank_close", &dataset).unwrap();
+    assert_eq!(result.factor_id, "rank_close");
+    assert_eq!(result.frame.height(), dataset.frame().height());
 }
