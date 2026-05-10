@@ -221,5 +221,8 @@ async fn p1_pipeline_computes_rank_close_with_mock_loader() {
         .unwrap();
     assert_eq!(result.factor_id, "rank_close");
     assert_eq!(result.frame.height(), 30);
-    assert_eq!(result.frame.get_column_names(), vec!["date", "symbol", "value"]);
+    assert_eq!(
+        result.frame.get_column_names(),
+        vec!["date", "symbol", "value"]
+    );
 }

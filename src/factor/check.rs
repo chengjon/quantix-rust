@@ -39,16 +39,35 @@ pub fn ensure_unique_symbol_date(frame: &DataFrame) -> Result<()> {
 }
 
 pub fn ensure_symbol_date_sorted(frame: &DataFrame) -> Result<()> {
-    let sorted = frame
-        .sort(["symbol", "date"], Default::default())
-        .map_err(|e| QuantixError::DataParse(format!("factor sort check failed: {}", e)))?;
-    if sorted.equals(frame) {
-        Ok(())
-    } else {
-        Err(QuantixError::DataParse(
-            "factor dataset must be sorted by symbol,date ascending".to_string(),
-        ))
+    let symbols = frame.column("symbol").map_err(|e| {
+        QuantixError::DataParse(format!("factor symbol column check failed: {}", e))
+    })?;
+    let dates = frame
+        .column("date")
+        .map_err(|e| QuantixError::DataParse(format!("factor date column check failed: {}", e)))?;
+
+    let mut previous: Option<(String, String)> = None;
+    for idx in 0..frame.height() {
+        let current = (
+            symbols
+                .get(idx)
+                .map_err(|e| QuantixError::DataParse(format!("factor symbol read failed: {}", e)))?
+                .to_string(),
+            dates
+                .get(idx)
+                .map_err(|e| QuantixError::DataParse(format!("factor date read failed: {}", e)))?
+                .to_string(),
+        );
+        if let Some(prev) = &previous {
+            if current < *prev {
+                return Err(QuantixError::DataParse(
+                    "factor dataset must be sorted by symbol,date ascending".to_string(),
+                ));
+            }
+        }
+        previous = Some(current);
     }
+    Ok(())
 }
 
 pub fn validate_no_lookahead_basic(frame: &DataFrame) -> Result<()> {
