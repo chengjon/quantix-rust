@@ -1,7 +1,41 @@
+use async_trait::async_trait;
 use chrono::NaiveDate;
+use polars::prelude::*;
+use quantix_cli::core::Result;
 use quantix_cli::factor::{
-    FactorCategory, FactorComputeRequest, FactorLoadRequest, FactorMeta, MissingPolicy,
+    FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
+    FactorMeta, MissingPolicy,
 };
+
+struct MockFactorLoader {
+    frame: DataFrame,
+}
+
+#[async_trait]
+impl FactorDataLoader for MockFactorLoader {
+    async fn load_bars(&self, _request: &FactorLoadRequest) -> Result<DataFrame> {
+        Ok(self.frame.clone())
+    }
+}
+
+fn mock_factor_frame() -> DataFrame {
+    df!(
+        "date" => &[
+            "2026-01-01", "2026-01-01", "2026-01-01",
+            "2026-01-02", "2026-01-02", "2026-01-02",
+        ],
+        "symbol" => &[
+            "000001.SZ", "600000.SH", "000002.SZ",
+            "000001.SZ", "600000.SH", "000002.SZ",
+        ],
+        "open" => &[10.0, 20.0, 30.0, 11.0, 21.0, 31.0],
+        "high" => &[10.5, 20.5, 30.5, 11.5, 21.5, 31.5],
+        "low" => &[9.5, 19.5, 29.5, 10.5, 20.5, 30.5],
+        "close" => &[10.2, 20.2, 30.2, 11.2, 21.2, 31.2],
+        "volume" => &[1000i64, 2000, 3000, 1100, 2100, 3100],
+    )
+    .unwrap()
+}
 
 #[test]
 fn factor_core_types_have_first_slice_fields() {
@@ -33,4 +67,26 @@ fn factor_core_types_have_first_slice_fields() {
 
     assert_eq!(compute.factors, vec!["rank_close"]);
     assert_eq!(load.required_fields, vec!["close"]);
+}
+
+#[tokio::test]
+async fn dataset_from_loader_normalizes_and_checks_schema() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 2).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    assert_eq!(dataset.frame().height(), 6);
+    dataset.ensure_time_aligned().unwrap();
+    dataset.validate_no_lookahead_basic().unwrap();
 }
