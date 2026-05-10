@@ -24,6 +24,7 @@ pub mod data;
 pub mod db;
 pub mod bridge;
 pub mod execution;
+pub mod factor;
 pub mod fundamental;
 pub mod import;
 pub mod io;
