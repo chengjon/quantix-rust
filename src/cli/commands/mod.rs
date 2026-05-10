@@ -202,10 +202,8 @@ impl Cli {
             Commands::Performance(cmd) => {
                 handlers::run_performance_command(cmd)?;
             }
-            Commands::Factor(_) => {
-                return Err(crate::core::QuantixError::Unsupported(
-                    "factor command handler is not wired yet".to_string(),
-                ));
+            Commands::Factor(cmd) => {
+                handlers::run_factor_command(cmd).await?;
             }
             Commands::Monitor(cmd) => {
                 handlers::run_monitor_command(cmd).await?;

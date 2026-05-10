@@ -4,7 +4,8 @@ use polars::prelude::*;
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
-    FactorMeta, MissingPolicy, builtin_factor_catalog, cs_rank, ts_delay, ts_delta,
+    FactorMeta, MissingPolicy, builtin_factor_catalog, cs_rank, factor_result_to_csv_string,
+    factor_result_to_json_string, ts_delay, ts_delta,
 };
 
 struct MockFactorLoader {
@@ -127,4 +128,31 @@ async fn catalog_lists_and_computes_rank_close() {
     let result = catalog.compute("rank_close", &dataset).unwrap();
     assert_eq!(result.factor_id, "rank_close");
     assert_eq!(result.frame.height(), dataset.frame().height());
+}
+
+#[tokio::test]
+async fn factor_result_exports_csv_and_json_strings() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 2).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let result = builtin_factor_catalog()
+        .compute("rank_close", &dataset)
+        .unwrap();
+
+    let csv = factor_result_to_csv_string(&result).unwrap();
+    assert!(csv.contains("date,symbol,value"));
+
+    let json = factor_result_to_json_string(&result).unwrap();
+    assert!(json.contains("rank_close"));
 }

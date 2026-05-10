@@ -1,8 +1,8 @@
 pub(crate) use super::{
     AiCommands, AlgoCommands, AnalyzeCommands, AnomalyCommands, DataCommands, DataSourceCommands,
     DataSourceKind, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
-    ExecutionDaemonCommands, ExecutionQmtCommands, FundamentalCommands, ImportCommands,
-    MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
+    ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FundamentalCommands,
+    ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
     MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
@@ -118,6 +118,7 @@ mod app_shell;
 mod backtest_handler;
 mod data_handler;
 mod execution_handler;
+mod factor;
 mod fundamental;
 mod import;
 mod market_handler;
@@ -167,6 +168,7 @@ use self::data_handler::{
     set_default_data_source, test_data_source,
 };
 pub(crate) use self::execution_handler::*;
+pub use self::factor::run_factor_command;
 pub use self::fundamental::run_fundamental_command;
 pub use self::import::run_import_command;
 #[cfg(test)]
@@ -445,8 +447,8 @@ pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
             }
         },
         ExecutionCommands::Bridge(subcommand) => match subcommand {
-            ExecutionBridgeCommands::Status => {
-                execute_execution_bridge_status().await?;
+            ExecutionBridgeCommands::Status { checklist } => {
+                execute_execution_bridge_status(checklist).await?;
             }
             ExecutionBridgeCommands::QmtPreview { request_id } => {
                 execute_execution_bridge_qmt_preview(&request_id).await?;
@@ -471,8 +473,8 @@ pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
             }
         },
         ExecutionCommands::Qmt(subcommand) => match subcommand {
-            ExecutionQmtCommands::Status => {
-                execute_execution_bridge_status().await?;
+            ExecutionQmtCommands::Status { checklist } => {
+                execute_execution_bridge_status(checklist).await?;
             }
             ExecutionQmtCommands::Preview { request_id } => {
                 execute_execution_bridge_qmt_preview(&request_id).await?;
