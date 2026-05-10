@@ -77,6 +77,50 @@ fn mock_factor_frame_10d() -> DataFrame {
     .unwrap()
 }
 
+fn mock_alpha101_frame() -> DataFrame {
+    let mut dates = Vec::new();
+    let mut symbols = Vec::new();
+    let mut open = Vec::new();
+    let mut high = Vec::new();
+    let mut low = Vec::new();
+    let mut close = Vec::new();
+    let mut volume = Vec::new();
+    let mut amount = Vec::new();
+    let universe = ["000001.SZ", "600000.SH", "000002.SZ"];
+
+    for day in 1..=15 {
+        for (idx, symbol) in universe.iter().enumerate() {
+            let base = 20.0 + day as f64 * 0.15;
+            let open_pattern = ((day * (idx + 2)) % 7) as f64;
+            let close_pattern = (((day + idx) * (idx + 3)) % 9) as f64;
+            dates.push(format!("2026-01-{day:02}"));
+            symbols.push((*symbol).to_string());
+            let open_value = base + open_pattern * 0.4 + idx as f64 * 0.05;
+            let close_value = base + 0.2 + close_pattern * 0.35;
+            open.push(open_value);
+            high.push(open_value.max(close_value) + 0.8);
+            low.push(open_value.min(close_value) - 0.6);
+            close.push(close_value);
+            let vol =
+                1000i64 + ((day * day + idx * 37 + day * idx * 11 + (day % 4) * 29) % 500) as i64;
+            volume.push(vol);
+            amount.push(((open_value + close_value) / 2.0) * vol as f64);
+        }
+    }
+
+    df!(
+        "date" => dates,
+        "symbol" => symbols,
+        "open" => open,
+        "high" => high,
+        "low" => low,
+        "close" => close,
+        "volume" => volume,
+        "amount" => amount,
+    )
+    .unwrap()
+}
+
 #[test]
 fn factor_core_types_have_first_slice_fields() {
     let meta = FactorMeta {
@@ -225,4 +269,55 @@ async fn p1_pipeline_computes_rank_close_with_mock_loader() {
         result.frame.get_column_names(),
         vec!["date", "symbol", "value"]
     );
+}
+
+#[tokio::test]
+async fn catalog_lists_and_computes_alpha101_first_batch() {
+    let loader = MockFactorLoader {
+        frame: mock_alpha101_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        required_fields: vec![
+            "open".to_string(),
+            "low".to_string(),
+            "close".to_string(),
+            "volume".to_string(),
+            "amount".to_string(),
+        ],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+    let expected = [
+        "alpha101_002",
+        "alpha101_003",
+        "alpha101_005",
+        "alpha101_006",
+        "alpha101_012",
+    ];
+
+    for factor_id in expected {
+        assert!(
+            catalog.list().iter().any(|meta| meta.id == factor_id),
+            "missing catalog metadata for {factor_id}"
+        );
+
+        let result = catalog.compute(factor_id, &dataset).unwrap();
+        assert_eq!(result.factor_id, factor_id);
+        assert_eq!(result.frame.height(), dataset.frame().height());
+        assert_eq!(
+            result.frame.get_column_names(),
+            vec!["date", "symbol", "value"]
+        );
+        assert!(
+            result.frame.column("value").unwrap().null_count() < result.frame.height(),
+            "{factor_id} should produce at least one non-null value"
+        );
+    }
 }

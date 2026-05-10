@@ -1,4 +1,7 @@
 use crate::core::{QuantixError, Result};
+use crate::factor::alpha101::{
+    alpha101_002, alpha101_003, alpha101_005, alpha101_006, alpha101_012,
+};
 use crate::factor::dataset::FactorDataset;
 use crate::factor::operators::{cs_rank, ts_delay, ts_delta};
 use crate::factor::types::{FactorCategory, FactorComputeResult, FactorMeta, MissingPolicy};
@@ -40,7 +43,48 @@ pub fn builtin_factor_catalog() -> FactorCatalog {
                 required_fields: vec!["close".to_string()],
                 missing_policy: MissingPolicy::KeepNull,
             },
+            alpha101_meta(
+                "alpha101_002",
+                "Alpha101 #2: negative rolling correlation of ranked volume delta and ranked intraday return",
+                vec!["open", "close", "volume"],
+            ),
+            alpha101_meta(
+                "alpha101_003",
+                "Alpha101 #3: negative rolling correlation of ranked open and ranked volume",
+                vec!["open", "volume"],
+            ),
+            alpha101_meta(
+                "alpha101_005",
+                "Alpha101 #5: ranked open-vwap mean spread times negative absolute ranked close-vwap spread",
+                vec!["open", "close", "volume", "amount"],
+            ),
+            alpha101_meta(
+                "alpha101_006",
+                "Alpha101 #6: negative rolling correlation of open and volume",
+                vec!["open", "volume"],
+            ),
+            alpha101_meta(
+                "alpha101_012",
+                "Alpha101 #12: signed volume delta times negative close delta",
+                vec!["close", "volume"],
+            ),
         ],
+    }
+}
+
+fn alpha101_meta(id: &str, description: &str, required_fields: Vec<&str>) -> FactorMeta {
+    FactorMeta {
+        id: id.to_string(),
+        category: FactorCategory::Composite,
+        description: description.to_string(),
+        author: Some("quantix".to_string()),
+        source: Some("alpha101".to_string()),
+        refresh_frequency: Some("daily".to_string()),
+        required_fields: required_fields
+            .into_iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
+        missing_policy: MissingPolicy::KeepNull,
     }
 }
 
@@ -54,6 +98,11 @@ impl FactorCatalog {
             "rank_close" => cs_rank(dataset.frame(), "close"),
             "delay_close_1" => ts_delay(dataset.frame(), "close", 1),
             "delta_close_1" => ts_delta(dataset.frame(), "close", 1),
+            "alpha101_002" => alpha101_002(dataset.frame()),
+            "alpha101_003" => alpha101_003(dataset.frame()),
+            "alpha101_005" => alpha101_005(dataset.frame()),
+            "alpha101_006" => alpha101_006(dataset.frame()),
+            "alpha101_012" => alpha101_012(dataset.frame()),
             other => {
                 return Err(QuantixError::Unsupported(format!(
                     "unknown factor `{}`",

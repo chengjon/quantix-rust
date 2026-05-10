@@ -1,3 +1,4 @@
+pub mod alpha101;
 pub mod catalog;
 pub mod check;
 pub mod dataset;
