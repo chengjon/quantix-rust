@@ -373,7 +373,7 @@ quantix-rust/
 │   │   ├── IC/IR evaluation [已实现]
 │   │   ├── factor value correlation [已实现]
 │   │   └── neutralization - 横截面OLS残差中性化 [已实现]
-│   └── layered factor backtest [待实现]
+│   └── layered factor backtest - 等权分层收益 / long-short [已实现]
 │
 ├── 🎲 异常检测 (anomaly/) [已实现]
 │   ├── Isolation Forest (forest) [已实现]

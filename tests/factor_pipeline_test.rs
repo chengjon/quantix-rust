@@ -4,9 +4,10 @@ use polars::prelude::*;
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
-    FactorMeta, MissingPolicy, NeutralizationRequest, builtin_factor_catalog, cs_rank,
-    evaluate_factor_ic, factor_result_to_csv_string, factor_result_to_json_string,
-    factor_value_correlation, neutralize_factor_cross_sectional, ts_delay, ts_delta,
+    FactorMeta, LayeredBacktestRequest, MissingPolicy, NeutralizationRequest,
+    builtin_factor_catalog, cs_rank, evaluate_factor_ic, factor_result_to_csv_string,
+    factor_result_to_json_string, factor_value_correlation, neutralize_factor_cross_sectional,
+    run_layered_factor_backtest, ts_delay, ts_delta,
 };
 use std::collections::BTreeMap;
 
@@ -417,4 +418,54 @@ async fn neutralization_removes_cross_sectional_exposure_by_date() {
         let mean = residuals.iter().sum::<f64>() / residuals.len() as f64;
         assert!(mean.abs() < 1e-9);
     }
+}
+
+#[tokio::test]
+async fn layered_backtest_computes_group_returns_and_long_short() {
+    let loader = MockFactorLoader {
+        frame: mock_alpha101_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let rank_close = builtin_factor_catalog()
+        .compute("rank_close", &dataset)
+        .unwrap();
+
+    let backtest = run_layered_factor_backtest(
+        &dataset,
+        &rank_close,
+        &LayeredBacktestRequest {
+            groups: 3,
+            horizon: 1,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(backtest.summary.factor_id, "rank_close");
+    assert_eq!(backtest.summary.groups, 3);
+    assert_eq!(backtest.summary.horizon, 1);
+    assert!(backtest.summary.periods > 0);
+    assert!(backtest.summary.long_short_mean.is_some());
+    assert_eq!(
+        backtest.by_period.get_column_names(),
+        vec!["date", "group", "return", "count"]
+    );
+    assert_eq!(
+        backtest.long_short.get_column_names(),
+        vec!["date", "long_short"]
+    );
+    assert_eq!(backtest.long_short.height(), backtest.summary.periods);
+    assert_eq!(
+        backtest.by_period.height(),
+        backtest.summary.periods * backtest.summary.groups
+    );
 }
