@@ -372,7 +372,7 @@ quantix-rust/
 │   ├── IC/IR / correlation / neutralization [部分实现]
 │   │   ├── IC/IR evaluation [已实现]
 │   │   ├── factor value correlation [已实现]
-│   │   └── neutralization [待实现]
+│   │   └── neutralization - 横截面OLS残差中性化 [已实现]
 │   └── layered factor backtest [待实现]
 │
 ├── 🎲 异常检测 (anomaly/) [已实现]
