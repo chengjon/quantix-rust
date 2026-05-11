@@ -73,6 +73,59 @@ fn rejects_factor_compute_without_required_args() {
 }
 
 #[test]
+fn parses_factor_evaluate_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "factor",
+        "evaluate",
+        "--input",
+        "/tmp/factor-input.csv",
+        "--factor",
+        "rank_close",
+        "--symbol",
+        "000001.SZ",
+        "600000.SH",
+        "--start",
+        "2026-01-01",
+        "--end",
+        "2026-01-10",
+        "--horizon",
+        "2",
+        "--format",
+        "json",
+        "--output",
+        "/tmp/icir.json",
+        "--skip-checks",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Factor(FactorCommands::Evaluate {
+            input,
+            factor,
+            symbols,
+            start,
+            end,
+            horizon,
+            format,
+            output,
+            skip_checks,
+        }) => {
+            assert_eq!(input, "/tmp/factor-input.csv");
+            assert_eq!(factor, "rank_close");
+            assert_eq!(symbols, vec!["000001.SZ", "600000.SH"]);
+            assert_eq!(start, "2026-01-01");
+            assert_eq!(end, "2026-01-10");
+            assert_eq!(horizon, 2);
+            assert_eq!(format, FactorOutputFormat::Json);
+            assert_eq!(output.as_deref(), Some("/tmp/icir.json"));
+            assert!(skip_checks);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_factor_compute_command() {
     let cli = Cli::try_parse_from([
         "quantix",

@@ -4,8 +4,9 @@ use polars::prelude::*;
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
-    FactorMeta, MissingPolicy, builtin_factor_catalog, cs_rank, factor_result_to_csv_string,
-    factor_result_to_json_string, ts_delay, ts_delta,
+    FactorMeta, MissingPolicy, builtin_factor_catalog, cs_rank, evaluate_factor_ic,
+    factor_result_to_csv_string, factor_result_to_json_string, factor_value_correlation, ts_delay,
+    ts_delta,
 };
 
 struct MockFactorLoader {
@@ -320,4 +321,42 @@ async fn catalog_lists_and_computes_alpha101_first_batch() {
             "{factor_id} should produce at least one non-null value"
         );
     }
+}
+
+#[tokio::test]
+async fn evaluation_computes_ic_ir_and_factor_correlation() {
+    let loader = MockFactorLoader {
+        frame: mock_alpha101_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        required_fields: vec![
+            "open".to_string(),
+            "close".to_string(),
+            "volume".to_string(),
+            "amount".to_string(),
+        ],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+    let rank_close = catalog.compute("rank_close", &dataset).unwrap();
+    let alpha012 = catalog.compute("alpha101_012", &dataset).unwrap();
+
+    let evaluation = evaluate_factor_ic(&dataset, &rank_close, 1).unwrap();
+    assert_eq!(evaluation.summary.factor_id, "rank_close");
+    assert_eq!(evaluation.summary.horizon, 1);
+    assert!(evaluation.summary.observations > 0);
+    assert!(evaluation.summary.ic_mean.is_some());
+    assert!(evaluation.summary.ir.is_some());
+    assert_eq!(evaluation.by_date.get_column_names(), vec!["date", "ic"]);
+
+    let corr = factor_value_correlation(&rank_close, &alpha012).unwrap();
+    assert!(corr >= -1.0);
+    assert!(corr <= 1.0);
 }
