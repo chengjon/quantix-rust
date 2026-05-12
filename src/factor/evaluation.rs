@@ -192,6 +192,35 @@ pub fn factor_ic_result_to_json_string(result: &FactorIcResult) -> Result<String
     .map_err(|e| QuantixError::DataParse(format!("IC JSON export failed: {}", e)))
 }
 
+pub fn factor_ic_result_to_csv_string(result: &FactorIcResult) -> Result<String> {
+    let dates = result
+        .by_date
+        .column("date")
+        .map_err(|e| QuantixError::DataParse(format!("IC date column read failed: {}", e)))?;
+    let ics = result
+        .by_date
+        .column("ic")
+        .and_then(|s| s.cast(&DataType::Float64))
+        .map_err(|e| QuantixError::DataParse(format!("IC value cast failed: {}", e)))?;
+    let ics = ics
+        .f64()
+        .map_err(|e| QuantixError::DataParse(format!("IC value read failed: {}", e)))?;
+
+    let mut output = String::from("date,ic\n");
+    for row in 0..result.by_date.height() {
+        let date = dates
+            .get(row)
+            .map_err(|e| QuantixError::DataParse(format!("IC date read failed: {}", e)))?
+            .to_string();
+        let ic = ics
+            .get(row)
+            .map(|value| value.to_string())
+            .unwrap_or_default();
+        output.push_str(&format!("{},{}\n", date, ic));
+    }
+    Ok(output)
+}
+
 fn factor_values_as_f64(result: &FactorComputeResult) -> Result<Float64Chunked> {
     result
         .frame

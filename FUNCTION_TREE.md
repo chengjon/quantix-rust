@@ -365,7 +365,7 @@ quantix-rust/
 │   ├── CLI (quantix factor) [部分实现]
 │   │   ├── factor list [已实现]
 │   │   ├── factor compute --input CSV [已实现]
-│   │   └── factor evaluate --input CSV [已实现]
+│   │   └── factor evaluate --input CSV --format table/json/csv [已实现]
 │   ├── Alpha101 [部分实现]
 │   │   └── alpha101_002 / 003 / 005 / 006 / 012 [已实现]
 │   ├── Alpha191 [部分实现]

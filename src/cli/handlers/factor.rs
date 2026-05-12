@@ -166,9 +166,15 @@ pub async fn run_factor_command(cmd: FactorCommands) -> Result<()> {
                     }
                 }
                 FactorOutputFormat::Csv => {
-                    return Err(QuantixError::Unsupported(
-                        "factor evaluate csv output is not implemented in this slice".to_string(),
-                    ));
+                    let output = output.as_deref().ok_or_else(|| {
+                        QuantixError::Config(
+                            "factor evaluate csv output requires --output <path>".to_string(),
+                        )
+                    })?;
+                    std::fs::write(
+                        output,
+                        crate::factor::factor_ic_result_to_csv_string(&evaluation)?,
+                    )?;
                 }
                 FactorOutputFormat::Parquet => {
                     return Err(QuantixError::Unsupported(

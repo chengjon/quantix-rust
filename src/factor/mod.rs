@@ -15,8 +15,8 @@ pub mod types;
 pub use catalog::{FactorCatalog, builtin_factor_catalog};
 pub use dataset::FactorDataset;
 pub use evaluation::{
-    FactorIcResult, FactorIcSummary, evaluate_factor_ic, factor_ic_result_to_json_string,
-    factor_value_correlation,
+    FactorIcResult, FactorIcSummary, evaluate_factor_ic, factor_ic_result_to_csv_string,
+    factor_ic_result_to_json_string, factor_value_correlation,
 };
 pub use export::{factor_result_to_csv_string, factor_result_to_json_string};
 pub use layered_backtest::{

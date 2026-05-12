@@ -5,9 +5,9 @@ use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
     FactorMeta, LayeredBacktestRequest, MissingPolicy, NeutralizationRequest,
-    builtin_factor_catalog, cs_rank, evaluate_factor_ic, factor_result_to_csv_string,
-    factor_result_to_json_string, factor_value_correlation, neutralize_factor_cross_sectional,
-    run_layered_factor_backtest, ts_delay, ts_delta,
+    builtin_factor_catalog, cs_rank, evaluate_factor_ic, factor_ic_result_to_csv_string,
+    factor_result_to_csv_string, factor_result_to_json_string, factor_value_correlation,
+    neutralize_factor_cross_sectional, run_layered_factor_backtest, ts_delay, ts_delta,
 };
 use std::collections::BTreeMap;
 
@@ -515,6 +515,9 @@ async fn evaluation_computes_ic_ir_and_factor_correlation() {
     assert!(evaluation.summary.ic_mean.is_some());
     assert!(evaluation.summary.ir.is_some());
     assert_eq!(evaluation.by_date.get_column_names(), vec!["date", "ic"]);
+    let csv = factor_ic_result_to_csv_string(&evaluation).unwrap();
+    assert!(csv.starts_with("date,ic\n"));
+    assert!(csv.contains("2026-01-"));
 
     let corr = factor_value_correlation(&rank_close, &alpha012).unwrap();
     assert!(corr >= -1.0);
