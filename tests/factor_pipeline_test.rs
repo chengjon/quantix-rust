@@ -326,6 +326,51 @@ async fn catalog_lists_and_computes_alpha101_first_batch() {
 }
 
 #[tokio::test]
+async fn catalog_lists_and_computes_alpha191_first_batch() {
+    let loader = MockFactorLoader {
+        frame: mock_alpha101_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        required_fields: vec![
+            "open".to_string(),
+            "high".to_string(),
+            "low".to_string(),
+            "close".to_string(),
+            "volume".to_string(),
+        ],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+    let expected = ["alpha191_101", "alpha191_102", "alpha191_103"];
+
+    for factor_id in expected {
+        assert!(
+            catalog.list().iter().any(|meta| meta.id == factor_id),
+            "missing catalog metadata for {factor_id}"
+        );
+
+        let result = catalog.compute(factor_id, &dataset).unwrap();
+        assert_eq!(result.factor_id, factor_id);
+        assert_eq!(result.frame.height(), dataset.frame().height());
+        assert_eq!(
+            result.frame.get_column_names(),
+            vec!["date", "symbol", "value"]
+        );
+        assert!(
+            result.frame.column("value").unwrap().null_count() < result.frame.height(),
+            "{factor_id} should produce at least one non-null value"
+        );
+    }
+}
+
+#[tokio::test]
 async fn evaluation_computes_ic_ir_and_factor_correlation() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
