@@ -1,4 +1,6 @@
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::path::Path;
 
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -219,6 +221,19 @@ pub fn factor_ic_result_to_csv_string(result: &FactorIcResult) -> Result<String>
         output.push_str(&format!("{},{}\n", date, ic));
     }
     Ok(output)
+}
+
+pub fn factor_ic_result_to_parquet_file(
+    result: &FactorIcResult,
+    path: impl AsRef<Path>,
+) -> Result<()> {
+    let file = File::create(path.as_ref())
+        .map_err(|e| QuantixError::Other(format!("IC parquet create failed: {}", e)))?;
+    let mut frame = result.by_date.clone();
+    ParquetWriter::new(file)
+        .finish(&mut frame)
+        .map_err(|e| QuantixError::Other(format!("IC parquet export failed: {}", e)))?;
+    Ok(())
 }
 
 fn factor_values_as_f64(result: &FactorComputeResult) -> Result<Float64Chunked> {

@@ -175,10 +175,12 @@ pub async fn run_factor_command(cmd: FactorCommands) -> Result<()> {
                     )?;
                 }
                 FactorOutputFormat::Parquet => {
-                    return Err(QuantixError::Unsupported(
-                        "factor evaluate parquet output is not implemented in this slice"
-                            .to_string(),
-                    ));
+                    let output = output.as_deref().ok_or_else(|| {
+                        QuantixError::Config(
+                            "factor evaluate parquet output requires --output <path>".to_string(),
+                        )
+                    })?;
+                    crate::factor::factor_ic_result_to_parquet_file(&evaluation, output)?;
                 }
             }
             Ok(())
