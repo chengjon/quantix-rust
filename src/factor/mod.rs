@@ -9,6 +9,7 @@ pub mod layered_backtest;
 pub mod loader;
 pub mod neutralization;
 pub mod operators;
+pub mod rolling;
 pub mod types;
 
 pub use catalog::{FactorCatalog, builtin_factor_catalog};
