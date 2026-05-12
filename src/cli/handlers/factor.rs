@@ -95,14 +95,12 @@ pub async fn run_factor_command(cmd: FactorCommands) -> Result<()> {
                         )?;
                     }
                     FactorOutputFormat::Parquet => {
-                        let _ = output.as_deref().ok_or_else(|| {
+                        let output = output.as_deref().ok_or_else(|| {
                             QuantixError::Config(
                                 "factor parquet output requires --output <path>".to_string(),
                             )
                         })?;
-                        return Err(QuantixError::Unsupported(
-                            "factor parquet export is not implemented in P1".to_string(),
-                        ));
+                        crate::factor::factor_result_to_parquet_file(&result, output)?;
                     }
                 }
             }

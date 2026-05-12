@@ -1,15 +1,20 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use polars::prelude::*;
+use polars::prelude::{ParquetReader, SerReader};
+use quantix_cli::cli::handlers::run_factor_command;
+use quantix_cli::cli::{FactorCommands, FactorOutputFormat};
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
     FactorMeta, LayeredBacktestRequest, MissingPolicy, NeutralizationRequest,
     builtin_factor_catalog, cs_rank, evaluate_factor_ic, factor_ic_result_to_csv_string,
-    factor_result_to_csv_string, factor_result_to_json_string, factor_value_correlation,
-    neutralize_factor_cross_sectional, run_layered_factor_backtest, ts_delay, ts_delta,
+    factor_result_to_csv_string, factor_result_to_json_string, factor_result_to_parquet_file,
+    factor_value_correlation, neutralize_factor_cross_sectional, run_layered_factor_backtest,
+    ts_delay, ts_delta,
 };
 use std::collections::BTreeMap;
+use std::fs::{File, write};
 
 struct MockFactorLoader {
     frame: DataFrame,
@@ -245,6 +250,72 @@ async fn factor_result_exports_csv_and_json_strings() {
 
     let json = factor_result_to_json_string(&result).unwrap();
     assert!(json.contains("rank_close"));
+}
+
+#[tokio::test]
+async fn factor_result_exports_parquet_file() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 2).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let result = builtin_factor_catalog()
+        .compute("rank_close", &dataset)
+        .unwrap();
+    let tempdir = tempfile::tempdir().unwrap();
+    let path = tempdir.path().join("rank_close.parquet");
+
+    factor_result_to_parquet_file(&result, &path).unwrap();
+
+    let frame = ParquetReader::new(File::open(path).unwrap())
+        .finish()
+        .unwrap();
+    assert_eq!(frame.height(), result.frame.height());
+    assert_eq!(frame.get_column_names(), vec!["date", "symbol", "value"]);
+}
+
+#[tokio::test]
+async fn factor_compute_cli_writes_parquet_output() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let input = tempdir.path().join("bars.csv");
+    let output = tempdir.path().join("rank_close.parquet");
+    write(
+        &input,
+        "date,symbol,open,high,low,close,volume\n\
+         2026-01-01,000001.SZ,10.0,11.0,9.0,10.0,1000\n\
+         2026-01-01,600000.SH,20.0,21.0,19.0,20.0,2000\n\
+         2026-01-02,000001.SZ,11.0,12.0,10.0,11.0,1100\n\
+         2026-01-02,600000.SH,19.0,20.0,18.0,19.0,1900\n",
+    )
+    .unwrap();
+
+    run_factor_command(FactorCommands::Compute {
+        input: input.to_string_lossy().to_string(),
+        factors: vec!["rank_close".to_string()],
+        symbols: vec!["000001.SZ".to_string(), "600000.SH".to_string()],
+        start: "2026-01-01".to_string(),
+        end: "2026-01-02".to_string(),
+        format: FactorOutputFormat::Parquet,
+        output: Some(output.to_string_lossy().to_string()),
+        skip_checks: false,
+    })
+    .await
+    .unwrap();
+
+    let frame = ParquetReader::new(File::open(output).unwrap())
+        .finish()
+        .unwrap();
+    assert_eq!(frame.height(), 4);
+    assert_eq!(frame.get_column_names(), vec!["date", "symbol", "value"]);
 }
 
 #[tokio::test]

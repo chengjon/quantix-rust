@@ -208,3 +208,35 @@ fn parses_factor_compute_command() {
         other => panic!("unexpected command: {:?}", other),
     }
 }
+
+#[test]
+fn parses_factor_compute_parquet_output() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "factor",
+        "compute",
+        "--input",
+        "/tmp/factor-input.csv",
+        "--factor",
+        "rank_close",
+        "--symbol",
+        "000001.SZ",
+        "--start",
+        "2026-01-01",
+        "--end",
+        "2026-01-10",
+        "--format",
+        "parquet",
+        "--output",
+        "/tmp/factors.parquet",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Factor(FactorCommands::Compute { format, output, .. }) => {
+            assert_eq!(format, FactorOutputFormat::Parquet);
+            assert_eq!(output.as_deref(), Some("/tmp/factors.parquet"));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}

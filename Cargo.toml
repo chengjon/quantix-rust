@@ -63,7 +63,7 @@ arrow = { version = "53", features = ["json"] }
 parquet = { version = "53", features = ["async"] }
 
 # DataFrame (批量数据处理 - 默认启用)
-polars = { version = "0.43", features = ["lazy", "rolling_window", "dtype-datetime", "rank", "abs", "log", "cov"] }
+polars = { version = "0.43", features = ["lazy", "rolling_window", "dtype-datetime", "rank", "abs", "log", "cov", "parquet"] }
 polars-ops = "0.43"
 
 # Logging

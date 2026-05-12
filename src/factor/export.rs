@@ -1,4 +1,6 @@
-use polars::prelude::{CsvWriter, SerWriter};
+use polars::prelude::{CsvWriter, ParquetWriter, SerWriter};
+use std::fs::File;
+use std::path::Path;
 
 use crate::core::{QuantixError, Result};
 use crate::factor::types::FactorComputeResult;
@@ -20,4 +22,17 @@ pub fn factor_result_to_json_string(result: &FactorComputeResult) -> Result<Stri
         rows,
         result.frame.get_column_names()
     ))
+}
+
+pub fn factor_result_to_parquet_file(
+    result: &FactorComputeResult,
+    path: impl AsRef<Path>,
+) -> Result<()> {
+    let file = File::create(path.as_ref())
+        .map_err(|e| QuantixError::Other(format!("factor parquet create failed: {}", e)))?;
+    let mut frame = result.frame.clone();
+    ParquetWriter::new(file)
+        .finish(&mut frame)
+        .map_err(|e| QuantixError::Other(format!("factor parquet export failed: {}", e)))?;
+    Ok(())
 }

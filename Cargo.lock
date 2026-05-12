@@ -413,6 +413,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5a71a6f37880a80d1d7f19efd781e4b5de42c88f0722cc13bcb6cc2cfe8476"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -546,6 +568,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "brotli"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74f7971dbd9326d58187408ab83117d8ac1bb9c17b085fdacd1cf2f598719b6b"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+ "brotli-decompressor",
 ]
 
 [[package]]
@@ -3106,7 +3139,7 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "base64 0.22.1",
- "brotli",
+ "brotli 7.0.0",
  "bytes",
  "chrono",
  "flate2",
@@ -3131,6 +3164,10 @@ name = "parquet-format-safe"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1131c54b167dd4e4799ce762e1ab01549ebb94d5bdd13e6ec1b467491c378e1f"
+dependencies = [
+ "async-trait",
+ "futures",
+]
 
 [[package]]
 name = "parse-zoneinfo"
@@ -3378,6 +3415,7 @@ dependencies = [
  "either",
  "ethnum",
  "fast-float",
+ "futures",
  "getrandom 0.2.17",
  "hashbrown 0.14.5",
  "itoa",
@@ -3495,10 +3533,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "454ebbebe1cb8cb4768adca44b8fc9431abc3c91d5927f6824e73f916bced911"
 dependencies = [
  "ahash 0.8.12",
+ "async-trait",
  "atoi_simd",
  "bytes",
  "chrono",
  "fast-float",
+ "futures",
  "glob",
  "hashbrown 0.14.5",
  "home",
@@ -3511,6 +3551,7 @@ dependencies = [
  "polars-arrow",
  "polars-core",
  "polars-error",
+ "polars-parquet",
  "polars-schema",
  "polars-time",
  "polars-utils",
@@ -3518,6 +3559,8 @@ dependencies = [
  "regex",
  "ryu",
  "simdutf8",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3601,10 +3644,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "491f5af321169259d5b1294c9fe8ed89faaeac34b4dec4abcedc0d1b3d11013a"
 dependencies = [
  "ahash 0.8.12",
+ "async-stream",
  "base64 0.22.1",
+ "brotli 6.0.0",
  "bytemuck",
  "ethnum",
+ "flate2",
+ "futures",
  "hashbrown 0.14.5",
+ "lz4",
  "num-traits",
  "parquet-format-safe",
  "polars-arrow",
@@ -3612,7 +3660,9 @@ dependencies = [
  "polars-error",
  "polars-utils",
  "simdutf8",
+ "snap",
  "streaming-decompression",
+ "zstd",
 ]
 
 [[package]]
@@ -3624,6 +3674,7 @@ dependencies = [
  "crossbeam-channel",
  "crossbeam-queue",
  "enum_dispatch",
+ "futures",
  "hashbrown 0.14.5",
  "num-traits",
  "polars-arrow",
@@ -3661,6 +3712,7 @@ dependencies = [
  "polars-core",
  "polars-io",
  "polars-ops",
+ "polars-parquet",
  "polars-time",
  "polars-utils",
  "rayon",

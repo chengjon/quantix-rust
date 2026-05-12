@@ -18,7 +18,9 @@ pub use evaluation::{
     FactorIcResult, FactorIcSummary, evaluate_factor_ic, factor_ic_result_to_csv_string,
     factor_ic_result_to_json_string, factor_value_correlation,
 };
-pub use export::{factor_result_to_csv_string, factor_result_to_json_string};
+pub use export::{
+    factor_result_to_csv_string, factor_result_to_json_string, factor_result_to_parquet_file,
+};
 pub use layered_backtest::{
     LayeredBacktestRequest, LayeredBacktestResult, LayeredBacktestSummary,
     run_layered_factor_backtest,

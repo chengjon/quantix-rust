@@ -361,7 +361,7 @@ quantix-rust/
 │   ├── 因子导出 (export) [部分实现]
 │   │   ├── CSV字符串导出 [已实现]
 │   │   ├── JSON摘要导出 [已实现]
-│   │   └── Parquet导出 [待实现]
+│   │   └── Parquet文件导出 [已实现]
 │   ├── CLI (quantix factor) [部分实现]
 │   │   ├── factor list [已实现]
 │   │   ├── factor compute --input CSV [已实现]
