@@ -165,6 +165,54 @@ fn rolling_rank_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64
     out
 }
 
+fn rolling_std_by_symbol(df: &DataFrame, col_name: &str, window: usize) -> PolarsResult<Series> {
+    let frame = df.group_by_stable(["symbol"])?.apply(|group| {
+        let values = group.column(col_name)?.f64()?;
+        let stddev = rolling_std_values(values, window);
+        DataFrame::new(vec![Series::new("__factor_value".into(), stddev)])
+    })?;
+    frame.column("__factor_value").cloned()
+}
+
+fn rolling_std_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64>> {
+    let mut out = Vec::with_capacity(values.len());
+    for idx in 0..values.len() {
+        if idx + 1 < window {
+            out.push(None);
+            continue;
+        }
+
+        let start = idx + 1 - window;
+        let mut xs = Vec::with_capacity(window);
+        for offset in start..=idx {
+            match values.get(offset) {
+                Some(value) => xs.push(value),
+                None => {
+                    xs.clear();
+                    break;
+                }
+            }
+        }
+
+        if xs.len() != window {
+            out.push(None);
+            continue;
+        }
+
+        let mean = xs.iter().sum::<f64>() / window as f64;
+        let variance = xs
+            .iter()
+            .map(|value| {
+                let diff = value - mean;
+                diff * diff
+            })
+            .sum::<f64>()
+            / window as f64;
+        out.push(Some(variance.sqrt()));
+    }
+    out
+}
+
 pub fn alpha191_101(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, intraday_position_expr())
 }
@@ -267,4 +315,121 @@ pub fn alpha191_110(df: &DataFrame) -> PolarsResult<Series> {
         vec![(col("low") - ts_delay_expr(col("close"), 1)).alias("__alpha191_110_gap_down")],
     )?;
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_110_gap_down")))
+}
+
+pub fn alpha191_111(df: &DataFrame) -> PolarsResult<Series> {
+    let frame = collect_intermediate(
+        df,
+        vec![
+            (((col("close") - ts_delay_expr(col("close"), 1))
+                / (ts_delay_expr(col("close"), 1) + lit(1e-12)))
+                / (((ts_delay_expr(col("close"), 1) - col("open")) / (col("open") + lit(1e-12)))
+                    + lit(1e-12)))
+            .alias("__alpha191_111_ratio"),
+        ],
+    )?;
+    collect_factor_value(&frame, cs_rank_expr(col("__alpha191_111_ratio")))
+}
+
+pub fn alpha191_112(df: &DataFrame) -> PolarsResult<Series> {
+    let frame = collect_intermediate(
+        df,
+        vec![ts_delta_expr(col("close"), 1).alias("__alpha191_112_delta_close")],
+    )?;
+    collect_factor_value(
+        &frame,
+        lit(-1.0)
+            * cs_rank_expr(col("__alpha191_112_delta_close"))
+            * cs_rank_expr(col("volume").cast(DataType::Float64)),
+    )
+}
+
+pub fn alpha191_113(df: &DataFrame) -> PolarsResult<Series> {
+    let frame = collect_intermediate_two_stage(
+        df,
+        vec![
+            col("volume")
+                .cast(DataType::Float64)
+                .alias("__alpha191_113_volume"),
+        ],
+        vec![
+            cs_rank_expr(col("open")).alias("__alpha191_113_rank_open"),
+            cs_rank_expr(col("__alpha191_113_volume")).alias("__alpha191_113_rank_volume"),
+        ],
+    )?;
+    let mut values = rolling_corr_by_symbol(
+        &frame,
+        "__alpha191_113_rank_open",
+        "__alpha191_113_rank_volume",
+        10,
+    )?;
+    values = &values * -1.0;
+    Ok(values)
+}
+
+pub fn alpha191_114(df: &DataFrame) -> PolarsResult<Series> {
+    collect_factor_value(df, cs_rank_expr(intraday_position_expr()))
+}
+
+pub fn alpha191_115(df: &DataFrame) -> PolarsResult<Series> {
+    collect_factor_value(df, lit(-1.0) * ts_delta_expr(col("close"), 7))
+}
+
+pub fn alpha191_116(df: &DataFrame) -> PolarsResult<Series> {
+    let frame = collect_intermediate(
+        df,
+        vec![
+            (col("close") - ts_delay_expr(col("close"), 1))
+                .abs()
+                .alias("__alpha191_116_abs_change"),
+        ],
+    )?;
+    let mut values = rolling_rank_by_symbol(&frame, "__alpha191_116_abs_change", 20)?;
+    values = &values * -1.0;
+    Ok(values)
+}
+
+pub fn alpha191_117(df: &DataFrame) -> PolarsResult<Series> {
+    alpha191_103(df)
+}
+
+pub fn alpha191_118(df: &DataFrame) -> PolarsResult<Series> {
+    let mut frame = collect_intermediate(
+        df,
+        vec![
+            col("close")
+                .cast(DataType::Float64)
+                .alias("__alpha191_118_close"),
+            col("volume")
+                .cast(DataType::Float64)
+                .alias("__alpha191_118_volume"),
+        ],
+    )?;
+    let mut corr =
+        rolling_corr_by_symbol(&frame, "__alpha191_118_close", "__alpha191_118_volume", 5)?;
+    corr.rename("__alpha191_118_corr".into());
+    frame.with_column(corr)?;
+    collect_factor_value(&frame, cs_rank_expr(col("__alpha191_118_corr")))
+}
+
+pub fn alpha191_119(df: &DataFrame) -> PolarsResult<Series> {
+    collect_factor_value(df, lit(-1.0) * ts_delta_expr(col("close"), 3))
+}
+
+pub fn alpha191_120(df: &DataFrame) -> PolarsResult<Series> {
+    let mut frame = collect_intermediate(
+        df,
+        vec![
+            col("close")
+                .cast(DataType::Float64)
+                .alias("__alpha191_120_close"),
+        ],
+    )?;
+    let mut stddev = rolling_std_by_symbol(&frame, "__alpha191_120_close", 10)?;
+    stddev.rename("__alpha191_120_stddev".into());
+    frame.with_column(stddev)?;
+    collect_factor_value(
+        &frame,
+        lit(-1.0) * cs_rank_expr(col("__alpha191_120_stddev")),
+    )
 }

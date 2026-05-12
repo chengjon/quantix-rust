@@ -81,6 +81,10 @@ fn mock_factor_frame_10d() -> DataFrame {
 }
 
 fn mock_alpha101_frame() -> DataFrame {
+    mock_alpha_frame_days(15)
+}
+
+fn mock_alpha_frame_days(days: usize) -> DataFrame {
     let mut dates = Vec::new();
     let mut symbols = Vec::new();
     let mut open = Vec::new();
@@ -91,7 +95,7 @@ fn mock_alpha101_frame() -> DataFrame {
     let mut amount = Vec::new();
     let universe = ["000001.SZ", "600000.SH", "000002.SZ"];
 
-    for day in 1..=15 {
+    for day in 1..=days {
         for (idx, symbol) in universe.iter().enumerate() {
             let base = 20.0 + day as f64 * 0.15;
             let open_pattern = ((day * (idx + 2)) % 7) as f64;
@@ -401,6 +405,62 @@ async fn catalog_lists_and_computes_alpha191_second_batch() {
         "alpha191_108",
         "alpha191_109",
         "alpha191_110",
+    ];
+
+    for factor_id in expected {
+        assert!(
+            catalog.list().iter().any(|meta| meta.id == factor_id),
+            "missing catalog metadata for {factor_id}"
+        );
+
+        let result = catalog.compute(factor_id, &dataset).unwrap();
+        assert_eq!(result.factor_id, factor_id);
+        assert_eq!(result.frame.height(), dataset.frame().height());
+        assert_eq!(
+            result.frame.get_column_names(),
+            vec!["date", "symbol", "value"]
+        );
+        assert!(
+            result.frame.column("value").unwrap().null_count() < result.frame.height(),
+            "{factor_id} should produce at least one non-null value"
+        );
+    }
+}
+
+#[tokio::test]
+async fn catalog_lists_and_computes_alpha191_third_batch() {
+    let loader = MockFactorLoader {
+        frame: mock_alpha_frame_days(25),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 25).unwrap(),
+        required_fields: vec![
+            "open".to_string(),
+            "high".to_string(),
+            "low".to_string(),
+            "close".to_string(),
+            "volume".to_string(),
+        ],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+    let expected = [
+        "alpha191_111",
+        "alpha191_112",
+        "alpha191_113",
+        "alpha191_114",
+        "alpha191_115",
+        "alpha191_116",
+        "alpha191_117",
+        "alpha191_118",
+        "alpha191_119",
+        "alpha191_120",
     ];
 
     for factor_id in expected {

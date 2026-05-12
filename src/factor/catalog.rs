@@ -4,7 +4,9 @@ use crate::factor::alpha101::{
 };
 use crate::factor::alpha191::{
     alpha191_101, alpha191_102, alpha191_103, alpha191_104, alpha191_105, alpha191_106,
-    alpha191_107, alpha191_108, alpha191_109, alpha191_110,
+    alpha191_107, alpha191_108, alpha191_109, alpha191_110, alpha191_111, alpha191_112,
+    alpha191_113, alpha191_114, alpha191_115, alpha191_116, alpha191_117, alpha191_118,
+    alpha191_119, alpha191_120,
 };
 use crate::factor::dataset::FactorDataset;
 use crate::factor::operators::{cs_rank, ts_delay, ts_delta};
@@ -122,6 +124,56 @@ pub fn builtin_factor_catalog() -> FactorCatalog {
                 "Alpha191 #110: cross-sectional rank of low minus delayed close",
                 vec!["low", "close"],
             ),
+            alpha191_meta(
+                "alpha191_111",
+                "Alpha191 #111: cross-sectional rank of return over delayed-close gap ratio",
+                vec!["open", "close"],
+            ),
+            alpha191_meta(
+                "alpha191_112",
+                "Alpha191 #112: negative product of close delta rank and volume rank",
+                vec!["close", "volume"],
+            ),
+            alpha191_meta(
+                "alpha191_113",
+                "Alpha191 #113: negative 10-day correlation of ranked open and ranked volume",
+                vec!["open", "volume"],
+            ),
+            alpha191_meta(
+                "alpha191_114",
+                "Alpha191 #114: cross-sectional rank of intraday close-open position",
+                vec!["open", "high", "low", "close"],
+            ),
+            alpha191_meta(
+                "alpha191_115",
+                "Alpha191 #115: negative 7-day close delta",
+                vec!["close"],
+            ),
+            alpha191_meta(
+                "alpha191_116",
+                "Alpha191 #116: negative 20-day time-series rank of absolute close change",
+                vec!["close"],
+            ),
+            alpha191_meta(
+                "alpha191_117",
+                "Alpha191 #117: intraday close-open position times volume",
+                vec!["open", "high", "low", "close", "volume"],
+            ),
+            alpha191_meta(
+                "alpha191_118",
+                "Alpha191 #118: cross-sectional rank of 5-day close-volume correlation",
+                vec!["close", "volume"],
+            ),
+            alpha191_meta(
+                "alpha191_119",
+                "Alpha191 #119: negative 3-day close delta",
+                vec!["close"],
+            ),
+            alpha191_meta(
+                "alpha191_120",
+                "Alpha191 #120: negative cross-sectional rank of 10-day close stddev",
+                vec!["close"],
+            ),
         ],
     }
 }
@@ -183,6 +235,16 @@ impl FactorCatalog {
             "alpha191_108" => alpha191_108(dataset.frame()),
             "alpha191_109" => alpha191_109(dataset.frame()),
             "alpha191_110" => alpha191_110(dataset.frame()),
+            "alpha191_111" => alpha191_111(dataset.frame()),
+            "alpha191_112" => alpha191_112(dataset.frame()),
+            "alpha191_113" => alpha191_113(dataset.frame()),
+            "alpha191_114" => alpha191_114(dataset.frame()),
+            "alpha191_115" => alpha191_115(dataset.frame()),
+            "alpha191_116" => alpha191_116(dataset.frame()),
+            "alpha191_117" => alpha191_117(dataset.frame()),
+            "alpha191_118" => alpha191_118(dataset.frame()),
+            "alpha191_119" => alpha191_119(dataset.frame()),
+            "alpha191_120" => alpha191_120(dataset.frame()),
             other => {
                 return Err(QuantixError::Unsupported(format!(
                     "unknown factor `{}`",
