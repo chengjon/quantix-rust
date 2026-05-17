@@ -9,11 +9,20 @@ A 股量化交易 CLI 工具 - Rust 实现
 - 仓库内本地 worktree 放在 `.worktrees/`，全文检索和批量扫描应排除该目录，避免重复命中。
 - 本地分析产物和工具目录如 `.gitnexus/`、`target/` 应视为噪音目录，并通过 `.ignore` 排除。
 - Foundation P0 当前支持前台 CLI、单机 daemon 与 `systemd --user` 用户服务，不假设多 worker、分布式调度或真实 broker 已可用。
+- `quantix task` CLI 当前只支持查看预置任务模板、以前台模式启动它们，以及输出能力边界说明；`task add` 与 `task start --daemon` 仍未开放。
 
-## 路线图与 Backlog
+## 功能注册表
 
-项目级路线图已整理到 [ROADMAP.md](ROADMAP.md)。
-当前功能树见 [FUNCTION_TREE.md](FUNCTION_TREE.md)。
+功能状态、能力边界、已设计/待实现项都以单一注册表为准：
+
+- 功能全景图与状态注册表：[FUNCTION_TREE.md](FUNCTION_TREE.md)
+
+本文不是功能状态注册表；任何功能状态、证据和边界判断都以 `FUNCTION_TREE.md` 的状态注册表行为准。
+
+不再维护独立规划文档；新增计划或设计项先登记到 `FUNCTION_TREE.md`，并显式标状态、证据和边界。
+
+README 只保留项目入口、使用示例和历史概览；当示例或概览与注册表不一致时，以 `FUNCTION_TREE.md` 为准。
+
 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 开发前置检查
@@ -27,10 +36,10 @@ A 股量化交易 CLI 工具 - Rust 实现
 
 当前建议的推进顺序：
 
-1. 先补齐策略执行主线闭环，优先推进 Phase 29C 与 execution request 生命周期。
-2. 再推进 real live adapter、live-ready automation 与更细粒度 execution policy。
-3. 主线稳定后，再处理 stop / risk / market / monitor 的后续能力。
-4. TUI、Parquet、节假日、metrics 等工程占坑作为次级队列处理。
+1. 先完成仍直接影响执行边界可信度的残余语义加固，优先处理 `request completed` 语义、gate 原因可视化、以及半接线 `live` 分支核查。
+2. 紧接着推进交易主线稳态化，优先收口交易日历 / T+1、审计日志、回撤控制、promotion checklist、关键链路监控与最小 kill switch。
+3. 在主线稳态化后，再推进 real live / broker execution 收口。
+4. 主线稳定后，再处理研究、组合、扩展风控与运维能力；TUI、Parquet、batch/metrics 等工程占坑继续作为次级队列处理。
 
 ## 构建产物大小管控
 
@@ -125,6 +134,12 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - **Graphiti MCP 集成**已完成：
   - 语义记忆层用于设计决策、代码审查、调试、交接和文档
   - Group IDs: `quantix_rust_main`, `_review`, `_debug`, `_handoff`, `_docs`
+- **因子研究首切片**已有本地 CLI 闭环：
+  - `factor list` - 查看已登记因子
+  - `factor compute --input CSV` - 基于本地 CSV 计算因子并导出 table/csv/json/parquet
+  - `factor score --input CSV` - 在最新因子日期上按多个因子等权评分并导出 table/csv/json/parquet
+  - `factor evaluate --input CSV` - 计算 IC/IR、相关性等评估结果并导出 table/csv/json/parquet
+  - 能力边界和最新状态以 [FUNCTION_TREE.md](FUNCTION_TREE.md) 的 `factor/` 与 `quantix factor` 注册行为准
 - 当前明确仍未完成的是真实 `live` broker execution，以及 `Wind` / `Choice` bridge 支持。
 
 ## 功能特性
@@ -179,6 +194,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 集成 tokio-cron-scheduler
   - 动态添加/删除任务
   - 预定义任务模板 (盘前/竞价/开盘/收盘/盘后/数据同步)
+  - CLI 层当前只开放预置模板查看与前台启动；`task add` / `task start --daemon` 仍是保留入口
 
 #### Phase 6: TDX 文件解析与复权 ✅
 - **Day 文件解析器** (`src/sources/tdx_file.rs`)
@@ -265,7 +281,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `data export` - 导出数据为 CSV/Parquet
   - `strategy run` - 运行策略回测
   - `strategy list/show` - 策略管理
-  - `task start/stop/status` - 任务调度器管理
+  - `task list/start/stop/status` - 实验性 Foundation P0 预置任务模板入口
   - `analyze indicators` - 技术指标计算
   - `status --health` - 数据库健康检查
 - **交互式菜单系统**
@@ -574,11 +590,11 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 #### Bridge CLI
 - 推荐入口: `quantix execution qmt`
 - 兼容旧入口: `quantix execution bridge`
-- `quantix execution qmt status`
+- `quantix execution qmt status [--checklist]`
 - `quantix execution qmt preview --request-id <ID>`
 - `quantix execution qmt live --request-id <ID> [--yes]`
 - `quantix execution qmt query --order-id <ORDER_ID>`
-- `quantix execution bridge status`
+- `quantix execution bridge status [--checklist]`
 - `quantix execution bridge qmt-preview --request-id <ID>`
 - `quantix execution bridge qmt-live --request-id <ID> [--yes]`
 - `quantix execution bridge qmt-query --order-id <ORDER_ID>`
@@ -586,7 +602,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 
 #### 最小安全流程
 - 先确认 request 目标是 `qmt_live`，不要把通用 `target_mode=live` 当成实盘入口
-- 建议先运行 `quantix execution qmt status`，确认 bridge 已进入 `qmt.mode=live` 且具备 `order_submit` 能力
+- 建议先运行 `quantix execution qmt status --checklist`，确认 bridge 已进入 `qmt.mode=live`、具备 `order_submit` 能力，并对照 promotion checklist 再决定是否进入实盘提交
 - `quantix execution qmt preview --request-id <ID>` 只做 preview，不会真实发单
 - 手动执行 `quantix execution qmt live --request-id <ID>` 时，CLI 会要求输入 `YES` 确认；只有显式传入 `--yes` 才会跳过确认
 - 提交成功后，按 CLI 打印的 `quantix execution qmt query --order-id <ORDER_ID>` 继续核验券商侧订单状态
@@ -977,6 +993,34 @@ quantix market strength-stocks --date 2026-03-09 --strong-top 3 --sector 银行 
 - 当前只文档化已经实现的 Phase 23 P0 行为。
 - 运行 `foundation` / `strength` 前，先执行 `quantix risk sync industry --standard shenwan`。
 - 历史/详情/实时功能延后到后续 Phase。
+
+### 因子研究 CLI
+
+```bash
+# 查看已登记因子
+quantix factor list
+
+# 基于本地 CSV 计算因子
+quantix factor compute \
+  --input bars.csv \
+  --factor rank_close \
+  --format csv \
+  --output factor_values.csv
+
+# 多因子等权评分最新截面
+quantix factor score \
+  --input bars.csv \
+  --factor rank_close ts_rank_close_5 \
+  --format csv \
+  --output factor_scores.csv
+
+# 评估单个因子 IC/IR
+quantix factor evaluate \
+  --input bars.csv \
+  --factor rank_close \
+  --horizon 1 \
+  --format json
+```
 
 ### 回测示例
 

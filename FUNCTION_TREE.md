@@ -1,865 +1,978 @@
 # FUNCTION_TREE
 
-> 本文件是当前主线唯一的功能树与能力边界文档。
+> 本文件是 Quantix-Rust 当前主线唯一的功能全景图与状态注册表。
 >
-> 它与根目录 `ROADMAP.md` 一起，构成当前仅保留的两份活跃规划/能力边界入口。
+> 换言之，本文档同时承担“单一功能注册表”职责。
 >
-> 历史上的 `docs/FUNCTION_MAP.md` 已并入本文件，不再作为单独文档维护。
+> 历史功能清单已并入本文件，不再作为单独文档维护。
 >
-> 当前对应主线基线：`origin/master@562fe84`（PR #62）。
+> 本次文档核对基线：`master@1604166`。
 
 > 状态标记说明：
 > `[已实现]` = 当前主线已落地并可用
 > `[部分实现]` = 已有模块/命令入口，但能力未完全闭环
-> `[未实现]` = 文档已列出，但当前主线尚未落地
-> `[待实现]` = 明确保留为后续实现项
+> `[已设计/待实现]` = 设计或需求已登记，但当前主线不可用
 > `[非目标]` = 当前边界明确不做
 
-本文档以目录树形式展示 Quantix 量化交易系统的功能层次结构。
+## 注册规则
+
+1. **功能节点**只以“状态注册表”中的表格行作为状态真相；后续树状代码块是证据摘录，不单独声明可用能力。
+2. 每个功能节点必须同时标明**状态、证据和边界**。证据可以是源码路径、CLI 入口、测试/文档或外部 bridge 路径；证据存在不等于能力闭环。
+3. `[已设计/待实现]` 节点只表示设计已登记，不表示 CLI、运行时或外部服务已经可用。
+4. 树状代码块里的目录、命令、端点、结构体、trait 只是证据索引；不能在没有对应注册表行的情况下被引用为“已可用功能”。
+5. 新增功能或设计项先在本注册表增加或更新节点，并显式标明状态、证据和边界，再按需补充证据展开。
+
+## 功能全景图
+
+| 功能域 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| 基础设施 | [部分实现] | 注册表 `core/`, `data/`, `db/`, `io/`, `tasks/`, `cli/`, `sources/`, `sync/`, `tui/` | 基础模块存在但并非全部闭环；具体可用性以模块注册表为准 |
+| 交易执行与运营 | [部分实现] | 注册表 `strategy/`, `execution/`, `account/`, `risk/`, `trade/`, `stop/`, `watchlist/`, `monitoring/`, `monitor/` | 支持 paper/mock_live/guarded `qmt_live` 等已登记路径；通用 `live` 和分布式执行不在当前可用边界内 |
+| 研究分析与数据智能 | [部分实现] | 注册表 `analysis/`, `anomaly/`, `screener/`, `market/`, `factor/`, `news/`, `fundamental/`, `ai/`, `import/` | 技术分析、选股、部分因子/新闻/基本面/AI 能力存在；待实现节点不可当作可用入口 |
+| 外部集成 | [已实现] | 注册表 `bridge/`; Graphiti MCP 语义记忆层；附录 D | Windows Bridge 是外部边界且不拥有运行时状态；Graphiti 不是应用运行时依赖 |
+| 已设计/待实现集合 | [已设计/待实现] | “已设计/待实现节点”注册表 | 这些条目只表示设计已登记，当前主线不可用 |
+
+## 状态注册表
+
+### 模块/能力节点
+
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| `core/` 核心层 | [部分实现] | `src/core/`; `src/lib.rs` exports `core`; 运行时配置在树中展开 | 配置、错误、运行时已落地；动态节假日补全仍是已设计/待实现项 |
+| `data/` 数据层 | [已实现] | `src/data/`; 数据模型和历史数据树节点 | 提供本地数据结构/查询基础；上游数据完整性取决于 `sources/` |
+| `sources/` 数据源 | [部分实现] | `src/sources/`; `bridge_tdx`, `eastmoney`, `websocket` 等树节点 | AKShare/TDX 的 StockInfo/Kline 拉取、缠论适配仍不可用 |
+| `strategy/` 策略层 | [部分实现] | `src/strategy/`; `src/cli/commands/strategy.rs`; `src/cli/handlers/strategy_handler/` | CLI 当前主要闭环 `ma_cross`; 多股票并行守护和更宽松配置约束尚不可用 |
+| `execution/` 执行层 | [部分实现] | `src/execution/`; `qmt_live_gate.rs`; `qmt_task_submit_service.rs`; `qmt_live_adapter.rs` | `paper/mock_live/qmt_live` 有路径；通用 `live` 不完整，`qmt_live` 受 gate 和 Windows Bridge 约束 |
+| `account/` 账户管理 | [已实现] | `src/account/`; `src/cli/commands/account.rs`; `src/cli/handlers/account.rs` | 管理本地账户/聚合视图；不等于真实 broker 账本权威 |
+| `risk/` 风控层 | [已实现] | `src/risk/`; `src/cli/commands/risk.rs`; `src/cli/handlers/risk.rs` | 风控核心已落地；引用数据同步和分类标准仍受数据源覆盖限制 |
+| `monitoring/` 监控层 | [部分实现] | `src/monitoring/`; `src/cli/handlers/notify.rs` | 监控框架存在；多通知渠道未全部真正接线 |
+| `watchlist/` 自选池 | [已实现] | `src/watchlist/`; `src/cli/handlers/watchlist_handler.rs` | 自选池管理可用；实时价格视图依赖行情源/bridge |
+| `stop/` 止盈止损 | [已实现] | `src/stop/`; `src/cli/handlers/stop_handler.rs` | 规则与本地工作流可用；触发和执行效果依赖行情与执行目标 |
+| `trade/` 模拟交易 | [已实现] | `src/trade/`; `src/cli/commands/trade.rs`; `src/cli/handlers/trade_handler.rs` | 本地模拟交易可用；不代表真实 broker live 交易 |
+| `market/` 市场分析 | [部分实现] | `src/market/`; `src/cli/commands/market.rs`; `src/cli/handlers/market_handler.rs` | 市场命令已接线；舆情默认 provider 和趋势计算仍未闭环 |
+| `screener/` 选股器 | [已实现] | `src/screener/`; `src/cli/handlers/screener_handler.rs` | 规则筛选可用；筛选质量依赖数据和因子输入 |
+| `analysis/` 技术分析 | [已实现] | `src/analysis/`; `src/cli/commands/analysis.rs`; `src/cli/handlers/analyze_handler.rs` | 技术指标/分析命令可用；不覆盖完整投资研究平台 |
+| `factor/` 因子研究 | [部分实现] | `src/factor/`; `src/factor/scoring.rs`; `src/cli/commands/factor.rs`; `src/cli/handlers/factor.rs`; `tests/factor_pipeline_test.rs` | `list`/`compute`/`score`/`evaluate` 的本地 CSV 首切片路径已落地；算子、目录和 Alpha 套件仍是分批闭环，不代表完整因子平台 |
+| `anomaly/` 异常检测 | [已实现] | `src/anomaly/`; `src/cli/handlers/anomaly.rs` | 隔离森林和既有特征可用；范围限于已实现特征提取器 |
+| `monitor/` 监控服务 | [已实现] | `src/monitor/`; `src/cli/commands/monitor.rs`; `src/cli/handlers/monitor_handler.rs` | 服务/状态视图可用；通知能力以 `monitoring/` 边界为准 |
+| `bridge/` Windows Bridge | [已实现] | `src/bridge/`; `src/sources/bridge_tdx.rs`; `src/execution/qmt_bridge.rs`; 附录 D | Windows 端是外部边界；Bridge 不拥有运行时状态，`qmt_live` 仍需 gate |
+| `db/` 数据库层 | [已实现] | `src/db/`; `runtime.db` 设计决策 | 本地持久化和审计存储可用；不是远程数据库平台 |
+| `io/` 导入导出 | [已实现] | `src/io/`; CLI `data export` 边界说明 | 基础导入导出可用；具体格式支持以 CLI 子命令边界为准 |
+| `sync/` 数据同步 | [部分实现] | `src/sync/`; ETL 同步树节点 | PostgreSQL / 分钟线来源拉取仍不可用 |
+| `tasks/` 任务调度 | [已实现] | `src/tasks/`; CLI `task` 命令树 | 调度模型存在；CLI 当前只开放 Foundation P0 预置模板/前台执行 |
+| `ai/` AI 决策层 | [部分实现] | `src/ai/`; `src/cli/handlers/ai.rs` | OpenAI-compatible、DeepSeek、Ollama 等路径已接线；Gemini/Anthropic 仅部分配置，conversation/skill_registry 不可用 |
+| `news/` 新闻搜索 | [部分实现] | `src/news/`; `src/cli/handlers/news.rs` | Tavily/SerpAPI/博查等路径可用；Brave/SearXNG 尚不可用 |
+| `fundamental/` 基本面分析 | [部分实现] | `src/fundamental/`; `src/cli/handlers/fundamental.rs` | EastMoney/估值/财报部分可用；资金流向、分红等仍不可用或仅占位 |
+| `import/` 智能导入 | [部分实现] | `src/import/`; `src/cli/handlers/import.rs`; `src/cli/tests/import.rs` | 现有智能导入路径可用；Excel parser 和 `from-excel` 尚不可用 |
+| `tui/` TUI 界面 | [部分实现] | `src/tui/`; CLI `menu --tui` | 当前主要是入口/占位提示，不是完整 TUI 产品 |
+| `cli/` CLI 命令面 | [部分实现] | `src/cli/commands/`; `src/cli/handlers/`; 下方 CLI 命令注册表 | CLI 是用户入口聚合面；具体可用性必须看每个命令节点 |
+| Graphiti MCP 语义记忆层 | [已实现] | `docs/guides/GRAPHITI_MCP_WORKFLOW.md`; 本文“外部集成” | 仅是 AI 开发工作流记忆层，不是应用运行时依赖或当前状态权威 |
+
+### CLI/运营入口节点
+
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| `quantix init` | [已实现] | CLI 命令树; `src/cli/commands/mod.rs` | 初始化本地配置/数据库，不负责外部服务安装 |
+| `quantix menu` | [部分实现] | CLI 命令树; `menu --tui` | simple menu 已接线；TUI 和部分子菜单仍是占位 |
+| `quantix status` | [已实现] | CLI 命令树 | 系统状态/健康检查可用；深度诊断不在该节点内 |
+| `quantix data` | [部分实现] | CLI 命令树; `src/cli/commands/data.rs`; `src/cli/handlers/data_handler.rs` | 数据源管理和查询可用；默认 parquet 导出路径仍是占位，CSV 为当前可用导出 |
+| `quantix strategy` | [部分实现] | CLI 命令树; `src/cli/commands/strategy.rs`; `src/cli/handlers/strategy_handler/` | 当前主要闭环 `ma_cross`；`live` 不支持，daemon 约束严格 |
+| `quantix task` | [部分实现] | CLI 命令树; `src/tasks/` | Foundation P0 仅预置模板/前台执行；通用后台调度管理未开放 |
+| `quantix analyze` | [已实现] | CLI 命令树; `src/cli/commands/analysis.rs` | 指标/信号/报告路径可用；数据质量依赖上游 |
+| `quantix factor` | [部分实现] | `src/cli/commands/factor.rs`; `src/cli/handlers/factor.rs`; `src/factor/scoring.rs`; `tests/factor_pipeline_test.rs` | `list`、CSV 输入的 `compute`、最新截面等权 `score`、IC/IR `evaluate` 已有本地闭环；输入仍限已实现 loader/catalog，不能声明全量因子库或实时因子服务 |
+| `quantix backtest` | [部分实现] | CLI 命令树; `src/cli/commands/backtest.rs`; `src/cli/handlers/backtest_handler.rs` | 当前仅 `ma_cross` 单标的日线回测闭环 |
+| `quantix performance` | [已实现] | CLI 命令树; `src/cli/commands/performance.rs` | 绩效汇总/展示可用；不等于组合优化引擎 |
+| `quantix monitor` | [已实现] | CLI 命令树; `src/cli/commands/monitor.rs` | 监控命令可用；通知渠道闭环以 `notify` 节点为准 |
+| `quantix stop` | [已实现] | CLI 命令树; `src/cli/handlers/stop_handler.rs` | 止盈止损管理可用；实际执行仍依赖行情和执行目标 |
+| `quantix watchlist` | [已实现] | CLI 命令树; `src/cli/handlers/watchlist_handler.rs` | 自选池 CRUD/行情视图可用；行情新鲜度由数据源决定 |
+| `quantix market` | [已实现] | CLI 命令树; `src/cli/commands/market.rs` | 已接线市场分析入口；舆情和趋势子能力另按各节点边界 |
+| `quantix trade` | [已实现] | CLI 命令树; `src/cli/commands/trade.rs` | 模拟交易账户可用；不代表真实 live broker |
+| `quantix risk` | [部分实现] | CLI 命令树; `src/cli/commands/risk.rs` | 风控导入/同步/报告可用；分类标准和引用数据覆盖仍受限 |
+| `quantix execution` | [已实现] | CLI 命令树; `src/cli/handlers/execution_handler.rs` | 执行管理可用；live 必须走 `qmt_live` + bridge gate |
+| `quantix anomaly` | [已实现] | CLI 命令树; `src/cli/handlers/anomaly.rs` | 异常检测入口可用；检测范围限于已实现模型/特征 |
+| `quantix account` | [已实现] | CLI 命令树; `src/cli/commands/account.rs` | 本地账户/资产视图可用；不替代 broker 对账 |
+| `quantix algo` | [部分实现] | CLI 命令树; `src/cli/handlers/algo.rs` | TWAP/VWAP 可用；任务为单进程内存态，POV/Iceberg 不可用 |
+| `quantix ai` | [部分实现] | CLI 命令树; `src/cli/handlers/ai.rs` | 决策分析/问答入口可用；多轮 conversation 和技能包管理不可用 |
+| `quantix news` | [部分实现] | CLI 命令树; `src/cli/handlers/news.rs` | 已接线提供者可用；Brave/SearXNG 不可用 |
+| `quantix fundamental` | [部分实现] | CLI 命令树; `src/cli/handlers/fundamental.rs` | 估值/财报等部分可用；capital-flow/dividend 不是可用闭环 |
+| `quantix sentiment` | [部分实现] | CLI 命令树; `src/cli/handlers/sentiment.rs` | 入口和部分聚合存在；默认 provider 与趋势计算未闭环 |
+| `quantix notify` | [部分实现] | CLI 命令树; `src/cli/handlers/notify.rs` | 仅部分渠道真正接线；Telegram/Discord/Slack/Dingtalk/Pushplus/Email 需按实现确认 |
+| `quantix import` | [部分实现] | CLI 命令树; `src/cli/handlers/import.rs` | 智能导入入口存在；Excel 文件导入尚不可用 |
+
+### 已设计/待实现节点
+
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| 动态节假日补全 | [已设计/待实现] | 模块证据展开 `core/trading_calendar`; 注册表 `core/` 边界 | 当前不可用；交易日历只按已实现静态/会话判断能力使用 |
+| AKShare/TDX StockInfo/Kline 拉取 | [已设计/待实现] | 模块证据展开 `sources/akshare`, `sources/tdx`; 注册表 `sources/` 边界 | 当前不可用；可用行情路径以 `bridge_tdx`、`eastmoney`、`websocket` 等已实现证据为准 |
+| 缠论数据适配 | [已设计/待实现] | 模块证据展开 `sources/` 末尾登记 | 当前不可用；不应被数据源、策略或分析入口当作已接线输入 |
+| 多股票并行策略守护 | [已设计/待实现] | 模块证据展开 `strategy/daemon`; CLI `strategy daemon` 边界 | 当前 daemon 仍受单 enabled 股票和 bootstrap 约束 |
+| Paper query/cancel | [已设计/待实现] | 模块证据展开 `execution/paper`; 注册表 `execution/` 边界 | 当前不可用；paper 路径不要声明完整订单查询/撤单闭环 |
+| POV / Iceberg 算法执行 | [已设计/待实现] | 模块证据展开 `execution/algo`; CLI `quantix algo` 边界 | 当前不可用；算法交易只按 TWAP/VWAP 和单进程内存态理解 |
+| 多通知渠道 | [已设计/待实现] | 模块证据展开 `monitoring/notification`; CLI `quantix notify` 边界 | Telegram/Discord/Slack/Dingtalk/Pushplus/Email 不应被写成已接线能力 |
+| 舆情默认 provider 和趋势计算 | [已设计/待实现] | 模块证据展开 `market/sentiment`; CLI `quantix sentiment` 边界 | 当前不可用；已有舆情入口不等于趋势能力闭环 |
+| PostgreSQL / 分钟线同步来源 | [已设计/待实现] | 模块证据展开 `sync/etl`; 注册表 `sync/` 边界 | 当前不可用；同步能力不声明外部 PostgreSQL 或分钟线来源拉取 |
+| AI 多轮对话 | [已设计/待实现] | 模块证据展开 `ai/conversation`; CLI `quantix ai` 边界 | 当前不可用；AI 入口只登记决策分析/问答能力 |
+| AI 技能注册 | [已设计/待实现] | 模块证据展开 `ai/skill_registry`; 注册表 `ai/` 边界 | 当前不可用；不存在可用策略技能包管理 |
+| Brave / SearXNG 新闻提供者 | [已设计/待实现] | 模块证据展开 `news/providers`; 注册表 `news/` 边界 | 当前不可用；新闻搜索只按已实现 provider 使用 |
+| 资金流向 / 分红基本面 | [已设计/待实现] | 模块证据展开 `fundamental/capital_flow`, `fundamental/dividend`; CLI `fundamental capital-flow/dividend` 边界 | 当前不可用或仅开发中提示；不得写成已可查询数据 |
+| Excel 文件导入 | [已设计/待实现] | 模块证据展开 `import/excel_parser`; CLI `import from-excel` 边界 | 当前不可用；智能导入不包含 Excel 解析闭环 |
+
+## 模块/命令证据展开
+
+以下目录树保留源码和 CLI 证据的层次关系。树中的叶子条目不是独立状态注册表；可用性必须回到上方“状态注册表”读取。
 
 ```
 quantix-rust/
-├── 📦 核心层 (core/) [部分实现]
-│   ├── 配置管理 (config) [已实现]
-│   │   ├── QuantixConfig - 全局配置结构 [已实现]
-│   │   └── 运行时配置加载 [已实现]
-│   ├── 错误处理 (error) [已实现]
-│   │   ├── QuantixError - 统一错误类型 [已实现]
-│   │   └── Result<T> - 结果类型别名 [已实现]
-│   ├── 运行时环境 (runtime) [已实现]
-│   │   ├── CliRuntime - CLI 路径/服务/桥接总运行时 [已实现]
-│   │   ├── BridgeRuntimeSettings - Bridge 运行时配置 [已实现]
-│   │   │   ├── base_url / api_key [已实现]
-│   │   │   ├── bearer_token / contract_version [已实现]
-│   │   │   └── qmt poll interval / timeout [已实现]
-│   │   └── RuntimeContext - 异步运行时上下文 [已实现]
-│   ├── 交易日历 (trading_calendar) [部分实现]
-│   │   ├── TradingCalendar - A股交易日历 [部分实现]
-│   │   ├── 交易时段判断 (Morning/Afternoon/Auction/Closed) [已实现]
-│   │   ├── 节假日加载 (JSON配置) [已实现]
-│   │   ├── 调休工作日支持 [已实现]
-│   │   └── 按年份动态补充节假日 [待实现]
-│   └── 交易时间工具 (trading_time) [已实现]
-│       └── 交易时段计算 [已实现]
+├── 📦 核心层 (core/)
+│   ├── 配置管理 (config)
+│   │   ├── QuantixConfig - 全局配置结构
+│   │   └── 运行时配置加载
+│   ├── 错误处理 (error)
+│   │   ├── QuantixError - 统一错误类型
+│   │   └── Result<T> - 结果类型别名
+│   ├── 运行时环境 (runtime)
+│   │   ├── CliRuntime - CLI 路径/服务/桥接总运行时
+│   │   ├── BridgeRuntimeSettings - Bridge 运行时配置
+│   │   │   ├── base_url / api_key
+│   │   │   ├── bearer_token / contract_version
+│   │   │   └── qmt poll interval / timeout
+│   │   └── RuntimeContext - 异步运行时上下文
+│   ├── 交易日历 (trading_calendar)
+│   │   ├── TradingCalendar - A股交易日历
+│   │   ├── 交易时段判断 (Morning/Afternoon/Auction/Closed)
+│   │   ├── 节假日加载 (JSON配置)
+│   │   ├── 调休工作日支持
+│   │   └── 按年份动态补充节假日
+│   └── 交易时间工具 (trading_time)
+│       └── 交易时段计算
 │
-├── 📊 数据层 (data/) [已实现]
-│   ├── 数据获取 (fetcher) [已实现]
-│   │   └── Fetcher trait - 行情数据获取接口 [已实现]
-│   ├── 数据模型 (models) [已实现]
-│   │   └── OHLCV、K线等数据结构 [已实现]
-│   └── 数据存储 (storage) [已实现]
-│       └── Storage trait - K线存取接口 [已实现]
+├── 📊 数据层 (data/)
+│   ├── 数据获取 (fetcher)
+│   │   └── Fetcher trait - 行情数据获取接口
+│   ├── 数据模型 (models)
+│   │   └── OHLCV、K线等数据结构
+│   └── 数据存储 (storage)
+│       └── Storage trait - K线存取接口
 │
-├── 🔌 数据源 (sources/) [部分实现]
-│   ├── AKShare 数据源 (akshare) [部分实现]
-│   │   ├── Python AKShare 健康检查 [已实现]
-│   │   └── StockInfo / Kline 拉取 [未实现]
-│   ├── 通达信数据源 (tdx) [部分实现]
-│   │   ├── TDX TCP 实时行情批量采集 [已实现]
-│   │   └── StockInfo / Kline 拉取 [未实现]
-│   ├── 通达信文件读取 (tdx_file) [已实现]
-│   │   └── day/lc1/lc5 文件解析 [已实现]
-│   ├── Bridge TDX 数据源 (bridge_tdx) [已实现]
-│   │   └── 通过 Windows Bridge 获取 TDX 数据 [已实现]
-│   ├── 东方财富数据源 (eastmoney) [已实现]
-│   │   └── 东财 API 行情获取 [已实现]
-│   ├── WebSocket 行情 (websocket) [已实现]
-│   │   └── 实时行情推送 [已实现]
-│   ├── 行情采集器 [已实现]
-│   │   ├── QuoteCollector - 通用行情采集 [已实现]
-│   │   ├── AuctionCollector - 竞价数据采集 [已实现]
-│   │   └── KlineAggregator - K线聚合 [已实现]
-│   └── 缠论数据适配 [待实现]
+├── 🔌 数据源 (sources/)
+│   ├── AKShare 数据源 (akshare)
+│   │   ├── Python AKShare 健康检查
+│   │   └── StockInfo / Kline 拉取
+│   ├── 通达信数据源 (tdx)
+│   │   ├── TDX TCP 实时行情批量采集
+│   │   └── StockInfo / Kline 拉取
+│   ├── 通达信文件读取 (tdx_file)
+│   │   └── day/lc1/lc5 文件解析
+│   ├── Bridge TDX 数据源 (bridge_tdx)
+│   │   └── 通过 Windows Bridge 获取 TDX 数据
+│   ├── 东方财富数据源 (eastmoney)
+│   │   └── 东财 API 行情获取
+│   ├── WebSocket 行情 (websocket)
+│   │   └── 实时行情推送
+│   ├── 行情采集器
+│   │   ├── QuoteCollector - 通用行情采集
+│   │   ├── AuctionCollector - 竞价数据采集
+│   │   └── KlineAggregator - K线聚合
+│   └── 缠论数据适配
 │
-├── 📈 策略层 (strategy/) [部分实现]
-│   ├── 策略定义 (trait_def) [已实现]
-│   │   ├── Strategy trait - 策略接口 [已实现]
-│   │   └── Signal 类型定义 [已实现]
-│   ├── 内置策略 (strategies/) [已实现]
-│   │   ├── 突破策略 (breakout) [已实现]
-│   │   ├── 网格策略 (grid) [已实现]
-│   │   ├── 均线交叉 (ma_cross) [已实现]
-│   │   ├── 均值回归 (mean_reversion) [已实现]
-│   │   └── 动量策略 (momentum) [已实现]
-│   ├── 策略注册 (registry) [已实现]
-│   │   └── 策略注册表管理 [已实现]
-│   ├── 策略运行时 (runtime) [已实现]
-│   │   ├── 策略实例管理 [已实现]
-│   │   └── 信号生成与存储 [已实现]
-│   ├── 策略守护进程 (daemon) [部分实现]
-│   │   ├── 定时策略执行（当前要求恰好一个 enabled 股票） [部分实现]
-│   │   ├── `bootstrap_policy=latest_only` [已实现]
-│   │   ├── 自动审批信号联动 execution config [已实现]
-│   │   └── 多股票并行守护 / 更宽松配置约束 [未实现]
-│   └── 策略服务 (systemd) [已实现]
-│       ├── 服务安装/卸载 [已实现]
-│       ├── 启动/停止 [已实现]
-│       └── 开机自启 [已实现]
+├── 📈 策略层 (strategy/)
+│   ├── 策略定义 (trait_def)
+│   │   ├── Strategy trait - 策略接口
+│   │   └── Signal 类型定义
+│   ├── 内置策略 (strategies/)
+│   │   ├── 突破策略 (breakout)
+│   │   ├── 网格策略 (grid)
+│   │   ├── 均线交叉 (ma_cross)
+│   │   ├── 均值回归 (mean_reversion)
+│   │   └── 动量策略 (momentum)
+│   ├── 策略注册 (registry)
+│   │   └── 策略注册表管理
+│   ├── 策略运行时 (runtime)
+│   │   ├── 策略实例管理
+│   │   └── 信号生成与存储
+│   ├── 策略守护进程 (daemon)
+│   │   ├── 定时策略执行（当前要求恰好一个 enabled 股票）
+│   │   ├── `bootstrap_policy=latest_only`
+│   │   ├── 自动审批信号联动 execution config
+│   │   └── 多股票并行守护 / 更宽松配置约束
+│   └── 策略服务 (systemd)
+│       ├── 服务安装/卸载
+│       ├── 启动/停止
+│       └── 开机自启
 │
-├── ⚡ 执行层 (execution/) [部分实现]
-│   ├── 执行核心 (kernel) [已实现]
-│   │   └── ExecutionKernel - 执行决策核心 [已实现]
-│   ├── 执行请求 (models) [已实现]
-│   │   ├── ExecutionRequest - 执行请求结构 [已实现]
-│   │   └── FrozenExecutionSnapshot - 冻结快照 [已实现]
-│   ├── Paper 交易 (paper) [部分实现]
-│   │   ├── buy / sell 即时撮合 [已实现]
-│   │   └── query_order / cancel_order [未实现]
-│   ├── Mock Live 模式 (mock_live) [已实现]
-│   │   └── 伪实盘模式（手动确认） [已实现]
-│   ├── 运行时存储 (runtime_store) [已实现]
-│   │   └── SQLite 运行状态持久化 [已实现]
-│   ├── 请求诊断 (request_diagnostics) [已实现]
-│   │   ├── execution_diagnostics 结构化负载 [已实现]
-│   │   └── `qmt_live` gate / bridge / runtime 失败分类 [已实现]
-│   ├── 订单对账 (reconciliation) [已实现]
-│   │   ├── OpenOrderScanner - 未完成订单扫描 [已实现]
-│   │   ├── ReconciliationService - 对账服务 [已实现]
-│   │   ├── Unknown 状态自动恢复 [已实现]
-│   │   └── 超时订单自动标记失败 [已实现]
-│   ├── QMT Bridge (qmt_bridge) [已实现]
-│   │   └── QMT 预览请求 [已实现]
-│   ├── QMT Live 门控 (qmt_live_gate) [已实现]
-│   │   └── 能力/模式校验，只允许 guarded `qmt_live` [已实现]
-│   ├── QMT 任务提交服务 (qmt_task_submit_service) [已实现]
-│   │   ├── `/api/v1/task/execute` receipt 提交 [已实现]
-│   │   ├── `/api/v1/task/result/{task_id}` 查询/轮询 [已实现]
-│   │   ├── `client_order_id` / `local_submission_id` identity 校验 [已实现]
-│   │   └── `task_id -> external_order_id` 撤单前 broker identity 解析 [已实现]
-│   ├── QMT Live 适配器 (qmt_live_adapter) [已实现]
-│   │   ├── submit_order -> `PendingSubmit` task receipt [已实现]
-│   │   ├── query_order -> pending / accepted / rejected / filled 映射 [已实现]
-│   │   └── cancel_order -> `qmt_live` gate + `task_id -> external_order_id` + 兼容取消端点 [已实现]
-│   ├── 算法交易执行器 (algo) [部分实现]
-│   │   ├── AlgoParams / AlgoContext / AlgoState [已实现]
-│   │   ├── TWAP 执行器 [已实现]
-│   │   ├── VWAP 执行器 [已实现]
-│   │   └── POV / Iceberg [待实现]
-│   ├── 执行适配器 (adapter) [已实现]
-│   │   └── 多 broker 适配接口 [已实现]
-│   ├── 执行守护进程 (daemon) [已实现]
-│   │   ├── 执行服务后台运行 [已实现]
-│   │   └── 成功/失败路径都写出结构化执行诊断 [已实现]
-│   └── 执行配置 (config) [已实现]
-│       └── 执行参数配置 [已实现]
+├── ⚡ 执行层 (execution/)
+│   ├── 执行核心 (kernel)
+│   │   └── ExecutionKernel - 执行决策核心
+│   ├── 执行请求 (models)
+│   │   ├── ExecutionRequest - 执行请求结构
+│   │   └── FrozenExecutionSnapshot - 冻结快照
+│   ├── Paper 交易 (paper)
+│   │   ├── buy / sell 即时撮合
+│   │   └── query_order / cancel_order
+│   ├── Mock Live 模式 (mock_live)
+│   │   └── 伪实盘模式（手动确认）
+│   ├── 运行时存储 (runtime_store)
+│   │   └── SQLite 运行状态持久化
+│   ├── 请求诊断 (request_diagnostics)
+│   │   ├── execution_diagnostics 结构化负载
+│   │   └── `qmt_live` gate / bridge / runtime 失败分类
+│   ├── 订单对账 (reconciliation)
+│   │   ├── OpenOrderScanner - 未完成订单扫描
+│   │   ├── ReconciliationService - 对账服务
+│   │   ├── Unknown 状态自动恢复
+│   │   └── 超时订单自动标记失败
+│   ├── QMT Bridge (qmt_bridge)
+│   │   └── QMT 预览请求
+│   ├── QMT Live 门控 (qmt_live_gate)
+│   │   └── 能力/模式校验，只允许 guarded `qmt_live`
+│   ├── QMT 任务提交服务 (qmt_task_submit_service)
+│   │   ├── `/api/v1/task/execute` receipt 提交
+│   │   ├── `/api/v1/task/result/{task_id}` 查询/轮询
+│   │   ├── `client_order_id` / `local_submission_id` identity 校验
+│   │   └── `task_id -> external_order_id` 撤单前 broker identity 解析
+│   ├── QMT Live 适配器 (qmt_live_adapter)
+│   │   ├── submit_order -> `PendingSubmit` task receipt
+│   │   ├── query_order -> pending / accepted / rejected / filled 映射
+│   │   └── cancel_order -> `qmt_live` gate + `task_id -> external_order_id` + 兼容取消端点
+│   ├── 算法交易执行器 (algo)
+│   │   ├── AlgoParams / AlgoContext / AlgoState
+│   │   ├── TWAP 执行器
+│   │   ├── VWAP 执行器
+│   │   └── POV / Iceberg
+│   ├── 执行适配器 (adapter)
+│   │   └── 多 broker 适配接口
+│   ├── 执行守护进程 (daemon)
+│   │   ├── 执行服务后台运行
+│   │   └── 成功/失败路径都写出结构化执行诊断
+│   └── 执行配置 (config)
+│       └── 执行参数配置
 │
-├── 👥 账户管理 (account/) [已实现]
-│   ├── 账户模型 (models) [已实现]
-│   │   ├── AccountConfig - 账户配置 [已实现]
-│   │   ├── AccountType - 账户类型 (Paper/Live/MockLive) [已实现]
-│   │   ├── AccountGroup - 账户组 [已实现]
-│   │   ├── AllocationStrategy - 分配策略 [已实现]
-│   │   │   ├── Equal - 平均分配 [已实现]
-│   │   │   ├── Proportional - 按资金比例 [已实现]
-│   │   │   ├── Weighted - 自定义权重 [已实现]
-│   │   │   └── PrimaryFirst - 主账户优先 [已实现]
-│   │   ├── OrderSplitRequest - 订单拆分请求 [已实现]
-│   │   ├── SplitTarget - 拆分目标 (Single/Group) [已实现]
-│   │   └── OrderSplitResult - 拆分结果 [已实现]
-│   ├── 账户注册表 (registry) [已实现]
-│   │   ├── AccountRegistry - 账户注册表 [已实现]
-│   │   ├── 账户 CRUD 操作 [已实现]
-│   │   ├── 账户组 CRUD 操作 [已实现]
-│   │   └── 默认账户管理 [已实现]
-│   ├── 智能路由 (router) [已实现]
-│   │   ├── AccountRouter - 账户路由器 [已实现]
-│   │   ├── 订单拆分逻辑 [已实现]
-│   │   └── 多账户分配 [已实现]
-│   └── 账户存储 (storage) [已实现]
-│       ├── JsonAccountRegistryStore - JSON存储 [已实现]
-│       └── ~/.quantix/accounts/registry.json [已实现]
+├── 👥 账户管理 (account/)
+│   ├── 账户模型 (models)
+│   │   ├── AccountConfig - 账户配置
+│   │   ├── AccountType - 账户类型 (Paper/Live/MockLive)
+│   │   ├── AccountGroup - 账户组
+│   │   ├── AllocationStrategy - 分配策略
+│   │   │   ├── Equal - 平均分配
+│   │   │   ├── Proportional - 按资金比例
+│   │   │   ├── Weighted - 自定义权重
+│   │   │   └── PrimaryFirst - 主账户优先
+│   │   ├── OrderSplitRequest - 订单拆分请求
+│   │   ├── SplitTarget - 拆分目标 (Single/Group)
+│   │   └── OrderSplitResult - 拆分结果
+│   ├── 账户注册表 (registry)
+│   │   ├── AccountRegistry - 账户注册表
+│   │   ├── 账户 CRUD 操作
+│   │   ├── 账户组 CRUD 操作
+│   │   └── 默认账户管理
+│   ├── 智能路由 (router)
+│   │   ├── AccountRouter - 账户路由器
+│   │   ├── 订单拆分逻辑
+│   │   └── 多账户分配
+│   └── 账户存储 (storage)
+│       ├── JsonAccountRegistryStore - JSON存储
+│       └── ~/.quantix/accounts/registry.json
 │
-├── 🛡️ 风控层 (risk/) [已实现]
-│   ├── 风控模型 (models) [已实现]
-│   │   ├── RiskRule - 风控规则 [已实现]
-│   │   ├── RiskRuleType - 规则类型 [已实现]
-│   │   │   ├── PositionLimit - 持仓限制 [已实现]
-│   │   │   ├── DailyLossLimit - 日内亏损限制 [已实现]
-│   │   │   ├── VolatilityLimit - 波动率限制 [已实现]
-│   │   │   ├── IndustryLimit - 行业集中度限制 [已实现]
-│   │   │   └── AutoReduce - 自动减仓 [已实现]
-│   │   ├── RiskState - 风控状态 [已实现]
-│   │   └── RiskAccountSnapshot - 账户快照 [已实现]
-│   ├── 风控服务 (service) [已实现]
-│   │   ├── RiskService - 风控服务核心 [已实现]
-│   │   ├── 买入前风控检查 [已实现]
-│   │   ├── 行业集中度检查 [已实现]
-│   │   └── 自动减仓触发检测 [已实现]
-│   ├── 风控存储 (storage) [已实现]
-│   │   └── SQLite 风控数据持久化 [已实现]
-│   ├── 实盘流水导入 (importer) [已实现]
-│   │   └── 标准化流水导入 [已实现]
-│   ├── 导入存储 (import_store) [已实现]
-│   │   └── 导入数据缓存 [已实现]
-│   ├── 账户重建 (rebuild) [已实现]
-│   │   └── 实盘镜像账户重建 [已实现]
-│   └── 波动率计算 (volatility) [已实现]
-│       └── 历史波动率计算 [已实现]
+├── 🛡️ 风控层 (risk/)
+│   ├── 风控模型 (models)
+│   │   ├── RiskRule - 风控规则
+│   │   ├── RiskRuleType - 规则类型
+│   │   │   ├── PositionLimit - 持仓限制
+│   │   │   ├── DailyLossLimit - 日内亏损限制
+│   │   │   ├── VolatilityLimit - 波动率限制
+│   │   │   ├── IndustryLimit - 行业集中度限制
+│   │   │   └── AutoReduce - 自动减仓
+│   │   ├── RiskState - 风控状态
+│   │   └── RiskAccountSnapshot - 账户快照
+│   ├── 风控服务 (service)
+│   │   ├── RiskService - 风控服务核心
+│   │   ├── 买入前风控检查
+│   │   ├── 行业集中度检查
+│   │   └── 自动减仓触发检测
+│   ├── 风控存储 (storage)
+│   │   └── SQLite 风控数据持久化
+│   ├── 实盘流水导入 (importer)
+│   │   └── 标准化流水导入
+│   ├── 导入存储 (import_store)
+│   │   └── 导入数据缓存
+│   ├── 账户重建 (rebuild)
+│   │   └── 实盘镜像账户重建
+│   └── 波动率计算 (volatility)
+│       └── 历史波动率计算
 │
-├── 📉 监控层 (monitoring/) [部分实现]
-│   ├── 告警系统 (alert) [已实现]
-│   │   ├── AlertManager - 告警管理器 [已实现]
-│   │   ├── AlertThreshold - 阈值配置 [已实现]
-│   │   ├── AlertLevel (Info/Warning/Error/Critical) [已实现]
-│   │   └── AlertType (Signal/Position/Performance/Risk/System) [已实现]
-│   ├── 健康检查 (health) [已实现]
-│   │   ├── HealthRegistry - 健康检查注册表 [已实现]
-│   │   ├── ComponentHealth - 组件健康状态 [已实现]
-│   │   └── SystemHealth - 系统整体健康报告 [已实现]
-│   ├── 指标收集 (metrics) [已实现]
-│   │   ├── MetricsCollector - 指标收集器 [已实现]
-│   │   ├── Counter/Gauge/Histogram 类型 [已实现]
-│   │   └── MetricsExporter - 指标导出 (Prometheus/JSON) [已实现]
-│   ├── 通知系统 (notification) [部分实现]
-│   │   ├── NotificationService - 通知服务 [已实现]
-│   │   ├── DesktopSender - 桌面通知 (Linux/Windows) [已实现]
-│   │   ├── WebhookSender - HTTP POST 通知 [已实现]
-│   │   ├── LogSender - 日志文件通知 [已实现]
-│   │   ├── WechatWorkSender - 企业微信通知 [已实现]
-│   │   ├── FeishuSender - 飞书通知 [已实现]
-│   │   ├── Telegram / Discord / Slack / Dingtalk / Pushplus [待实现]
-│   │   ├── Email 渠道 [待实现]
-│   │   └── QuietHours - 静默时段配置 [已实现]
-│   ├── 信号监控 (signal_monitor) [已实现]
-│   │   └── 策略信号实时追踪 [已实现]
-│   ├── 持仓监控 (position_monitor) [已实现]
-│   │   ├── PositionMonitor - 持仓状态监控 [已实现]
-│   │   └── PositionSnapshot - 持仓快照 [已实现]
-│   └── 性能监控 (performance_monitor) [已实现]
-│       ├── PerformanceMonitor - 实时性能监控 [已实现]
-│       └── RealtimeMetrics - 实时指标计算 [已实现]
+├── 📉 监控层 (monitoring/)
+│   ├── 告警系统 (alert)
+│   │   ├── AlertManager - 告警管理器
+│   │   ├── AlertThreshold - 阈值配置
+│   │   ├── AlertLevel (Info/Warning/Error/Critical)
+│   │   └── AlertType (Signal/Position/Performance/Risk/System)
+│   ├── 健康检查 (health)
+│   │   ├── HealthRegistry - 健康检查注册表
+│   │   ├── ComponentHealth - 组件健康状态
+│   │   └── SystemHealth - 系统整体健康报告
+│   ├── 指标收集 (metrics)
+│   │   ├── MetricsCollector - 指标收集器
+│   │   ├── Counter/Gauge/Histogram 类型
+│   │   └── MetricsExporter - 指标导出 (Prometheus/JSON)
+│   ├── 通知系统 (notification)
+│   │   ├── NotificationService - 通知服务
+│   │   ├── DesktopSender - 桌面通知 (Linux/Windows)
+│   │   ├── WebhookSender - HTTP POST 通知
+│   │   ├── LogSender - 日志文件通知
+│   │   ├── WechatWorkSender - 企业微信通知
+│   │   ├── FeishuSender - 飞书通知
+│   │   ├── Telegram / Discord / Slack / Dingtalk / Pushplus
+│   │   ├── Email 渠道
+│   │   └── QuietHours - 静默时段配置
+│   ├── 信号监控 (signal_monitor)
+│   │   └── 策略信号实时追踪
+│   ├── 持仓监控 (position_monitor)
+│   │   ├── PositionMonitor - 持仓状态监控
+│   │   └── PositionSnapshot - 持仓快照
+│   └── 性能监控 (performance_monitor)
+│       ├── PerformanceMonitor - 实时性能监控
+│       └── RealtimeMetrics - 实时指标计算
 │
-├── 📋 自选池 (watchlist/) [已实现]
-│   ├── 自选模型 (models) [已实现]
-│   │   ├── WatchlistEntry - 自选条目 [已实现]
-│   │   └── WatchlistHistoryEvent - 历史事件 [已实现]
-│   ├── 行情解析 (resolver) [已实现]
-│   │   ├── WatchlistResolver - 行情数据解析 [已实现]
-│   │   ├── TdxWatchlistQuoteLookup - TDX行情查询 [已实现]
-│   │   ├── BridgeTdxWatchlistQuoteLookup - Bridge行情查询 [已实现]
-│   │   └── PostgresWatchlistNameLookup - 名称查询 [已实现]
-│   ├── 自选服务 (service) [已实现]
-│   │   └── WatchlistService - 自选池管理 [已实现]
-│   └── 自选存储 (storage) [已实现]
-│       └── WatchlistStorage - 持久化存储 [已实现]
+├── 📋 自选池 (watchlist/)
+│   ├── 自选模型 (models)
+│   │   ├── WatchlistEntry - 自选条目
+│   │   └── WatchlistHistoryEvent - 历史事件
+│   ├── 行情解析 (resolver)
+│   │   ├── WatchlistResolver - 行情数据解析
+│   │   ├── TdxWatchlistQuoteLookup - TDX行情查询
+│   │   ├── BridgeTdxWatchlistQuoteLookup - Bridge行情查询
+│   │   └── PostgresWatchlistNameLookup - 名称查询
+│   ├── 自选服务 (service)
+│   │   └── WatchlistService - 自选池管理
+│   └── 自选存储 (storage)
+│       └── WatchlistStorage - 持久化存储
 │
-├── 🛑 止盈止损 (stop/) [已实现]
-│   ├── 止损模型 (models) [已实现]
-│   │   ├── StopRule - 止损规则 [已实现]
-│   │   ├── StopTriggerKind - 触发类型 [已实现]
-│   │   │   ├── Fixed - 固定价格 [已实现]
-│   │   │   ├── Percentage - 百分比 [已实现]
-│   │   │   └── Trailing - 跟踪止损 [已实现]
-│   │   └── StopHistoryEvent - 历史事件 [已实现]
-│   ├── 止损服务 (service) [已实现]
-│   │   ├── StopService - 止损服务 [已实现]
-│   │   └── 实时止损评估 [已实现]
-│   └── 止损存储 (storage) [已实现]
-│       └── SqliteStopRuleStore - SQLite存储 [已实现]
+├── 🛑 止盈止损 (stop/)
+│   ├── 止损模型 (models)
+│   │   ├── StopRule - 止损规则
+│   │   ├── StopTriggerKind - 触发类型
+│   │   │   ├── Fixed - 固定价格
+│   │   │   ├── Percentage - 百分比
+│   │   │   └── Trailing - 跟踪止损
+│   │   └── StopHistoryEvent - 历史事件
+│   ├── 止损服务 (service)
+│   │   ├── StopService - 止损服务
+│   │   └── 实时止损评估
+│   └── 止损存储 (storage)
+│       └── SqliteStopRuleStore - SQLite存储
 │
-├── 💰 模拟交易 (trade/) [已实现]
-│   ├── 交易模型 (models) [已实现]
-│   │   ├── PaperTradeAccount - 模拟账户 [已实现]
-│   │   ├── TradeRecord - 交易记录 [已实现]
-│   │   ├── TradePosition - 持仓 [已实现]
-│   │   └── TradeSide - 买卖方向 [已实现]
-│   ├── 费用计算 (fees) [已实现]
-│   │   ├── FeeConfig - 费用配置 [已实现]
-│   │   ├── FeeBreakdown - 费用明细 [已实现]
-│   │   └── calculate_fee_breakdown - 费用计算 [已实现]
-│   ├── 交易服务 (service) [已实现]
-│   │   ├── TradeService - 交易服务 [已实现]
-│   │   └── PaperTradeStore - 模拟账户存储 [已实现]
-│   ├── 报告服务 (reporting) [已实现]
-│   │   └── TradeReportingService - 交易报告 [已实现]
-│   └── 交易存储 (storage) [已实现]
-│       └── JsonPaperTradeStore - JSON存储 [已实现]
+├── 💰 模拟交易 (trade/)
+│   ├── 交易模型 (models)
+│   │   ├── PaperTradeAccount - 模拟账户
+│   │   ├── TradeRecord - 交易记录
+│   │   ├── TradePosition - 持仓
+│   │   └── TradeSide - 买卖方向
+│   ├── 费用计算 (fees)
+│   │   ├── FeeConfig - 费用配置
+│   │   ├── FeeBreakdown - 费用明细
+│   │   └── calculate_fee_breakdown - 费用计算
+│   ├── 交易服务 (service)
+│   │   ├── TradeService - 交易服务
+│   │   └── PaperTradeStore - 模拟账户存储
+│   ├── 报告服务 (reporting)
+│   │   └── TradeReportingService - 交易报告
+│   └── 交易存储 (storage)
+│       └── JsonPaperTradeStore - JSON存储
 │
-├── 🔍 市场分析 (market/) [部分实现]
-│   ├── 市场模型 (models) [已实现]
-│   │   ├── MarketOverview - 市场概览 [已实现]
-│   │   ├── BoardRankRow - 板块排名 [已实现]
-│   │   ├── LeaderRow - 龙头股 [已实现]
-│   │   ├── MarketSentimentSnapshot - 市场情绪 [已实现]
-│   │   └── NorthFlowSnapshot - 北向资金 [已实现]
-│   └── 市场服务 (service) [已实现]
-│       ├── MarketService - 市场服务 [已实现]
-│       ├── MarketDataReader - 数据读取 [已实现]
-│       ├── 行业板块分析 [已实现]
-│       ├── 概念板块分析 [已实现]
-│       ├── 龙头股识别 [已实现]
-│       └── 北向资金分析 [已实现]
-│   ├── 强度分析 (strength) [已实现]
-│   │   ├── MarketAnalysisFoundation - 市场基础画像 [已实现]
-│   │   ├── MarketStrengthReport - 强弱板块报告 [已实现]
-│   │   └── foundation / strength-stocks 相关分析 [已实现]
-│   └── 舆情聚合 (sentiment) [部分实现]
-│       ├── SentimentProvider trait [已实现]
-│       ├── SentimentAggregator - 无provider时空结果聚合 [部分实现]
-│       ├── SentimentData / SocialMention / SentimentScore / SentimentHistoryPoint [已实现]
-│       ├── 默认provider接入 [未实现]
-│       └── 趋势计算 [待实现]
+├── 🔍 市场分析 (market/)
+│   ├── 市场模型 (models)
+│   │   ├── MarketOverview - 市场概览
+│   │   ├── BoardRankRow - 板块排名
+│   │   ├── LeaderRow - 龙头股
+│   │   ├── MarketSentimentSnapshot - 市场情绪
+│   │   └── NorthFlowSnapshot - 北向资金
+│   └── 市场服务 (service)
+│       ├── MarketService - 市场服务
+│       ├── MarketDataReader - 数据读取
+│       ├── 行业板块分析
+│       ├── 概念板块分析
+│       ├── 龙头股识别
+│       └── 北向资金分析
+│   ├── 强度分析 (strength)
+│   │   ├── MarketAnalysisFoundation - 市场基础画像
+│   │   ├── MarketStrengthReport - 强弱板块报告
+│   │   └── foundation / strength-stocks 相关分析
+│   └── 舆情聚合 (sentiment)
+│       ├── SentimentProvider trait
+│       ├── SentimentAggregator - 无provider时空结果聚合
+│       ├── SentimentData / SocialMention / SentimentScore / SentimentHistoryPoint
+│       ├── 默认provider接入
+│       └── 趋势计算
 │
-├── 🎯 选股器 (screener/) [已实现]
-│   ├── 选股模型 (models) [已实现]
-│   │   ├── ScreenRow - 筛选结果 [已实现]
-│   │   ├── ScreenRunOptions - 运行选项 [已实现]
-│   │   ├── PresetInvocation - 预设调用 [已实现]
-│   │   └── ScreenUniverse - 股票池 [已实现]
-│   ├── 条件解析 (parser) [已实现]
-│   │   └── parse_preset_invocation - 条件解析 [已实现]
-│   ├── 条件评估 (evaluator) [已实现]
-│   │   ├── evaluate_preset - 条件评估 [已实现]
-│   │   └── required_lookback - 回溯计算 [已实现]
-│   └── 选股服务 (service) [已实现]
-│       ├── ScreenerService - 选股服务 [已实现]
-│       └── DailyKlineLoader - 日线加载 [已实现]
+├── 🎯 选股器 (screener/)
+│   ├── 选股模型 (models)
+│   │   ├── ScreenRow - 筛选结果
+│   │   ├── ScreenRunOptions - 运行选项
+│   │   ├── PresetInvocation - 预设调用
+│   │   └── ScreenUniverse - 股票池
+│   ├── 条件解析 (parser)
+│   │   └── parse_preset_invocation - 条件解析
+│   ├── 条件评估 (evaluator)
+│   │   ├── evaluate_preset - 条件评估
+│   │   └── required_lookback - 回溯计算
+│   └── 选股服务 (service)
+│       ├── ScreenerService - 选股服务
+│       └── DailyKlineLoader - 日线加载
 │
-├── 📐 技术分析 (analysis/) [已实现]
-│   ├── 技术指标 (indicators) [已实现]
-│   │   ├── MA/EMA/SMA 均线 [已实现]
-│   │   ├── MACD [已实现]
-│   │   ├── RSI [已实现]
-│   │   ├── BOLL 布林带 [已实现]
-│   │   ├── KDJ [已实现]
-│   │   └── 更多指标... [已实现]
-│   ├── K线形态 (candle_patterns) [已实现]
-│   │   └── K线形态识别 [已实现]
-│   ├── 回测引擎 (backtest) [已实现]
-│   │   ├── BacktestEngine - 回测引擎 [已实现]
-│   │   └── BacktestResult - 回测结果 [已实现]
-│   ├── 竞价分析 (auction) [已实现]
-│   │   ├── AuctionAnalyzer - 竞价分析器 [已实现]
-│   │   ├── SectorStats - 板块统计 [已实现]
-│   │   └── StrengthLevel - 强度等级 [已实现]
-│   ├── 性能计算 (performance) [已实现]
-│   │   ├── PerformanceCalculator - 性能计算 [已实现]
-│   │   └── PerformanceReport - 性能报告 [已实现]
-│   ├── 投资组合 (portfolio) [已实现]
-│   │   ├── Portfolio - 投资组合 [已实现]
-│   │   ├── Position - 持仓 [已实现]
-│   │   └── Order - 订单 [已实现]
-│   └── Polars 适配 (polars_adapter) [已实现]
-│       ├── PolarsCalculator - Polars计算 [已实现]
-│       └── 批量K线数据处理 [已实现]
+├── 📐 技术分析 (analysis/)
+│   ├── 技术指标 (indicators)
+│   │   ├── MA/EMA/SMA 均线
+│   │   ├── MACD
+│   │   ├── RSI
+│   │   ├── BOLL 布林带
+│   │   ├── KDJ
+│   │   └── 更多指标...
+│   ├── K线形态 (candle_patterns)
+│   │   └── K线形态识别
+│   ├── 回测引擎 (backtest)
+│   │   ├── BacktestEngine - 回测引擎
+│   │   └── BacktestResult - 回测结果
+│   ├── 竞价分析 (auction)
+│   │   ├── AuctionAnalyzer - 竞价分析器
+│   │   ├── SectorStats - 板块统计
+│   │   └── StrengthLevel - 强度等级
+│   ├── 性能计算 (performance)
+│   │   ├── PerformanceCalculator - 性能计算
+│   │   └── PerformanceReport - 性能报告
+│   ├── 投资组合 (portfolio)
+│   │   ├── Portfolio - 投资组合
+│   │   ├── Position - 持仓
+│   │   └── Order - 订单
+│   └── Polars 适配 (polars_adapter)
+│       ├── PolarsCalculator - Polars计算
+│       └── 批量K线数据处理
 │
-├── 🧮 因子研究 (factor/) [部分实现]
-│   ├── FactorDataset - Polars long-form 因子面板 [已实现]
-│   ├── FactorDataLoader trait - 异步数据加载边界 [已实现]
-│   ├── CsvFactorDataLoader - 本地CSV首切片加载器 [已实现]
-│   ├── 因子算子 (operators) [部分实现]
-│   │   ├── cs_rank - 按date横截面rank [已实现]
-│   │   ├── ts_delay - 按symbol时间序列延迟 [已实现]
-│   │   └── ts_delta - 按symbol时间序列差分 [已实现]
-│   ├── 因子目录 (catalog) [部分实现]
-│   │   ├── rank_close [已实现]
-│   │   ├── delay_close_1 [已实现]
-│   │   └── delta_close_1 [已实现]
-│   ├── 因子检查 (check) [部分实现]
-│   │   ├── required columns / dtype / uniqueness [已实现]
-│   │   └── basic no-lookahead structure check [已实现]
-│   ├── 因子导出 (export) [部分实现]
-│   │   ├── CSV字符串导出 [已实现]
-│   │   ├── JSON摘要导出 [已实现]
-│   │   └── Parquet文件导出 [已实现]
-│   ├── CLI (quantix factor) [部分实现]
-│   │   ├── factor list [已实现]
-│   │   ├── factor compute --input CSV [已实现]
-│   │   └── factor evaluate --input CSV --format table/json/csv/parquet [已实现]
-│   ├── Alpha101 [部分实现]
-│   │   └── alpha101_002 / 003 / 005 / 006 / 012 [已实现]
-│   ├── Alpha191 [部分实现]
-│   │   ├── alpha191_101 / 102 / 103 [已实现]
-│   │   ├── alpha191_104 / 105 / 106 / 107 / 108 / 109 / 110 [已实现]
-│   │   └── alpha191_111 / 112 / 113 / 114 / 115 / 116 / 117 / 118 / 119 / 120 [已实现]
-│   ├── IC/IR / correlation / neutralization [部分实现]
-│   │   ├── IC/IR evaluation [已实现]
-│   │   ├── factor value correlation [已实现]
-│   │   └── neutralization - 横截面OLS残差中性化 [已实现]
-│   └── layered factor backtest - 等权分层收益 / long-short [已实现]
+├── 🧮 因子研究 (factor/)
+│   ├── FactorDataset - Polars long-form 因子面板
+│   ├── FactorDataLoader trait - 异步数据加载边界
+│   ├── CsvFactorDataLoader - 本地CSV首切片加载器
+│   ├── 因子算子 (operators)
+│   │   ├── cs_rank - 按date横截面rank
+│   │   ├── ts_delay - 按symbol时间序列延迟
+│   │   ├── ts_delta - 按symbol时间序列差分
+│   │   └── ts_rank - 按symbol时间序列窗口rank
+│   ├── 因子目录 (catalog)
+│   │   ├── rank_close
+│   │   ├── delay_close_1
+│   │   ├── delta_close_1
+│   │   └── ts_rank_close_5
+│   ├── 因子检查 (check)
+│   │   ├── required columns / dtype / uniqueness
+│   │   └── basic no-lookahead structure check
+│   ├── 因子导出 (export)
+│   │   ├── CSV字符串导出
+│   │   ├── JSON摘要导出
+│   │   └── Parquet文件导出
+│   ├── 因子评分 (scoring)
+│   │   ├── 最新因子日期截面等权评分
+│   │   └── score CSV/JSON/Parquet 导出
+│   ├── CLI (quantix factor)
+│   │   ├── factor list
+│   │   ├── factor compute --input CSV
+│   │   ├── factor score --input CSV --format table/json/csv/parquet
+│   │   └── factor evaluate --input CSV --format table/json/csv/parquet
+│   ├── Alpha101
+│   │   └── alpha101_002 / 003 / 005 / 006 / 012
+│   ├── Alpha191
+│   │   ├── alpha191_101 / 102 / 103
+│   │   ├── alpha191_104 / 105 / 106 / 107 / 108 / 109 / 110
+│   │   └── alpha191_111 / 112 / 113 / 114 / 115 / 116 / 117 / 118 / 119 / 120
+│   ├── IC/IR / correlation / neutralization
+│   │   ├── IC/IR evaluation
+│   │   ├── factor value correlation
+│   │   └── neutralization - 横截面OLS残差中性化
+│   └── layered factor backtest - 等权分层收益 / long-short
 │
-├── 🎲 异常检测 (anomaly/) [已实现]
-│   ├── Isolation Forest (forest) [已实现]
-│   │   └── IsolationForest - 隔离森林算法 [已实现]
-│   ├── 统计函数 (statistics) [已实现]
-│   │   └── 平均路径长度计算 [已实现]
-│   ├── 特征提取 (features) [已实现]
-│   │   ├── FeatureExtractor - 特征提取器 [已实现]
-│   │   ├── volume returns - 成交量回报 [已实现]
-│   │   ├── log returns - 对数回报 [已实现]
-│   │   └── EOM 指标 [已实现]
-│   ├── A股过滤器 (filter) [已实现]
-│   │   ├── StockFilter - 股票过滤器 [已实现]
-│   │   ├── ST股票过滤 [已实现]
-│   │   ├── 涨跌停过滤 [已实现]
-│   │   ├── 停牌过滤 [已实现]
-│   │   └── 新股过滤 [已实现]
-│   ├── 检测服务 (detector) [已实现]
-│   │   ├── AnomalyDetector - 异常检测器 [已实现]
-│   │   └── AnomalyResult - 检测结果 [已实现]
-│   ├── 东方财富数据源 (eastmoney_source) [已实现]
-│   │   └── EastMoneyAnomalySource - 东财数据源 [已实现]
-│   └── 配置管理 (config) [已实现]
-│       ├── AnomalyConfig - 检测配置 [已实现]
-│       ├── ForestConfig - 森林配置 [已实现]
-│       └── FilterConfig - 过滤配置 [已实现]
+├── 🎲 异常检测 (anomaly/)
+│   ├── Isolation Forest (forest)
+│   │   └── IsolationForest - 隔离森林算法
+│   ├── 统计函数 (statistics)
+│   │   └── 平均路径长度计算
+│   ├── 特征提取 (features)
+│   │   ├── FeatureExtractor - 特征提取器
+│   │   ├── volume returns - 成交量回报
+│   │   ├── log returns - 对数回报
+│   │   └── EOM 指标
+│   ├── A股过滤器 (filter)
+│   │   ├── StockFilter - 股票过滤器
+│   │   ├── ST股票过滤
+│   │   ├── 涨跌停过滤
+│   │   ├── 停牌过滤
+│   │   └── 新股过滤
+│   ├── 检测服务 (detector)
+│   │   ├── AnomalyDetector - 异常检测器
+│   │   └── AnomalyResult - 检测结果
+│   ├── 东方财富数据源 (eastmoney_source)
+│   │   └── EastMoneyAnomalySource - 东财数据源
+│   └── 配置管理 (config)
+│       ├── AnomalyConfig - 检测配置
+│       ├── ForestConfig - 森林配置
+│       └── FilterConfig - 过滤配置
 │
-├── 🖥️ 监控服务 (monitor/) [已实现]
-│   ├── 监控配置 (config) [已实现]
-│   │   └── MonitorConfig - 监控配置 [已实现]
-│   ├── 监控模型 (models) [已实现]
-│   │   ├── PriceAlert - 价格告警 [已实现]
-│   │   ├── MonitorEventRow - 监控事件 [已实现]
-│   │   └── TriggeredAlert - 触发告警 [已实现]
-│   ├── 监控运行器 (runner) [已实现]
-│   │   └── MonitorRunner - 监控运行器 [已实现]
-│   ├── 监控服务 (service) [已实现]
-│   │   └── MonitorService - 监控服务 [已实现]
-│   ├── 服务配置 (service_config) [已实现]
-│   │   └── MonitorServiceConfig - 服务配置 [已实现]
-│   ├── 监控存储 (storage) [已实现]
-│   │   └── SqliteMonitorAlertStore - SQLite存储 [已实现]
-│   └── Systemd 服务 (systemd) [已实现]
-│       └── MonitorUserServiceInstaller - 用户服务安装 [已实现]
+├── 🖥️ 监控服务 (monitor/)
+│   ├── 监控配置 (config)
+│   │   └── MonitorConfig - 监控配置
+│   ├── 监控模型 (models)
+│   │   ├── PriceAlert - 价格告警
+│   │   ├── MonitorEventRow - 监控事件
+│   │   └── TriggeredAlert - 触发告警
+│   ├── 监控运行器 (runner)
+│   │   └── MonitorRunner - 监控运行器
+│   ├── 监控服务 (service)
+│   │   └── MonitorService - 监控服务
+│   ├── 服务配置 (service_config)
+│   │   └── MonitorServiceConfig - 服务配置
+│   ├── 监控存储 (storage)
+│   │   └── SqliteMonitorAlertStore - SQLite存储
+│   └── Systemd 服务 (systemd)
+│       └── MonitorUserServiceInstaller - 用户服务安装
 │
-├── 🌉 Windows Bridge (bridge/) [已实现]
-│   ├── HTTP 客户端 (client) [已实现]
-│   │   └── Bridge HTTP 客户端 [已实现]
-│   ├── 数据模型 (models) [已实现]
-│   │   └── Bridge 请求/响应模型 [已实现]
-│   └── 错误处理 (error) [已实现]
-│       └── Bridge 错误类型 [已实现]
+├── 🌉 Windows Bridge (bridge/)
+│   ├── HTTP 客户端 (client)
+│   │   └── Bridge HTTP 客户端
+│   ├── 数据模型 (models)
+│   │   └── Bridge 请求/响应模型
+│   └── 错误处理 (error)
+│       └── Bridge 错误类型
 │
-├── 💾 数据库层 (db/) [已实现]
-│   ├── ClickHouse (clickhouse) [已实现]
-│   │   ├── ClickHouseClient - 客户端 [已实现]
-│   │   ├── KlineDataCH - K线数据 [已实现]
-│   │   ├── StockInfoCH - 股票信息 [已实现]
-│   │   ├── StockQuoteCH - 实时行情 [已实现]
-│   │   └── LimitUpEventCH - 涨停事件 [已实现]
-│   ├── PostgreSQL (postgresql) [已实现]
-│   │   ├── PostgresClient - 客户端 [已实现]
-│   │   ├── KlineDaily - 日线数据 [已实现]
-│   │   └── StockInfo - 股票信息 [已实现]
-│   └── TDengine (tdengine) [已实现]
-│       ├── TDengineClient - 客户端 [已实现]
-│       └── MinuteKline - 分钟K线 [已实现]
+├── 💾 数据库层 (db/)
+│   ├── ClickHouse (clickhouse)
+│   │   ├── ClickHouseClient - 客户端
+│   │   ├── KlineDataCH - K线数据
+│   │   ├── StockInfoCH - 股票信息
+│   │   ├── StockQuoteCH - 实时行情
+│   │   └── LimitUpEventCH - 涨停事件
+│   ├── PostgreSQL (postgresql)
+│   │   ├── PostgresClient - 客户端
+│   │   ├── KlineDaily - 日线数据
+│   │   └── StockInfo - 股票信息
+│   └── TDengine (tdengine)
+│       ├── TDengineClient - 客户端
+│       └── MinuteKline - 分钟K线
 │
-├── 📥 数据导入导出 (io/) [已实现]
-│   ├── 导出器 (exporter) [已实现]
-│   │   ├── DataExporter - 数据导出器 [已实现]
-│   │   ├── CSV/JSON/Parquet 格式 [已实现]
-│   │   └── ExportResult - 导出结果 [已实现]
-│   ├── 导入器 (importer) [已实现]
-│   │   ├── DataImporter - 数据导入器 [已实现]
-│   │   └── 多格式数据导入 [已实现]
-│   ├── 数据验证 (validation) [已实现]
-│   │   ├── DataValidator - 数据验证器 [已实现]
-│   │   └── ValidationResult - 验证结果 [已实现]
-│   └── 批处理 (batch) [已实现]
-│       ├── BatchProcessor - 批量处理器 [已实现]
-│       └── BatchProgress - 处理进度 [已实现]
+├── 📥 数据导入导出 (io/)
+│   ├── 导出器 (exporter)
+│   │   ├── DataExporter - 数据导出器
+│   │   ├── CSV/JSON/Parquet 格式
+│   │   └── ExportResult - 导出结果
+│   ├── 导入器 (importer)
+│   │   ├── DataImporter - 数据导入器
+│   │   └── 多格式数据导入
+│   ├── 数据验证 (validation)
+│   │   ├── DataValidator - 数据验证器
+│   │   └── ValidationResult - 验证结果
+│   └── 批处理 (batch)
+│       ├── BatchProcessor - 批量处理器
+│       └── BatchProgress - 处理进度
 │
-├── 🔄 数据同步 (sync/) [部分实现]
-│   └── ETL 同步 (etl) [部分实现]
-│       ├── DataSync - ClickHouse 写入与调度循环 [部分实现]
-│       ├── SyncConfig - 同步配置 [已实现]
-│       ├── SyncStats - 同步统计 [已实现]
-│       ├── 市场基础面快照写入 [已实现]
-│       └── PostgreSQL / 分钟线来源拉取 [未实现]
+├── 🔄 数据同步 (sync/)
+│   └── ETL 同步 (etl)
+│       ├── DataSync - ClickHouse 写入与调度循环
+│       ├── SyncConfig - 同步配置
+│       ├── SyncStats - 同步统计
+│       ├── 市场基础面快照写入
+│       └── PostgreSQL / 分钟线来源拉取
 │
-├── ⏰ 任务调度 (tasks/) [已实现]
-│   ├── 任务调度器 (scheduler) [已实现]
-│   │   ├── TaskScheduler - 任务调度器 [已实现]
-│   │   ├── ScheduledTask - 调度任务 [已实现]
-│   │   └── TaskTemplates - 任务模板 [已实现]
-│   ├── 采集调度 (collect_scheduler) [已实现]
-│   │   ├── CollectScheduler - 采集调度器 [已实现]
-│   │   └── SchedulerConfig - 调度配置 [已实现]
-│   └── Cron 表达式 (cron) [已实现]
-│       └── CronExpression - Cron解析 [已实现]
+├── ⏰ 任务调度 (tasks/)
+│   ├── 任务调度器 (scheduler)
+│   │   ├── TaskScheduler - 任务调度器
+│   │   ├── ScheduledTask - 调度任务
+│   │   └── TaskTemplates - 任务模板
+│   ├── 采集调度 (collect_scheduler)
+│   │   ├── CollectScheduler - 采集调度器
+│   │   └── SchedulerConfig - 调度配置
+│   └── Cron 表达式 (cron)
+│       └── CronExpression - Cron解析
 │
-├── 🤖 AI决策层 (ai/) [部分实现]
-│   ├── LLM适配器 (llm_adapter) [已实现]
-│   │   └── OpenAI-compatible 统一适配 [已实现]
-│   ├── 多模型支持 (providers) [部分实现]
-│   │   ├── OpenAI - GPT-4o系列 [已实现]
-│   │   ├── DeepSeek - DeepSeek-Chat/Reasoner [已实现]
-│   │   ├── Ollama - 本地模型 [已实现]
-│   │   ├── Gemini - 环境配置/模型枚举 [部分实现]
-│   │   └── Anthropic - 环境配置/模型枚举 [部分实现]
-│   ├── Prompt模板 (prompt_templates) [已实现]
-│   │   └── Tera模板引擎 [已实现]
-│   ├── 决策引擎 (decision_engine) [已实现]
-│   │   └── 决策分析/问答能力 [已实现]
-│   ├── 对话管理 (conversation) [未实现]
-│   │   └── 多轮对话上下文 [未实现]
-│   └── 技能注册 (skill_registry) [未实现]
-│       └── 策略技能包管理 [未实现]
+├── 🤖 AI决策层 (ai/)
+│   ├── LLM适配器 (llm_adapter)
+│   │   └── OpenAI-compatible 统一适配
+│   ├── 多模型支持 (providers)
+│   │   ├── OpenAI - GPT-4o系列
+│   │   ├── DeepSeek - DeepSeek-Chat/Reasoner
+│   │   ├── Ollama - 本地模型
+│   │   ├── Gemini - 环境配置/模型枚举
+│   │   └── Anthropic - 环境配置/模型枚举
+│   ├── Prompt模板 (prompt_templates)
+│   │   └── Tera模板引擎
+│   ├── 决策引擎 (decision_engine)
+│   │   └── 决策分析/问答能力
+│   ├── 对话管理 (conversation)
+│   │   └── 多轮对话上下文
+│   └── 技能注册 (skill_registry)
+│       └── 策略技能包管理
 │
-├── 📰 新闻搜索层 (news/) [部分实现]
-│   ├── 新闻提供者 (provider) [已实现]
-│   │   └── NewsProvider trait [已实现]
-│   ├── 多源支持 (providers) [部分实现]
-│   │   ├── Tavily - 高质量AI友好 [已实现]
-│   │   ├── SerpAPI - 全渠道搜索 [已实现]
-│   │   ├── 博查搜索 - 中文优化 [已实现]
-│   │   ├── Brave - 隐私优先 [未实现]
-│   │   └── SearXNG - 自建实例 [未实现]
-│   ├── 新闻聚合 (aggregator) [已实现]
-│   │   └── 多源fallback机制 [已实现]
-│   └── 新闻缓存 (cache) [已实现]
-│       └── 本地缓存存储 [已实现]
+├── 📰 新闻搜索层 (news/)
+│   ├── 新闻提供者 (provider)
+│   │   └── NewsProvider trait
+│   ├── 多源支持 (providers)
+│   │   ├── Tavily - 高质量AI友好
+│   │   ├── SerpAPI - 全渠道搜索
+│   │   ├── 博查搜索 - 中文优化
+│   │   ├── Brave - 隐私优先
+│   │   └── SearXNG - 自建实例
+│   ├── 新闻聚合 (aggregator)
+│   │   └── 多源fallback机制
+│   └── 新闻缓存 (cache)
+│       └── 本地缓存存储
 │
-├── 📊 基本面分析 (fundamental/) [部分实现]
-│   ├── 基本面提供者 (provider) [已实现]
-│   │   └── FundamentalProvider trait [已实现]
-│   ├── EastMoney数据源 (eastmoney) [部分实现]
-│   │   ├── EastMoneyFundamentalProvider [部分实现]
-│   │   ├── valuation / latest earnings / institution [已实现]
-│   │   ├── earnings history（当前退化为最新一季） [部分实现]
-│   │   ├── dragon_tiger（仅榜单汇总，营业部明细未填） [部分实现]
-│   │   └── dividend / capital_flow [未实现]
-│   ├── 估值指标 (valuation) [已实现]
-│   │   └── PE/PB/PS/市值/ROE/EPS [已实现]
-│   ├── 财报数据 (earnings) [部分实现]
-│   │   ├── 最新一季营收/净利润/毛利率 [已实现]
-│   │   └── 多年历史财报（当前退化为单条最新一季） [部分实现]
-│   ├── 机构持仓 (institution) [已实现]
-│   │   └── 基金/机构持仓 + 类型映射 [已实现]
-│   ├── 资金流向 (capital_flow) [未实现]
-│   │   └── 主力资金追踪 [未实现]
-│   ├── 龙虎榜 (dragon_tiger) [部分实现]
-│   │   ├── 今日/区间龙虎榜汇总 [已实现]
-│   │   └── 买卖前5营业部明细 [待实现]
-│   └── 分红信息 (dividend) [未实现]
-│       └── 历史分红记录 [未实现]
+├── 📊 基本面分析 (fundamental/)
+│   ├── 基本面提供者 (provider)
+│   │   └── FundamentalProvider trait
+│   ├── EastMoney数据源 (eastmoney)
+│   │   ├── EastMoneyFundamentalProvider
+│   │   ├── valuation / latest earnings / institution
+│   │   ├── earnings history（当前退化为最新一季）
+│   │   ├── dragon_tiger（仅榜单汇总，营业部明细未填）
+│   │   └── dividend / capital_flow
+│   ├── 估值指标 (valuation)
+│   │   └── PE/PB/PS/市值/ROE/EPS
+│   ├── 财报数据 (earnings)
+│   │   ├── 最新一季营收/净利润/毛利率
+│   │   └── 多年历史财报（当前退化为单条最新一季）
+│   ├── 机构持仓 (institution)
+│   │   └── 基金/机构持仓 + 类型映射
+│   ├── 资金流向 (capital_flow)
+│   │   └── 主力资金追踪
+│   ├── 龙虎榜 (dragon_tiger)
+│   │   ├── 今日/区间龙虎榜汇总
+│   │   └── 买卖前5营业部明细
+│   └── 分红信息 (dividend)
+│       └── 历史分红记录
 │
-├── 📥 智能导入 (import/) [部分实现] [可选 - Phase 5]
-│   ├── 图片提取 (image_extractor) [已实现]
-│   │   └── LLM Vision识别 [已实现]
-│   ├── CSV解析 (csv_parser) [已实现]
-│   ├── Excel解析 (excel_parser) [未实现]
-│   ├── 剪贴板解析 (clipboard) [已实现]
-│   ├── 文本解析 (text_parser) [已实现]
-│   └── 代码解析器 (code_resolver) [已实现]
+├── 📥 智能导入 (import/) [可选 - Phase 5]
+│   ├── 图片提取 (image_extractor)
+│   │   └── LLM Vision识别
+│   ├── CSV解析 (csv_parser)
+│   ├── Excel解析 (excel_parser)
+│   ├── 剪贴板解析 (clipboard)
+│   ├── 文本解析 (text_parser)
+│   └── 代码解析器 (code_resolver)
 │
-├── 🖼️ TUI 界面 (tui/) [部分实现]
-│   └── 应用 (app) [部分实现]
-│       └── run_menu - 静态文本菜单占位，ratatui未接入 [部分实现]
+├── 🖼️ TUI 界面 (tui/)
+│   └── 应用 (app)
+│       └── run_menu - 静态文本菜单占位，ratatui未接入
 │
-└── 📟 CLI 命令 (cli/) [部分实现]
-    └── 命令处理器 (handlers) [部分实现]
-        ├── init - 初始化配置 [已实现]
-        ├── menu - dialoguer 简易交互菜单（部分子菜单仍占位） [部分实现]
-        ├── data - 数据查询/导出（导出当前仅 CSV 可用） [部分实现]
-        ├── strategy - 策略管理/运行（CLI 当前仅闭环 ma_cross） [部分实现]
-        ├── task - 任务调度（Foundation P0 仅预置模板 / 前台执行） [部分实现]
-        ├── analyze - 技术分析/筛选 [已实现]
-        ├── backtest - 回测运行/报告 [部分实现]
-        ├── performance - 绩效对比 [已实现]
-        ├── monitor - 自选监控/告警 [已实现]
-        ├── stop - 止盈止损管理 [已实现]
-        ├── watchlist - 自选池管理 [已实现]
-        ├── market - 市场分析 [已实现]
-        ├── trade - 模拟交易 [已实现]
-        ├── risk - 风控管理 [部分实现]
-        ├── execution - 执行守护进程 / bridge / qmt（live 需经 qmt_live + bridge） [已实现]
-        ├── anomaly - 异常检测 [已实现]
-        ├── algo - 算法交易（当前仅 TWAP/VWAP，且任务为单进程内存态） [部分实现]
-        ├── account - 账户管理 [已实现]
-        ├── ai - AI 决策 [部分实现]
-        ├── news - 新闻搜索 [部分实现]
-        ├── fundamental - 基本面分析（分红占位，资金流向 CLI 未暴露） [部分实现]
-        ├── sentiment - 舆情分析 [部分实现]
-        ├── notify - 多渠道通知 [部分实现]
-        ├── import - 智能导入 [部分实现]
-        └── status - 系统状态 [已实现]
+└── 📟 CLI 命令 (cli/)
+    └── 命令处理器 (handlers)
+        ├── init - 初始化配置
+        ├── menu - dialoguer 简易交互菜单（部分子菜单仍占位）
+        ├── data - 数据查询/导出（导出当前仅 CSV 可用）
+        ├── strategy - 策略管理/运行（CLI 当前仅闭环 ma_cross）
+        ├── task - 任务调度（Foundation P0 仅预置模板 / 前台执行）
+        ├── analyze - 技术分析/筛选
+        ├── backtest - 回测运行/报告
+        ├── performance - 绩效对比
+        ├── monitor - 自选监控/告警
+        ├── stop - 止盈止损管理
+        ├── watchlist - 自选池管理
+        ├── market - 市场分析
+        ├── trade - 模拟交易
+        ├── risk - 风控管理
+        ├── execution - 执行守护进程 / bridge / qmt（live 需经 qmt_live + bridge）
+        ├── anomaly - 异常检测
+        ├── algo - 算法交易（当前仅 TWAP/VWAP，且任务为单进程内存态）
+        ├── account - 账户管理
+        ├── ai - AI 决策
+        ├── news - 新闻搜索
+        ├── fundamental - 基本面分析（分红占位，资金流向 CLI 未暴露）
+        ├── sentiment - 舆情分析
+        ├── notify - 多渠道通知
+        ├── import - 智能导入
+        └── status - 系统状态
 ```
 
-## CLI 命令树
+## CLI 命令证据展开
 
-``` 
+以下命令树是上方 CLI/运营入口注册表的证据索引。命令或选项即使出现在这里，也必须按注册表中的状态和边界判断是否可用。
+
+```
 quantix
-├── init                    # 初始化配置和数据库 [已实现]
-├── menu                    # 交互式菜单（simple menu 已接线，部分子菜单仍占位） [部分实现]
-│   └── --tui               # TUI 界面模式（当前仅占位提示） [部分实现]
-├── status                  # 系统状态 [已实现]
-│   └── --health            # 健康检查 [已实现]
+├── init                    # 初始化配置和数据库
+├── menu                    # 交互式菜单（simple menu 已接线，部分子菜单仍占位）
+│   └── --tui               # TUI 界面模式（当前仅占位提示）
+├── status                  # 系统状态
+│   └── --health            # 健康检查
 │
-├── data                    # 数据命令 [部分实现]
-│   ├── source              # 数据源管理 [已实现]
-│   │   ├── list            # 列出数据源 [已实现]
-│   │   ├── add             # 新增/更新数据源 [已实现]
-│   │   ├── set-default     # 设置默认数据源 [已实现]
-│   │   └── test            # 测试数据源连通性 [已实现]
-│   ├── import-fundamentals # 导入市场基础面快照 [已实现]
-│   ├── query               # 查询历史数据 [已实现]
+├── data                    # 数据命令
+│   ├── source              # 数据源管理
+│   │   ├── list            # 列出数据源
+│   │   ├── add             # 新增/更新数据源
+│   │   ├── set-default     # 设置默认数据源
+│   │   └── test            # 测试数据源连通性
+│   ├── import-fundamentals # 导入市场基础面快照
+│   ├── query               # 查询历史数据
 │   └── export              # 导出数据 [部分实现，仅 CSV 可用；默认 parquet 路径仍占位]
 │
-├── strategy                # 策略命令（CLI 当前仅闭环 ma_cross） [部分实现]
-│   ├── create              # 创建策略实例（当前仅支持 ma_cross） [已实现]
-│   ├── update              # 更新策略实例（策略名当前仅支持 ma_cross） [已实现]
-│   ├── delete              # 删除策略实例 [已实现]
-│   ├── run                 # 运行策略（当前仅 ma_cross，且仅 paper/mock_live 直跑） [部分实现]
-│   ├── list                # 列出策略 [已实现]
-│   ├── show                # 显示详情 [已实现]
-│   ├── config              # 配置管理 [已实现]
-│   ├── daemon              # 守护进程（当前仅支持 bootstrap_policy=latest_only，且要求恰好一个 enabled 股票） [部分实现]
-│   ├── signal              # 信号管理 [部分实现]
-│   │   ├── list            # 列出信号 [已实现]
-│   │   ├── approve         # 批准信号（支持 paper/mock_live/qmt_live；live 不支持） [部分实现]
-│   │   └── reject          # 拒绝信号 [已实现]
-│   ├── request             # 执行请求 [部分实现]
-│   │   ├── list            # 列出请求 [已实现]
-│   │   │   ├── --status    # 按状态过滤 [已实现]
-│   │   │   ├── --target-mode # 按执行模式过滤 [已实现]
-│   │   │   ├── --target-account # 按目标账户过滤 [已实现]
-│   │   │   ├── --stats     # 统计汇总视图 [已实现]
-│   │   │   └── --verbose   # 详细输出 [已实现]
-│   │   ├── show            # 查看请求详情 [已实现]
-│   │   │   ├── --request-id # 请求ID [已实现]
-│   │   │   └── --verbose   # 故障排查信息 [已实现]
-│   │   ├── execute         # 执行请求（仅 paper/mock_live；qmt_live 需走 execution bridge qmt-live） [部分实现]
-│   │   └── cancel          # 取消请求 [已实现]
-│   ├── service             # systemd 服务（所有动作都依赖已配置 service-config） [已实现]
-│   └── service-config      # systemd 服务配置（show 未配置时输出引导提示） [已实现]
+├── strategy                # 策略命令（CLI 当前仅闭环 ma_cross）
+│   ├── create              # 创建策略实例（当前仅支持 ma_cross）
+│   ├── update              # 更新策略实例（策略名当前仅支持 ma_cross）
+│   ├── delete              # 删除策略实例
+│   ├── run                 # 运行策略（当前仅 ma_cross，且仅 paper/mock_live 直跑）
+│   ├── list                # 列出策略
+│   ├── show                # 显示详情
+│   ├── config              # 配置管理
+│   ├── daemon              # 守护进程（当前仅支持 bootstrap_policy=latest_only，且要求恰好一个 enabled 股票）
+│   ├── signal              # 信号管理
+│   │   ├── list            # 列出信号
+│   │   ├── approve         # 批准信号（支持 paper/mock_live/qmt_live；live 不支持）
+│   │   └── reject          # 拒绝信号
+│   ├── request             # 执行请求
+│   │   ├── list            # 列出请求
+│   │   │   ├── --status    # 按状态过滤
+│   │   │   ├── --target-mode # 按执行模式过滤
+│   │   │   ├── --target-account # 按目标账户过滤
+│   │   │   ├── --stats     # 统计汇总视图
+│   │   │   └── --verbose   # 详细输出
+│   │   ├── show            # 查看请求详情
+│   │   │   ├── --request-id # 请求ID
+│   │   │   └── --verbose   # 故障排查信息
+│   │   ├── execute         # 执行请求（仅 paper/mock_live；qmt_live 需走 execution bridge qmt-live）
+│   │   └── cancel          # 取消请求
+│   ├── service             # systemd 服务（所有动作都依赖已配置 service-config）
+│   └── service-config      # systemd 服务配置（show 未配置时输出引导提示）
 │
-├── task                    # 任务命令（Foundation P0 仅预置模板 / 前台执行） [部分实现]
+├── task                    # 任务命令（Foundation P0 仅预置模板 / 前台执行）
 │   ├── add                 # 添加定时任务 [部分实现，命令保留但 Foundation P0 未开放]
-│   ├── list                # 列出任务模板 [已实现]
+│   ├── list                # 列出任务模板
 │   ├── start               # 启动调度器 [部分实现，仅支持前台预置模板]
 │   ├── stop                # 停止调度器 [已实现，提示前台 Ctrl+C]
-│   └── status              # 查看任务能力状态 [已实现]
+│   └── status              # 查看任务能力状态
 │
-├── analyze                 # 分析命令 [已实现]
-│   ├── indicators          # 计算技术指标 [已实现]
-│   ├── backtest            # 查看既有回测报告 [已实现]
-│   ├── candle-pattern      # K线形态识别（输入源必须三选一、参考价必须二选一；TDX day-file/tdx-root 当前仅支持 1d，且 --tdx-root 需配合 --code） [已实现]
-│   └── screener            # 选股筛选 [已实现]
-│       ├── preset-list     # 预设条件列表 [已实现]
-│       └── run             # 运行筛选（必须且只能指定 --codes/--watchlist 之一；--group 仅可配合 --watchlist；且至少一个 --preset；sort_by 当前仅支持 code/score） [已实现]
+├── analyze                 # 分析命令
+│   ├── indicators          # 计算技术指标
+│   ├── backtest            # 查看既有回测报告
+│   ├── candle-pattern      # K线形态识别（输入源必须三选一、参考价必须二选一；TDX day-file/tdx-root 当前仅支持 1d，且 --tdx-root 需配合 --code）
+│   └── screener            # 选股筛选
+│       ├── preset-list     # 预设条件列表
+│       └── run             # 运行筛选（必须且只能指定 --codes/--watchlist 之一；--group 仅可配合 --watchlist；且至少一个 --preset；sort_by 当前仅支持 code/score）
 │
-├── backtest                # 回测命令（当前仅 ma_cross 单标的日线回测闭环） [部分实现]
-│   ├── run                 # 运行回测（当前仅支持 ma_cross） [部分实现]
-│   ├── report              # 查看回测报告 [已实现]
-│   ├── list                # 列出回测报告 [已实现]
-│   └── compare             # 对比多个回测报告 [已实现]
+├── backtest                # 回测命令（当前仅 ma_cross 单标的日线回测闭环）
+│   ├── run                 # 运行回测（当前仅支持 ma_cross）
+│   ├── report              # 查看回测报告
+│   ├── list                # 列出回测报告
+│   └── compare             # 对比多个回测报告
 │
-├── performance             # 绩效命令 [已实现]
-│   ├── report              # 查看绩效详情 [已实现]
-│   ├── list                # 列出可分析报告 [已实现]
-│   └── compare             # 对比绩效指标 [已实现]
+├── performance             # 绩效命令
+│   ├── report              # 查看绩效详情
+│   ├── list                # 列出可分析报告
+│   └── compare             # 对比绩效指标
 │
-├── monitor                 # 监控命令 [已实现]
-│   ├── watchlist           # 自选监控（--once/--repeat 必须二选一） [已实现]
-│   │   ├── --once          # 执行一次监控 [已实现]
-│   │   └── --repeat        # 持续重复监控 [已实现]
-│   ├── alert               # 价格告警 [已实现]
-│   │   ├── add             # 添加告警（--above/--below 必须二选一） [已实现]
-│   │   ├── list            # 列出告警 [已实现]
-│   │   └── remove          # 删除告警 [已实现]
-│   ├── config              # 监控配置 [已实现]
-│   │   ├── show            # 显示当前监控配置 [已实现]
-│   │   ├── set             # 修改监控配置（interval_seconds/group/persist_events/notify 必须四选一） [已实现]
-│   │   └── clear-group     # 清除分组限制 [已实现]
-│   ├── daemon              # 守护进程 [已实现]
-│   │   └── run             # 运行监控守护进程 [已实现]
-│   ├── service             # systemd 服务（除 status 外依赖已配置 service-config） [已实现]
-│   │   ├── install         # 安装用户服务 [已实现]
-│   │   ├── uninstall       # 卸载用户服务 [已实现]
-│   │   ├── start           # 启动用户服务 [已实现]
-│   │   ├── stop            # 停止用户服务 [已实现]
-│   │   ├── status          # 查看用户服务状态 [已实现]
-│   │   ├── enable          # 启用开机自启 [已实现]
-│   │   └── disable         # 禁用开机自启 [已实现]
-│   ├── service-config      # 服务配置 [已实现]
-│   │   ├── show            # 显示当前服务配置；未配置时输出引导提示 [已实现]
-│   │   └── set             # 设置 quantix 二进制路径 [已实现]
-│   └── event               # 事件历史 [已实现]
-│       └── list            # 查看监控事件历史（type 当前仅支持 price-alert/stop-loss/stop-profit/trailing-stop） [已实现]
+├── monitor                 # 监控命令
+│   ├── watchlist           # 自选监控（--once/--repeat 必须二选一）
+│   │   ├── --once          # 执行一次监控
+│   │   └── --repeat        # 持续重复监控
+│   ├── alert               # 价格告警
+│   │   ├── add             # 添加告警（--above/--below 必须二选一）
+│   │   ├── list            # 列出告警
+│   │   └── remove          # 删除告警
+│   ├── config              # 监控配置
+│   │   ├── show            # 显示当前监控配置
+│   │   ├── set             # 修改监控配置（interval_seconds/group/persist_events/notify 必须四选一）
+│   │   └── clear-group     # 清除分组限制
+│   ├── daemon              # 守护进程
+│   │   └── run             # 运行监控守护进程
+│   ├── service             # systemd 服务（除 status 外依赖已配置 service-config）
+│   │   ├── install         # 安装用户服务
+│   │   ├── uninstall       # 卸载用户服务
+│   │   ├── start           # 启动用户服务
+│   │   ├── stop            # 停止用户服务
+│   │   ├── status          # 查看用户服务状态
+│   │   ├── enable          # 启用开机自启
+│   │   └── disable         # 禁用开机自启
+│   ├── service-config      # 服务配置
+│   │   ├── show            # 显示当前服务配置；未配置时输出引导提示
+│   │   └── set             # 设置 quantix 二进制路径
+│   └── event               # 事件历史
+│       └── list            # 查看监控事件历史（type 当前仅支持 price-alert/stop-loss/stop-profit/trailing-stop）
 │
-├── stop                    # 止盈止损 [已实现]
-│   ├── set                 # 设置规则（股票需先在自选池；至少一个阈值；loss/loss-pct/trailing 互斥，profit/profit-pct 互斥） [已实现]
-│   ├── update              # 更新规则（股票需先在自选池；修改或 clear 项至少一项；loss/loss-pct/trailing 互斥，profit/profit-pct 互斥） [已实现]
-│   ├── list                # 列出规则 [已实现]
-│   ├── status              # 查看状态 [已实现]
-│   ├── history             # 历史记录（type 当前仅支持 set/update/remove/trigger） [已实现]
-│   └── remove              # 删除规则 [已实现]
+├── stop                    # 止盈止损
+│   ├── set                 # 设置规则（股票需先在自选池；至少一个阈值；loss/loss-pct/trailing 互斥，profit/profit-pct 互斥）
+│   ├── update              # 更新规则（股票需先在自选池；修改或 clear 项至少一项；loss/loss-pct/trailing 互斥，profit/profit-pct 互斥）
+│   ├── list                # 列出规则
+│   ├── status              # 查看状态
+│   ├── history             # 历史记录（type 当前仅支持 set/update/remove/trigger）
+│   └── remove              # 删除规则
 │
-├── watchlist               # 自选池 [已实现]
-│   ├── add                 # 添加股票 [已实现]
-│   ├── remove              # 移除股票 [已实现]
-│   ├── list                # 列出自选 [已实现]
-│   ├── move                # 移动分组 [已实现]
-│   ├── group               # 分组管理 [已实现]
-│   │   ├── create          # 创建分组 [已实现]
-│   │   └── list            # 列出分组 [已实现]
-│   ├── tag                 # 标签管理 [已实现]
-│   │   ├── add             # 添加标签 [已实现]
-│   │   ├── remove          # 删除标签 [已实现]
-│   │   └── list            # 列出标签 [已实现]
-│   └── history             # 历史记录 [已实现]
+├── watchlist               # 自选池
+│   ├── add                 # 添加股票
+│   ├── remove              # 移除股票
+│   ├── list                # 列出自选
+│   ├── move                # 移动分组
+│   ├── group               # 分组管理
+│   │   ├── create          # 创建分组
+│   │   └── list            # 列出分组
+│   ├── tag                 # 标签管理
+│   │   ├── add             # 添加标签
+│   │   ├── remove          # 删除标签
+│   │   └── list            # 列出标签
+│   └── history             # 历史记录
 │
-├── market                  # 市场分析 [已实现]
-│   ├── foundation          # 市场基础数据摘要 [已实现]
-│   ├── sector              # 行业板块（sort_by 当前仅支持 change/change_pct） [已实现]
-│   ├── concept             # 概念板块（sort_by 当前仅支持 change/change_pct） [已实现]
-│   ├── north               # 北向资金 [已实现]
-│   ├── sentiment           # 市场情绪 [已实现]
-│   ├── leader              # 龙头股（必须且只能指定 --sector/--concept/--all 之一） [已实现]
-│   ├── overview            # 综合概览 [已实现]
-│   ├── strength            # 强弱板块分析 [已实现]
-│   └── strength-stocks     # 强势板块个股排行 [已实现]
+├── market                  # 市场分析
+│   ├── foundation          # 市场基础数据摘要
+│   ├── sector              # 行业板块（sort_by 当前仅支持 change/change_pct）
+│   ├── concept             # 概念板块（sort_by 当前仅支持 change/change_pct）
+│   ├── north               # 北向资金
+│   ├── sentiment           # 市场情绪
+│   ├── leader              # 龙头股（必须且只能指定 --sector/--concept/--all 之一）
+│   ├── overview            # 综合概览
+│   ├── strength            # 强弱板块分析
+│   └── strength-stocks     # 强势板块个股排行
 │
-├── trade                   # 模拟交易 [已实现]
-│   ├── init                # 初始化账户 [已实现]
-│   ├── reset               # 重置账户 [已实现]
-│   ├── buy                 # 买入 [已实现]
-│   ├── sell                # 卖出 [已实现]
-│   ├── history             # 成交历史 [已实现]
-│   ├── fees                # 费用明细 [已实现]
-│   ├── overview            # 账户概览 [已实现]
-│   │   └── --current       # 现价视图（依赖行情查询） [已实现]
-│   ├── position            # 当前持仓 [已实现]
-│   │   └── --current       # 现价视图（依赖行情查询） [已实现]
-│   └── cash                # 现金快照 [已实现]
+├── trade                   # 模拟交易
+│   ├── init                # 初始化账户
+│   ├── reset               # 重置账户
+│   ├── buy                 # 买入
+│   ├── sell                # 卖出
+│   ├── history             # 成交历史
+│   ├── fees                # 费用明细
+│   ├── overview            # 账户概览
+│   │   └── --current       # 现价视图（依赖行情查询）
+│   ├── position            # 当前持仓
+│   │   └── --current       # 现价视图（依赖行情查询）
+│   └── cash                # 现金快照
 │
-├── risk                    # 风控管理 [部分实现]
-│   ├── import              # 导入流水 [已实现]
-│   │   └── live-trades     # 导入标准化实盘流水（按扩展名仅支持 csv/json） [已实现]
-│   ├── sync                # 同步引用数据（分类标准仍受限） [部分实现]
-│   │   └── industry        # 同步行业分类（当前仅支持 shenwan） [部分实现]
-│   ├── rebuild             # 重建账户 [已实现]
-│   │   └── live-account    # 重建实盘镜像账户 [已实现]
-│   ├── rule                # 规则管理 [已实现]
-│   │   ├── set             # 设置规则 [已实现]
-│   │   ├── list            # 列出规则 [已实现]
-│   │   ├── enable          # 启用规则 [已实现]
-│   │   └── disable         # 禁用规则 [已实现]
-│   ├── log                 # 风控日志 [已实现]
-│   ├── lock                # 买入锁管理 [已实现]
-│   │   └── release         # 释放买入锁 [已实现]
-│   ├── status              # 风控状态 [已实现]
-│   ├── pnl                 # 盈亏快照 [已实现]
-│   └── position            # 持仓风险 [已实现]
+├── risk                    # 风控管理
+│   ├── import              # 导入流水
+│   │   └── live-trades     # 导入标准化实盘流水（按扩展名仅支持 csv/json）
+│   ├── sync                # 同步引用数据（分类标准仍受限）
+│   │   └── industry        # 同步行业分类（当前仅支持 shenwan）
+│   ├── rebuild             # 重建账户
+│   │   └── live-account    # 重建实盘镜像账户
+│   ├── rule                # 规则管理
+│   │   ├── set             # 设置规则
+│   │   ├── list            # 列出规则
+│   │   ├── enable          # 启用规则
+│   │   └── disable         # 禁用规则
+│   ├── log                 # 风控日志
+│   ├── lock                # 买入锁管理
+│   │   └── release         # 释放买入锁
+│   ├── status              # 风控状态
+│   ├── pnl                 # 盈亏快照
+│   └── position            # 持仓风险
 │
-├── execution               # 执行管理（live 需走 qmt_live + bridge） [已实现]
-│   ├── config              # 执行配置 [已实现]
-│   │   ├── init            # 初始化执行配置 [已实现]
-│   │   └── show            # 显示执行配置 [已实现]
-│   ├── daemon              # 执行守护进程（消费 paper/mock_live request） [已实现]
-│   │   └── run             # 运行执行守护进程（qmt_live 需改走 bridge/qmt） [已实现]
-│   ├── bridge              # Bridge 诊断 [已实现]
-│       ├── status          # 状态检查 [已实现]
-│       │   └── --checklist # 追加 QMT promotion checklist [已实现]
-│       ├── qmt-preview     # QMT 预览（仅 qmt_live request） [已实现]
-│       ├── qmt-live        # QMT 真实提交（仅 qmt_live request） [已实现]
-│       │   └── --yes       # 跳过确认提示 [已实现]
-│       ├── qmt-query       # 查询订单状态 [已实现]
-│       ├── qmt-cancel      # 撤销订单 [已实现]
-│       ├── qmt-account     # 查询账户状态 [已实现]
-│       ├── qmt-positions   # 查询持仓 [已实现]
-│       └── qmt-asset       # 查询资产 [已实现]
-│   └── qmt                 # QMT 兼容入口 [已实现]
-│       ├── status          # 状态检查 [已实现]
-│       │   └── --checklist # 追加 QMT promotion checklist [已实现]
-│       ├── preview         # QMT 预览（仅 qmt_live request） [已实现]
-│       ├── live            # QMT 真实提交（仅 qmt_live request） [已实现]
-│       │   └── --yes       # 跳过确认提示 [已实现]
-│       ├── query           # 查询订单状态 [已实现]
-│       ├── cancel          # 撤销订单 [已实现]
-│       ├── account         # 查询账户状态 [已实现]
-│       ├── positions       # 查询持仓 [已实现]
-│       └── asset           # 查询资产 [已实现]
+├── execution               # 执行管理（live 需走 qmt_live + bridge）
+│   ├── config              # 执行配置
+│   │   ├── init            # 初始化执行配置
+│   │   └── show            # 显示执行配置
+│   ├── daemon              # 执行守护进程（消费 paper/mock_live request）
+│   │   └── run             # 运行执行守护进程（qmt_live 需改走 bridge/qmt）
+│   ├── bridge              # Bridge 诊断
+│       ├── status          # 状态检查
+│       │   └── --checklist # 追加 QMT promotion checklist
+│       ├── qmt-preview     # QMT 预览（仅 qmt_live request）
+│       ├── qmt-live        # QMT 真实提交（仅 qmt_live request）
+│       │   └── --yes       # 跳过确认提示
+│       ├── qmt-query       # 查询订单状态
+│       ├── qmt-cancel      # 撤销订单
+│       ├── qmt-account     # 查询账户状态
+│       ├── qmt-positions   # 查询持仓
+│       └── qmt-asset       # 查询资产
+│   └── qmt                 # QMT 兼容入口
+│       ├── status          # 状态检查
+│       │   └── --checklist # 追加 QMT promotion checklist
+│       ├── preview         # QMT 预览（仅 qmt_live request）
+│       ├── live            # QMT 真实提交（仅 qmt_live request）
+│       │   └── --yes       # 跳过确认提示
+│       ├── query           # 查询订单状态
+│       ├── cancel          # 撤销订单
+│       ├── account         # 查询账户状态
+│       ├── positions       # 查询持仓
+│       └── asset           # 查询资产
 │
-├── anomaly                 # 异常检测 [已实现]
-│   └── run                 # 运行检测 [已实现]
-│       ├── --top-n         # 显示数量 [已实现]
-│       ├── --period        # K线周期 [已实现]
-│       ├── --output        # 输出格式 [已实现]
-│       └── --mock          # 模拟数据 [已实现]
+├── anomaly                 # 异常检测
+│   └── run                 # 运行检测
+│       ├── --top-n         # 显示数量
+│       ├── --period        # K线周期
+│       ├── --output        # 输出格式
+│       └── --mock          # 模拟数据
 │
-├── account                 # 账户管理 [已实现]
-│   ├── register            # 注册新账户（account_type: paper/mock_live/qmt_live；live 为兼容别名） [已实现]
-│   ├── list                # 列出所有账户（可按 account_type 过滤） [已实现]
-│   ├── show                # 查看账户详情 [已实现]
-│   ├── update              # 更新账户配置 [已实现]
-│   ├── remove              # 删除账户 [已实现]
-│   ├── default             # 设置默认账户 [已实现]
-│   ├── summary             # 资金聚合视图（仅聚合启用账户） [已实现]
-│   ├── split               # 订单拆分预览（target_type: single/group） [已实现]
-│   └── group               # 账户组管理 [已实现]
-│       ├── create          # 创建账户组（weighted 当前退化为 equal） [已实现]
-│       ├── list            # 列出账户组 [已实现]
-│       ├── show            # 查看组详情 [已实现]
-│       ├── remove          # 删除账户组 [已实现]
-│       ├── add-account     # 添加账户到组 [已实现]
-│       ├── remove-account  # 从组移除账户 [已实现]
-│       └── set-strategy    # 设置分配策略（weighted 当前退化为 equal；primary_first 需 --primary-account） [已实现]
+├── account                 # 账户管理
+│   ├── register            # 注册新账户（account_type: paper/mock_live/qmt_live；live 为兼容别名）
+│   ├── list                # 列出所有账户（可按 account_type 过滤）
+│   ├── show                # 查看账户详情
+│   ├── update              # 更新账户配置
+│   ├── remove              # 删除账户
+│   ├── default             # 设置默认账户
+│   ├── summary             # 资金聚合视图（仅聚合启用账户）
+│   ├── split               # 订单拆分预览（target_type: single/group）
+│   └── group               # 账户组管理
+│       ├── create          # 创建账户组（weighted 当前退化为 equal）
+│       ├── list            # 列出账户组
+│       ├── show            # 查看组详情
+│       ├── remove          # 删除账户组
+│       ├── add-account     # 添加账户到组
+│       ├── remove-account  # 从组移除账户
+│       └── set-strategy    # 设置分配策略（weighted 当前退化为 equal；primary_first 需 --primary-account）
 │
-├── algo                    # 算法交易（当前仅 TWAP/VWAP，且任务为单进程内存态） [部分实现]
-│   ├── create              # 创建算法任务（当前仅支持 TWAP/VWAP） [部分实现]
-│   ├── start               # 启动算法任务（当前仅支持 TWAP/VWAP 内存态任务） [部分实现]
-│   ├── pause               # 暂停算法任务（当前仅支持 TWAP/VWAP 内存态任务） [部分实现]
-│   ├── resume              # 恢复算法任务（当前仅支持 TWAP/VWAP 内存态任务） [部分实现]
-│   ├── cancel              # 取消算法任务（当前仅支持 TWAP/VWAP 内存态任务） [部分实现]
-│   ├── status              # 查看算法状态（当前仅支持 TWAP/VWAP 内存态任务） [部分实现]
-│   ├── list                # 列出活跃算法（仅当前进程内存态任务） [部分实现]
-│   └── plan                # 预览切片计划（当前仅支持 TWAP/VWAP） [已实现]
+├── algo                    # 算法交易（当前仅 TWAP/VWAP，且任务为单进程内存态）
+│   ├── create              # 创建算法任务（当前仅支持 TWAP/VWAP）
+│   ├── start               # 启动算法任务（当前仅支持 TWAP/VWAP 内存态任务）
+│   ├── pause               # 暂停算法任务（当前仅支持 TWAP/VWAP 内存态任务）
+│   ├── resume              # 恢复算法任务（当前仅支持 TWAP/VWAP 内存态任务）
+│   ├── cancel              # 取消算法任务（当前仅支持 TWAP/VWAP 内存态任务）
+│   ├── status              # 查看算法状态（当前仅支持 TWAP/VWAP 内存态任务）
+│   ├── list                # 列出活跃算法（仅当前进程内存态任务）
+│   └── plan                # 预览切片计划（当前仅支持 TWAP/VWAP）
 │
-├── ai                      # AI决策分析 [部分实现]
-│   ├── analyze             # AI 分析股票（使用模拟分析上下文） [部分实现]
-│   ├── decide              # AI 交易决策（基于模拟分析上下文） [部分实现]
-│   ├── ask                 # 对话式分析（provider 自动选择） [部分实现]
-│   ├── market              # 市场整体分析（固定 prompt） [部分实现]
-│   └── config              # AI配置管理 [部分实现]
-│       ├── --show          # 显示当前配置 [已实现]
-│       └── --test          # 测试连通性（当前仅配置探测） [部分实现]
+├── ai                      # AI决策分析
+│   ├── analyze             # AI 分析股票（使用模拟分析上下文）
+│   ├── decide              # AI 交易决策（基于模拟分析上下文）
+│   ├── ask                 # 对话式分析（provider 自动选择）
+│   ├── market              # 市场整体分析（固定 prompt）
+│   └── config              # AI配置管理
+│       ├── --show          # 显示当前配置
+│       └── --test          # 测试连通性（当前仅配置探测）
 │
-├── news                    # 新闻搜索 [部分实现]
-│   ├── search              # 搜索股票新闻（当前仅provider检查/占位输出） [部分实现]
-│   │   ├── --code         # 按股票代码 [部分实现]
-│   │   ├── --query        # 按关键词 [部分实现]
-│   │   ├── --provider     # 指定数据源 [部分实现]
-│   │   └── --days         # 时间范围 [部分实现]
-│   ├── code                # 按股票代码搜索（复用占位搜索流程） [部分实现]
-│   ├── trend               # 市场热点趋势（占位提示） [部分实现]
-│   └── providers           # 提供商状态 [已实现]
+├── news                    # 新闻搜索
+│   ├── search              # 搜索股票新闻（当前仅provider检查/占位输出）
+│   │   ├── --code         # 按股票代码
+│   │   ├── --query        # 按关键词
+│   │   ├── --provider     # 指定数据源
+│   │   └── --days         # 时间范围
+│   ├── code                # 按股票代码搜索（复用占位搜索流程）
+│   ├── trend               # 市场热点趋势（占位提示）
+│   └── providers           # 提供商状态
 │
-├── fundamental             # 基本面分析 [部分实现]
-│   ├── show                # 综合基本面 (EastMoney数据源) [已实现]
-│   ├── valuation           # 估值指标 PE/PB/PS/市值/ROE/EPS [已实现]
-│   ├── earnings            # 财报数据（最新一季已实现，history 退化） [部分实现]
-│   │   └── --years         # 历史年数（>1 时仍退化为单条最新一季） [部分实现]
-│   ├── institution         # 机构持仓 + 类型映射 + 变动方向 [已实现]
-│   ├── capital-flow        # 资金流向（待接入 CLI 子命令） [待实现]
-│   ├── dragon-tiger        # 龙虎榜汇总（营业部明细未填） [部分实现]
-│   └── dividend            # 分红信息（当前仅开发中提示） [未实现]
-│       └── --years         # 历史年数 [未实现]
+├── fundamental             # 基本面分析
+│   ├── show                # 综合基本面 (EastMoney数据源)
+│   ├── valuation           # 估值指标 PE/PB/PS/市值/ROE/EPS
+│   ├── earnings            # 财报数据（最新一季已实现，history 退化）
+│   │   └── --years         # 历史年数（>1 时仍退化为单条最新一季）
+│   ├── institution         # 机构持仓 + 类型映射 + 变动方向
+│   ├── capital-flow        # 资金流向（待接入 CLI 子命令）
+│   ├── dragon-tiger        # 龙虎榜汇总（营业部明细未填）
+│   └── dividend            # 分红信息（当前仅开发中提示）
+│       └── --years         # 历史年数
 │
-├── sentiment               # 舆情分析 [部分实现]
-│   ├── show                # 查看舆情情绪（默认无provider） [部分实现]
-│   ├── history             # 查看历史趋势（默认无provider） [部分实现]
-│   └── mentions            # 查看社交媒体提及（默认无provider） [部分实现]
+├── sentiment               # 舆情分析
+│   ├── show                # 查看舆情情绪（默认无provider）
+│   ├── history             # 查看历史趋势（默认无provider）
+│   └── mentions            # 查看社交媒体提及（默认无provider）
 │
-├── notify                  # 多渠道通知（仅部分渠道真正接线） [部分实现]
-│   ├── send                # 发送通知（已接线渠道可用） [部分实现]
-│   │   ├── --channel      # 指定渠道（部分枚举仍为预留入口） [部分实现]
-│   │   ├── --title        # 标题 [已实现]
-│   │   ├── --message      # 消息内容 [已实现]
-│   │   └── --level        # 消息级别 [已实现]
-│   ├── test                # 测试通知渠道（当前未按 channel 精确过滤） [部分实现]
-│   ├── list                # 列出渠道（包含待实现渠道） [部分实现]
-│   └── check               # 测试渠道连通性（仅部分渠道可真实发送） [部分实现]
+├── notify                  # 多渠道通知（仅部分渠道真正接线）
+│   ├── send                # 发送通知（已接线渠道可用）
+│   │   ├── --channel      # 指定渠道（部分枚举仍为预留入口）
+│   │   ├── --title        # 标题
+│   │   ├── --message      # 消息内容
+│   │   └── --level        # 消息级别
+│   ├── test                # 测试通知渠道（当前未按 channel 精确过滤）
+│   ├── list                # 列出渠道（包含待实现渠道）
+│   └── check               # 测试渠道连通性（仅部分渠道可真实发送）
 │
-└── import                  # 智能导入 [部分实现] [可选 - Phase 5]
-    ├── from-image          # 图片识别导入 [已实现]
-    ├── from-csv            # CSV文件导入 [已实现]
-    ├── from-excel          # Excel文件导入 [未实现]
-    ├── from-clipboard      # 剪贴板导入 [已实现]
-    ├── from-text           # 文本导入 [已实现]
-    └── resolve             # 代码/名称解析 [已实现]
+└── import                  # 智能导入 [可选 - Phase 5]
+    ├── from-image          # 图片识别导入
+    ├── from-csv            # CSV文件导入
+├── from-excel          # Excel文件导入
+    ├── from-clipboard      # 剪贴板导入
+    ├── from-text           # 文本导入
+    └── resolve             # 代码/名称解析
 ```
 
 ## 模块依赖关系
@@ -924,12 +1037,13 @@ quantix
 
 ## 更新日志
 
+- **2026-05-14**: 将 `FUNCTION_TREE.md` 改造成“功能全景图 + 状态注册表”，明确本文件是功能状态单一真相源；新增状态/证据/边界注册表，将功能全景图表格化，把待落地项统一标为 `[已设计/待实现]`，并移除证据代码块里的状态标签以避免形成第二套状态源
 - **2026-05-05**: 继续按当前主线源码细化 `FUNCTION_TREE.md`，补充 CLI 摘要层限制说明，修正 `fundamental dividend` 为开发中占位，标明 `fundamental capital-flow` 尚未接入 CLI 子命令，补充 `strategy daemon`/`algo`/`market`/`screener`/`monitor`/`trade`/`account` 的参数与运行边界，并同步 Graphiti MCP 的稳定 `group_id` 命名
-- **2026-05-03**: 按当前主线源码核对 `FUNCTION_TREE.md`，统一补充 `已实现 / 部分实现 / 未实现 / 非目标 / 待实现` 状态标记，并修正文档与实际命令/模块不一致项
+- **2026-05-03**: 按当前主线源码核对 `FUNCTION_TREE.md`，统一补充 `已实现 / 部分实现 / 已设计/待实现 / 非目标` 状态标记，并修正文档与实际命令/模块不一致项
 - **2026-05-02**: 根目录 `FUNCTION_TREE.md` 升级为唯一 canonical 功能树文档，并通过 PR #62 并入 `master`，当前主线基线为 `origin/master@562fe84`
 - **2026-03-27 (续2)**: 添加 Graphiti MCP 集成、多账户管理、算法交易执行器
 - **2026-03-27**: 添加 daily_stock_analysis 迁移计划（AI/News/Fundamental/Notification扩展）
-- **2026-03-27**: 合并 FUNCTION_MAP.md，增加设计边界和运营视图
+- **2026-03-27**: 合并历史功能清单，增加设计边界和运营视图
 - **2026-03-27**: 初版创建，记录当前项目功能结构
 
 ---
@@ -939,6 +1053,10 @@ quantix
 ### Graphiti MCP 语义记忆层
 
 Graphiti MCP 提供语义记忆能力，用于设计决策、代码审查、调试、交接和文档。
+
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| Graphiti MCP 语义记忆层 | [已实现] | `docs/guides/GRAPHITI_MCP_WORKFLOW.md`; MCP `graphiti-memory` 配置；稳定 `group_id` 表 | Graphiti 是 AI 开发工作流记忆层，不是应用运行时依赖，也不是当前任务状态或源码结构权威 |
 
 | Group ID | 用途 |
 |----------|------|
@@ -998,11 +1116,13 @@ Quantix-Rust 围绕五个稳定中心设计：
 
 以下明确不在已完成的功能设计范围内：
 
-- [非目标] 真实 live broker 执行
-- [非目标] Windows 端拥有运行时状态
-- [非目标] Wind / Choice bridge 集成
-- [非目标] Bridge 端 WebSocket / gRPC 栈
-- [非目标] 分布式 worker 或多进程执行守护进程协调
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| 真实 live broker 执行 | [非目标] | 注册表 `execution/` 和 `quantix execution` 边界；A.3 `live` 决策 | 当前只承认 `paper`、`mock_live` 和 guarded `qmt_live`；不要把通用 `live` 读成可用能力 |
+| Windows 端拥有运行时状态 | [非目标] | A.2 Bridge 边界；附录 D | Windows Bridge 是外部无状态服务边界，不拥有 Quantix 运行时状态 |
+| Wind / Choice bridge 集成 | [非目标] | A.3 `TDX bridge source` 决策 | Bridge v1 当前只登记 TDX/QMT 路径，不包含 Wind/Choice |
+| Bridge 端 WebSocket / gRPC 栈 | [非目标] | 附录 D HTTP 端点清单 | 当前 bridge 证据是 HTTP API，不登记 WebSocket/gRPC 能力 |
+| 分布式 worker 或多进程执行守护进程协调 | [非目标] | `algo` 和 `task` 注册表边界 | 当前任务/算法执行不声明分布式 worker 协调能力 |
 
 ---
 
@@ -1010,60 +1130,57 @@ Quantix-Rust 围绕五个稳定中心设计：
 
 ### C.1 当前可用功能
 
-```
-当前可用
-├── [已实现] 本地数据/研究/选股
-├── [已实现] 本地 paper 交易
-├── [部分实现] 本地风控/监控/止损工作流
-├── [已实现] 策略 paper + mock_live + 请求生命周期
-├── [已实现] 执行守护进程消费
-├── [已实现] 多账户管理 (账户组、资金聚合、智能拆单)
-└── [已实现] Windows Bridge v1
-    ├── [已实现] TDX bridge 数据源
-    ├── [已实现] QMT 预览
-    └── [已实现] guarded `qmt_live` 真实提交 + task receipt/result query 路径
-```
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| 本地数据/研究/选股 | [已实现] | 注册表 `data/`, `analysis/`, `screener/`; CLI `data/analyze/market/watchlist` | 依赖本地数据和已接线数据源；不承诺所有外部数据接口完整 |
+| 本地 paper 交易 | [已实现] | 注册表 `trade/`, `execution/`; CLI `trade`, `strategy signal approve --target-mode paper` | 模拟/本地执行路径，不是真实 broker live |
+| 本地风控/监控/止损工作流 | [部分实现] | 注册表 `risk/`, `monitoring/`, `stop/`; CLI `risk/monitor/stop/notify` | 核心工作流可用；通知渠道和部分引用数据同步仍受限 |
+| 策略 paper + mock_live + 请求生命周期 | [已实现] | `execution_request`; `strategy request`; `paper/mock_live/qmt_live` 设计决策 | 只覆盖已登记 target mode；通用 `live` 不是可用能力 |
+| 执行守护进程消费 | [已实现] | `src/strategy/daemon`; CLI `strategy daemon` | 当前 daemon 有严格 bootstrap 和 enabled 股票约束 |
+| 多账户管理 | [已实现] | 注册表 `account/`; CLI `account` | 本地账户组、资金聚合、拆单视图可用；不替代 broker 真实账本 |
+| Windows Bridge v1 | [已实现] | 注册表 `bridge/`; 附录 D | TDX bridge、QMT 预览和 guarded `qmt_live` 路径可用；Bridge 不拥有执行状态 |
 
 ### C.2 故意推迟的功能
 
-```
-故意推迟
-├── [非目标] 真实 live 适配器
-├── [非目标] Wind / Choice bridge 支持
-├── [非目标] Bridge 拥有的订单生命周期
-└── [非目标] 更广泛的分布式运行时问题
-```
+| 功能节点 | 状态 | 证据 | 边界 |
+|---|---|---|---|
+| 真实 live 适配器 | [非目标] | A.3 `live` 决策；`execution/` 注册表 | 不把通用 `live` 声明为已实现；真实提交只走 gated `qmt_live` |
+| Wind / Choice bridge 支持 | [非目标] | A.3 `TDX bridge source` 决策 | 当前不登记 Wind/Choice bridge |
+| Bridge 拥有的订单生命周期 | [非目标] | A.2 Bridge 边界；附录 D | 订单生命周期属于 Rust 端执行请求/审计模型 |
+| 更广泛的分布式运行时问题 | [非目标] | `task` / `algo` 注册表边界 | 不声明分布式 worker、多进程协调或跨主机调度 |
 
 ---
 
-## 附录 D: Windows Bridge v1 功能树
+## 附录 D: Windows Bridge v1 证据展开
+
+以下清单是 `bridge/` 和 `quantix execution` 注册表节点的证据展开。Bridge 子端点出现不代表绕过 Rust 端 gate 后即可直接作为 Quantix 已开放能力使用。
 
 ```
-Windows Bridge v1 [已实现]
-├── Rust 端 [已实现]
-│   ├── src/bridge/client.rs [已实现]
-│   ├── src/bridge/models.rs [已实现]
-│   ├── src/sources/bridge_tdx.rs [已实现]
-│   ├── src/watchlist/resolver.rs (BridgeTdxWatchlistQuoteLookup) [已实现]
-│   ├── src/execution/qmt_bridge.rs [已实现]
-│   ├── src/execution/qmt_live_gate.rs [已实现]
-│   ├── src/execution/qmt_task_submit_service.rs [已实现]
-│   ├── src/execution/qmt_live_adapter.rs [已实现]
-│   ├── src/execution/request_diagnostics.rs [已实现]
-│   └── quantix execution bridge ... [已实现]
+Windows Bridge v1
+├── Rust 端
+│   ├── src/bridge/client.rs
+│   ├── src/bridge/models.rs
+│   ├── src/sources/bridge_tdx.rs
+│   ├── src/watchlist/resolver.rs (BridgeTdxWatchlistQuoteLookup)
+│   ├── src/execution/qmt_bridge.rs
+│   ├── src/execution/qmt_live_gate.rs
+│   ├── src/execution/qmt_task_submit_service.rs
+│   ├── src/execution/qmt_live_adapter.rs
+│   ├── src/execution/request_diagnostics.rs
+│   └── quantix execution bridge ...
 │
-└── Windows 端 [已实现]
-    └── /mnt/d/mystocks/quantix/quantix_bridge [已实现]
-        ├── /health [已实现]
-        ├── /api/v1/capabilities [已实现]
-        ├── /api/v1/data/tdx/quotes [已实现]
-        ├── /api/v1/data/tdx/kline/{symbol} [已实现]
-        ├── /api/v1/task/execute [已实现]
-        ├── /api/v1/task/result/{task_id} [已实现]
-        ├── /api/v1/broker/qmt/account/status [已实现]
-        ├── /api/v1/broker/qmt/account/asset [已实现]
-        ├── /api/v1/broker/qmt/positions [已实现]
-        ├── /api/v1/broker/qmt/orders/preview [已实现]
-        ├── /api/v1/broker/qmt/orders [已实现]   # Bridge 真实提交端点；Rust 侧仍受 `qmt_live` gate 约束
-        └── /api/v1/broker/qmt/orders/{order_id} [已实现]   # 查询 / 撤单
+└── Windows 端
+    └── /mnt/d/mystocks/quantix/quantix_bridge
+        ├── /health
+        ├── /api/v1/capabilities
+        ├── /api/v1/data/tdx/quotes
+        ├── /api/v1/data/tdx/kline/{symbol}
+        ├── /api/v1/task/execute
+        ├── /api/v1/task/result/{task_id}
+        ├── /api/v1/broker/qmt/account/status
+        ├── /api/v1/broker/qmt/account/asset
+        ├── /api/v1/broker/qmt/positions
+        ├── /api/v1/broker/qmt/orders/preview
+        ├── /api/v1/broker/qmt/orders   # Bridge 真实提交端点；Rust 侧仍受 `qmt_live` gate 约束
+        └── /api/v1/broker/qmt/orders/{order_id}   # 查询 / 撤单
 ```
