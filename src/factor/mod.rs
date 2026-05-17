@@ -10,6 +10,7 @@ pub mod loader;
 pub mod neutralization;
 pub mod operators;
 pub mod rolling;
+pub mod scoring;
 pub mod types;
 
 pub use catalog::{FactorCatalog, builtin_factor_catalog};
@@ -27,7 +28,11 @@ pub use layered_backtest::{
 };
 pub use loader::{CsvFactorDataLoader, FactorDataLoader};
 pub use neutralization::{NeutralizationRequest, neutralize_factor_cross_sectional};
-pub use operators::{cs_rank, ts_delay, ts_delta};
+pub use operators::{cs_rank, ts_delay, ts_delta, ts_rank};
+pub use scoring::{
+    FactorScoreResult, factor_score_result_to_csv_string, factor_score_result_to_json_string,
+    factor_score_result_to_parquet_file, score_factors_latest,
+};
 pub use types::{
     FactorCategory, FactorComputeRequest, FactorComputeResult, FactorLoadRequest, FactorMeta,
     MissingPolicy,

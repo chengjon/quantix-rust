@@ -3,24 +3,24 @@
 > 状态源说明：本文是代码审计证据，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 `FUNCTION_TREE.md` 的状态注册表为准。
 
-Captured during the 2026-05-15 audit run, with a 2026-05-18 follow-up release-build gate update.
+Captured during the 2026-05-15 audit run, with 2026-05-18 follow-up runtime gate updates.
 
 ## Gate Summary
 
 | Gate | Exit status | Result | Evidence summary |
 |---|---:|---|---|
-| `cargo fmt --check` | 1 | FAIL | `src/factor/scoring.rs:1` needs rustfmt wrapping for the long `polars::prelude` import. |
+| `cargo fmt --check` | 0 | PASS | Follow-up gate run passes after formatting the local factor scoring work. |
 | `cargo clippy --all-targets --all-features` | 0 | PASS with warnings | JSON diagnostic pass reported 220 warning diagnostics; highest-volume lints include `dead_code`, `unused_variables`, `clone_on_copy`, and `await_holding_lock`. |
-| `cargo test --all-targets` | 101 | FAIL | `factor_score_cli_writes_csv_output` failed at `tests/factor_pipeline_test.rs:454`; expected CSV row `2026-01-02,000002.SZ,1.0,2` was missing. |
+| `cargo test --all-targets` | 0 | PASS | Follow-up all-target test run passes after preserving plain factor score symbol strings before CSV output. |
 | `cargo build --release` | 0 | PASS | Follow-up gate evidence in `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log` confirms `cargo build --manifest-path /opt/claude/quantix-rust/Cargo.toml --release --quiet` exited 0 with existing warnings only. |
 
 ## Details
 
 ### `cargo fmt --check`
 
-- Duration: 1093 ms.
-- Failure excerpt starts at `src/factor/scoring.rs:1`.
-- Finding: `AUDIT-S2-010`.
+- Initial audit run: exit status 1; failure excerpt started at `src/factor/scoring.rs:1`.
+- Follow-up gate run: `cargo fmt --check` exits 0.
+- Finding: `AUDIT-S2-010`, closed by follow-up formatting gate evidence.
 
 ### `cargo clippy --all-targets --all-features`
 
@@ -38,9 +38,13 @@ Captured during the 2026-05-15 audit run, with a 2026-05-18 follow-up release-bu
 
 ### `cargo test --all-targets`
 
-- Duration: 9609 ms.
-- Exit status: 101.
-- Finding: `AUDIT-S2-011`.
+- Initial audit run: exit status 101.
+- Root cause: factor score CSV output used display-form string extraction from Polars `AnyValue`, so symbols were written with embedded display quotes and then escaped by CSV output.
+- Local fix: factor score extraction now prefers `AnyValue::get_str()` for plain string values and only falls back to `to_string()` for non-string values.
+- Follow-up targeted test: `cargo test --manifest-path /opt/claude/quantix-rust/Cargo.toml --test factor_pipeline_test factor_score_cli_writes_csv_output` exits 0.
+- Follow-up factor pipeline test: `cargo test --manifest-path /opt/claude/quantix-rust/Cargo.toml --test factor_pipeline_test` exits 0.
+- Follow-up all-target test: `cargo test --manifest-path /opt/claude/quantix-rust/Cargo.toml --all-targets` exits 0.
+- Finding: `AUDIT-S2-011`, closed by follow-up factor CSV output fix and gate evidence.
 
 ```text
 test factor_score_cli_writes_csv_output ... FAILED
@@ -60,4 +64,4 @@ error: test failed, to rerun pass `--test factor_pipeline_test`
 
 ## Gate Conclusion
 
-The release-build gate is closed by follow-up evidence. Full runtime release confidence still depends on committing the local formatting and factor CSV output fixes for `AUDIT-S2-010` and `AUDIT-S2-011`.
+The runtime gate loop is closed locally: formatting, all-target tests, release build, and repository documentation hygiene pass. GitHub issue closure still depends on committing and synchronizing the local `AUDIT-S2-010` and `AUDIT-S2-011` fix evidence.

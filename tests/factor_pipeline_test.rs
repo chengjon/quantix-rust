@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use polars::prelude::*;
 use polars::prelude::{ParquetReader, SerReader};
 use quantix_cli::cli::handlers::run_factor_command;
-use quantix_cli::cli::{FactorCommands, FactorOutputFormat};
+use quantix_cli::cli::{Cli, Commands, FactorCommands, FactorOutputFormat};
 use quantix_cli::core::Result;
 use quantix_cli::factor::{
     FactorCategory, FactorComputeRequest, FactorDataLoader, FactorDataset, FactorLoadRequest,
@@ -11,10 +11,12 @@ use quantix_cli::factor::{
     builtin_factor_catalog, cs_rank, evaluate_factor_ic, factor_ic_result_to_csv_string,
     factor_ic_result_to_parquet_file, factor_result_to_csv_string, factor_result_to_json_string,
     factor_result_to_parquet_file, factor_value_correlation, neutralize_factor_cross_sectional,
-    run_layered_factor_backtest, ts_delay, ts_delta,
+    run_layered_factor_backtest, ts_delay, ts_delta, ts_rank,
 };
 use std::collections::BTreeMap;
 use std::fs::{File, write};
+
+use clap::Parser;
 
 struct MockFactorLoader {
     frame: DataFrame,
@@ -165,6 +167,58 @@ fn factor_core_types_have_first_slice_fields() {
     assert_eq!(load.required_fields, vec!["close"]);
 }
 
+#[test]
+fn factor_score_cli_shape_parses() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "factor",
+        "score",
+        "--input",
+        "/tmp/factor-input.csv",
+        "--factor",
+        "rank_close",
+        "delta_close_1",
+        "--symbol",
+        "000001.SZ",
+        "600000.SH",
+        "--start",
+        "2026-01-01",
+        "--end",
+        "2026-01-10",
+        "--format",
+        "csv",
+        "--output",
+        "/tmp/factor-score.csv",
+        "--skip-checks",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Factor(FactorCommands::Score {
+            input,
+            factors,
+            symbols,
+            start,
+            end,
+            format,
+            output,
+            top,
+            skip_checks,
+        }) => {
+            assert_eq!(input, "/tmp/factor-input.csv");
+            assert_eq!(factors, vec!["rank_close", "delta_close_1"]);
+            assert_eq!(symbols, vec!["000001.SZ", "600000.SH"]);
+            assert_eq!(start, "2026-01-01");
+            assert_eq!(end, "2026-01-10");
+            assert_eq!(format, FactorOutputFormat::Csv);
+            assert_eq!(output.as_deref(), Some("/tmp/factor-score.csv"));
+            assert_eq!(top, None);
+            assert!(skip_checks);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
 #[tokio::test]
 async fn dataset_from_loader_normalizes_and_checks_schema() {
     let loader = MockFactorLoader {
@@ -199,6 +253,14 @@ fn operators_compute_aligned_series() {
 
     let delta = ts_delta(&df, "close", 1).unwrap();
     assert_eq!(delta.len(), df.height());
+
+    let ts_rank_values = ts_rank(&df, "close", 2).unwrap();
+    assert_eq!(ts_rank_values.len(), df.height());
+    assert_eq!(ts_rank_values.null_count(), 3);
+    let ts_rank_values = ts_rank_values.f64().unwrap();
+    assert_eq!(ts_rank_values.get(3), Some(2.0));
+    assert_eq!(ts_rank_values.get(4), Some(2.0));
+    assert_eq!(ts_rank_values.get(5), Some(2.0));
 }
 
 #[tokio::test]
@@ -223,6 +285,40 @@ async fn catalog_lists_and_computes_rank_close() {
     let result = catalog.compute("rank_close", &dataset).unwrap();
     assert_eq!(result.factor_id, "rank_close");
     assert_eq!(result.frame.height(), dataset.frame().height());
+}
+
+#[tokio::test]
+async fn catalog_lists_and_computes_ts_rank_close_5() {
+    let loader = MockFactorLoader {
+        frame: mock_factor_frame_10d(),
+    };
+    let request = FactorLoadRequest {
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        end: NaiveDate::from_ymd_opt(2026, 1, 10).unwrap(),
+        required_fields: vec!["close".to_string()],
+    };
+    let dataset = FactorDataset::from_loader(&loader, &request).await.unwrap();
+    let catalog = builtin_factor_catalog();
+
+    assert!(
+        catalog
+            .list()
+            .iter()
+            .any(|meta| meta.id == "ts_rank_close_5")
+    );
+    let result = catalog.compute("ts_rank_close_5", &dataset).unwrap();
+    assert_eq!(result.factor_id, "ts_rank_close_5");
+    assert_eq!(result.frame.height(), dataset.frame().height());
+
+    let value = result.frame.column("value").unwrap().f64().unwrap();
+    // Three symbols have four warmup nulls each; the explicit missing close on
+    // 600000.SH day 5 invalidates that symbol's day 5-9 rolling windows.
+    assert_eq!(value.null_count(), 17);
 }
 
 #[tokio::test]
@@ -316,6 +412,47 @@ async fn factor_compute_cli_writes_parquet_output() {
         .unwrap();
     assert_eq!(frame.height(), 4);
     assert_eq!(frame.get_column_names(), vec!["date", "symbol", "value"]);
+}
+
+#[tokio::test]
+async fn factor_score_cli_writes_csv_output() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let input = tempdir.path().join("bars.csv");
+    let output = tempdir.path().join("factor_score.csv");
+    write(
+        &input,
+        "date,symbol,open,high,low,close,volume\n\
+         2026-01-01,000001.SZ,10.0,11.0,9.0,10.0,1000\n\
+         2026-01-01,600000.SH,20.0,21.0,19.0,20.0,2000\n\
+         2026-01-01,000002.SZ,30.0,31.0,29.0,30.0,3000\n\
+         2026-01-02,000001.SZ,11.0,12.0,10.0,11.0,1100\n\
+         2026-01-02,600000.SH,19.0,20.0,18.0,19.0,1900\n\
+         2026-01-02,000002.SZ,32.0,33.0,31.0,32.0,3200\n",
+    )
+    .unwrap();
+
+    run_factor_command(FactorCommands::Score {
+        input: input.to_string_lossy().to_string(),
+        factors: vec!["rank_close".to_string(), "delta_close_1".to_string()],
+        symbols: vec![
+            "000001.SZ".to_string(),
+            "600000.SH".to_string(),
+            "000002.SZ".to_string(),
+        ],
+        start: "2026-01-01".to_string(),
+        end: "2026-01-02".to_string(),
+        format: FactorOutputFormat::Csv,
+        output: Some(output.to_string_lossy().to_string()),
+        top: Some(2),
+        skip_checks: false,
+    })
+    .await
+    .unwrap();
+
+    let csv = std::fs::read_to_string(output).unwrap();
+    assert!(csv.starts_with("date,symbol,score,factor_count\n"));
+    assert!(csv.contains("2026-01-02,000002.SZ,1.0,2\n"));
+    assert_eq!(csv.lines().count(), 3);
 }
 
 #[tokio::test]

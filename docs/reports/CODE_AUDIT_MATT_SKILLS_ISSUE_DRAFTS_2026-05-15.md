@@ -56,18 +56,19 @@ Closed as completed:
 - `chengjon/quantix#8`
 - `chengjon/quantix#9`
 
-Still open for runtime gate closure:
+Still open in GitHub until commit/push evidence is synchronized:
 
 - `chengjon/quantix#1`
 - `chengjon/quantix#2`
 
-The closure of #4-#9 does not change the original audit gate outcomes. Release confidence remains open until #1 and #2 are resolved with committed fresh gate evidence.
+The local runtime gate loop is closed after follow-up remediation, but #1 and #2 should remain open in GitHub until the source/evidence commit is available to the issue tracker and linked in issue comments.
 
 ## Runtime Gate Update
 
 Runtime gate remediation continued on 2026-05-18:
 
-- `chengjon/quantix#2` remains open. The failure was reproduced and locally fixed by extracting plain string values from Polars `AnyValue` before writing factor score CSV rows. Local verification passed for the targeted test, full `factor_pipeline_test`, `cargo fmt --check`, `cargo test --all-targets`, and `repo_hygiene_test`. The issue remains open because `src/factor/scoring.rs` is still an untracked source file and `tests/factor_pipeline_test.rs` already had pre-existing local modifications. GitHub evidence comment: `https://github.com/chengjon/quantix/issues/2#issuecomment-4471876127`.
+- `chengjon/quantix#1` remains open in GitHub pending commit/push evidence. Locally, `cargo fmt --check` passes after formatting the factor scoring work.
+- `chengjon/quantix#2` remains open in GitHub pending commit/push evidence. The failure was reproduced and locally fixed by extracting plain string values from Polars `AnyValue` before writing factor score CSV rows. Local verification passed for the targeted test, full `factor_pipeline_test`, `cargo fmt --check`, `cargo test --all-targets`, `cargo build --release --quiet`, and `repo_hygiene_test`. GitHub evidence comment before commit: `https://github.com/chengjon/quantix/issues/2#issuecomment-4471876127`.
 - `chengjon/quantix#3` is closed. `cargo build --release` was reproduced as a pass, with the long-running build handling recorded at `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log`.
 
 ### 1. Close the formatting gate for factor scoring
@@ -84,9 +85,9 @@ Restore the formatting gate by applying the smallest rustfmt-only change needed 
 
 #### Acceptance criteria
 
-- [ ] `cargo fmt --check` passes.
-- [ ] No logic changes are included.
-- [ ] `docs/CODE_AUDIT_EVIDENCE/findings.csv` or follow-up evidence records `AUDIT-S2-010` closure only if the fresh gate output supports it.
+- [x] `cargo fmt --check` passes.
+- [x] No logic changes are included for the formatting closure itself.
+- [x] `docs/CODE_AUDIT_EVIDENCE/findings.csv` records `AUDIT-S2-010` closure with fresh gate evidence.
 
 #### Agent brief notes
 
@@ -108,11 +109,11 @@ Reproduce `factor_score_cli_writes_csv_output`, determine whether the implementa
 
 #### Acceptance criteria
 
-- [ ] `cargo test --test factor_pipeline_test factor_score_cli_writes_csv_output` reproduces the current failure before the fix.
-- [ ] The root cause is documented in the issue or evidence notes.
-- [ ] The fixed test verifies user-visible CSV output through the public path, not private implementation details.
-- [ ] `cargo test --test factor_pipeline_test factor_score_cli_writes_csv_output` passes after the fix.
-- [ ] `cargo test --all-targets` is rerun after this and the formatting gate are closed.
+- [x] `cargo test --test factor_pipeline_test factor_score_cli_writes_csv_output` reproduced the failure before the fix.
+- [x] The root cause is documented in the issue and evidence notes.
+- [x] The fixed test verifies user-visible CSV output through the public path, not private implementation details.
+- [x] `cargo test --test factor_pipeline_test factor_score_cli_writes_csv_output` passes after the fix.
+- [x] `cargo test --all-targets` was rerun after this and the formatting gate were closed.
 
 #### Agent brief notes
 

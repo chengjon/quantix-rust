@@ -7,7 +7,7 @@
 
 The audit execution spec was implemented as an evidence package under `docs/CODE_AUDIT_EVIDENCE/`.
 
-The repository is not release-ready from this audit run. The release-build gate has since been reproduced as a pass, but release confidence remains open until the local formatting and factor CSV output fixes for `AUDIT-S2-010` and `AUDIT-S2-011` are committed. No S0 or S1 issue was confirmed in the sampled manual review.
+The repository runtime gates are locally closed after follow-up remediation: formatting, all-target tests, and release build pass. No S0 or S1 issue was confirmed in the sampled manual review. Residual release risk is now the open S3 TUI placeholder finding and the broad unrelated dirty worktree, not the runtime gate loop.
 
 ## Evidence Package
 
@@ -52,17 +52,17 @@ The dirty worktree materially limits confidence. Findings describe the local wor
 
 | Gate | Result | Finding |
 |---|---|---|
-| `cargo fmt --check` | fail | `AUDIT-S2-010` |
+| `cargo fmt --check` | pass in follow-up gate run | `AUDIT-S2-010` fixed |
 | `cargo clippy --all-targets --all-features` | pass with 220 warning diagnostics | none |
-| `cargo test --all-targets` | fail | `AUDIT-S2-011` |
+| `cargo test --all-targets` | pass in follow-up gate run | `AUDIT-S2-011` fixed |
 | `cargo build --release` | pass in follow-up gate run | `AUDIT-S3-010` fixed |
 
 ## Findings
 
 | ID | Severity | Status | Summary |
 |---|---|---|---|
-| `AUDIT-S2-010` | S2 | deferred | Formatting gate fails in `src/factor/scoring.rs:1`. |
-| `AUDIT-S2-011` | S2 | deferred | Factor score CSV output test fails at `tests/factor_pipeline_test.rs:454`. |
+| `AUDIT-S2-010` | S2 | fixed | Formatting gate now passes. |
+| `AUDIT-S2-011` | S2 | fixed | Factor score CSV output test and all-target test now pass after preserving plain symbol strings before CSV output. |
 | `AUDIT-S3-010` | S3 | fixed | Release build gate reproduced as pass; evidence is `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log`. |
 | `AUDIT-S3-009` | S3 | open | `menu --tui` still advertises TUI behavior but returns success from an in-progress placeholder. |
 
@@ -90,7 +90,7 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 | Manual review covers P0/P1 and sampled P2/P3 | met |
 | `findings.csv` uses required schema | met |
 | Final report exists | met |
-| S0/S1/S2 findings have explicit status and evidence | met; S2 findings are deferred with evidence |
+| S0/S1/S2 findings have explicit status and evidence | met; S2 findings are fixed with evidence |
 | Remaining S3/S4 findings listed | met; `AUDIT-S3-010` is fixed and `AUDIT-S3-009` remains open |
 | Graphiti review memory completed ingestion | met; episode `c987c1b4-8b27-4fe0-b92e-10b466ab4939` completed ingestion |
 | Graphiti read evidence supplement | met; `graphiti-memory.md` added after review |
@@ -99,11 +99,9 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 
 ## Recommended Remediation Order
 
-1. Close `AUDIT-S2-010` by applying rustfmt only to the affected formatting drift.
-2. Close `AUDIT-S2-011` by reproducing the factor score CSV output and fixing either the output ordering/value contract or the test expectation with evidence.
-3. Re-run `cargo test --all-targets`.
-4. Decide whether `menu --tui` should launch a real TUI or return an unsupported/non-zero result until implemented.
+1. Decide whether `menu --tui` should launch a real TUI or return an unsupported/non-zero result until implemented.
+2. Keep release-gate evidence current if additional runtime code changes are made.
 
 ## Final Status
 
-Audit execution completed with open/deferred findings. Release-build reproducibility is closed, but runtime release confidence remains open until `AUDIT-S2-010` and `AUDIT-S2-011` are committed and verified. Graphiti review memory completed ingestion. Post-review evidence supplements were added without changing the original source-code findings.
+Audit execution completed with runtime gates locally closed and one known S3 finding still open. Graphiti review memory completed ingestion. Post-review evidence supplements and follow-up gate evidence were added without changing `FUNCTION_TREE.md` feature-status authority.
