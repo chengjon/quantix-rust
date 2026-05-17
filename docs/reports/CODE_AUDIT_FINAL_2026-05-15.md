@@ -7,7 +7,7 @@
 
 The audit execution spec was implemented as an evidence package under `docs/CODE_AUDIT_EVIDENCE/`.
 
-The repository is not release-ready from this audit run. The format gate fails, the all-target test gate fails, and the release build gate remains unverified after a long-running build was terminated. No S0 or S1 issue was confirmed in the sampled manual review.
+The repository is not release-ready from this audit run. The release-build gate has since been reproduced as a pass, but release confidence remains open until the local formatting and factor CSV output fixes for `AUDIT-S2-010` and `AUDIT-S2-011` are committed. No S0 or S1 issue was confirmed in the sampled manual review.
 
 ## Evidence Package
 
@@ -25,6 +25,7 @@ The repository is not release-ready from this audit run. The format gate fails, 
 | `docs/CODE_AUDIT_EVIDENCE/evidence-manifest.md` | post-review supplement |
 | `docs/CODE_AUDIT_EVIDENCE/logs/README.md` | post-review supplement |
 | `docs/CODE_AUDIT_EVIDENCE/archive/README.md` | post-review supplement |
+| `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log` | release-build gate closure evidence |
 
 ## Post-Review Supplement
 
@@ -33,7 +34,7 @@ After reviewing `docs/reports/IMPECCABLE_AUDIT_CODE_AUDIT_EXECUTION_SPEC_2026-05
 - `docs/CODE_AUDIT_EVIDENCE/graphiti-memory.md` records Graphiti read/write evidence and clarifies that Graphiti is not a code truth source.
 - `docs/CODE_AUDIT_EVIDENCE/evidence-manifest.md` records evidence package actions and checksums.
 
-These supplements do not change the original audit gate outcomes or source-code findings.
+These supplements do not change the original source-code findings. The release-build follow-up evidence changes `AUDIT-S3-010` from `needs-repro` to fixed.
 
 ## Baseline
 
@@ -54,7 +55,7 @@ The dirty worktree materially limits confidence. Findings describe the local wor
 | `cargo fmt --check` | fail | `AUDIT-S2-010` |
 | `cargo clippy --all-targets --all-features` | pass with 220 warning diagnostics | none |
 | `cargo test --all-targets` | fail | `AUDIT-S2-011` |
-| `cargo build --release` | unverified after timeout/termination | `AUDIT-S3-010` |
+| `cargo build --release` | pass in follow-up gate run | `AUDIT-S3-010` fixed |
 
 ## Findings
 
@@ -62,7 +63,7 @@ The dirty worktree materially limits confidence. Findings describe the local wor
 |---|---|---|---|
 | `AUDIT-S2-010` | S2 | deferred | Formatting gate fails in `src/factor/scoring.rs:1`. |
 | `AUDIT-S2-011` | S2 | deferred | Factor score CSV output test fails at `tests/factor_pipeline_test.rs:454`. |
-| `AUDIT-S3-010` | S3 | needs-repro | Release build gate remains unverified because the build exceeded the audit tool window. |
+| `AUDIT-S3-010` | S3 | fixed | Release build gate reproduced as pass; evidence is `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log`. |
 | `AUDIT-S3-009` | S3 | open | `menu --tui` still advertises TUI behavior but returns success from an in-progress placeholder. |
 
 No S0 or S1 finding was confirmed.
@@ -90,7 +91,7 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 | `findings.csv` uses required schema | met |
 | Final report exists | met |
 | S0/S1/S2 findings have explicit status and evidence | met; S2 findings are deferred with evidence |
-| Remaining S3/S4 findings listed | met |
+| Remaining S3/S4 findings listed | met; `AUDIT-S3-010` is fixed and `AUDIT-S3-009` remains open |
 | Graphiti review memory completed ingestion | met; episode `c987c1b4-8b27-4fe0-b92e-10b466ab4939` completed ingestion |
 | Graphiti read evidence supplement | met; `graphiti-memory.md` added after review |
 | Evidence manifest supplement | met; `evidence-manifest.md` added after review |
@@ -101,9 +102,8 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 1. Close `AUDIT-S2-010` by applying rustfmt only to the affected formatting drift.
 2. Close `AUDIT-S2-011` by reproducing the factor score CSV output and fixing either the output ordering/value contract or the test expectation with evidence.
 3. Re-run `cargo test --all-targets`.
-4. Re-run `cargo build --release` in a terminal session with an explicit time budget.
-5. Decide whether `menu --tui` should launch a real TUI or return an unsupported/non-zero result until implemented.
+4. Decide whether `menu --tui` should launch a real TUI or return an unsupported/non-zero result until implemented.
 
 ## Final Status
 
-Audit execution completed with open/deferred findings. Runtime release confidence is not closed. Graphiti review memory completed ingestion. Post-review evidence supplements were added without changing the original source-code findings.
+Audit execution completed with open/deferred findings. Release-build reproducibility is closed, but runtime release confidence remains open until `AUDIT-S2-010` and `AUDIT-S2-011` are committed and verified. Graphiti review memory completed ingestion. Post-review evidence supplements were added without changing the original source-code findings.

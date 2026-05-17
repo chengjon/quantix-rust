@@ -1,0 +1,28 @@
+Code audit release build gate log
+Date: 2026-05-17T17:40:08Z
+Local date: 2026-05-18 Asia/Shanghai
+Finding: AUDIT-S3-010
+Issue: https://github.com/chengjon/quantix/issues/3
+
+Primary command:
+cargo build --manifest-path /opt/claude/quantix-rust/Cargo.toml --release
+
+Timeout budget:
+20 minutes intended command budget. The context-mode MCP call timed out at its 120 second transport layer while the child cargo process continued.
+
+Long-running process handling:
+- Observed cargo PID 1808626 still running after the MCP timeout.
+- Observed rustc child PID 1810841 running with active CPU usage, so the build was not treated as failed or hung.
+- Waited for PID 1808626 to exit naturally.
+- Verified no unmanaged cargo build process remained after the wait.
+
+Confirmation command:
+cargo build --manifest-path /opt/claude/quantix-rust/Cargo.toml --release --quiet
+
+Confirmation result:
+exit status 0
+
+Notes:
+- The confirmation command emitted existing warnings only.
+- No production code was changed for AUDIT-S3-010.
+- Release-build reproducibility is locally verified; final release-confidence closure still depends on committing the local fmt/test gate changes for AUDIT-S2-010 and AUDIT-S2-011.
