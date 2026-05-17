@@ -1,0 +1,8 @@
+pattern,severity,total,production_count,test_or_cfg_test_count,non_code_count,files,classification
+.unwrap(),HIGH,2486,433,2053,0,149,manual review required; many matches are tests
+.expect(,HIGH,184,11,173,0,36,manual review required; production matches need invariant text review
+panic!(,HIGH,222,9,213,0,32,manual review required; production matches concentrated in diagnostics and batch code
+println!,MEDIUM,1190,1149,41,0,38,CLI-heavy codebase; classify library/runtime side effects manually
+TODO[^-],MEDIUM,3,3,0,0,3,untracked design notes found in production files
+let _ =,MEDIUM,16,16,0,0,11,manual review required for ignored Result/Error intent
+unsafe {,CRITICAL,128,0,128,0,11,line-level review found all unsafe blocks in test files or cfg(test) contexts
