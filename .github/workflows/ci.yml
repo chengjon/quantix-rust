@@ -3,9 +3,9 @@ name: CI
 # 触发条件
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'
@@ -90,12 +90,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        healthcheck:
-          test: ["CMD-SHELL", "pg_isready -U test"]
-          interval: 10s
-          timeout: 5s
-          retries: 5
-
       clickhouse:
         image: clickhouse/clickhouse-server:latest
         ports:
@@ -206,12 +200,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        healthcheck:
-          test: ["CMD-SHELL", "pg_isready -U test"]
-          interval: 10s
-          timeout: 5s
-          retries: 5
-
       clickhouse:
         image: clickhouse/clickhouse-server:latest
         ports:
