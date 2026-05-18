@@ -16,9 +16,7 @@ pub mod signal_monitor;
 
 // Phase 16 导出
 pub use alert::{Alert, AlertConfig, AlertLevel, AlertManager, AlertThreshold, AlertType};
-pub use health::{
-    ComponentHealth, HealthCheck, HealthRegistry, HealthStatus, SystemHealth,
-};
+pub use health::{ComponentHealth, HealthCheck, HealthRegistry, HealthStatus, SystemHealth};
 pub use metrics::{MetricsCollector, MetricsExporter, MetricsFormat};
 pub use notification::{
     DesktopSender, LogSender, Notification, NotificationChannel, NotificationConfig,

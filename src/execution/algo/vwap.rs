@@ -3,18 +3,20 @@
 //! 成交量加权平均价格算法实现
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc, Duration, Timelike};
+use chrono::{DateTime, Duration, Timelike, Utc};
+use rand::Rng;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use rand::Rng;
 
-use super::{AlgoType, AlgoContext, AlgoParams, AlgoState, AlgoStatus, ChildOrder, ChildOrderStatus};
-use super::executor::{AlgorithmExecutor, AlgoError, SlicePlan, Slice};
-use crate::execution::adapter::ExecutionAdapter;
+use super::executor::{AlgoError, AlgorithmExecutor, Slice, SlicePlan};
+use super::{
+    AlgoContext, AlgoParams, AlgoState, AlgoStatus, AlgoType, ChildOrder, ChildOrderStatus,
+};
 use crate::core::Result;
+use crate::execution::adapter::ExecutionAdapter;
 
 /// VWAP 算法执行器
 pub struct VwapExecutor {
@@ -44,43 +46,171 @@ impl VwapExecutor {
     fn default_volume_profile() -> Vec<Decimal> {
         vec![
             // 09:30 - 09:59 (开盘30分钟，成交量较大)
-            dec!(30), dec!(25), dec!(22), dec!(20), dec!(18),
-            dec!(16), dec!(15), dec!(14), dec!(13), dec!(12),
-            dec!(11), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
+            dec!(30),
+            dec!(25),
+            dec!(22),
+            dec!(20),
+            dec!(18),
+            dec!(16),
+            dec!(15),
+            dec!(14),
+            dec!(13),
+            dec!(12),
+            dec!(11),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
             // 10:00 - 10:59 (平稳期)
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
-            dec!(8), dec!(8), dec!(8), dec!(8), dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
+            dec!(8),
             // 11:00 - 11:29 (上午后期)
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
-            dec!(7), dec!(7), dec!(7), dec!(7), dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
+            dec!(7),
             // 13:00 - 13:29 (下午开盘)
-            dec!(12), dec!(11), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
-            dec!(10), dec!(10), dec!(10), dec!(10), dec!(10),
+            dec!(12),
+            dec!(11),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
+            dec!(10),
             // 14:00 - 14:59 (下午中段)
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
-            dec!(9), dec!(9), dec!(9), dec!(9), dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
+            dec!(9),
             // 15:00 - 15:09 (收盘，成交量放大)
-            dec!(15), dec!(18), dec!(20), dec!(22), dec!(25),
-            dec!(28), dec!(30), dec!(32), dec!(35), dec!(40),
+            dec!(15),
+            dec!(18),
+            dec!(20),
+            dec!(22),
+            dec!(25),
+            dec!(28),
+            dec!(30),
+            dec!(32),
+            dec!(35),
+            dec!(40),
         ]
     }
 
@@ -120,9 +250,9 @@ impl VwapExecutor {
     fn generate_slices(&self, params: &AlgoParams) -> Vec<Slice> {
         let total_seconds = (params.end_time - params.start_time).num_seconds() as u64;
         let interval = params.interval_seconds.unwrap_or(300); // 默认5分钟
-        let slice_count = params.slice_count.unwrap_or_else(|| {
-            (total_seconds / interval).max(1) as u32
-        });
+        let slice_count = params
+            .slice_count
+            .unwrap_or_else(|| (total_seconds / interval).max(1) as u32);
 
         // 计算总成交量权重
         let mut total_weight = Decimal::ZERO;
@@ -160,7 +290,9 @@ impl VwapExecutor {
             let quantity = if params.randomize_quantity && base_quantity > 0 {
                 let jitter_pct = rng.gen_range(-10..10) as i64;
                 let adjusted = base_quantity + (base_quantity * jitter_pct / 100);
-                adjusted.max(params.min_slice_quantity).min(params.max_slice_quantity)
+                adjusted
+                    .max(params.min_slice_quantity)
+                    .min(params.max_slice_quantity)
             } else {
                 base_quantity
             };
@@ -208,7 +340,9 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn initialize(&mut self, params: AlgoParams) -> Result<String> {
         // 验证参数
-        params.validate().map_err(|e| crate::core::QuantixError::Algo(AlgoError::InvalidParams(e).to_string()))?;
+        params.validate().map_err(|e| {
+            crate::core::QuantixError::Algo(AlgoError::InvalidParams(e).to_string())
+        })?;
 
         // 生成算法ID
         let algo_id = format!("VWAP-{}", chrono::Utc::now().format("%Y%m%d%H%M%S"));
@@ -241,7 +375,8 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn start(&mut self, algo_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
-        let context = contexts.get_mut(algo_id)
+        let context = contexts
+            .get_mut(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
 
         context.state.status = AlgoStatus::Running;
@@ -261,7 +396,8 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn pause(&mut self, algo_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
-        let context = contexts.get_mut(algo_id)
+        let context = contexts
+            .get_mut(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
         context.state.status = AlgoStatus::Paused;
 
@@ -271,7 +407,8 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn resume(&mut self, algo_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
-        let context = contexts.get_mut(algo_id)
+        let context = contexts
+            .get_mut(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
         context.state.status = AlgoStatus::Running;
 
@@ -281,7 +418,8 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn cancel(&mut self, algo_id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
-        let context = contexts.get_mut(algo_id)
+        let context = contexts
+            .get_mut(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
         context.state.status = AlgoStatus::Cancelled;
         context.state.completed_at = Some(Utc::now());
@@ -292,14 +430,20 @@ impl AlgorithmExecutor for VwapExecutor {
 
     async fn get_state(&self, algo_id: &str) -> Result<AlgoState> {
         let contexts = self.contexts.read().await;
-        let context = contexts.get(algo_id)
+        let context = contexts
+            .get(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
         Ok(context.state.clone())
     }
 
-    async fn step(&mut self, algo_id: &str, _adapter: &dyn ExecutionAdapter) -> Result<Option<ChildOrder>> {
+    async fn step(
+        &mut self,
+        algo_id: &str,
+        _adapter: &dyn ExecutionAdapter,
+    ) -> Result<Option<ChildOrder>> {
         let mut contexts = self.contexts.write().await;
-        let context = contexts.get_mut(algo_id)
+        let context = contexts
+            .get_mut(algo_id)
             .ok_or_else(|| AlgoError::NotFound(algo_id.to_string()))?;
 
         if !context.should_order_now() {
@@ -336,7 +480,8 @@ impl AlgorithmExecutor for VwapExecutor {
 
                 // 设置下一次下单时间
                 if context.current_slice < slices.len() as u32 {
-                    context.next_order_time = Some(slices[context.current_slice as usize].scheduled_time);
+                    context.next_order_time =
+                        Some(slices[context.current_slice as usize].scheduled_time);
                 } else {
                     context.next_order_time = None;
                 }
@@ -350,7 +495,8 @@ impl AlgorithmExecutor for VwapExecutor {
                 // 记录子订单
                 {
                     let mut orders = self.child_orders.write().await;
-                    orders.entry(algo_id.to_string())
+                    orders
+                        .entry(algo_id.to_string())
                         .or_insert_with(Vec::new)
                         .push(child_order.clone());
                 }
@@ -386,7 +532,8 @@ impl AlgorithmExecutor for VwapExecutor {
         // 同步获取活跃算法
         let rt = tokio::runtime::Handle::current();
         let contexts = rt.block_on(self.contexts.read());
-        contexts.iter()
+        contexts
+            .iter()
             .filter(|(_, ctx)| !ctx.state.is_finished())
             .map(|(id, _)| id.clone())
             .collect()

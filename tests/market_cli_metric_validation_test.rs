@@ -15,14 +15,13 @@ fn run_quantix(args: &[&str]) -> (String, String, bool) {
 
 #[test]
 fn market_strength_stocks_rejects_invalid_metric_value() {
-    let (stdout, stderr, success) = run_quantix(&[
-        "market",
-        "strength-stocks",
-        "--metric",
-        "invalid",
-    ]);
+    let (stdout, stderr, success) =
+        run_quantix(&["market", "strength-stocks", "--metric", "invalid"]);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(stdout.is_empty(), "expected empty stdout, stdout={stdout}");
     assert!(
         stderr.contains("invalid value 'invalid' for '--metric <METRIC>'"),

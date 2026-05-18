@@ -382,7 +382,5 @@ mod tests {
 
         assert_eq!(result.record_count, 5);
         assert!(result.file_size > 0);
-        // Duration might be 0ms for very fast operations
-        assert!(result.duration_ms >= 0);
     }
 }

@@ -116,7 +116,8 @@ esac
 "#,
     )
     .expect("should write fake quantix");
-    fs::write(&fake_init, "#!/usr/bin/env bash\nset -euo pipefail\n").expect("should write fake init");
+    fs::write(&fake_init, "#!/usr/bin/env bash\nset -euo pipefail\n")
+        .expect("should write fake init");
     fs::write(&fake_env, "").expect("should write fake env");
 
     for path in [&fake_quantix, &fake_init] {
@@ -151,5 +152,8 @@ esac
     assert!(summary.contains("[FIELD] market_strength_stocks_sector_filter=银行"));
     assert!(summary.contains("[FIELD] market_strength_stocks_metric=上一会计周期净利润"));
     assert!(summary.contains("[FIELD] market_strength_stocks_coverage=1/1"));
-    assert!(summary.contains("[FIELD] market_strength_stocks_top_row=1 银行 601398 工商银行 7.00 100.00"));
+    assert!(
+        summary
+            .contains("[FIELD] market_strength_stocks_top_row=1 银行 601398 工商银行 7.00 100.00")
+    );
 }

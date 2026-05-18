@@ -206,7 +206,6 @@ mod tests {
         }
 
         // 验证策略没有 panic
-        assert!(!strategy.position || strategy.position);
     }
 
     #[test]

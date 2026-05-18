@@ -19,9 +19,9 @@ impl QmtLiveGateFailure {
             Self::CapabilityCheckFailed(message) => {
                 QuantixError::Other(format!("QMT 实盘能力检查失败: {message}"))
             }
-            Self::CapabilityDisabled => QuantixError::Other(
-                "QMT 实盘下单被拒绝: bridge qmt capability 未启用".to_string(),
-            ),
+            Self::CapabilityDisabled => {
+                QuantixError::Other("QMT 实盘下单被拒绝: bridge qmt capability 未启用".to_string())
+            }
             Self::ModeNotLive { observed_mode } => QuantixError::Other(format!(
                 "QMT 实盘下单被拒绝: bridge qmt.mode={}，要求 bridge qmt.mode=live",
                 observed_mode

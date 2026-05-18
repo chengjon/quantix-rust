@@ -22,7 +22,9 @@ fn ci_workflow_is_split_by_pr_push_and_main_weight() {
         "workflow should define a dedicated dependency_outdated job"
     );
     assert!(
-        !workflow.contains("- name: Check documentation\n        if: github.event_name != 'pull_request'"),
+        !workflow.contains(
+            "- name: Check documentation\n        if: github.event_name != 'pull_request'"
+        ),
         "lint documentation check should remain part of the pull_request path"
     );
     assert!(
@@ -30,8 +32,7 @@ fn ci_workflow_is_split_by_pr_push_and_main_weight() {
         "build job should be gated to push events"
     );
     assert!(
-        workflow.contains("bench:\n")
-            && workflow.contains("github.ref == 'refs/heads/main'"),
+        workflow.contains("bench:\n") && workflow.contains("github.ref == 'refs/heads/main'"),
         "bench job should remain main-only"
     );
 }

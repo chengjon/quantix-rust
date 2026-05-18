@@ -144,7 +144,8 @@ impl NotificationConfig {
         Self {
             enabled_channels,
             webhook_url: std::env::var("WEBHOOK_URL").ok(),
-            log_path: std::env::var("NOTIFICATION_LOG_PATH").ok()
+            log_path: std::env::var("NOTIFICATION_LOG_PATH")
+                .ok()
                 .or(Some("logs/notifications.log".to_string())),
             min_level: std::env::var("NOTIFICATION_MIN_LEVEL")
                 .ok()
@@ -350,10 +351,7 @@ impl NotificationSender for DesktopSender {
                     return Ok(());
                 }
                 Ok(o) => {
-                    tracing::warn!(
-                        "桌面通知发送失败: {}",
-                        String::from_utf8_lossy(&o.stderr)
-                    );
+                    tracing::warn!("桌面通知发送失败: {}", String::from_utf8_lossy(&o.stderr));
                 }
                 Err(e) => {
                     tracing::warn!("桌面通知发送失败: {}", e);
@@ -397,10 +395,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     return Ok(());
                 }
                 Ok(o) => {
-                    tracing::warn!(
-                        "桌面通知发送失败: {}",
-                        String::from_utf8_lossy(&o.stderr)
-                    );
+                    tracing::warn!("桌面通知发送失败: {}", String::from_utf8_lossy(&o.stderr));
                 }
                 Err(e) => {
                     tracing::warn!("桌面通知发送失败: {}", e);
@@ -598,7 +593,8 @@ impl NotificationSender for WechatWorkSender {
             }
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.webhook_url)
             .json(&payload)
             .send()
@@ -677,7 +673,8 @@ impl NotificationSender for FeishuSender {
     async fn send(&self, notification: &Notification) -> Result<()> {
         let payload = self.format_message(notification);
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.webhook_url)
             .json(&payload)
             .send()
@@ -797,17 +794,10 @@ impl NotificationService {
                 match sender.send(&notification).await {
                     Ok(()) => {
                         any_success = true;
-                        tracing::debug!(
-                            "通知通过 {} 渠道发送成功",
-                            sender.channel()
-                        );
+                        tracing::debug!("通知通过 {} 渠道发送成功", sender.channel());
                     }
                     Err(e) => {
-                        tracing::warn!(
-                            "通知通过 {} 渠道发送失败: {}",
-                            sender.channel(),
-                            e
-                        );
+                        tracing::warn!("通知通过 {} 渠道发送失败: {}", sender.channel(), e);
                     }
                 }
             }
@@ -869,7 +859,10 @@ mod tests {
         assert_eq!(notification.message, "测试消息");
         assert_eq!(notification.level, AlertLevel::Warning);
         assert!(!notification.sent);
-        assert_eq!(notification.metadata.get("code"), Some(&"000001".to_string()));
+        assert_eq!(
+            notification.metadata.get("code"),
+            Some(&"000001".to_string())
+        );
     }
 
     #[test]

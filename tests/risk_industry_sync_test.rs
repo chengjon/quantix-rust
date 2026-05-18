@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chrono::{NaiveDate, TimeZone, Utc};
 use quantix_cli::core::Result;
 use quantix_cli::risk::{
-    ClassificationStandard, IndustryClassificationLevel, IndustrySyncSource, SqliteIndustryStore,
-    ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow, sync_industry_reference_data_at,
+    ClassificationStandard, IndustryClassificationLevel, IndustrySyncSource, ShenwanCurrentSeedRow,
+    ShenwanHistoricalSeedRow, SqliteIndustryStore, sync_industry_reference_data_at,
 };
 use tempfile::tempdir;
 

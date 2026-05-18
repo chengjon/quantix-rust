@@ -221,8 +221,7 @@ fn market_strength_stocks_help_lists_sector_metric_and_top_options() {
 
 #[test]
 fn market_help_lists_strength_and_strength_stocks_commands() {
-    let err =
-        Cli::try_parse_from(["quantix", "market", "--help"]).expect_err("expected clap help");
+    let err = Cli::try_parse_from(["quantix", "market", "--help"]).expect_err("expected clap help");
 
     assert_eq!(err.kind(), ErrorKind::DisplayHelp);
 

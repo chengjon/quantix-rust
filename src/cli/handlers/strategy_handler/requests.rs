@@ -207,7 +207,11 @@ pub(crate) async fn execute_strategy_request_show(request_id: &str, verbose: boo
     let related_order = find_related_order_for_request(&store, &request).await?;
     println!(
         "{}",
-        format_strategy_request_detail_with_related_order(&request, related_order.as_ref(), verbose)
+        format_strategy_request_detail_with_related_order(
+            &request,
+            related_order.as_ref(),
+            verbose
+        )
     );
 
     if let Some(order) = related_order.as_ref() {
@@ -334,15 +338,16 @@ pub(crate) fn format_strategy_request_detail_with_related_order(
         if let Some(semantics) = diagnostics.get("semantics").and_then(|v| v.as_str()) {
             lines.push(format!("semantics: {}", semantics));
         }
-        if let Some(order_terminality) = diagnostics.get("order_terminality").and_then(|v| v.as_str())
+        if let Some(order_terminality) = diagnostics
+            .get("order_terminality")
+            .and_then(|v| v.as_str())
         {
             lines.push(format!("order_terminality: {}", order_terminality));
         }
         if let Some(summary) = diagnostics.get("summary").and_then(|v| v.as_str()) {
             lines.push(format!("summary: {}", summary));
         }
-        if let Some(operator_action) = diagnostics.get("operator_action").and_then(|v| v.as_str())
-        {
+        if let Some(operator_action) = diagnostics.get("operator_action").and_then(|v| v.as_str()) {
             lines.push(format!("operator_action: {}", operator_action));
         }
         if let Some(hint_command) = diagnostics.get("hint_command").and_then(|v| v.as_str()) {
@@ -697,7 +702,10 @@ fn append_qmt_live_recovery_detail(lines: &mut Vec<String>, related_order: Optio
         lines.push(format!("external_order_id: {external_order_id}"));
     }
     if let Some(last_query) = last_query {
-        if let Some(latest_status) = last_query.get("latest_status").and_then(|value| value.as_str()) {
+        if let Some(latest_status) = last_query
+            .get("latest_status")
+            .and_then(|value| value.as_str())
+        {
             lines.push(format!("latest_status: {latest_status}"));
         }
         if let Some(filled_quantity) = last_query
@@ -724,7 +732,10 @@ fn append_qmt_live_recovery_detail(lines: &mut Vec<String>, related_order: Optio
         {
             lines.push(format!("rejection_reason: {rejection_reason}"));
         }
-        if let Some(updated_at) = last_query.get("updated_at").and_then(|value| value.as_str()) {
+        if let Some(updated_at) = last_query
+            .get("updated_at")
+            .and_then(|value| value.as_str())
+        {
             lines.push(format!("last_query_updated_at: {updated_at}"));
         }
     }

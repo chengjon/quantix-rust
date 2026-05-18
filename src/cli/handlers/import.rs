@@ -7,21 +7,11 @@ use super::*;
 /// 处理导入命令
 pub async fn run_import_command(cmd: ImportCommands) -> Result<()> {
     match cmd {
-        ImportCommands::FromImage { file, model } => {
-            run_import_from_image(&file, &model).await
-        }
-        ImportCommands::FromCsv { file } => {
-            run_import_from_csv(&file).await
-        }
-        ImportCommands::FromClipboard => {
-            run_import_from_clipboard().await
-        }
-        ImportCommands::FromText { text } => {
-            run_import_from_text(&text).await
-        }
-        ImportCommands::Resolve { input } => {
-            run_import_resolve(&input).await
-        }
+        ImportCommands::FromImage { file, model } => run_import_from_image(&file, &model).await,
+        ImportCommands::FromCsv { file } => run_import_from_csv(&file).await,
+        ImportCommands::FromClipboard => run_import_from_clipboard().await,
+        ImportCommands::FromText { text } => run_import_from_text(&text).await,
+        ImportCommands::Resolve { input } => run_import_resolve(&input).await,
     }
 }
 
@@ -50,7 +40,13 @@ async fn run_import_from_image(file: &str, model: &str) -> Result<()> {
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
         let name = item.name.as_deref().unwrap_or("-");
-        println!("{:<10} {:<12} {:.0}%     {:?}", code, name, item.confidence * 100.0, item.source);
+        println!(
+            "{:<10} {:<12} {:.0}%     {:?}",
+            code,
+            name,
+            item.confidence * 100.0,
+            item.source
+        );
     }
 
     Ok(())
@@ -76,8 +72,10 @@ async fn run_import_from_csv(file: &str) -> Result<()> {
         return Ok(());
     }
 
-    println!("✅ 解析完成: {} 只股票 (共 {} 行, 跳过 {} 行)",
-        result.parsed_count, result.total_input_lines, result.skipped_count);
+    println!(
+        "✅ 解析完成: {} 只股票 (共 {} 行, 跳过 {} 行)",
+        result.parsed_count, result.total_input_lines, result.skipped_count
+    );
     println!();
     println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
     println!("{}", "-".repeat(35));

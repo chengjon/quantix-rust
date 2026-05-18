@@ -7,9 +7,9 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::time::Instant;
 
-use crate::core::{QuantixError, Result};
 use super::super::provider::NewsProvider;
 use super::super::types::{NewsArticle, NewsProviderConfig, NewsSearchRequest, NewsSearchResult};
+use crate::core::{QuantixError, Result};
 
 /// SerpAPI 提供商
 pub struct SerpApiProvider {
@@ -73,9 +73,11 @@ impl NewsProvider for SerpApiProvider {
 
     async fn search(&self, request: &NewsSearchRequest) -> Result<NewsSearchResult> {
         let start = Instant::now();
-        let api_key = self.config.api_key.as_ref().ok_or_else(|| {
-            QuantixError::Config("SerpAPI key not configured".to_string())
-        })?;
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| QuantixError::Config("SerpAPI key not configured".to_string()))?;
 
         let query = if !request.codes.is_empty() {
             format!("{} {}", request.query, request.codes.join(" "))
@@ -85,13 +87,17 @@ impl NewsProvider for SerpApiProvider {
 
         let url = format!(
             "{}/search?engine=google_news&q={}&api_key={}&num={}",
-            self.config.base_url.as_deref().unwrap_or("https://serpapi.com"),
+            self.config
+                .base_url
+                .as_deref()
+                .unwrap_or("https://serpapi.com"),
             urlencoding::encode(&query),
             api_key,
             request.max_results
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
@@ -100,7 +106,10 @@ impl NewsProvider for SerpApiProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(QuantixError::Other(format!("SerpAPI error: {} - {}", status, body)));
+            return Err(QuantixError::Other(format!(
+                "SerpAPI error: {} - {}",
+                status, body
+            )));
         }
 
         let serp_response: SerpApiResponse = response
@@ -119,7 +128,11 @@ impl NewsProvider for SerpApiProvider {
             .filter_map(|item| {
                 let title = item.title?;
                 let url = item.link?;
-                let mut article = NewsArticle::new(title, url, item.source.unwrap_or_else(|| "unknown".to_string()));
+                let mut article = NewsArticle::new(
+                    title,
+                    url,
+                    item.source.unwrap_or_else(|| "unknown".to_string()),
+                );
                 article.summary = item.snippet;
                 article.image_url = item.thumbnail;
                 Some(article)

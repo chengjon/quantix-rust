@@ -1,11 +1,11 @@
 //! 基本面数据提供商 Trait
 
-use async_trait::async_trait;
-use crate::core::Result;
 use super::types::{
-    FundamentalData, ValuationMetrics, EarningsReport,
-    InstitutionHolding, DragonTigerItem, DividendInfo, CapitalFlow,
+    CapitalFlow, DividendInfo, DragonTigerItem, EarningsReport, FundamentalData,
+    InstitutionHolding, ValuationMetrics,
 };
+use crate::core::Result;
+use async_trait::async_trait;
 
 /// 基本面数据提供商 Trait
 #[async_trait]
@@ -17,7 +17,10 @@ pub trait FundamentalProvider: Send + Sync {
     async fn get_fundamental(&self, code: &str) -> Result<FundamentalData> {
         let valuation = self.get_valuation(code).await.ok();
         let earnings = self.get_latest_earnings(code).await.ok();
-        let holdings = self.get_institution_holdings(code).await.unwrap_or_default();
+        let holdings = self
+            .get_institution_holdings(code)
+            .await
+            .unwrap_or_default();
 
         Ok(FundamentalData {
             code: code.to_string(),

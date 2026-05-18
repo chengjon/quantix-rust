@@ -6,7 +6,7 @@
 //! - "代码 名称" 对格式
 
 use super::code_resolver::CodeResolver;
-use super::types::{ImportItem, ImportSource, ImportResult};
+use super::types::{ImportItem, ImportResult, ImportSource};
 
 /// 文本解析器
 pub struct TextParser {
@@ -62,9 +62,7 @@ impl TextParser {
         }
 
         // 去重 (按代码)
-        items.dedup_by(|a, b| {
-            a.code.as_ref() == b.code.as_ref() && a.code.is_some()
-        });
+        items.dedup_by(|a, b| a.code.as_ref() == b.code.as_ref() && a.code.is_some());
 
         let parsed_count = items.len();
         let skipped_count = total_input_lines.saturating_sub(parsed_count);
@@ -82,7 +80,8 @@ impl TextParser {
     fn tokenize_line(&self, line: &str) -> Vec<String> {
         // 先尝试制表符
         if line.contains('\t') {
-            return line.split('\t')
+            return line
+                .split('\t')
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -90,7 +89,8 @@ impl TextParser {
 
         // 尝试逗号
         if line.contains(',') || line.contains('，') {
-            return line.split(&[',', '，'])
+            return line
+                .split(&[',', '，'])
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -98,7 +98,8 @@ impl TextParser {
 
         // 尝试分号
         if line.contains(';') || line.contains('；') {
-            return line.split(&[';', '；'])
+            return line
+                .split(&[';', '；'])
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();

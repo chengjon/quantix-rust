@@ -258,7 +258,8 @@ impl FeatureExtractor {
 
             for period in &self.config.eom_periods {
                 if let Ok(eom_values) = ease_of_movement(&highs, &lows, &volumes, *period) {
-                    let recent: Vec<f64> = eom_values.iter().filter(|v| !v.is_nan()).cloned().collect();
+                    let recent: Vec<f64> =
+                        eom_values.iter().filter(|v| !v.is_nan()).cloned().collect();
 
                     if recent.len() >= n {
                         let eom_slice: Vec<f64> = recent.iter().rev().take(n).cloned().collect();
@@ -419,7 +420,7 @@ fn smooth_sma(data: &[f64], period: usize) -> Vec<f64> {
     // Use saturating_sub to avoid overflow: start_idx = i + 1 - period
     // When i = period - 1, start_idx = 0
     for i in period - 1..n {
-        let start_idx = i + 1 - period;  // This avoids the overflow: i+1 >= period always
+        let start_idx = i + 1 - period; // This avoids the overflow: i+1 >= period always
         let valid_values: Vec<f64> = data[start_idx..=i]
             .iter()
             .filter(|v| !v.is_nan())
@@ -474,7 +475,14 @@ mod tests {
 
         // Only add 10 candles (less than min_candles = 50)
         for i in 0..10 {
-            series.add(OHLCVCandle::new("2026-03-01 10:00", 100.0, 101.0, 102.0, 99.0, 1000000.0));
+            series.add(OHLCVCandle::new(
+                "2026-03-01 10:00",
+                100.0,
+                101.0,
+                102.0,
+                99.0,
+                1000000.0,
+            ));
         }
 
         assert!(extractor.extract(&series).is_none());

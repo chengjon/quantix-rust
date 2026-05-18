@@ -131,7 +131,9 @@ impl IndustryResolver {
         rows: &[ShenwanCurrentSeedRow],
         imported_at: DateTime<Utc>,
     ) -> Result<()> {
-        self.store.refresh_shenwan_current_rows(rows, imported_at).await
+        self.store
+            .refresh_shenwan_current_rows(rows, imported_at)
+            .await
     }
 
     pub async fn sync_shenwan_history_rows(
@@ -139,7 +141,9 @@ impl IndustryResolver {
         rows: &[ShenwanHistoricalSeedRow],
         imported_at: DateTime<Utc>,
     ) -> Result<()> {
-        self.store.refresh_shenwan_history_rows(rows, imported_at).await
+        self.store
+            .refresh_shenwan_history_rows(rows, imported_at)
+            .await
     }
 
     pub async fn resolve(
@@ -153,7 +157,11 @@ impl IndustryResolver {
         let level = self.active_level();
         let query_month = snapshot_month(query_date);
 
-        if let Some(current) = self.store.lookup_current(standard, level, &normalized_code).await? {
+        if let Some(current) = self
+            .store
+            .lookup_current(standard, level, &normalized_code)
+            .await?
+        {
             self.store
                 .insert_snapshot_if_missing(
                     standard,

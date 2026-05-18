@@ -121,7 +121,11 @@ pub enum ExecutionDaemonCommands {
 #[derive(Subcommand, Debug)]
 pub enum ExecutionBridgeCommands {
     /// 查看 bridge 能力状态
-    Status,
+    Status {
+        /// 追加 QMT promotion checklist
+        #[arg(long)]
+        checklist: bool,
+    },
 
     /// 使用 frozen execution request 预览 QMT payload
     QmtPreview {
@@ -168,7 +172,11 @@ pub enum ExecutionBridgeCommands {
 #[derive(Subcommand, Debug)]
 pub enum ExecutionQmtCommands {
     /// 查看 QMT bridge 能力状态
-    Status,
+    Status {
+        /// 追加 QMT promotion checklist
+        #[arg(long)]
+        checklist: bool,
+    },
 
     /// 预览待执行 request 对应的 QMT payload
     Preview {

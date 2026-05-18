@@ -16,7 +16,10 @@ fn run_quantix(args: &[&str]) -> (String, String, bool) {
 fn assert_invalid_date_failure(args: &[&str], normal_output_marker: &str) {
     let (stdout, stderr, success) = run_quantix(args);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(
         stderr.contains("无效日期格式: 20260309，请使用 YYYY-MM-DD"),
         "expected invalid date guidance in stderr, stderr={stderr}"
@@ -39,17 +42,26 @@ fn market_concept_rejects_invalid_date_at_binary_entry() {
 
 #[test]
 fn market_leader_rejects_invalid_date_at_binary_entry() {
-    assert_invalid_date_failure(&["market", "leader", "--all", "--date", "20260309"], "龙头股");
+    assert_invalid_date_failure(
+        &["market", "leader", "--all", "--date", "20260309"],
+        "龙头股",
+    );
 }
 
 #[test]
 fn market_overview_rejects_invalid_date_at_binary_entry() {
-    assert_invalid_date_failure(&["market", "overview", "--date", "20260309"], "== 市场概览 ==");
+    assert_invalid_date_failure(
+        &["market", "overview", "--date", "20260309"],
+        "== 市场概览 ==",
+    );
 }
 
 #[test]
 fn market_strength_rejects_invalid_date_at_binary_entry() {
-    assert_invalid_date_failure(&["market", "strength", "--date", "20260309"], "== 强弱板块分析 ==");
+    assert_invalid_date_failure(
+        &["market", "strength", "--date", "20260309"],
+        "== 强弱板块分析 ==",
+    );
 }
 
 #[test]

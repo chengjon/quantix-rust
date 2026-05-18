@@ -399,7 +399,11 @@ async fn test_execute_execution_bridge_qmt_live_rejects_when_qmt_capability_is_d
     let run = sample_run("000001", fixed_ts());
     runtime_store.insert_run(&run).await.unwrap();
 
-    let signal = sample_signal(&run.run_id, "signal-qmt-live-capability-disabled", fixed_ts());
+    let signal = sample_signal(
+        &run.run_id,
+        "signal-qmt-live-capability-disabled",
+        fixed_ts(),
+    );
     runtime_store.insert_signal(&signal).await.unwrap();
 
     let request = runtime_store
@@ -464,7 +468,11 @@ async fn test_execute_execution_bridge_qmt_live_rejects_when_capability_check_fa
     let run = sample_run("000001", fixed_ts());
     runtime_store.insert_run(&run).await.unwrap();
 
-    let signal = sample_signal(&run.run_id, "signal-qmt-live-capability-check-failed", fixed_ts());
+    let signal = sample_signal(
+        &run.run_id,
+        "signal-qmt-live-capability-check-failed",
+        fixed_ts(),
+    );
     runtime_store.insert_signal(&signal).await.unwrap();
 
     let request = runtime_store

@@ -71,9 +71,8 @@ impl BatchProgress {
         self.processed_records += success + errors;
         self.success_count += success;
         self.error_count += errors;
-        self.current_batch = self
-            .processed_records
-            / self.total_records.div_ceil(self.total_batches);
+        self.current_batch =
+            self.processed_records / self.total_records.div_ceil(self.total_batches);
     }
 
     /// 是否完成

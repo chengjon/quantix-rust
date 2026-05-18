@@ -143,18 +143,17 @@ impl TradingCalendar {
             return Ok(());
         }
 
-        let content = tokio::fs::read_to_string(&path).await.map_err(|e| {
-            QuantixError::Other(format!("读取节假日配置失败: {}", e))
-        })?;
+        let content = tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|e| QuantixError::Other(format!("读取节假日配置失败: {}", e)))?;
 
-        let config: HolidayConfig = serde_json::from_str(&content).map_err(|e| {
-            QuantixError::Other(format!("解析节假日配置失败: {}", e))
-        })?;
+        let config: HolidayConfig = serde_json::from_str(&content)
+            .map_err(|e| QuantixError::Other(format!("解析节假日配置失败: {}", e)))?;
 
         for (year_str, year_data) in config.years {
-            let year: i32 = year_str.parse().map_err(|_| {
-                QuantixError::Other(format!("无效的年份: {}", year_str))
-            })?;
+            let year: i32 = year_str
+                .parse()
+                .map_err(|_| QuantixError::Other(format!("无效的年份: {}", year_str)))?;
 
             // 解析节假日
             let mut holiday_set = HashSet::new();
@@ -175,10 +174,7 @@ impl TradingCalendar {
             self.workdays_on_weekend.insert(year, workday_set);
         }
 
-        tracing::info!(
-            "已加载 {} 年的节假日数据",
-            self.holidays.len()
-        );
+        tracing::info!("已加载 {} 年的节假日数据", self.holidays.len());
 
         Ok(())
     }

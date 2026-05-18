@@ -194,23 +194,17 @@ mod tests {
     #[test]
     fn test_health_status_combine() {
         assert_eq!(
-            HealthStatus::combine(
-                [HealthStatus::Healthy, HealthStatus::Healthy].into_iter()
-            ),
+            HealthStatus::combine([HealthStatus::Healthy, HealthStatus::Healthy].into_iter()),
             HealthStatus::Healthy
         );
 
         assert_eq!(
-            HealthStatus::combine(
-                [HealthStatus::Healthy, HealthStatus::Degraded].into_iter()
-            ),
+            HealthStatus::combine([HealthStatus::Healthy, HealthStatus::Degraded].into_iter()),
             HealthStatus::Degraded
         );
 
         assert_eq!(
-            HealthStatus::combine(
-                [HealthStatus::Healthy, HealthStatus::Unhealthy].into_iter()
-            ),
+            HealthStatus::combine([HealthStatus::Healthy, HealthStatus::Unhealthy].into_iter()),
             HealthStatus::Unhealthy
         );
     }
@@ -235,6 +229,5 @@ mod tests {
 
         let system = registry.system_health();
         assert_eq!(system.status, HealthStatus::Degraded);
-        assert!(system.uptime_seconds >= 0);
     }
 }

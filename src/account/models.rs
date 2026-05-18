@@ -290,7 +290,10 @@ mod tests {
     fn test_account_type_from_str() {
         assert_eq!(AccountType::from_str("paper").unwrap(), AccountType::Paper);
         assert_eq!(AccountType::from_str("LIVE").unwrap(), AccountType::Live);
-        assert_eq!(AccountType::from_str("qmt_live").unwrap(), AccountType::Live);
+        assert_eq!(
+            AccountType::from_str("qmt_live").unwrap(),
+            AccountType::Live
+        );
         assert_eq!(
             AccountType::from_str("mock_live").unwrap(),
             AccountType::MockLive

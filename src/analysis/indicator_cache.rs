@@ -34,7 +34,11 @@ impl IndicatorCache {
         Self::default()
     }
 
-    pub fn get_or_compute<F>(&mut self, key: IndicatorCacheKey, compute: F) -> Result<IndicatorSeries>
+    pub fn get_or_compute<F>(
+        &mut self,
+        key: IndicatorCacheKey,
+        compute: F,
+    ) -> Result<IndicatorSeries>
     where
         F: FnOnce() -> Result<IndicatorSeries>,
     {

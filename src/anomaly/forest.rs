@@ -309,9 +309,12 @@ impl IsolationForest {
         features
             .par_iter()
             .map(|sample| {
-                let avg_path: f64 =
-                    self.trees.iter().map(|tree| tree.path_length(sample)).sum::<f64>()
-                        / self.n_estimators as f64;
+                let avg_path: f64 = self
+                    .trees
+                    .iter()
+                    .map(|tree| tree.path_length(sample))
+                    .sum::<f64>()
+                    / self.n_estimators as f64;
 
                 if c_n > 0.0 {
                     let score = (-avg_path / c_n).exp2();
@@ -429,7 +432,11 @@ mod tests {
 
         // Verify scores are in expected range [-0.5, 0.5] approximately
         for score in &scores {
-            assert!(score.abs() < 1.0, "Score {} is out of expected range", score);
+            assert!(
+                score.abs() < 1.0,
+                "Score {} is out of expected range",
+                score
+            );
         }
     }
 

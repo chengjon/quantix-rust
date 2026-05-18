@@ -7,9 +7,9 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-use crate::core::{QuantixError, Result};
 use super::super::provider::NewsProvider;
 use super::super::types::{NewsArticle, NewsProviderConfig, NewsSearchRequest, NewsSearchResult};
+use crate::core::{QuantixError, Result};
 
 /// Tavily 提供商
 pub struct TavilyProvider {
@@ -58,9 +58,10 @@ struct TavilyResult {
 impl TavilyProvider {
     /// 创建新的 Tavily 提供商
     pub fn new(config: NewsProviderConfig) -> Result<Self> {
-        let api_key = config.api_key.clone().ok_or_else(|| {
-            QuantixError::Config("Tavily API key is required".to_string())
-        })?;
+        let api_key = config
+            .api_key
+            .clone()
+            .ok_or_else(|| QuantixError::Config("Tavily API key is required".to_string()))?;
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout_seconds))
@@ -98,9 +99,11 @@ impl NewsProvider for TavilyProvider {
 
     async fn search(&self, request: &NewsSearchRequest) -> Result<NewsSearchResult> {
         let start = Instant::now();
-        let api_key = self.config.api_key.as_ref().ok_or_else(|| {
-            QuantixError::Config("Tavily API key not configured".to_string())
-        })?;
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| QuantixError::Config("Tavily API key not configured".to_string()))?;
 
         let tavily_request = TavilyRequest {
             query: request.query.clone(),
@@ -114,9 +117,16 @@ impl NewsProvider for TavilyProvider {
             topic: "news".to_string(),
         };
 
-        let url = format!("{}/search", self.config.base_url.as_deref().unwrap_or("https://api.tavily.com"));
+        let url = format!(
+            "{}/search",
+            self.config
+                .base_url
+                .as_deref()
+                .unwrap_or("https://api.tavily.com")
+        );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
@@ -128,7 +138,10 @@ impl NewsProvider for TavilyProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(QuantixError::Other(format!("Tavily API error: {} - {}", status, body)));
+            return Err(QuantixError::Other(format!(
+                "Tavily API error: {} - {}",
+                status, body
+            )));
         }
 
         let tavily_response: TavilyResponse = response

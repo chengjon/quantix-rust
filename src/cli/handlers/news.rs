@@ -7,18 +7,18 @@ use super::*;
 /// 处理新闻命令
 pub async fn run_news_command(cmd: NewsCommands) -> Result<()> {
     match cmd {
-        NewsCommands::Search { query, code, days, max, provider } => {
-            run_news_search(&query, code.as_deref(), days, max, provider.as_deref()).await
-        }
-        NewsCommands::Code { code, days, max } => {
-            run_news_by_code(&code, days, max).await
-        }
+        NewsCommands::Search {
+            query,
+            code,
+            days,
+            max,
+            provider,
+        } => run_news_search(&query, code.as_deref(), days, max, provider.as_deref()).await,
+        NewsCommands::Code { code, days, max } => run_news_by_code(&code, days, max).await,
         NewsCommands::Trend { date, code } => {
             run_news_trend(date.as_deref(), code.as_deref()).await
         }
-        NewsCommands::Providers => {
-            run_news_providers().await
-        }
+        NewsCommands::Providers => run_news_providers().await,
     }
 }
 
@@ -110,14 +110,28 @@ async fn run_news_providers() -> Result<()> {
     println!();
 
     let providers = vec![
-        ("tavily", "Tavily", "高质量 AI 友好的搜索 API", "TAVILY_API_KEY"),
-        ("serpapi", "SerpAPI", "Google 搜索结果 API", "SERPAPI_API_KEY"),
+        (
+            "tavily",
+            "Tavily",
+            "高质量 AI 友好的搜索 API",
+            "TAVILY_API_KEY",
+        ),
+        (
+            "serpapi",
+            "SerpAPI",
+            "Google 搜索结果 API",
+            "SERPAPI_API_KEY",
+        ),
         ("bocha", "博查", "中文优化的新闻搜索", "BOCHA_API_KEY"),
     ];
 
     for (id, name, desc, env_var) in &providers {
         let configured = std::env::var(env_var).is_ok();
-        let status = if configured { "✅ 已配置" } else { "❌ 未配置" };
+        let status = if configured {
+            "✅ 已配置"
+        } else {
+            "❌ 未配置"
+        };
         println!("  {} {} - {}", status, name, desc);
         println!("     ID: {} | 环境变量: {}", id, env_var);
         println!();

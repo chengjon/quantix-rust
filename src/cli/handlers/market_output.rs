@@ -47,7 +47,12 @@ fn render_market_board_rows(rows: &[BoardRankRow]) -> String {
         return output;
     }
 
-    writeln!(&mut output, "{:<8} {:<12} {:<16} 涨跌幅", "排名", "代码", "板块").unwrap();
+    writeln!(
+        &mut output,
+        "{:<8} {:<12} {:<16} 涨跌幅",
+        "排名", "代码", "板块"
+    )
+    .unwrap();
     writeln!(&mut output, "{}", "-".repeat(56)).unwrap();
 
     for row in rows {
@@ -167,7 +172,12 @@ fn render_market_strength_report(report: &MarketStrengthReport) -> String {
         report.foundation.unclassified_stocks
     )
     .unwrap();
-    writeln!(&mut output, "强势板块候选股数: {}", report.candidate_stock_count).unwrap();
+    writeln!(
+        &mut output,
+        "强势板块候选股数: {}",
+        report.candidate_stock_count
+    )
+    .unwrap();
     writeln!(
         &mut output,
         "基本面覆盖: 市值={}/{} 利润={}/{}",
@@ -252,7 +262,13 @@ fn render_market_strength_stock_ranking(ranking: &MarketStrengthStockRankingOutp
     )
     .unwrap();
     writeln!(&mut output).unwrap();
-    writeln!(&mut output, "按{}从大到小 Top{}:", metric_name, ranking.rows.len()).unwrap();
+    writeln!(
+        &mut output,
+        "按{}从大到小 Top{}:",
+        metric_name,
+        ranking.rows.len()
+    )
+    .unwrap();
     output.push_str(&render_strong_sector_stock_rows(
         &ranking.rows,
         metric_label,
@@ -315,11 +331,11 @@ fn format_decimal(value: &Option<Decimal>) -> String {
 mod tests {
     use super::*;
     use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
-    use crate::market::{
-        BoardRankRow, BoardType, MarketFoundationSummary, MarketOverview, MarketStrengthReport,
-        MarketSentimentSnapshot, NorthFlowSnapshot,
-    };
     use crate::market::SectorCoverageRow;
+    use crate::market::{
+        BoardRankRow, BoardType, MarketFoundationSummary, MarketOverview, MarketSentimentSnapshot,
+        MarketStrengthReport, NorthFlowSnapshot,
+    };
     use chrono::NaiveDate;
     use rust_decimal::Decimal;
 
@@ -346,7 +362,13 @@ mod tests {
     #[test]
     fn render_market_overview_includes_sector_and_concept_sections() {
         let overview = MarketOverview {
-            top_sectors: vec![BoardRankRow::new("BK001", "银行", BoardType::Sector, 1, 2.10)],
+            top_sectors: vec![BoardRankRow::new(
+                "BK001",
+                "银行",
+                BoardType::Sector,
+                1,
+                2.10,
+            )],
             top_concepts: vec![BoardRankRow::new(
                 "GN001",
                 "人工智能",

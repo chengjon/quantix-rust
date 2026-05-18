@@ -2,9 +2,9 @@
 //!
 //! 定义统一的新闻搜索接口
 
-use async_trait::async_trait;
+use super::types::{NewsProviderConfig, NewsSearchRequest, NewsSearchResult};
 use crate::core::Result;
-use super::types::{NewsSearchRequest, NewsSearchResult, NewsProviderConfig};
+use async_trait::async_trait;
 
 /// 新闻提供商 Trait
 ///
@@ -18,7 +18,12 @@ pub trait NewsProvider: Send + Sync {
     async fn search(&self, request: &NewsSearchRequest) -> Result<NewsSearchResult>;
 
     /// 根据股票代码搜索新闻
-    async fn search_by_code(&self, code: &str, days: u32, max_results: usize) -> Result<NewsSearchResult> {
+    async fn search_by_code(
+        &self,
+        code: &str,
+        days: u32,
+        max_results: usize,
+    ) -> Result<NewsSearchResult> {
         let request = NewsSearchRequest::new(code)
             .with_code(code)
             .with_days(days)

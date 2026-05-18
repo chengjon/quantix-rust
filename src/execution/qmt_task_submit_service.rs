@@ -293,9 +293,5 @@ fn side_to_bridge(side: &OrderSide) -> &'static str {
 }
 
 fn order_type_to_bridge(price: &Decimal) -> &'static str {
-    if price.is_zero() {
-        "market"
-    } else {
-        "limit"
-    }
+    if price.is_zero() { "market" } else { "limit" }
 }

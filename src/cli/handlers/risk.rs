@@ -496,9 +496,9 @@ mod tests {
 
     use crate::risk::{
         BuyLockState, ClassificationStandard, DailyRiskBaseline, IndustryClassificationLevel,
-        IndustrySyncSource, JsonRiskStore, RiskAccountSnapshot, RiskLockStateSource,
-        RiskRuleType, RiskState, RiskStore, RuleValue,
-        ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow, SqliteIndustryStore,
+        IndustrySyncSource, JsonRiskStore, RiskAccountSnapshot, RiskLockStateSource, RiskRuleType,
+        RiskState, RiskStore, RuleValue, ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow,
+        SqliteIndustryStore,
     };
 
     fn fixed_ts() -> chrono::DateTime<Utc> {

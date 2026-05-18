@@ -1,12 +1,22 @@
 use crate::bridge::client::BridgeHttpClient;
 use crate::bridge::models::BridgeQmtPreviewRequest;
 use crate::core::{QuantixError, Result};
-use crate::execution::adapter::OrderInitialResponse;
 use crate::execution::models::{ExecutionRequestRecord, OrderStatus};
 
 #[derive(Debug, Clone)]
 pub struct QmtBridgePreviewAdapter {
     client: BridgeHttpClient,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct QmtBridgePreviewResponse {
+    pub adapter_order_id: String,
+    pub latest_status: OrderStatus,
+    pub filled_quantity: i64,
+    pub avg_fill_price: Option<String>,
+    pub fill_details: Option<serde_json::Value>,
+    pub rejection_reason: Option<String>,
+    pub broker_payload: serde_json::Value,
 }
 
 impl QmtBridgePreviewAdapter {
@@ -17,7 +27,7 @@ impl QmtBridgePreviewAdapter {
     pub async fn preview_request(
         &self,
         request: &ExecutionRequestRecord,
-    ) -> Result<OrderInitialResponse> {
+    ) -> Result<QmtBridgePreviewResponse> {
         let snapshot = request
             .payload_json
             .get("execution_snapshot")
@@ -64,17 +74,16 @@ impl QmtBridgePreviewAdapter {
             .await
             .map_err(|err| QuantixError::Other(err.to_string()))?;
 
-        let _ = response.broker_payload;
-
-        Ok(OrderInitialResponse {
+        Ok(QmtBridgePreviewResponse {
             adapter_order_id: response.adapter_order_id,
             latest_status: OrderStatus::from_str(&response.latest_status).ok_or_else(|| {
                 QuantixError::Other(format!("未知 preview 状态: {}", response.latest_status))
             })?,
             filled_quantity: response.filled_quantity,
-            avg_fill_price: None,
-            fill_details: None,
+            avg_fill_price: response.avg_fill_price,
+            fill_details: response.fill_details,
             rejection_reason: response.rejection_reason,
+            broker_payload: response.broker_payload,
         })
     }
 }

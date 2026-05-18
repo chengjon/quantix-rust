@@ -63,7 +63,37 @@ pub(crate) async fn execute_execution_daemon_run(once: bool) -> Result<()> {
     }
 }
 
-pub(crate) async fn execute_execution_bridge_status() -> Result<()> {
+pub(crate) fn format_qmt_promotion_checklist(
+    capabilities: &crate::bridge::models::BridgeCapabilitiesResponse,
+) -> String {
+    let qmt_enabled = capabilities.qmt.enabled;
+    let qmt_mode_live = capabilities.qmt.mode == "live";
+    let order_submit_supported = capabilities
+        .qmt
+        .supports
+        .iter()
+        .any(|item| item == "order_submit");
+    let status_mark = |ok: bool| if ok { "[ok]" } else { "[x]" };
+
+    [
+        "QMT promotion checklist".to_string(),
+        format!("{} bridge qmt.enabled=true", status_mark(qmt_enabled)),
+        format!("{} bridge qmt.mode=live", status_mark(qmt_mode_live)),
+        format!(
+            "{} bridge qmt.supports 包含 order_submit",
+            status_mark(order_submit_supported)
+        ),
+        "[ ] request target_mode=qmt_live".to_string(),
+        "[ ] 先在 paper 路径验证策略与风控".to_string(),
+        "[ ] 再在 mock_live 路径验证非终态与收敛".to_string(),
+        "[ ] 预览提交 payload: quantix execution qmt preview --request-id <ID>".to_string(),
+        "[ ] 真实提交订单: quantix execution qmt live --request-id <ID> [--yes]".to_string(),
+        "[ ] 查看 request 与收敛状态: quantix strategy request show <ID> --verbose".to_string(),
+    ]
+    .join("\n")
+}
+
+pub(crate) async fn execute_execution_bridge_status(checklist: bool) -> Result<()> {
     let capabilities = create_bridge_client()?
         .capabilities()
         .await
@@ -83,6 +113,10 @@ pub(crate) async fn execute_execution_bridge_status() -> Result<()> {
             }
         }))?
     );
+    if checklist {
+        println!();
+        println!("{}", format_qmt_promotion_checklist(&capabilities));
+    }
     Ok(())
 }
 
@@ -93,6 +127,12 @@ pub(crate) async fn execute_execution_bridge_qmt_preview(request_id: &str) -> Re
         .get_execution_request(request_id)
         .await?
         .ok_or_else(|| QuantixError::Other(format!("request 不存在: {request_id}")))?;
+    if request.target_mode != "qmt_live" {
+        return Err(QuantixError::Unsupported(format!(
+            "execution bridge qmt-preview 只支持 target_mode=qmt_live 的 request；当前 request target_mode={}。如需预览 QMT 提交流程，请先创建 qmt_live request；通用 target_mode=live 仍未实现",
+            request.target_mode
+        )));
+    }
 
     let adapter = QmtBridgePreviewAdapter::new(create_bridge_client()?);
     let preview = adapter.preview_request(&request).await?;
@@ -105,6 +145,7 @@ pub(crate) async fn execute_execution_bridge_qmt_preview(request_id: &str) -> Re
             "latest_status": preview.latest_status.as_str(),
             "filled_quantity": preview.filled_quantity,
             "rejection_reason": preview.rejection_reason,
+            "broker_payload": preview.broker_payload,
         }))?
     );
     Ok(())
@@ -192,12 +233,10 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
         .get("order_type")
         .and_then(|v| v.as_str())
         .unwrap_or("limit");
-    let side = OrderSide::from_str(side).ok_or_else(|| {
-        QuantixError::Other(format!("request 包含无效 side: {side}"))
-    })?;
-    let order_type = OrderType::from_str(order_type).ok_or_else(|| {
-        QuantixError::Other(format!("request 包含无效 order_type: {order_type}"))
-    })?;
+    let side = OrderSide::from_str(side)
+        .ok_or_else(|| QuantixError::Other(format!("request 包含无效 side: {side}")))?;
+    let order_type = OrderType::from_str(order_type)
+        .ok_or_else(|| QuantixError::Other(format!("request 包含无效 order_type: {order_type}")))?;
     let requested_price = Decimal::from_str(price).map_err(|err| {
         QuantixError::Other(format!("request 包含无效 requested_price: {price}, {err}"))
     })?;
@@ -227,7 +266,8 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
 
     // 提交订单
     let client = create_bridge_client()?;
-    if let Err(gate_error) = crate::execution::qmt_live_gate::check_bridge_qmt_live_mode(&client).await
+    if let Err(gate_error) =
+        crate::execution::qmt_live_gate::check_bridge_qmt_live_mode(&client).await
     {
         let failed_at = Utc::now();
         let error = gate_error.to_quantix_error();
@@ -254,11 +294,8 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
                 "adapter": "qmt_live",
             }),
         );
-        let payload_json = merge_execution_request_payload(
-            &payload_json,
-            "execution_diagnostics",
-            diagnostics,
-        );
+        let payload_json =
+            merge_execution_request_payload(&payload_json, "execution_diagnostics", diagnostics);
         let updated = runtime_store
             .try_fail_execution_request(&request.request_id, payload_json, failed_at)
             .await?;
@@ -331,7 +368,11 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
     {
         Some(existing_order) => {
             let updated = runtime_store
-                .try_update_order_qmt_live_metadata(&existing_order, &qmt_live_metadata, finished_at)
+                .try_update_order_qmt_live_metadata(
+                    &existing_order,
+                    &qmt_live_metadata,
+                    finished_at,
+                )
                 .await?;
             if !updated {
                 return Err(QuantixError::Other(format!(
@@ -410,6 +451,10 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
         }))?
     );
 
+    println!();
+    println!("提示: request 可能会显示为 completed。");
+    println!("      这只表示执行层已完成提交，不代表订单已经终态。");
+    println!("      订单初始状态通常仍为 pending_submit，请继续跟踪后续收敛。");
     println!();
     println!(
         "查看 request 与后续收敛状态: quantix strategy request show {} --verbose",

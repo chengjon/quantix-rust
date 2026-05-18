@@ -78,7 +78,11 @@ impl PromptRegistry {
     }
 
     /// Render a template with variables
-    pub fn render(&self, name: &str, variables: &HashMap<String, String>) -> Option<(String, String)> {
+    pub fn render(
+        &self,
+        name: &str,
+        variables: &HashMap<String, String>,
+    ) -> Option<(String, String)> {
         self.templates.get(name).map(|t| {
             let system = t.render_system(variables);
             let user = t.render_user(variables);
@@ -134,8 +138,6 @@ mod tests {
     #[test]
     fn test_prompt_registry() {
         let registry = PromptRegistry::new();
-        // Templates are loaded from embedded files
-        // Just verify the registry exists
-        assert!(!registry.list().is_empty() || true); // May be empty if template files don't exist yet
+        assert!(registry.get("stock_analysis").is_some());
     }
 }

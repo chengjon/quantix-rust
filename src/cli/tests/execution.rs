@@ -32,7 +32,22 @@ fn parses_execution_config_and_daemon_commands() {
 
     let cli = Cli::try_parse_from(["quantix", "execution", "bridge", "status"]).unwrap();
     match cli.command {
-        Commands::Execution(ExecutionCommands::Bridge(ExecutionBridgeCommands::Status)) => {}
+        Commands::Execution(ExecutionCommands::Bridge(ExecutionBridgeCommands::Status {
+            checklist,
+        })) => {
+            assert!(!checklist);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli =
+        Cli::try_parse_from(["quantix", "execution", "bridge", "status", "--checklist"]).unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Bridge(ExecutionBridgeCommands::Status {
+            checklist,
+        })) => {
+            assert!(checklist);
+        }
         other => panic!("unexpected command: {:?}", other),
     }
 
@@ -92,6 +107,15 @@ fn parses_execution_config_and_daemon_commands() {
         })) => {
             assert_eq!(request_id, "req-3");
             assert!(yes);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli =
+        Cli::try_parse_from(["quantix", "execution", "qmt", "status", "--checklist"]).unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(ExecutionQmtCommands::Status { checklist })) => {
+            assert!(checklist);
         }
         other => panic!("unexpected command: {:?}", other),
     }

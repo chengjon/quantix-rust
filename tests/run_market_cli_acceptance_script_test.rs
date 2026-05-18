@@ -42,8 +42,11 @@ fn acceptance_orchestrator_runs_fake_precheck_and_smoke_scripts() {
     fs::create_dir_all(&log_dir).expect("should create log dir");
     fs::write(&fake_env_template, "# fake env template\n").expect("should write env template");
     fs::write(&fake_local_env, "export MARKET_FAKE_ENV=1\n").expect("should write local env");
-    fs::write(&fake_init, "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] init'\n")
-        .expect("should write fake init");
+    fs::write(
+        &fake_init,
+        "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] init'\n",
+    )
+    .expect("should write fake init");
     fs::write(
         &fake_precheck,
         "#!/usr/bin/env bash\nset -euo pipefail\necho '[FAKE] precheck'\necho 'PASS : 2'\necho 'WARN : 1'\necho 'FAIL : 0'\n",

@@ -631,7 +631,10 @@ mod tests {
 
     #[test]
     fn parse_account_type_prefers_qmt_live_wording_but_keeps_live_alias() {
-        assert_eq!(parse_account_type_input("paper").unwrap(), AccountType::Paper);
+        assert_eq!(
+            parse_account_type_input("paper").unwrap(),
+            AccountType::Paper
+        );
         assert_eq!(
             parse_account_type_input("mock_live").unwrap(),
             AccountType::MockLive

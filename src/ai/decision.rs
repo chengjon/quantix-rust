@@ -239,11 +239,17 @@ fn parse_trading_decision(content: &str) -> TradingDecision {
     };
 
     // Estimate confidence based on certainty words
-    let confidence = if content_lower.contains("强烈") || content_lower.contains("非常") || content_lower.contains("highly") {
+    let confidence = if content_lower.contains("强烈")
+        || content_lower.contains("非常")
+        || content_lower.contains("highly")
+    {
         85
     } else if content_lower.contains("建议") || content_lower.contains("recommend") {
         70
-    } else if content_lower.contains("可能") || content_lower.contains("might") || content_lower.contains("perhaps") {
+    } else if content_lower.contains("可能")
+        || content_lower.contains("might")
+        || content_lower.contains("perhaps")
+    {
         50
     } else {
         60

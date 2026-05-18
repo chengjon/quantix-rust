@@ -1,7 +1,8 @@
 use serde_json::Value;
 
 use crate::analysis::{
-    IndicatorInput, IndicatorInstanceId, IndicatorPipeline, IndicatorPipelineConfig, IndicatorSeries,
+    IndicatorInput, IndicatorInstanceId, IndicatorPipeline, IndicatorPipelineConfig,
+    IndicatorSeries,
 };
 use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
@@ -58,10 +59,16 @@ impl MaCrossEvaluator {
         }
 
         let fast = read_period(fast_spec.params().get("period")).map_err(|err| {
-            QuantixError::Other(format!("strategy {} 缺少或无效的 fast 参数: {err}", config.id))
+            QuantixError::Other(format!(
+                "strategy {} 缺少或无效的 fast 参数: {err}",
+                config.id
+            ))
         })?;
         let slow = read_period(slow_spec.params().get("period")).map_err(|err| {
-            QuantixError::Other(format!("strategy {} 缺少或无效的 slow 参数: {err}", config.id))
+            QuantixError::Other(format!(
+                "strategy {} 缺少或无效的 slow 参数: {err}",
+                config.id
+            ))
         })?;
 
         if fast == 0 || slow == 0 || fast >= slow {

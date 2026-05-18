@@ -159,10 +159,7 @@ fn parses_risk() {
 
     let cli = Cli::try_parse_from(["quantix", "risk", "status"]).unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Status {
-            source,
-            account,
-        }) => {
+        Commands::Risk(RiskCommands::Status { source, account }) => {
             assert_eq!(source, None);
             assert_eq!(account, None);
         }
@@ -217,10 +214,7 @@ fn parses_risk() {
     ])
     .unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Import(RiskImportCommands::LiveTrades {
-            account,
-            input,
-        })) => {
+        Commands::Risk(RiskCommands::Import(RiskImportCommands::LiveTrades { account, input })) => {
             assert_eq!(account, "live-001");
             assert_eq!(input, "/tmp/live.csv");
         }
@@ -237,9 +231,7 @@ fn parses_risk() {
     ])
     .unwrap();
     match cli.command {
-        Commands::Risk(RiskCommands::Rebuild(RiskRebuildCommands::LiveAccount {
-            account,
-        })) => {
+        Commands::Risk(RiskCommands::Rebuild(RiskRebuildCommands::LiveAccount { account })) => {
             assert_eq!(account, "live-001");
         }
         other => panic!("unexpected command: {:?}", other),
@@ -585,7 +577,10 @@ async fn run_risk_live_import_status_rejects_invalid_daily_loss_rule_value_type(
         created_at: now,
         updated_at: now,
     });
-    JsonRiskStore::new(&risk_path).save_state(&state).await.unwrap();
+    JsonRiskStore::new(&risk_path)
+        .save_state(&state)
+        .await
+        .unwrap();
 
     let err = Cli::try_parse_from([
         "quantix",
@@ -607,14 +602,8 @@ async fn run_risk_live_import_status_rejects_invalid_daily_loss_rule_value_type(
 
 #[tokio::test]
 async fn run_risk_live_import_status_requires_account_flag() {
-    let cli = Cli::try_parse_from([
-        "quantix",
-        "risk",
-        "status",
-        "--source",
-        "live_import",
-    ])
-    .unwrap();
+    let cli =
+        Cli::try_parse_from(["quantix", "risk", "status", "--source", "live_import"]).unwrap();
 
     let err = cli.run().await.unwrap_err();
     assert!(err.to_string().contains("--account"));

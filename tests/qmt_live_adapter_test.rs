@@ -66,7 +66,10 @@ async fn qmt_live_adapter_rejects_submit_when_bridge_is_preview_only() {
     mock_preview_only_capabilities(&server).await;
 
     let adapter = sample_qmt_live_adapter(&server);
-    let error = adapter.submit_order(sample_request("cli-preview")).await.unwrap_err();
+    let error = adapter
+        .submit_order(sample_request("cli-preview"))
+        .await
+        .unwrap_err();
 
     assert!(error.to_string().contains("bridge qmt.mode=preview_only"));
 }
@@ -77,7 +80,10 @@ async fn qmt_live_adapter_rejects_submit_when_order_submit_capability_missing() 
     mock_live_capabilities_without_order_submit(&server).await;
 
     let adapter = sample_qmt_live_adapter(&server);
-    let error = adapter.submit_order(sample_request("cli-missing-cap")).await.unwrap_err();
+    let error = adapter
+        .submit_order(sample_request("cli-missing-cap"))
+        .await
+        .unwrap_err();
 
     assert!(error.to_string().contains("order_submit"));
 }

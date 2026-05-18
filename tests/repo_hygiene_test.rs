@@ -631,9 +631,8 @@ fn current_state_summary_docs_lock_mock_and_qmt_live_boundary() {
         .expect("expected GAP_ANALYSIS.md to exist");
     let roadmap = fs::read_to_string(repo_root().join("docs").join("DEVELOPMENT_ROADMAP.md"))
         .expect("expected DEVELOPMENT_ROADMAP.md to exist");
-    let qmt_guide =
-        fs::read_to_string(repo_root().join("docs").join("QMT_LIVE_TRADING_SETUP.md"))
-            .expect("expected QMT_LIVE_TRADING_SETUP.md to exist");
+    let qmt_guide = fs::read_to_string(repo_root().join("docs").join("QMT_LIVE_TRADING_SETUP.md"))
+        .expect("expected QMT_LIVE_TRADING_SETUP.md to exist");
 
     for expected in [
         "已有受能力门控的 `qmt_live` 真实提交通道",
@@ -678,9 +677,8 @@ fn architecture_and_roadmap_review_docs_keep_current_qmt_live_conclusion() {
             .join("WSL2_WINDOWS_BRIDGE_ARCHITECTURE.md"),
     )
     .expect("expected WSL2_WINDOWS_BRIDGE_ARCHITECTURE.md to exist");
-    let roadmap_review =
-        fs::read_to_string(repo_root().join("docs").join("ROADMAP_REVIEW.md"))
-            .expect("expected ROADMAP_REVIEW.md to exist");
+    let roadmap_review = fs::read_to_string(repo_root().join("docs").join("ROADMAP_REVIEW.md"))
+        .expect("expected ROADMAP_REVIEW.md to exist");
 
     for expected in [
         "`QMT preview contract` 仍然保留，作为 `qmt-preview` 路径",
@@ -703,9 +701,8 @@ fn architecture_and_roadmap_review_docs_keep_current_qmt_live_conclusion() {
 
 #[test]
 fn generated_cli_manual_keeps_qmt_and_mock_boundary() {
-    let cli_manual =
-        fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
-            .expect("expected CLI_COMMAND_MANUAL.html to exist");
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
 
     for expected in [
         "QMT 执行兼容入口",

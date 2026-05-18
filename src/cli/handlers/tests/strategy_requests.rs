@@ -634,7 +634,9 @@ fn test_format_strategy_request_detail_displays_execution_diagnostics_section() 
     assert!(detail.contains("code: bridge_qmt_mode_not_live"));
     assert!(detail.contains("category: gate"));
     assert!(detail.contains("stage: execute"));
-    assert!(detail.contains("summary: qmt_live 提交被阻止：bridge qmt.mode=preview_only，要求 live"));
+    assert!(
+        detail.contains("summary: qmt_live 提交被阻止：bridge qmt.mode=preview_only，要求 live")
+    );
     assert!(detail.contains("operator_action: use_live_bridge_mode"));
     assert!(detail.contains("hint_command: quantix execution bridge status"));
 }

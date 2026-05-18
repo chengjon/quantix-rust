@@ -17,7 +17,10 @@ fn run_quantix(args: &[&str]) -> (String, String, bool) {
 fn market_leader_requires_one_filter_at_binary_entry() {
     let (stdout, stderr, success) = run_quantix(&["market", "leader"]);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(stdout.is_empty(), "expected empty stdout, stdout={stdout}");
     assert!(stderr.contains("the following required arguments were not provided"));
     assert!(stderr.contains("<--sector <SECTOR>|--concept <CONCEPT>|--all>"));
@@ -35,7 +38,10 @@ fn market_leader_rejects_conflicting_filters_at_binary_entry() {
         "人工智能",
     ]);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(stdout.is_empty(), "expected empty stdout, stdout={stdout}");
     assert!(stderr.contains("cannot be used with"));
     assert!(stderr.contains("--sector <SECTOR>"));

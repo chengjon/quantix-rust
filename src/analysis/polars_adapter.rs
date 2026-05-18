@@ -151,7 +151,11 @@ impl PolarsCalculator {
         let mut ema_val = sum / period as f64;
         result[period - 1] = Some(Decimal::from_str(&format!("{}", ema_val)).unwrap_or_default());
 
-        for (slot, close) in result.iter_mut().skip(period).zip(data.close.iter().skip(period)) {
+        for (slot, close) in result
+            .iter_mut()
+            .skip(period)
+            .zip(data.close.iter().skip(period))
+        {
             ema_val = *close * alpha_f64 + ema_val * (1.0 - alpha_f64);
             *slot = Some(Decimal::from_str(&format!("{}", ema_val)).unwrap_or_default());
         }
@@ -237,7 +241,9 @@ impl PolarsCalculator {
             .filter_map(|s| s.strip_prefix("ma").and_then(|p| p.parse().ok()))
             .collect();
 
-        if !ma_periods.is_empty() && let Ok(df) = df_result {
+        if !ma_periods.is_empty()
+            && let Ok(df) = df_result
+        {
             let close_col = PlSmallStr::from("close");
             match df.column(&close_col) {
                 Ok(close_series) => {
@@ -258,10 +264,8 @@ impl PolarsCalculator {
                                     .cast(&DataType::Float64)
                                 {
                                     Ok(casted) => {
-                                        let float_values: Vec<Option<f64>> = casted
-                                            .iter()
-                                            .map(|av| av.extract::<f64>())
-                                            .collect();
+                                        let float_values: Vec<Option<f64>> =
+                                            casted.iter().map(|av| av.extract::<f64>()).collect();
                                         float_values
                                             .into_iter()
                                             .map(|v| {
@@ -300,9 +304,7 @@ impl PolarsCalculator {
                                 let values: Vec<Option<Decimal>> = float_values
                                     .into_iter()
                                     .map(|v| {
-                                        v.and_then(|f| {
-                                            Decimal::from_str(&format!("{}", f)).ok()
-                                        })
+                                        v.and_then(|f| Decimal::from_str(&format!("{}", f)).ok())
                                     })
                                     .collect();
                                 result.insert(format!("ma{}", period), values);
@@ -348,10 +350,7 @@ impl MultiStockData {
     }
 
     /// 批量计算指标 (使用 Polars group_by)
-    pub fn calculate_batch_indicators(
-        &self,
-        indicators: &[&str],
-    ) -> Result<IndicatorBatchResult> {
+    pub fn calculate_batch_indicators(&self, indicators: &[&str]) -> Result<IndicatorBatchResult> {
         use polars::prelude::*;
 
         // 构建合并的 DataFrame

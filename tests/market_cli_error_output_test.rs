@@ -17,7 +17,10 @@ fn run_quantix(args: &[&str]) -> (String, String, bool) {
 fn market_strength_rejects_invalid_date_at_binary_entry() {
     let (stdout, stderr, success) = run_quantix(&["market", "strength", "--date", "20260309"]);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(
         stderr.contains("无效日期格式: 20260309，请使用 YYYY-MM-DD"),
         "expected invalid date guidance in stderr, stderr={stderr}"
@@ -39,7 +42,10 @@ fn market_strength_stocks_rejects_invalid_date_at_binary_entry() {
         "profit",
     ]);
 
-    assert!(!success, "expected failure, stdout={stdout}, stderr={stderr}");
+    assert!(
+        !success,
+        "expected failure, stdout={stdout}, stderr={stderr}"
+    );
     assert!(
         stderr.contains("无效日期格式: 2026/03/09，请使用 YYYY-MM-DD"),
         "expected invalid date guidance in stderr, stderr={stderr}"

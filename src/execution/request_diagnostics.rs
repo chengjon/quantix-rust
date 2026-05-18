@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub const EXECUTION_DIAGNOSTICS_KEY: &str = "execution_diagnostics";
 
@@ -26,11 +26,7 @@ pub fn should_show_compact_diag(code: &str) -> bool {
 pub fn build_completion_diagnostics(order_status: Option<&str>) -> Value {
     match order_status {
         Some(
-            "pending_submit"
-            | "submitted"
-            | "accepted"
-            | "partially_filled"
-            | "pending_cancel"
+            "pending_submit" | "submitted" | "accepted" | "partially_filled" | "pending_cancel"
             | "unknown",
         ) => json!({
             "schema_version": 1,
@@ -174,7 +170,10 @@ mod tests {
             diagnostics["semantics"].as_str(),
             Some("request_completed_order_non_terminal")
         );
-        assert_eq!(diagnostics["order_terminality"].as_str(), Some("non_terminal"));
+        assert_eq!(
+            diagnostics["order_terminality"].as_str(),
+            Some("non_terminal")
+        );
         assert_eq!(
             diagnostics["operator_action"].as_str(),
             Some("wait_reconciliation")
@@ -244,8 +243,12 @@ mod tests {
 
     #[test]
     fn test_should_hide_completion_codes_from_compact_diag_suffix() {
-        assert!(!should_show_compact_diag("request_completed_order_terminal"));
-        assert!(!should_show_compact_diag("request_completed_order_non_terminal"));
+        assert!(!should_show_compact_diag(
+            "request_completed_order_terminal"
+        ));
+        assert!(!should_show_compact_diag(
+            "request_completed_order_non_terminal"
+        ));
         assert!(should_show_compact_diag("bridge_qmt_mode_not_live"));
     }
 }

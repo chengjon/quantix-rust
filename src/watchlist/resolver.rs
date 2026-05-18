@@ -1,6 +1,6 @@
+use crate::bridge::client::BridgeHttpClient;
 use crate::core::Result;
 use crate::db::PostgresClient;
-use crate::bridge::client::BridgeHttpClient;
 use crate::watchlist::WatchlistListItem;
 use async_trait::async_trait;
 use futures_util::future::join_all;

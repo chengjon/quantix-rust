@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use serde_json::Value;
 
 use crate::analysis::indicator_config::IndicatorSpec;
-use crate::analysis::indicators::{ema, rsi, sma, Kdj as KdjPoint, Macd as MacdPoint};
+use crate::analysis::indicators::{Kdj as KdjPoint, Macd as MacdPoint, ema, rsi, sma};
 use crate::core::{QuantixError, Result};
 
 #[derive(Debug, Clone)]
@@ -127,7 +127,9 @@ impl IndicatorRegistry {
                     lookback: period,
                     warmup_len: period.saturating_sub(1),
                 },
-                compute_fn: |period, input| IndicatorSeries::ScalarSeries(sma(input.close(), period)),
+                compute_fn: |period, input| {
+                    IndicatorSeries::ScalarSeries(sma(input.close(), period))
+                },
                 series_kind: IndicatorSeriesKind::Scalar,
             },
         );
@@ -139,7 +141,9 @@ impl IndicatorRegistry {
                     lookback: period,
                     warmup_len: period.saturating_sub(1),
                 },
-                compute_fn: |period, input| IndicatorSeries::ScalarSeries(ema(input.close(), period)),
+                compute_fn: |period, input| {
+                    IndicatorSeries::ScalarSeries(ema(input.close(), period))
+                },
                 series_kind: IndicatorSeriesKind::Scalar,
             },
         );
@@ -151,7 +155,9 @@ impl IndicatorRegistry {
                     lookback: period.saturating_add(1),
                     warmup_len: period,
                 },
-                compute_fn: |period, input| IndicatorSeries::ScalarSeries(rsi(input.close(), period)),
+                compute_fn: |period, input| {
+                    IndicatorSeries::ScalarSeries(rsi(input.close(), period))
+                },
                 series_kind: IndicatorSeriesKind::Scalar,
             },
         );
@@ -176,7 +182,10 @@ impl IndicatorRegistry {
         Ok((builtin.compute_fn)(period, input))
     }
 
-    fn resolve_builtin_and_period(&self, spec: &IndicatorSpec) -> Result<(BuiltinIndicator, usize)> {
+    fn resolve_builtin_and_period(
+        &self,
+        spec: &IndicatorSpec,
+    ) -> Result<(BuiltinIndicator, usize)> {
         let normalized_name = spec.name().to_ascii_lowercase();
         let builtin = self
             .builtins
@@ -196,14 +205,13 @@ impl IndicatorRegistry {
 }
 
 fn parse_period(raw: Option<&Value>, min_period: usize, indicator_name: &str) -> Result<usize> {
-    let raw = raw.ok_or_else(|| QuantixError::Config("indicator param `period` is required".into()))?;
+    let raw =
+        raw.ok_or_else(|| QuantixError::Config("indicator param `period` is required".into()))?;
     let period = match raw {
         Value::Number(number) => number
             .as_u64()
             .ok_or_else(|| {
-                QuantixError::Config(
-                    "indicator param `period` must be a positive integer".into(),
-                )
+                QuantixError::Config("indicator param `period` must be a positive integer".into())
             })
             .and_then(|value| {
                 usize::try_from(value).map_err(|_| {
@@ -218,13 +226,11 @@ fn parse_period(raw: Option<&Value>, min_period: usize, indicator_name: &str) ->
     };
 
     if period < min_period {
-        return Err(QuantixError::Config(
-            if min_period == 1 {
-                "indicator param `period` must be greater than zero".into()
-            } else {
-                format!("indicator `{indicator_name}` requires `period` >= {min_period}")
-            },
-        ));
+        return Err(QuantixError::Config(if min_period == 1 {
+            "indicator param `period` must be greater than zero".into()
+        } else {
+            format!("indicator `{indicator_name}` requires `period` >= {min_period}")
+        }));
     }
 
     Ok(period)

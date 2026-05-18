@@ -59,8 +59,8 @@ fn normalize_row(row: RawLiveImportRow) -> Result<LiveImportRecord> {
             let side =
                 LiveImportTradeSide::from_str(required_optional_text("side", row.side)?.as_str())
                     .ok_or_else(|| {
-                        QuantixError::Other("risk import trade side 仅支持 buy|sell".to_string())
-                    })?;
+                    QuantixError::Other("risk import trade side 仅支持 buy|sell".to_string())
+                })?;
             let price = parse_positive_decimal("price", row.price)?;
             let volume = row.volume.ok_or_else(|| {
                 QuantixError::Other("risk import trade volume 不能为空".to_string())
@@ -134,17 +134,16 @@ fn normalize_row(row: RawLiveImportRow) -> Result<LiveImportRecord> {
 fn required_text(field: &str, value: &str) -> Result<String> {
     let value = value.trim();
     if value.is_empty() {
-        return Err(QuantixError::Other(format!(
-            "risk import {field} 不能为空"
-        )));
+        return Err(QuantixError::Other(format!("risk import {field} 不能为空")));
     }
     Ok(value.to_string())
 }
 
 fn required_optional_text(field: &str, value: Option<String>) -> Result<String> {
-    value.map(|raw| required_text(field, &raw)).transpose()?.ok_or_else(|| {
-        QuantixError::Other(format!("risk import {field} 不能为空"))
-    })
+    value
+        .map(|raw| required_text(field, &raw))
+        .transpose()?
+        .ok_or_else(|| QuantixError::Other(format!("risk import {field} 不能为空")))
 }
 
 fn parse_required_decimal(field: &str, value: Option<String>) -> Result<Decimal> {

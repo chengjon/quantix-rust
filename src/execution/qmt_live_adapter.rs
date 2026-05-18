@@ -33,13 +33,13 @@ use rust_decimal::Decimal;
 use tracing::{error, info, warn};
 
 use crate::bridge::client::BridgeHttpClient;
+use crate::core::runtime::{DEFAULT_BRIDGE_POLL_INTERVAL_MS, DEFAULT_BRIDGE_POLL_TIMEOUT_MS};
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
-use crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode;
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
+use crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode;
 use crate::execution::qmt_task_submit_service::QmtTaskSubmitService;
-use crate::core::runtime::{DEFAULT_BRIDGE_POLL_INTERVAL_MS, DEFAULT_BRIDGE_POLL_TIMEOUT_MS};
 
 /// QMT Live Execution Adapter
 ///
@@ -109,11 +109,7 @@ impl QmtLiveExecutionAdapter {
     /// Convert order type to bridge format
     fn order_type_to_bridge(price: &Decimal) -> &'static str {
         // If price is zero, it's a market order
-        if price.is_zero() {
-            "market"
-        } else {
-            "limit"
-        }
+        if price.is_zero() { "market" } else { "limit" }
     }
 
     fn receipt_to_initial(task_id: String) -> OrderInitialResponse {
@@ -173,17 +169,18 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
         }
     }
 
-    async fn query_order(
-        &self,
-        order_id: &str,
-    ) -> Result<OrderQueryResponse, AdapterError> {
+    async fn query_order(&self, order_id: &str) -> Result<OrderQueryResponse, AdapterError> {
         info!(
             adapter = self.adapter_name,
             order_id = %order_id,
             "Querying order status"
         );
 
-        match self.submit_service.query_task_result_by_task_id(order_id).await {
+        match self
+            .submit_service
+            .query_task_result_by_task_id(order_id)
+            .await
+        {
             Ok(result) => Ok(OrderQueryResponse {
                 adapter_order_id: result.adapter_order_id,
                 latest_status: result.latest_status,
@@ -228,8 +225,9 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
                         "Cancel failed"
                     );
                     Err(AdapterError::Execution(
-                        response.error_message
-                            .unwrap_or_else(|| "Cancel failed".to_string())
+                        response
+                            .error_message
+                            .unwrap_or_else(|| "Cancel failed".to_string()),
                     ))
                 }
             }
@@ -252,8 +250,14 @@ mod tests {
 
     #[test]
     fn test_side_to_bridge() {
-        assert_eq!(QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Buy), "buy");
-        assert_eq!(QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Sell), "sell");
+        assert_eq!(
+            QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Buy),
+            "buy"
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::side_to_bridge(&OrderSide::Sell),
+            "sell"
+        );
     }
 
     #[test]
@@ -269,7 +273,13 @@ mod tests {
         let limit_price = Decimal::new(1050, 2); // 10.50
         let market_price = Decimal::ZERO;
 
-        assert_eq!(QmtLiveExecutionAdapter::order_type_to_bridge(&limit_price), "limit");
-        assert_eq!(QmtLiveExecutionAdapter::order_type_to_bridge(&market_price), "market");
+        assert_eq!(
+            QmtLiveExecutionAdapter::order_type_to_bridge(&limit_price),
+            "limit"
+        );
+        assert_eq!(
+            QmtLiveExecutionAdapter::order_type_to_bridge(&market_price),
+            "market"
+        );
     }
 }

@@ -9,7 +9,7 @@ use crate::factor::alpha191::{
     alpha191_119, alpha191_120,
 };
 use crate::factor::dataset::FactorDataset;
-use crate::factor::operators::{cs_rank, ts_delay, ts_delta};
+use crate::factor::operators::{cs_rank, ts_delay, ts_delta, ts_rank};
 use crate::factor::types::{FactorCategory, FactorComputeResult, FactorMeta, MissingPolicy};
 
 pub struct FactorCatalog {
@@ -43,6 +43,16 @@ pub fn builtin_factor_catalog() -> FactorCatalog {
                 id: "delta_close_1".to_string(),
                 category: FactorCategory::Technical,
                 description: "One-bar per-symbol close delta".to_string(),
+                author: Some("quantix".to_string()),
+                source: Some("p1".to_string()),
+                refresh_frequency: Some("daily".to_string()),
+                required_fields: vec!["close".to_string()],
+                missing_policy: MissingPolicy::KeepNull,
+            },
+            FactorMeta {
+                id: "ts_rank_close_5".to_string(),
+                category: FactorCategory::Technical,
+                description: "Five-bar per-symbol time-series rank of close".to_string(),
                 author: Some("quantix".to_string()),
                 source: Some("p1".to_string()),
                 refresh_frequency: Some("daily".to_string()),
@@ -220,6 +230,7 @@ impl FactorCatalog {
             "rank_close" => cs_rank(dataset.frame(), "close"),
             "delay_close_1" => ts_delay(dataset.frame(), "close", 1),
             "delta_close_1" => ts_delta(dataset.frame(), "close", 1),
+            "ts_rank_close_5" => ts_rank(dataset.frame(), "close", 5),
             "alpha101_002" => alpha101_002(dataset.frame()),
             "alpha101_003" => alpha101_003(dataset.frame()),
             "alpha101_005" => alpha101_005(dataset.frame()),

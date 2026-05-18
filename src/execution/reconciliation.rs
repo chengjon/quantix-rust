@@ -341,7 +341,10 @@ impl ReconciliationService {
             )
     }
 
-    async fn reconcile_qmt_live_order(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
+    async fn reconcile_qmt_live_order(
+        &self,
+        order: &OrderRecord,
+    ) -> Result<OrderReconciliationResult> {
         let Some(task_id) = order
             .payload_json
             .get("qmt_live")
@@ -407,13 +410,8 @@ impl ReconciliationService {
                 } else {
                     ReconciliationAction::StateUpdated
                 };
-                let payload_json = self.qmt_live_payload_json(
-                    order,
-                    Some(&result),
-                    action,
-                    None,
-                    Utc::now(),
-                )?;
+                let payload_json =
+                    self.qmt_live_payload_json(order, Some(&result), action, None, Utc::now())?;
 
                 if action == ReconciliationAction::NoAction {
                     return self
@@ -574,9 +572,9 @@ impl ReconciliationService {
             payload_json = serde_json::json!({});
         }
 
-        let root = payload_json
-            .as_object_mut()
-            .ok_or_else(|| QuantixError::Other("order payload_json is not an object".to_string()))?;
+        let root = payload_json.as_object_mut().ok_or_else(|| {
+            QuantixError::Other("order payload_json is not an object".to_string())
+        })?;
         let qmt_live = root
             .entry("qmt_live".to_string())
             .or_insert_with(|| serde_json::json!({}));

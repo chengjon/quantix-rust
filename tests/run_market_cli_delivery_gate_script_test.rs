@@ -90,7 +90,10 @@ fn delivery_gate_script_runs_fake_acceptance_formal_and_report_scripts() {
     assert!(log.contains("[STEP] Formal sequence"));
     assert!(log.contains(&format!("[FAKE] formal LOG_DIR={}", log_dir.display())));
     assert!(log.contains("[STEP] Acceptance report generation"));
-    assert!(log.contains(&format!("[FAKE] report REPORT_PATH={}", report_path.display())));
+    assert!(log.contains(&format!(
+        "[FAKE] report REPORT_PATH={}",
+        report_path.display()
+    )));
     assert!(log.contains(&format!("Report path: {}", report_path.display())));
 
     let report = fs::read_to_string(&report_path).expect("should read generated report");
