@@ -15,6 +15,10 @@ use std::collections::HashMap;
 use crate::core::{QuantixError, Result};
 use crate::monitoring::{AlertLevel, AlertType};
 
+mod senders;
+
+pub use senders::{DesktopSender, FeishuSender, LogSender, WebhookSender, WechatWorkSender};
+
 /// 通知渠道类型
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -144,7 +148,8 @@ impl NotificationConfig {
         Self {
             enabled_channels,
             webhook_url: std::env::var("WEBHOOK_URL").ok(),
-            log_path: std::env::var("NOTIFICATION_LOG_PATH").ok()
+            log_path: std::env::var("NOTIFICATION_LOG_PATH")
+                .ok()
                 .or(Some("logs/notifications.log".to_string())),
             min_level: std::env::var("NOTIFICATION_MIN_LEVEL")
                 .ok()
@@ -307,408 +312,6 @@ pub trait NotificationSender: Send + Sync {
     }
 }
 
-/// 桌面通知发送器
-pub struct DesktopSender;
-
-impl DesktopSender {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for DesktopSender {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl NotificationSender for DesktopSender {
-    async fn send(&self, notification: &Notification) -> Result<()> {
-        let title = &notification.title;
-        let message = &notification.message;
-
-        #[cfg(target_os = "linux")]
-        {
-            // 使用 notify-send 发送桌面通知
-            let output = tokio::process::Command::new("notify-send")
-                .arg("-u")
-                .arg(match notification.level {
-                    AlertLevel::Info => "low",
-                    AlertLevel::Warning => "normal",
-                    AlertLevel::Error => "critical",
-                    AlertLevel::Critical => "critical",
-                })
-                .arg(title)
-                .arg(message)
-                .output()
-                .await;
-
-            match output {
-                Ok(o) if o.status.success() => {
-                    tracing::debug!("桌面通知发送成功: {}", title);
-                    return Ok(());
-                }
-                Ok(o) => {
-                    tracing::warn!(
-                        "桌面通知发送失败: {}",
-                        String::from_utf8_lossy(&o.stderr)
-                    );
-                }
-                Err(e) => {
-                    tracing::warn!("桌面通知发送失败: {}", e);
-                }
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            // Windows toast 通知（需要 PowerShell）
-            let script = format!(
-                r#"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-$template = @"
-<toast>
-    <visual>
-        <binding template=""ToastText02"">
-            <text id=""1"">{}</text>
-            <text id=""2"">{}</text>
-        </binding>
-    </visual>
-</toast>
-"@
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml($template)
-$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Quantix").Show($toast)
-"#,
-                title, message
-            );
-
-            let output = tokio::process::Command::new("powershell")
-                .arg("-Command")
-                .arg(&script)
-                .output()
-                .await;
-
-            match output {
-                Ok(o) if o.status.success() => {
-                    tracing::debug!("桌面通知发送成功: {}", title);
-                    return Ok(());
-                }
-                Ok(o) => {
-                    tracing::warn!(
-                        "桌面通知发送失败: {}",
-                        String::from_utf8_lossy(&o.stderr)
-                    );
-                }
-                Err(e) => {
-                    tracing::warn!("桌面通知发送失败: {}", e);
-                }
-            }
-        }
-
-        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-        {
-            tracing::debug!("桌面通知不支持当前平台");
-            let _ = (title, message);
-        }
-
-        Ok(())
-    }
-
-    fn channel(&self) -> NotificationChannel {
-        NotificationChannel::Desktop
-    }
-
-    fn is_available(&self) -> bool {
-        #[cfg(target_os = "linux")]
-        {
-            // 检查 notify-send 是否可用
-            std::path::Path::new("/usr/bin/notify-send").exists()
-        }
-        #[cfg(target_os = "windows")]
-        {
-            true
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-        {
-            false
-        }
-    }
-}
-
-/// Webhook 通知发送器
-pub struct WebhookSender {
-    url: String,
-    client: reqwest::Client,
-}
-
-impl WebhookSender {
-    pub fn new(url: impl Into<String>) -> Self {
-        Self {
-            url: url.into(),
-            client: reqwest::Client::new(),
-        }
-    }
-}
-
-#[async_trait]
-impl NotificationSender for WebhookSender {
-    async fn send(&self, notification: &Notification) -> Result<()> {
-        let payload = serde_json::json!({
-            "id": notification.id,
-            "title": notification.title,
-            "message": notification.message,
-            "level": notification.level,
-            "created_at": notification.created_at.to_rfc3339(),
-            "metadata": notification.metadata,
-        });
-
-        let response = self
-            .client
-            .post(&self.url)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| crate::core::QuantixError::Other(format!("Webhook 请求失败: {}", e)))?;
-
-        if response.status().is_success() {
-            tracing::debug!("Webhook 通知发送成功: {}", self.url);
-            Ok(())
-        } else {
-            Err(crate::core::QuantixError::Other(format!(
-                "Webhook 返回错误状态: {}",
-                response.status()
-            )))
-        }
-    }
-
-    fn channel(&self) -> NotificationChannel {
-        NotificationChannel::Webhook
-    }
-
-    fn is_available(&self) -> bool {
-        !self.url.is_empty()
-    }
-}
-
-/// 日志通知发送器
-pub struct LogSender {
-    log_path: Option<String>,
-}
-
-impl LogSender {
-    pub fn new(log_path: Option<String>) -> Self {
-        Self { log_path }
-    }
-}
-
-impl Default for LogSender {
-    fn default() -> Self {
-        Self::new(None)
-    }
-}
-
-#[async_trait]
-impl NotificationSender for LogSender {
-    async fn send(&self, notification: &Notification) -> Result<()> {
-        let log_text = notification.to_log_text();
-
-        // 输出到 tracing 日志
-        match notification.level {
-            AlertLevel::Info => tracing::info!("{}", log_text),
-            AlertLevel::Warning => tracing::warn!("{}", log_text),
-            AlertLevel::Error => tracing::error!("{}", log_text),
-            AlertLevel::Critical => tracing::error!("{}", log_text),
-        }
-
-        // 如果配置了日志文件，追加写入
-        if let Some(path) = &self.log_path {
-            let log_entry = format!("{}\n", log_text);
-            let path = std::path::Path::new(path);
-            if let Some(parent) = path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    tokio::fs::create_dir_all(parent).await?;
-                }
-            }
-
-            use tokio::io::AsyncWriteExt;
-            let mut file = tokio::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-                .await?;
-            file.write_all(log_entry.as_bytes()).await?;
-            file.flush().await?;
-        }
-
-        Ok(())
-    }
-
-    fn channel(&self) -> NotificationChannel {
-        NotificationChannel::Log
-    }
-
-    fn is_available(&self) -> bool {
-        true
-    }
-}
-
-/// 企业微信通知发送器
-pub struct WechatWorkSender {
-    webhook_url: String,
-    client: reqwest::Client,
-}
-
-impl WechatWorkSender {
-    pub fn new(webhook_url: String) -> Self {
-        Self {
-            webhook_url,
-            client: reqwest::Client::new(),
-        }
-    }
-
-    fn format_message(&self, notification: &Notification) -> String {
-        let level_emoji = match notification.level {
-            AlertLevel::Info => "ℹ️",
-            AlertLevel::Warning => "⚠️",
-            AlertLevel::Error => "❌",
-            AlertLevel::Critical => "🚨",
-        };
-        format!(
-            "### {} {}\n\n**{}**\n\n> {}",
-            level_emoji,
-            notification.title,
-            notification.created_at.format("%Y-%m-%d %H:%M:%S"),
-            notification.message
-        )
-    }
-}
-
-#[async_trait]
-impl NotificationSender for WechatWorkSender {
-    async fn send(&self, notification: &Notification) -> Result<()> {
-        let content = self.format_message(notification);
-
-        let payload = serde_json::json!({
-            "msgtype": "markdown",
-            "markdown": {
-                "content": content
-            }
-        });
-
-        let response = self.client
-            .post(&self.webhook_url)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| QuantixError::Other(format!("企业微信请求失败: {}", e)))?;
-
-        let status = response.status();
-        if status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            if body.contains("\"errcode\":0") || body.contains("\"errcode\": 0") {
-                tracing::debug!("企业微信通知发送成功");
-                return Ok(());
-            }
-            tracing::warn!("企业微信返回错误: {}", body);
-        }
-
-        Err(QuantixError::Other(format!(
-            "企业微信发送失败: HTTP {}",
-            status
-        )))
-    }
-
-    fn channel(&self) -> NotificationChannel {
-        NotificationChannel::WechatWork
-    }
-
-    fn is_available(&self) -> bool {
-        !self.webhook_url.is_empty()
-    }
-}
-
-/// 飞书通知发送器
-pub struct FeishuSender {
-    webhook_url: String,
-    client: reqwest::Client,
-}
-
-impl FeishuSender {
-    pub fn new(webhook_url: String) -> Self {
-        Self {
-            webhook_url,
-            client: reqwest::Client::new(),
-        }
-    }
-
-    fn format_message(&self, notification: &Notification) -> serde_json::Value {
-        let level_color = match notification.level {
-            AlertLevel::Info => "blue",
-            AlertLevel::Warning => "yellow",
-            AlertLevel::Error => "red",
-            AlertLevel::Critical => "red",
-        };
-
-        serde_json::json!({
-            "msg_type": "post",
-            "content": {
-                "post": {
-                    "zh_cn": {
-                        "title": format!("【{}】{}", notification.level, notification.title),
-                        "content": [[
-                            {"tag": "text", "text": notification.message},
-                            {"tag": "text", "text": format!("\n\n时间: {}", notification.created_at.format("%Y-%m-%d %H:%M:%S"))}
-                        ]]
-                    }
-                },
-                "extra": {
-                    "single_chat": false
-                }
-            }
-        })
-    }
-}
-
-#[async_trait]
-impl NotificationSender for FeishuSender {
-    async fn send(&self, notification: &Notification) -> Result<()> {
-        let payload = self.format_message(notification);
-
-        let response = self.client
-            .post(&self.webhook_url)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| QuantixError::Other(format!("飞书请求失败: {}", e)))?;
-
-        let status = response.status();
-        if status.is_success() {
-            let body: serde_json::Value = response.json().await.unwrap_or(serde_json::json!({}));
-            if body.get("code").and_then(|c| c.as_i64()).unwrap_or(-1) == 0 {
-                tracing::debug!("飞书通知发送成功");
-                return Ok(());
-            }
-            tracing::warn!("飞书返回错误: {}", body);
-        }
-
-        Err(QuantixError::Other(format!(
-            "飞书发送失败: HTTP {}",
-            status
-        )))
-    }
-
-    fn channel(&self) -> NotificationChannel {
-        NotificationChannel::Feishu
-    }
-
-    fn is_available(&self) -> bool {
-        !self.webhook_url.is_empty()
-    }
-}
-
 /// 通知服务
 pub struct NotificationService {
     config: NotificationConfig,
@@ -797,17 +400,10 @@ impl NotificationService {
                 match sender.send(&notification).await {
                     Ok(()) => {
                         any_success = true;
-                        tracing::debug!(
-                            "通知通过 {} 渠道发送成功",
-                            sender.channel()
-                        );
+                        tracing::debug!("通知通过 {} 渠道发送成功", sender.channel());
                     }
                     Err(e) => {
-                        tracing::warn!(
-                            "通知通过 {} 渠道发送失败: {}",
-                            sender.channel(),
-                            e
-                        );
+                        tracing::warn!("通知通过 {} 渠道发送失败: {}", sender.channel(), e);
                     }
                 }
             }
@@ -869,7 +465,10 @@ mod tests {
         assert_eq!(notification.message, "测试消息");
         assert_eq!(notification.level, AlertLevel::Warning);
         assert!(!notification.sent);
-        assert_eq!(notification.metadata.get("code"), Some(&"000001".to_string()));
+        assert_eq!(
+            notification.metadata.get("code"),
+            Some(&"000001".to_string())
+        );
     }
 
     #[test]

@@ -1,6 +1,10 @@
 use super::fundamental::truncate_str;
 use super::*;
 
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::market::sentiment::SentimentAggregator;
+use crate::market::sentiment::types::SentimentTrend;
+
 // ============================================================
 // 舆情分析命令
 // ============================================================
@@ -8,15 +12,9 @@ use super::*;
 /// 处理舆情命令
 pub async fn run_sentiment_command(cmd: SentimentCommands) -> Result<()> {
     match cmd {
-        SentimentCommands::Show { code } => {
-            run_sentiment_show(&code).await
-        }
-        SentimentCommands::History { code, days } => {
-            run_sentiment_history(&code, days).await
-        }
-        SentimentCommands::Mentions { code, max } => {
-            run_sentiment_mentions(&code, max).await
-        }
+        SentimentCommands::Show { code } => run_sentiment_show(&code).await,
+        SentimentCommands::History { code, days } => run_sentiment_history(&code, days).await,
+        SentimentCommands::Mentions { code, max } => run_sentiment_mentions(&code, max).await,
     }
 }
 
@@ -31,13 +29,7 @@ async fn run_sentiment_show(code: &str) -> Result<()> {
     let level = data.sentiment_level;
     println!("{} 情绪等级: {}", level.emoji(), level.label());
     println!("📈 情绪指数: {:.2}", data.overall_score);
-    println!("📊 趋势方向: {}", match data.trend {
-        SentimentTrend::RisingFast => "↑ 快速上升",
-        SentimentTrend::Rising => "↑ 上升",
-        SentimentTrend::Stable => "→ 平稳",
-        SentimentTrend::Falling => "↓ 下降",
-        SentimentTrend::FallingFast => "↓ 快速下降",
-    });
+    println!("📊 趋势方向: {}", format_sentiment_trend(data.trend));
     println!();
 
     if data.source_scores.is_empty() {
@@ -48,11 +40,39 @@ async fn run_sentiment_show(code: &str) -> Result<()> {
         println!("{:<15} {:<10} {:<10}", "来源", "得分", "样本数");
         println!("{}", "-".repeat(35));
         for score in &data.source_scores {
-            println!("{:<15} {:<10.2} {:<10}", score.source, score.score, score.sample_count);
+            println!(
+                "{:<15} {:<10.2} {:<10}",
+                score.source, score.score, score.sample_count
+            );
         }
     }
 
     Ok(())
+}
+
+fn format_sentiment_trend(trend: SentimentTrend) -> &'static str {
+    match trend {
+        SentimentTrend::Unavailable => "暂无趋势数据",
+        SentimentTrend::RisingFast => "↑ 快速上升",
+        SentimentTrend::Rising => "↑ 上升",
+        SentimentTrend::Stable => "→ 平稳",
+        SentimentTrend::Falling => "↓ 下降",
+        SentimentTrend::FallingFast => "↓ 快速下降",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unavailable_sentiment_trend_is_not_rendered_as_stable() {
+        assert_eq!(
+            format_sentiment_trend(SentimentTrend::Unavailable),
+            "暂无趋势数据"
+        );
+        assert_eq!(format_sentiment_trend(SentimentTrend::Stable), "→ 平稳");
+    }
 }
 
 async fn run_sentiment_history(code: &str, days: u32) -> Result<()> {
@@ -74,7 +94,10 @@ async fn run_sentiment_history(code: &str, days: u32) -> Result<()> {
         println!("{}", "-".repeat(40));
         for point in &history {
             let ts = point.timestamp.format("%Y-%m-%d %H:%M");
-            println!("{:<20} {:<10.2} {:<10}", ts, point.score, point.sample_count);
+            println!(
+                "{:<20} {:<10.2} {:<10}",
+                ts, point.score, point.sample_count
+            );
         }
     }
 
@@ -97,9 +120,21 @@ async fn run_sentiment_mentions(code: &str, max: usize) -> Result<()> {
     } else {
         println!("📱 最近提及:");
         for m in &mentions {
-            let time = m.published_at.map(|t| t.format("%m-%d %H:%M").to_string()).unwrap_or("-".to_string());
-            let sentiment_str = m.sentiment.map(|s| format!("{:.1}", s)).unwrap_or("-".to_string());
-            println!("   {} [{}] {} ( sentiment: {} )", time, m.platform, truncate_str(&m.content, 40), sentiment_str);
+            let time = m
+                .published_at
+                .map(|t| t.format("%m-%d %H:%M").to_string())
+                .unwrap_or("-".to_string());
+            let sentiment_str = m
+                .sentiment
+                .map(|s| format!("{:.1}", s))
+                .unwrap_or("-".to_string());
+            println!(
+                "   {} [{}] {} ( sentiment: {} )",
+                time,
+                m.platform,
+                truncate_str(&m.content, 40),
+                sentiment_str
+            );
             if let Some(author) = &m.author {
                 println!("      作者: {}", author);
             }

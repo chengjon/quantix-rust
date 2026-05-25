@@ -65,10 +65,9 @@ impl RiskIndustryResolver for FakeIndustryResolver {
         _captured_at: DateTime<Utc>,
     ) -> Result<ResolvedIndustry> {
         let industries = self.industries.lock().unwrap();
-        let industry_name = industries
-            .get(code)
-            .cloned()
-            .ok_or_else(|| quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}")))?;
+        let industry_name = industries.get(code).cloned().ok_or_else(|| {
+            quantix_cli::core::QuantixError::Other(format!("resolver miss: {code}"))
+        })?;
 
         Ok(ResolvedIndustry {
             code: code.to_string(),
@@ -209,16 +208,10 @@ async fn set_rule_upserts_industry_blocklist_values() {
 #[tokio::test]
 async fn set_rule_industry_blocklist_ignores_empty_segments() {
     let cases = vec![
-        (
-            "银行, ,地产",
-            vec!["银行".to_string(), "地产".to_string()],
-        ),
+        ("银行, ,地产", vec!["银行".to_string(), "地产".to_string()]),
         ("银行,", vec!["银行".to_string()]),
         (",地产", vec!["地产".to_string()]),
-        (
-            "银行,,地产",
-            vec!["银行".to_string(), "地产".to_string()],
-        ),
+        ("银行,,地产", vec!["银行".to_string(), "地产".to_string()]),
     ];
 
     for (raw, expected) in cases {
@@ -259,7 +252,10 @@ async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_withou
         .set_rule("industry-blocklist", "银行,地产", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     let before = store.snapshot().unwrap();
 
     let err = service
@@ -281,10 +277,8 @@ async fn industry_blocklist_rejects_buy_when_resolved_industry_is_blocked_withou
 
 #[tokio::test]
 async fn industry_blocklist_allows_buy_when_resolved_industry_is_not_blocked() {
-    let (service, _) = service_with_industry_resolver(FakeIndustryResolver::with_rows(&[(
-        "000001",
-        "有色金属",
-    )]));
+    let (service, _) =
+        service_with_industry_resolver(FakeIndustryResolver::with_rows(&[("000001", "有色金属")]));
     let now = fixed_ts();
 
     service
@@ -311,7 +305,10 @@ async fn industry_blocklist_returns_hard_check_failure_when_resolver_misses() {
         .set_rule("industry-blocklist", "银行,地产", now)
         .await
         .unwrap();
-    service.status(&snapshot(dec!(1000000), &[]), now).await.unwrap();
+    service
+        .status(&snapshot(dec!(1000000), &[]), now)
+        .await
+        .unwrap();
     let before = store.snapshot().unwrap();
 
     let err = service

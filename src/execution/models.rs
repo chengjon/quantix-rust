@@ -6,8 +6,8 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::core::signal::Signal;
 use crate::core::{QuantixError, Result};
-use crate::strategy::trait_def::Signal;
 
 mod mock_live;
 pub use mock_live::{MockLiveFaultInjection, MockLiveFillStep, MockLiveOrderState};

@@ -1,4 +1,21 @@
+use super::monitor_helpers::{FakeStopRuleState, FakeStopRuleStore};
 use super::*;
+
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::monitor::{
+    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
+    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
+    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
+    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+};
+use crate::watchlist::{
+    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
+    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
+    WatchlistStorage, WatchlistStore,
+};
+use async_trait::async_trait;
+use rust_decimal_macros::dec;
 
 fn stop_sample_time() -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 3, 11, 12, 0, 0).unwrap()
@@ -30,55 +47,6 @@ fn stop_watchlist_storage(codes: &[&str]) -> (tempfile::TempDir, WatchlistStorag
     }
     storage.save(&store).unwrap();
     (dir, storage)
-}
-
-#[async_trait]
-impl MonitorAlertStore for FakeMonitorAlertStore {
-    async fn add_alert(
-        &self,
-        code: &str,
-        kind: PriceAlertKind,
-        target_price: f64,
-        now: chrono::DateTime<Utc>,
-    ) -> Result<PriceAlert> {
-        let mut state = self.state.lock().unwrap();
-        state.next_id += 1;
-        let alert = PriceAlert {
-            id: state.next_id,
-            code: code.to_string(),
-            kind,
-            target_price,
-            created_at: now,
-            last_triggered_at: None,
-        };
-        state.alerts.push(alert.clone());
-        Ok(alert)
-    }
-
-    async fn list_alerts(&self) -> Result<Vec<PriceAlert>> {
-        Ok(self.state.lock().unwrap().alerts.clone())
-    }
-
-    async fn remove_alert(&self, id: i64) -> Result<bool> {
-        let mut state = self.state.lock().unwrap();
-        let before = state.alerts.len();
-        state.alerts.retain(|alert| alert.id != id);
-        if before != state.alerts.len() {
-            state.removed_ids.push(id);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    async fn mark_triggered(&self, id: i64, triggered_at: chrono::DateTime<Utc>) -> Result<bool> {
-        let mut state = self.state.lock().unwrap();
-        let Some(alert) = state.alerts.iter_mut().find(|alert| alert.id == id) else {
-            return Ok(false);
-        };
-        alert.last_triggered_at = Some(triggered_at);
-        Ok(true)
-    }
 }
 
 #[tokio::test]

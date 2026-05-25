@@ -80,11 +80,7 @@ fn sample_signal(
     }
 }
 
-async fn seed_current_industry(
-    risk_state_path: &std::path::Path,
-    code: &str,
-    industry_name: &str,
-) {
+async fn seed_current_industry(risk_state_path: &std::path::Path, code: &str, industry_name: &str) {
     let store = SqliteIndustryStore::from_risk_state_path(risk_state_path)
         .await
         .unwrap();
@@ -261,7 +257,10 @@ async fn daemon_run_once_rejects_pending_request_when_industry_is_blocked() {
         .await
         .unwrap()
         .unwrap();
-    let events = runtime_store.list_order_events(&order.order_id).await.unwrap();
+    let events = runtime_store
+        .list_order_events(&order.order_id)
+        .await
+        .unwrap();
     assert_eq!(events[0].event_type, "risk_rejected");
     assert!(
         events[0].details_json["reason"]
@@ -345,7 +344,10 @@ async fn daemon_run_once_marks_request_failed_when_industry_resolver_misses() {
             .contains("检查失败")
     );
 
-    let order = runtime_store.find_first_order_for_run(&run.run_id).await.unwrap();
+    let order = runtime_store
+        .find_first_order_for_run(&run.run_id)
+        .await
+        .unwrap();
     assert!(order.is_none());
 
     let state = trade_store.load_state().await.unwrap().unwrap();
@@ -372,8 +374,8 @@ async fn daemon_run_once_returns_unsupported_for_live_request_before_sqlite_setu
 
     let summary =
         consume_next_pending_request_with_components(&runtime_store, trade_store, risk_store)
-        .await
-        .unwrap();
+            .await
+            .unwrap();
     assert_eq!(summary.claimed, 1);
     assert_eq!(summary.completed, 0);
     assert_eq!(summary.failed, 1);
@@ -410,7 +412,12 @@ async fn daemon_run_once_rejects_qmt_live_request_with_manual_bridge_guidance() 
     let signal = sample_signal(&run.run_id, "signal-daemon-qmt-live-1", fixed_ts());
     runtime_store.insert_signal(&signal).await.unwrap();
     let request = runtime_store
-        .approve_signal_and_create_request("signal-daemon-qmt-live-1", "qmt_live", "default", Some("cli"))
+        .approve_signal_and_create_request(
+            "signal-daemon-qmt-live-1",
+            "qmt_live",
+            "default",
+            Some("cli"),
+        )
         .await
         .unwrap();
 

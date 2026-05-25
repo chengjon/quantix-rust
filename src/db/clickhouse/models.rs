@@ -1,11 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::core::{QuantixError, Result};
-use crate::market::{
-    BoardRankRow, BoardType, LeaderFilter, LeaderRow, MarketSentimentSnapshot, NorthFlowSnapshot,
-};
-
 /// 股票基本信息 (ClickHouse Row)
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct StockInfoCH {
@@ -100,48 +95,6 @@ pub struct SectorDailyCH {
     pub updated_at: String,
 }
 
-impl SectorDailyCH {
-    pub fn try_into_board_rank(self) -> Result<BoardRankRow> {
-        Ok(BoardRankRow::new(
-            self.sector_code,
-            self.sector_name,
-            parse_board_type(&self.sector_type)?,
-            self.rank as usize,
-            self.change_pct,
-        ))
-    }
-
-    pub fn try_into_leader(self, filter: LeaderFilter) -> Result<Option<LeaderRow>> {
-        let board_type = parse_board_type(&self.sector_type)?;
-        let leader_code = match self.leader_code {
-            Some(code) if !code.trim().is_empty() => code,
-            _ => return Ok(None),
-        };
-        let leader_name = match self.leader_name {
-            Some(name) if !name.trim().is_empty() => name,
-            _ => return Ok(None),
-        };
-        let change_pct = self.leader_change.unwrap_or_default();
-
-        let (sector_name, concept_name) = match filter {
-            LeaderFilter::Sector(name) => (Some(name), None),
-            LeaderFilter::Concept(name) => (None, Some(name)),
-            LeaderFilter::All => match board_type {
-                BoardType::Sector => (Some(self.sector_name), None),
-                BoardType::Concept => (None, Some(self.sector_name)),
-            },
-        };
-
-        Ok(Some(LeaderRow::new(
-            leader_code,
-            leader_name,
-            sector_name,
-            concept_name,
-            change_pct,
-        )))
-    }
-}
-
 /// 北向资金日线 (ClickHouse Row)
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct NorthFlowDailyCH {
@@ -151,18 +104,6 @@ pub struct NorthFlowDailyCH {
     pub total_amount: f64,
     pub balance: f64,
     pub updated_at: String,
-}
-
-impl NorthFlowDailyCH {
-    pub fn into_snapshot(self) -> NorthFlowSnapshot {
-        NorthFlowSnapshot::new(
-            self.trade_date,
-            self.sh_amount,
-            self.sz_amount,
-            self.total_amount,
-            self.balance,
-        )
-    }
 }
 
 /// 市场情绪日线 (ClickHouse Row)
@@ -177,21 +118,6 @@ pub struct MarketSentimentDailyCH {
     pub break_rate: f64,
     pub consecutive_board_count: u32,
     pub updated_at: String,
-}
-
-impl MarketSentimentDailyCH {
-    pub fn into_snapshot(self) -> MarketSentimentSnapshot {
-        MarketSentimentSnapshot::new(
-            self.trade_date,
-            self.up_count as usize,
-            self.down_count as usize,
-            self.limit_up_count as usize,
-            self.limit_down_count as usize,
-            self.seal_rate,
-            self.break_rate,
-            self.consecutive_board_count as usize,
-        )
-    }
 }
 
 /// 市场基础面快照 (ClickHouse Row)
@@ -281,15 +207,4 @@ pub(super) fn market_table_sqls() -> Vec<(&'static str, &'static str)> {
         "#,
         ),
     ]
-}
-
-pub(super) fn parse_board_type(sector_type: &str) -> Result<BoardType> {
-    match sector_type.trim().to_ascii_lowercase().as_str() {
-        "industry" | "sector" => Ok(BoardType::Sector),
-        "concept" => Ok(BoardType::Concept),
-        other => Err(QuantixError::DataParse(format!(
-            "未知的板块类型: {}",
-            other
-        ))),
-    }
 }
