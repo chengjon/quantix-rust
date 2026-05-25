@@ -2,6 +2,7 @@
 ///
 /// 测试策略与回测引擎的集成
 use quantix_cli::analysis::backtest::{BacktestConfig, BacktestEngine};
+use quantix_cli::core::signal::Signal;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::strategy::ma_cross::MACrossStrategy;
 use quantix_cli::strategy::mean_reversion::{MeanReversionConfig, MeanReversionStrategy};
@@ -192,8 +193,8 @@ mod integration_tests {
 
         for kline in klines {
             match strategy.on_bar(kline).await.unwrap() {
-                quantix_cli::strategy::trait_def::Signal::Buy => has_buy = true,
-                quantix_cli::strategy::trait_def::Signal::Sell if has_buy => {
+                Signal::Buy => has_buy = true,
+                Signal::Sell if has_buy => {
                     has_sell_after_buy = true;
                     break;
                 }

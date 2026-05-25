@@ -234,7 +234,8 @@ fn bench_batch_processing(c: &mut Criterion) {
                 b.iter(|| {
                     processor.process_in_batches(black_box(data.clone()), |chunk| {
                         // 模拟处理
-                        chunk.len()
+                        let _ = chunk.len();
+                        Ok(())
                     })
                 })
             },
