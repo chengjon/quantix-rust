@@ -587,6 +587,18 @@ impl ReconciliationService {
             .ok_or_else(|| QuantixError::Other("qmt_live payload is not an object".to_string()))?;
 
         if let Some(result) = result {
+            if let Some(task_identity) = qmt_live
+                .get_mut("task_identity")
+                .and_then(|value| value.as_object_mut())
+            {
+                if let Some(external_order_id) = &result.external_order_id {
+                    task_identity.insert(
+                        "external_order_id".to_string(),
+                        serde_json::Value::String(external_order_id.clone()),
+                    );
+                }
+            }
+
             qmt_live.insert(
                 "last_query".to_string(),
                 serde_json::to_value(QmtLiveLastQuerySummary {

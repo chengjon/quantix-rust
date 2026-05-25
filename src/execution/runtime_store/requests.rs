@@ -286,6 +286,22 @@ WHERE request_id = ?
         .await
     }
 
+    pub async fn try_fail_pending_execution_request(
+        &self,
+        request_id: &str,
+        payload_json: serde_json::Value,
+        updated_at: DateTime<Utc>,
+    ) -> Result<bool> {
+        self.try_update_execution_request_status(
+            request_id,
+            ExecutionRequestStatus::Pending,
+            ExecutionRequestStatus::Failed,
+            payload_json,
+            updated_at,
+        )
+        .await
+    }
+
     pub async fn try_cancel_execution_request(
         &self,
         request_id: &str,

@@ -8,6 +8,10 @@ mod requests;
 mod service;
 
 use super::*;
+use crate::safety::{
+    JsonKillSwitchStore, format_execution_kill_switch_block_message,
+    load_blocking_kill_switch_state,
+};
 
 pub(crate) use self::catalog::*;
 pub(crate) use self::instances::*;
@@ -357,6 +361,35 @@ where
     TS: PaperTradeStore + Clone,
     RS: crate::risk::RiskStore,
 {
+    let kill_switch_store = JsonKillSwitchStore::with_default_path()?;
+    execute_strategy_run_with_risk_service_and_kill_switch(
+        name,
+        mode,
+        code,
+        loader,
+        trade_store,
+        risk_service,
+        runtime_store,
+        &kill_switch_store,
+    )
+    .await
+}
+
+pub(crate) async fn execute_strategy_run_with_risk_service_and_kill_switch<L, TS, RS>(
+    name: &str,
+    mode: &str,
+    code: Option<String>,
+    loader: L,
+    trade_store: TS,
+    risk_service: RiskService<RS>,
+    runtime_store: &StrategyRuntimeStore,
+    kill_switch_store: &JsonKillSwitchStore,
+) -> Result<StrategyRunSummary>
+where
+    L: StrategyBarLoader,
+    TS: PaperTradeStore + Clone,
+    RS: crate::risk::RiskStore,
+{
     match mode {
         "live" => {
             return Err(QuantixError::Unsupported(format!(
@@ -370,6 +403,8 @@ where
             )));
         }
     }
+
+    guard_strategy_run_kill_switch(kill_switch_store, mode)?;
 
     if name != "ma_cross" {
         return Err(QuantixError::Other(format!("未知策略: {name}")));
@@ -439,6 +474,19 @@ where
         &symbol,
         result,
         envelope.signal,
+    ))
+}
+
+fn guard_strategy_run_kill_switch(
+    kill_switch_store: &JsonKillSwitchStore,
+    mode: &str,
+) -> Result<()> {
+    let Some(state) = load_blocking_kill_switch_state(kill_switch_store, mode)? else {
+        return Ok(());
+    };
+
+    Err(QuantixError::Other(
+        format_execution_kill_switch_block_message(mode, &state),
     ))
 }
 

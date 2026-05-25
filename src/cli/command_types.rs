@@ -18,6 +18,8 @@ mod monitor;
 mod performance;
 #[path = "commands/risk.rs"]
 mod risk;
+#[path = "commands/safety.rs"]
+mod safety;
 #[path = "commands/strategy.rs"]
 mod strategy;
 #[path = "commands/trade.rs"]
@@ -45,6 +47,7 @@ pub use risk::{
     RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands,
     RiskSyncCommands,
 };
+pub use safety::{SafetyCommands, SafetyKillSwitchCommands};
 pub use strategy::{
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
     StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,

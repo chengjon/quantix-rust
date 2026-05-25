@@ -1,5 +1,6 @@
 use super::*;
 use crate::bridge::client::BridgeHttpClient;
+use crate::bridge::error::BridgeError;
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::execution::adapter::AdapterOrderRequest;
 use crate::execution::config::JsonExecutionConfigStore;
@@ -17,9 +18,13 @@ use crate::execution::request_diagnostics::{
     build_bridge_qmt_capability_check_failed_diagnostics,
     build_bridge_qmt_capability_disabled_diagnostics, build_bridge_qmt_mode_not_live_diagnostics,
     build_bridge_qmt_order_submit_capability_missing_diagnostics, build_completion_diagnostics,
-    build_unclassified_execution_error_diagnostics,
+    build_kill_switch_blocked_diagnostics, build_unclassified_execution_error_diagnostics,
 };
 use crate::execution::runtime_store::StrategyRuntimeStore;
+use crate::safety::{
+    JsonKillSwitchStore, build_kill_switch_payload, format_execution_kill_switch_block_message,
+    load_blocking_kill_switch_state,
+};
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -170,6 +175,22 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
 ) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
+    let kill_switch_store = JsonKillSwitchStore::with_default_path()?;
+    execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch(
+        &runtime_store,
+        &kill_switch_store,
+        request_id,
+        skip_confirm,
+    )
+    .await
+}
+
+pub(crate) async fn execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch(
+    runtime_store: &StrategyRuntimeStore,
+    kill_switch_store: &JsonKillSwitchStore,
+    request_id: &str,
+    skip_confirm: bool,
+) -> Result<()> {
     let request = runtime_store
         .get_execution_request(request_id)
         .await?
@@ -184,6 +205,45 @@ pub(crate) async fn execute_execution_bridge_qmt_live(
             "request target_mode 不是 qmt_live: {}",
             request.target_mode
         )));
+    }
+
+    if let Some(state) =
+        load_blocking_kill_switch_state(kill_switch_store, request.target_mode.as_str())?
+    {
+        let blocked_at = Utc::now();
+        let err = QuantixError::Other(format_execution_kill_switch_block_message(
+            request.target_mode.as_str(),
+            &state,
+        ));
+        let payload_json = merge_execution_request_payload(
+            &request.payload_json,
+            "execution_error",
+            serde_json::json!({
+                "failed_at": blocked_at.to_rfc3339(),
+                "message": err.to_string(),
+                "adapter": request.target_mode.as_str(),
+            }),
+        );
+        let payload_json = merge_execution_request_payload(
+            &payload_json,
+            "kill_switch",
+            build_kill_switch_payload(&state, request.target_mode.as_str(), blocked_at),
+        );
+        let payload_json = merge_execution_request_payload(
+            &payload_json,
+            "execution_diagnostics",
+            build_kill_switch_blocked_diagnostics(request.target_mode.as_str()),
+        );
+        let updated = runtime_store
+            .try_fail_pending_execution_request(&request.request_id, payload_json, blocked_at)
+            .await?;
+        if !updated {
+            return Err(QuantixError::Other(format!(
+                "request 状态已变化: {}",
+                request.request_id
+            )));
+        }
+        return Err(err);
     }
 
     // 从 payload_json 提取订单信息
@@ -488,24 +548,100 @@ pub(crate) fn normalize_symbol_for_bridge(symbol: &str) -> String {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct QmtCancelCommandResult {
+    pub requested_order_id: String,
+    pub cancel_order_id: String,
+    pub resolved_from_task_result: bool,
+    pub response: crate::bridge::models::BridgeQmtCancelResponse,
+}
+
+fn create_qmt_task_submit_service(client: &BridgeHttpClient) -> Result<QmtTaskSubmitService> {
+    QmtTaskSubmitService::new(client.clone(), 1, 30_000)
+        .map_err(|err| QuantixError::Other(err.to_string()))
+}
+
+fn should_fallback_from_task_result_lookup(error: &BridgeError) -> bool {
+    matches!(
+        error,
+        BridgeError::Http(_) | BridgeError::UnsupportedMethod(_)
+    )
+}
+
+pub(crate) async fn build_execution_bridge_qmt_query_output(
+    client: &BridgeHttpClient,
+    order_id: &str,
+) -> Result<serde_json::Value> {
+    let submit_service = create_qmt_task_submit_service(client)?;
+
+    match submit_service.query_task_result_by_task_id(order_id).await {
+        Ok(result) => Ok(serde_json::json!({
+            "query_mode": "task_result",
+            "adapter_order_id": result.adapter_order_id,
+            "latest_status": result.latest_status.as_str(),
+            "filled_quantity": result.filled_quantity,
+            "avg_fill_price": result.avg_fill_price.map(|value| value.to_string()),
+            "rejection_reason": result.rejection_reason,
+            "broker_event_type": result.broker_event_type.map(|value| format!("{value:?}")),
+            "external_order_id": result.external_order_id,
+            "client_order_id": result.client_order_id,
+            "local_submission_id": result.local_submission_id,
+            "source_name": result.source_name,
+        })),
+        Err(error) if should_fallback_from_task_result_lookup(&error) => {
+            let response = client
+                .qmt_query_order(order_id)
+                .await
+                .map_err(|err| QuantixError::Other(err.to_string()))?;
+            Ok(serde_json::json!({
+                "query_mode": "legacy_order",
+                "adapter_order_id": response.adapter_order_id,
+                "latest_status": response.latest_status,
+                "filled_quantity": response.filled_quantity,
+                "avg_fill_price": response.avg_fill_price,
+            }))
+        }
+        Err(error) => Err(QuantixError::Other(error.to_string())),
+    }
+}
+
 pub(crate) async fn execute_execution_bridge_qmt_query(order_id: &str) -> Result<()> {
     let client = create_bridge_client()?;
-    let response = client
-        .qmt_query_order(order_id)
-        .await
-        .map_err(|e| QuantixError::Other(e.to_string()))?;
+    let output = build_execution_bridge_qmt_query_output(&client, order_id).await?;
 
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&serde_json::json!({
-            "adapter_order_id": response.adapter_order_id,
-            "latest_status": response.latest_status,
-            "filled_quantity": response.filled_quantity,
-            "avg_fill_price": response.avg_fill_price,
-        }))?
-    );
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     Ok(())
+}
+
+pub(crate) async fn execute_execution_bridge_qmt_cancel_with_client(
+    client: &BridgeHttpClient,
+    order_id: &str,
+) -> Result<QmtCancelCommandResult> {
+    let submit_service = create_qmt_task_submit_service(client)?;
+    let (cancel_order_id, resolved_from_task_result) =
+        match submit_service.query_task_result_by_task_id(order_id).await {
+            Ok(result) => match result.external_order_id {
+                Some(external_order_id) => (external_order_id, true),
+                None => (order_id.to_string(), false),
+            },
+            Err(error) if should_fallback_from_task_result_lookup(&error) => {
+                (order_id.to_string(), false)
+            }
+            Err(error) => return Err(QuantixError::Other(error.to_string())),
+        };
+
+    let response = client
+        .qmt_cancel_order(&cancel_order_id)
+        .await
+        .map_err(|err| QuantixError::Other(err.to_string()))?;
+
+    Ok(QmtCancelCommandResult {
+        requested_order_id: order_id.to_string(),
+        cancel_order_id,
+        resolved_from_task_result,
+        response,
+    })
 }
 
 pub(crate) async fn execute_execution_bridge_qmt_cancel(order_id: &str) -> Result<()> {
@@ -520,17 +656,22 @@ pub(crate) async fn execute_execution_bridge_qmt_cancel(order_id: &str) -> Resul
     }
 
     let client = create_bridge_client()?;
-    let response = client
-        .qmt_cancel_order(order_id)
-        .await
-        .map_err(|e| QuantixError::Other(e.to_string()))?;
+    let result = execute_execution_bridge_qmt_cancel_with_client(&client, order_id).await?;
 
-    if response.success {
-        println!("✓ 撤单成功: {}", response.order_id);
+    if result.response.success {
+        if result.resolved_from_task_result && result.cancel_order_id != result.requested_order_id {
+            println!(
+                "✓ 撤单成功: {} (from task_id {})",
+                result.response.order_id, result.requested_order_id
+            );
+        } else {
+            println!("✓ 撤单成功: {}", result.response.order_id);
+        }
     } else {
         println!(
             "✗ 撤单失败: {}",
-            response
+            result
+                .response
                 .error_message
                 .unwrap_or_else(|| "未知错误".to_string())
         );

@@ -13,11 +13,15 @@ use crate::execution::qmt_live_gate::{QMT_LIVE_BRIDGE_COMMAND, QMT_LIVE_BRIDGE_M
 use crate::execution::request_diagnostics::{
     build_completion_diagnostics, build_daemon_live_mode_unsupported_diagnostics,
     build_daemon_qmt_live_manual_bridge_required_diagnostics,
-    build_unclassified_execution_error_diagnostics,
+    build_kill_switch_blocked_diagnostics, build_unclassified_execution_error_diagnostics,
 };
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::risk::JsonRiskStore;
 use crate::risk::service::RuntimeJsonRiskServices;
+use crate::safety::{
+    JsonKillSwitchStore, build_kill_switch_payload, format_execution_kill_switch_block_message,
+    load_blocking_kill_switch_state,
+};
 use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeService};
 
 mod helpers;
@@ -195,6 +199,27 @@ pub async fn execute_request_by_id_with_components<TS>(
 where
     TS: PaperTradeStore + Clone,
 {
+    let kill_switch_store = JsonKillSwitchStore::with_default_path()?;
+    execute_request_by_id_with_components_and_kill_switch(
+        store,
+        &kill_switch_store,
+        request_id,
+        trade_store,
+        risk_store,
+    )
+    .await
+}
+
+pub async fn execute_request_by_id_with_components_and_kill_switch<TS>(
+    store: &StrategyRuntimeStore,
+    kill_switch_store: &JsonKillSwitchStore,
+    request_id: &str,
+    trade_store: TS,
+    risk_store: JsonRiskStore,
+) -> Result<ExecutionRequestRecord>
+where
+    TS: PaperTradeStore + Clone,
+{
     let request = store
         .get_execution_request(request_id)
         .await?
@@ -203,6 +228,45 @@ where
         return Err(QuantixError::Other(format!(
             "request 不是 pending: {request_id}"
         )));
+    }
+
+    if let Some(state) =
+        load_blocking_kill_switch_state(kill_switch_store, request.target_mode.as_str())?
+    {
+        let blocked_at = Utc::now();
+        let err = QuantixError::Other(format_execution_kill_switch_block_message(
+            request.target_mode.as_str(),
+            &state,
+        ));
+        let payload_json = merge_execution_request_payload(
+            &request.payload_json,
+            "execution_error",
+            serde_json::json!({
+                "failed_at": blocked_at.to_rfc3339(),
+                "message": err.to_string(),
+                "adapter": request.target_mode.as_str(),
+            }),
+        );
+        let payload_json = merge_execution_request_payload(
+            &payload_json,
+            "kill_switch",
+            build_kill_switch_payload(&state, request.target_mode.as_str(), blocked_at),
+        );
+        let payload_json = merge_execution_request_payload(
+            &payload_json,
+            "execution_diagnostics",
+            build_kill_switch_blocked_diagnostics(request.target_mode.as_str()),
+        );
+        let updated = store
+            .try_fail_pending_execution_request(&request.request_id, payload_json, blocked_at)
+            .await?;
+        if !updated {
+            return Err(QuantixError::Other(format!(
+                "request 状态已变化: {}",
+                request.request_id
+            )));
+        }
+        return Err(err);
     }
 
     let now = Utc::now();

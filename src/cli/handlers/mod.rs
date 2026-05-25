@@ -33,6 +33,7 @@ mod news;
 mod notify;
 mod performance_handler;
 mod risk;
+mod safety;
 mod screener_handler;
 mod sentiment;
 mod shared_support;
@@ -124,6 +125,9 @@ pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
 pub(crate) use self::performance_handler::run_performance_command;
 pub use self::risk::run_risk_command;
+#[cfg(test)]
+pub(crate) use self::safety::execute_safety_kill_switch_command_with_store_at;
+pub(crate) use self::safety::run_safety_command;
 pub(crate) use self::screener_handler::ClickHouseDailyKlineLoader;
 use self::screener_handler::run_screener_command;
 #[cfg(test)]

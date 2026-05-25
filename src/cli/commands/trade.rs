@@ -145,16 +145,16 @@ pub enum ExecutionBridgeCommands {
         yes: bool,
     },
 
-    /// 查询订单状态
+    /// 查询订单状态或 qmt_live task 结果
     QmtQuery {
-        /// 订单 ID
+        /// 订单 ID，或 qmt_live task_id
         #[arg(long = "order-id")]
         order_id: String,
     },
 
-    /// 撤销订单
+    /// 撤销订单（支持直接 order_id，或 qmt_live task_id 自动解析）
     QmtCancel {
-        /// 订单 ID
+        /// 订单 ID，或 qmt_live task_id
         #[arg(long = "order-id")]
         order_id: String,
     },
@@ -196,16 +196,16 @@ pub enum ExecutionQmtCommands {
         yes: bool,
     },
 
-    /// 查询订单状态
+    /// 查询订单状态或 qmt_live task 结果
     Query {
-        /// 订单 ID
+        /// 订单 ID，或 qmt_live task_id
         #[arg(long = "order-id")]
         order_id: String,
     },
 
-    /// 撤销订单
+    /// 撤销订单（支持直接 order_id，或 qmt_live task_id 自动解析）
     Cancel {
-        /// 订单 ID
+        /// 订单 ID，或 qmt_live task_id
         #[arg(long = "order-id")]
         order_id: String,
     },

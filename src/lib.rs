@@ -34,6 +34,7 @@ pub mod monitor;
 pub mod monitoring;
 pub mod news;
 pub mod risk;
+pub mod safety;
 pub mod screener;
 pub mod sources;
 pub mod stop;

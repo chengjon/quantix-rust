@@ -7,10 +7,11 @@ pub use crate::cli::command_types::{
     MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands, RiskSyncCommands,
-    ScreenerCommands, SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
-    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
-    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
-    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    SafetyCommands, SafetyKillSwitchCommands, ScreenerCommands, SentimentCommands, StopCommands,
+    StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
+    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
+    StrengthStockMetric, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
+    WatchlistTagCommands,
 };
 use crate::cli::handlers;
 use crate::core::Result;
@@ -92,6 +93,10 @@ pub enum Commands {
     /// 风险管理命令
     #[command(subcommand)]
     Risk(RiskCommands),
+
+    /// 系统安全控制命令
+    #[command(subcommand)]
+    Safety(SafetyCommands),
 
     /// 执行自动化命令
     #[command(subcommand)]
@@ -192,6 +197,9 @@ impl Cli {
             }
             Commands::Risk(cmd) => {
                 handlers::run_risk_command(cmd).await?;
+            }
+            Commands::Safety(cmd) => {
+                handlers::run_safety_command(cmd)?;
             }
             Commands::Execution(cmd) => {
                 handlers::run_execution_command(cmd).await?;
