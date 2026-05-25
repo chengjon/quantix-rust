@@ -9,7 +9,7 @@ fn collect_factor_value(df: &DataFrame, expr: Expr) -> PolarsResult<Series> {
         .with_columns([expr.alias("__factor_value")])
         .collect()?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn collect_intermediate(df: &DataFrame, exprs: Vec<Expr>) -> PolarsResult<DataFrame> {
@@ -81,7 +81,7 @@ pub fn alpha191_104(df: &DataFrame) -> PolarsResult<Series> {
     let mut corr =
         rolling_corr_by_symbol(&frame, "__alpha191_104_close", "__alpha191_104_volume", 10)?;
     corr.rename("__alpha191_104_corr".into());
-    frame.with_column(corr)?;
+    frame.with_column(corr.into())?;
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_104_corr")))
 }
 
@@ -241,7 +241,7 @@ pub fn alpha191_118(df: &DataFrame) -> PolarsResult<Series> {
     let mut corr =
         rolling_corr_by_symbol(&frame, "__alpha191_118_close", "__alpha191_118_volume", 5)?;
     corr.rename("__alpha191_118_corr".into());
-    frame.with_column(corr)?;
+    frame.with_column(corr.into())?;
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_118_corr")))
 }
 
@@ -260,7 +260,7 @@ pub fn alpha191_120(df: &DataFrame) -> PolarsResult<Series> {
     )?;
     let mut stddev = rolling_std_by_symbol(&frame, "__alpha191_120_close", 10)?;
     stddev.rename("__alpha191_120_stddev".into());
-    frame.with_column(stddev)?;
+    frame.with_column(stddev.into())?;
     collect_factor_value(
         &frame,
         lit(-1.0) * cs_rank_expr(col("__alpha191_120_stddev")),

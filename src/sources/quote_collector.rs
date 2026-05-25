@@ -179,8 +179,9 @@ mod tests {
 
     #[test]
     fn test_quote_collector_creation() {
-        let collector = QuoteCollector::with_default_config();
-        assert!(collector.is_ok());
+        let source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let collector = QuoteCollector::new(source, 800, 10);
+        assert_eq!(collector.batch_size(), 800);
     }
 
     #[test]
