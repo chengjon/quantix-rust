@@ -1,5 +1,18 @@
 #![allow(clippy::too_many_arguments, clippy::collapsible_if)]
 
+use crate::analysis::candle_patterns::{
+    CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
+};
+use crate::analysis::polars_adapter::{PolarsCalculator, from_kline_vec};
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::data::models::Kline;
+use crate::sources::TdxDayFile;
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use std::path::Path;
+use std::str::FromStr;
+
 use super::*;
 
 pub(crate) async fn calculate_indicators(code: String, indicators_str: String) -> Result<()> {

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use quantix_cli::core::Result;
+use quantix_cli::core::{QuantixError, Result};
 use quantix_cli::trade::{
     FeeConfig, InitAccountRequest, PaperTradeState, PaperTradeStore, TradeOrderRequest,
     TradeService, TradeSide, calculate_fee_breakdown,
@@ -40,6 +40,13 @@ fn service() -> (TradeService<FakePaperTradeStore>, FakePaperTradeStore) {
     (TradeService::new(store.clone()), store)
 }
 
+fn assert_uninitialized_account_error(err: QuantixError) {
+    let QuantixError::Other(message) = err else {
+        panic!("unexpected trade error: {err}");
+    };
+    assert_eq!(message, "trade account 尚未初始化，请先运行 trade init");
+}
+
 #[tokio::test]
 async fn init_account_creates_the_default_account_with_default_capital() {
     let (service, store) = service();
@@ -61,6 +68,27 @@ async fn init_account_creates_the_default_account_with_default_capital() {
     assert_eq!(state.version, 1);
     assert!(state.trade_records.is_empty());
     assert!(state.account.unwrap().positions.is_empty());
+}
+
+#[tokio::test]
+async fn account_operations_return_quantix_error_before_account_initialization() {
+    let (service, _store) = service();
+    let request = TradeOrderRequest::new("000001", 10.0, 100).unwrap();
+
+    let buy_err = service.buy(request.clone(), fixed_ts()).await.unwrap_err();
+    assert_uninitialized_account_error(buy_err);
+
+    let sell_err = service.sell(request.clone(), fixed_ts()).await.unwrap_err();
+    assert_uninitialized_account_error(sell_err);
+
+    let positions_err = service.positions().await.unwrap_err();
+    assert_uninitialized_account_error(positions_err);
+
+    let cash_snapshot_err = service.cash_snapshot().await.unwrap_err();
+    assert_uninitialized_account_error(cash_snapshot_err);
+
+    let state_snapshot_err = service.state_snapshot().await.unwrap_err();
+    assert_uninitialized_account_error(state_snapshot_err);
 }
 
 #[tokio::test]

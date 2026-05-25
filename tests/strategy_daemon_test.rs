@@ -1,10 +1,10 @@
 use chrono::NaiveDate;
+use quantix_cli::core::signal::Signal;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::config::{AutoApprovalMode, JsonExecutionConfigStore};
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::daemon::StrategyBarLoadTelemetry;
 use quantix_cli::strategy::runtime::StrategyBarLoader;
-use quantix_cli::strategy::trait_def::Signal;
 use quantix_cli::strategy::{
     BootstrapPolicy, FallbackStrategyBarLoader, JsonStrategyConfigStore, StrategyBarLoadSource,
     StrategyRegistry, StrategySignalDaemon,

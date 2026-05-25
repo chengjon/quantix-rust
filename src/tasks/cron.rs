@@ -62,6 +62,24 @@ impl CronExpression {
         })
     }
 
+    fn from_validated_fields(
+        raw: &'static str,
+        minutes: CronField,
+        hours: CronField,
+        days: CronField,
+        months: CronField,
+        weekdays: CronField,
+    ) -> Self {
+        Self {
+            minutes,
+            hours,
+            days,
+            months,
+            weekdays,
+            raw: raw.to_string(),
+        }
+    }
+
     /// 解析单个字段
     fn parse_field(expr: &str, min: u32, max: u32) -> Result<CronField, String> {
         if expr == "*" {
@@ -209,37 +227,86 @@ impl std::fmt::Display for CronExpression {
 impl CronExpression {
     /// 每分钟
     pub fn every_minute() -> Self {
-        Self::new("* * * * *").unwrap()
+        Self::from_validated_fields(
+            "* * * * *",
+            CronField::All,
+            CronField::All,
+            CronField::All,
+            CronField::All,
+            CronField::All,
+        )
     }
 
     /// 每小时
     pub fn every_hour() -> Self {
-        Self::new("0 * * * *").unwrap()
+        Self::from_validated_fields(
+            "0 * * * *",
+            CronField::Specific(vec![0]),
+            CronField::All,
+            CronField::All,
+            CronField::All,
+            CronField::All,
+        )
     }
 
     /// 每天 9:30
     pub fn daily_9_30() -> Self {
-        Self::new("30 9 * * *").unwrap()
+        Self::from_validated_fields(
+            "30 9 * * *",
+            CronField::Specific(vec![30]),
+            CronField::Specific(vec![9]),
+            CronField::All,
+            CronField::All,
+            CronField::All,
+        )
     }
 
     /// 每天 15:00
     pub fn daily_15_00() -> Self {
-        Self::new("0 15 * * *").unwrap()
+        Self::from_validated_fields(
+            "0 15 * * *",
+            CronField::Specific(vec![0]),
+            CronField::Specific(vec![15]),
+            CronField::All,
+            CronField::All,
+            CronField::All,
+        )
     }
 
     /// 工作日 9:30
     pub fn weekday_morning() -> Self {
-        Self::new("30 9 * * 1-5").unwrap()
+        Self::from_validated_fields(
+            "30 9 * * 1-5",
+            CronField::Specific(vec![30]),
+            CronField::Specific(vec![9]),
+            CronField::All,
+            CronField::All,
+            CronField::Range(1, 5),
+        )
     }
 
     /// 每周一早上
     pub fn weekly_monday_morning() -> Self {
-        Self::new("0 9 * * 1").unwrap()
+        Self::from_validated_fields(
+            "0 9 * * 1",
+            CronField::Specific(vec![0]),
+            CronField::Specific(vec![9]),
+            CronField::All,
+            CronField::All,
+            CronField::Specific(vec![1]),
+        )
     }
 
     /// 每月1号
     pub fn monthly_first_day() -> Self {
-        Self::new("0 0 1 * *").unwrap()
+        Self::from_validated_fields(
+            "0 0 1 * *",
+            CronField::Specific(vec![0]),
+            CronField::Specific(vec![0]),
+            CronField::Specific(vec![1]),
+            CronField::All,
+            CronField::All,
+        )
     }
 }
 

@@ -1,47 +1,17 @@
-mod account;
-mod analysis;
-mod backtest;
-mod data;
-mod factor;
-mod info;
-mod market;
-mod monitor;
-mod performance;
-mod risk;
-mod strategy;
-mod trade;
-
-pub use account::{AccountCommands, AccountGroupCommands};
-pub use analysis::{AnalyzeCommands, ScreenerCommands, TaskCommands};
-pub use backtest::BacktestCommands;
-pub use data::{DataCommands, DataSourceCommands, DataSourceKind};
-pub use factor::{FactorCommands, FactorOutputFormat};
-pub use info::{
-    AiCommands, FundamentalCommands, ImportCommands, NewsCommands, NotifyCommands,
-    SentimentCommands,
+pub use crate::cli::command_types::{
+    AccountCommands, AccountGroupCommands, AiCommands, AlgoCommands, AnalyzeCommands,
+    AnomalyCommands, BacktestCommands, DataCommands, DataSourceCommands, DataSourceKind,
+    ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands, ExecutionDaemonCommands,
+    ExecutionQmtCommands, FactorCommands, FactorOutputFormat, FundamentalCommands, ImportCommands,
+    MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
+    MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
+    RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands, RiskSyncCommands,
+    ScreenerCommands, SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
+    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
-pub use market::{
-    MarketCommands, StrengthStockMetric, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
-};
-pub use monitor::{
-    MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
-    MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, StopCommands,
-};
-pub use performance::PerformanceCommands;
-pub use risk::{
-    RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands,
-    RiskSyncCommands,
-};
-pub use strategy::{
-    StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-};
-pub use trade::{
-    AlgoCommands, AnomalyCommands, ExecutionBridgeCommands, ExecutionCommands,
-    ExecutionConfigCommands, ExecutionDaemonCommands, ExecutionQmtCommands, TradeCommands,
-};
-
 use crate::cli::handlers;
 use crate::core::Result;
 use clap::Parser;

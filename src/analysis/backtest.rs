@@ -6,6 +6,7 @@ use crate::analysis::performance::{
 };
 use crate::analysis::portfolio::Portfolio;
 use crate::core::Result;
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
 use crate::strategy::trait_def::Strategy;
 use chrono::NaiveDate;
@@ -214,14 +215,14 @@ impl BacktestEngine {
         for (code, klines) in data {
             if let Some(kline) = klines.iter().find(|k| k.date == date) {
                 match strategy.on_bar(kline).await {
-                    Ok(crate::strategy::trait_def::Signal::Buy) => {
+                    Ok(Signal::Buy) => {
                         self.pending_orders.push(BacktestOrder {
                             code: code.clone(),
                             quantity: self.calculate_order_quantity(code, kline.close),
                             order_type: OrderType::Buy,
                         });
                     }
-                    Ok(crate::strategy::trait_def::Signal::Sell) => {
+                    Ok(Signal::Sell) => {
                         if let Some(position) = self.portfolio.get_position(code) {
                             self.pending_orders.push(BacktestOrder {
                                 code: code.clone(),
@@ -230,7 +231,7 @@ impl BacktestEngine {
                             });
                         }
                     }
-                    Ok(crate::strategy::trait_def::Signal::Hold) => {}
+                    Ok(Signal::Hold) => {}
                     Err(e) => {
                         warn!("策略执行错误: {}", e);
                     }

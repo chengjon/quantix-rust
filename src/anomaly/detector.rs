@@ -5,7 +5,7 @@
 //! - Stock filtering
 //! - Feature extraction
 //! - Isolation Forest training
-//! - Result output
+//! - Result rendering
 
 use crate::anomaly::config::AnomalyConfig;
 use crate::anomaly::features::{FeatureExtractor, OHLCVCandle, OHLCVSeries};
@@ -14,7 +14,17 @@ use crate::anomaly::forest::{AnomalyScore, IsolationForest};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use tracing::{debug, info, warn};
+
+macro_rules! append_line {
+    ($output:expr) => {{
+        let _ = writeln!($output);
+    }};
+    ($output:expr, $($arg:tt)*) => {{
+        let _ = writeln!($output, $($arg)*);
+    }};
+}
 
 /// Anomaly detection result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,24 +257,27 @@ impl AnomalyDetector {
         }
     }
 
-    /// Output results in the configured format
-    pub fn output_results(&self, result: &AnomalyResult) {
+    /// Render results in the configured format.
+    pub fn output_results(&self, result: &AnomalyResult) -> serde_json::Result<String> {
         match self.config.output.format.as_str() {
             "json" => self.output_json(result),
-            "csv" => self.output_csv(result),
-            _ => self.output_cli(result),
+            "csv" => Ok(self.output_csv(result)),
+            _ => Ok(self.output_cli(result)),
         }
     }
 
-    /// Output in CLI format
-    fn output_cli(&self, result: &AnomalyResult) {
-        println!("{}", "=".repeat(80));
-        println!(
+    /// Render in CLI format.
+    fn output_cli(&self, result: &AnomalyResult) -> String {
+        let mut output = String::new();
+
+        append_line!(&mut output, "{}", "=".repeat(80));
+        append_line!(
+            &mut output,
             "📊 TOP {} ANOMALOUS STOCKS (Isolation Forest)",
             result.anomalies.len()
         );
-        println!("{}", "=".repeat(80));
-        println!();
+        append_line!(&mut output, "{}", "=".repeat(80));
+        append_line!(&mut output);
 
         for (i, anomaly) in result.anomalies.iter().enumerate() {
             let anomaly_marker = if anomaly.is_anomaly {
@@ -272,57 +285,73 @@ impl AnomalyDetector {
             } else {
                 ""
             };
-            println!("[{}] {} {}", i + 1, anomaly.code, anomaly.name);
-            println!("  异常分数: {:.4} {}", anomaly.score, anomaly_marker);
+            append_line!(&mut output, "[{}] {} {}", i + 1, anomaly.code, anomaly.name);
+            append_line!(
+                &mut output,
+                "  异常分数: {:.4} {}",
+                anomaly.score,
+                anomaly_marker
+            );
 
             if let Some(time) = &anomaly.latest_time {
-                println!("  最新时间: {}", time);
+                append_line!(&mut output, "  最新时间: {}", time);
             }
 
             if let Some(vol_ratio) = anomaly.volume_ratio {
-                println!("  量比: {:.2}", vol_ratio);
+                append_line!(&mut output, "  量比: {:.2}", vol_ratio);
             }
 
             if let Some(vol5) = anomaly.volatility_5 {
-                println!("  5周期波动率: {:.4}", vol5);
+                append_line!(&mut output, "  5周期波动率: {:.4}", vol5);
             }
 
             if let Some(vol20) = anomaly.volatility_20 {
-                println!("  20周期波动率: {:.4}", vol20);
+                append_line!(&mut output, "  20周期波动率: {:.4}", vol20);
             }
 
-            println!("{}", "-".repeat(40));
+            append_line!(&mut output, "{}", "-".repeat(40));
         }
 
-        println!();
-        println!("📌 说明:");
-        println!("  - 异常分数 < 0: 异常股票，分数越低越异常");
-        println!("  - 异常股票的未来价格变动通常是正常股票的2倍以上");
-        println!("  - 算法不预测涨跌方向，只检测异常模式");
-        println!();
-        println!("📊 统计:");
-        println!("  - 总股票数: {}", result.total_stocks);
-        println!(
-            "  - 过滤后: {} (过滤掉 {})",
-            result.valid_features, result.filtered_stocks
+        append_line!(&mut output);
+        append_line!(&mut output, "📌 说明:");
+        append_line!(&mut output, "  - 异常分数 < 0: 异常股票，分数越低越异常");
+        append_line!(
+            &mut output,
+            "  - 异常股票的未来价格变动通常是正常股票的2倍以上"
         );
-        println!("  - K线周期: {}分钟", result.config.period);
-        println!("  - 树数量: {}", result.config.n_estimators);
+        append_line!(&mut output, "  - 算法不预测涨跌方向，只检测异常模式");
+        append_line!(&mut output);
+        append_line!(&mut output, "📊 统计:");
+        append_line!(&mut output, "  - 总股票数: {}", result.total_stocks);
+        append_line!(
+            &mut output,
+            "  - 过滤后: {} (过滤掉 {})",
+            result.valid_features,
+            result.filtered_stocks
+        );
+        append_line!(&mut output, "  - K线周期: {}分钟", result.config.period);
+        append_line!(&mut output, "  - 树数量: {}", result.config.n_estimators);
+
+        output
     }
 
-    /// Output in JSON format
-    fn output_json(&self, result: &AnomalyResult) {
-        match serde_json::to_string_pretty(result) {
-            Ok(json) => println!("{}", json),
-            Err(e) => eprintln!("Failed to serialize JSON: {}", e),
-        }
+    /// Render in JSON format.
+    fn output_json(&self, result: &AnomalyResult) -> serde_json::Result<String> {
+        let mut output = serde_json::to_string_pretty(result)?;
+        output.push('\n');
+        Ok(output)
     }
 
-    /// Output in CSV format
-    fn output_csv(&self, result: &AnomalyResult) {
-        println!("rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20");
+    /// Render in CSV format.
+    fn output_csv(&self, result: &AnomalyResult) -> String {
+        let mut output = String::new();
+        append_line!(
+            &mut output,
+            "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
+        );
         for (i, a) in result.anomalies.iter().enumerate() {
-            println!(
+            append_line!(
+                &mut output,
                 "{},{},{},{:.6},{},{:.4},{:.6},{:.6}",
                 i + 1,
                 a.code,
@@ -334,6 +363,7 @@ impl AnomalyDetector {
                 a.volatility_20.unwrap_or(0.0)
             );
         }
+        output
     }
 }
 
@@ -408,6 +438,74 @@ impl DataSource for MockDataSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn detector_with_output(format: &str) -> AnomalyDetector {
+        let config = AnomalyConfig {
+            output: crate::anomaly::config::OutputConfig {
+                format: format.to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let data_source = std::sync::Arc::new(MockDataSource::new(1));
+        AnomalyDetector::new(config, data_source)
+    }
+
+    fn sample_result() -> AnomalyResult {
+        AnomalyResult {
+            timestamp: "2026-05-24T00:00:00Z".to_string(),
+            config: ResultConfig {
+                period: 15,
+                n_estimators: 100,
+                history_to_use: 60,
+                top_n: 1,
+            },
+            total_stocks: 1,
+            filtered_stocks: 0,
+            valid_features: 1,
+            anomalies: vec![AnomalyScore {
+                code: "000001".to_string(),
+                name: "平安银行".to_string(),
+                score: -0.42,
+                is_anomaly: true,
+                index: 0,
+                volume_ratio: Some(2.5),
+                volatility_5: Some(0.1234),
+                volatility_20: Some(0.5678),
+                latest_time: Some("2026-05-24 09:30:00".to_string()),
+            }],
+        }
+    }
+
+    #[test]
+    fn output_results_renders_cli_text_without_writing_stdio() {
+        let detector = detector_with_output("cli");
+        let output = detector.output_results(&sample_result()).unwrap();
+
+        assert!(output.contains("TOP 1 ANOMALOUS STOCKS"));
+        assert!(output.contains("000001 平安银行"));
+        assert!(output.contains("异常分数: -0.4200"));
+    }
+
+    #[test]
+    fn output_results_renders_json_text() {
+        let detector = detector_with_output("json");
+        let output = detector.output_results(&sample_result()).unwrap();
+
+        assert!(output.contains("\"total_stocks\": 1"));
+        assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn output_results_renders_csv_text() {
+        let detector = detector_with_output("csv");
+        let output = detector.output_results(&sample_result()).unwrap();
+
+        assert!(output.starts_with(
+            "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
+        ));
+        assert!(output.contains("1,000001,平安银行,-0.420000,true,2.5000,0.123400,0.567800"));
+    }
 
     #[tokio::test]
     async fn test_detector_with_mock_data() {

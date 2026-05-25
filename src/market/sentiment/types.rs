@@ -90,6 +90,8 @@ impl SentimentLevel {
 /// 情绪趋势
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SentimentTrend {
+    /// 趋势不可用
+    Unavailable,
     /// 快速上升
     RisingFast,
     /// 上升

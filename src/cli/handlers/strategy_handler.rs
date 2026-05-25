@@ -14,6 +14,308 @@ pub(crate) use self::instances::*;
 pub(crate) use self::requests::*;
 pub(crate) use self::service::*;
 
+use crate::core::signal::Signal;
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::execution::daemon::ExecutionDaemonIterationSummary;
+use crate::execution::kernel::{
+    ExecutionKernel, ExecutionRunRequest, FillDeltaApplier, KernelExecutionResult, RiskDecision,
+    RiskEvaluator,
+};
+use crate::execution::mock_live::{MockLiveExecutionAdapter, SystemMockLiveClock};
+use crate::execution::models::{
+    ExecutionPolicy, FillDeltaContext, FillDeltaResult, OrderIntent, OrderStatus,
+    StrategySignalRecord,
+};
+use crate::execution::paper::PaperExecutionAdapter;
+use crate::execution::qmt_live_gate::{QMT_LIVE_BRIDGE_COMMAND, QMT_LIVE_BRIDGE_MODE_REQUIREMENT};
+use crate::execution::runtime_store::StrategyRuntimeStore;
+use crate::risk::RiskService;
+use crate::strategy::daemon::StrategyBarLoadTelemetry;
+use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
+use crate::strategy::{
+    FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
+    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary,
+    StrategySignalDaemon, StrategyUserServiceInstaller,
+};
+use crate::trade::{
+    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
+    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
+    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
+};
+use async_trait::async_trait;
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal_macros::dec;
+use std::time::Duration;
+
+/// 策略命令
+pub(crate) async fn execute_strategy_command(cmd: StrategyCommands) -> Result<()> {
+    match cmd {
+        StrategyCommands::Create {
+            id,
+            name,
+            code,
+            params,
+            disabled,
+        } => {
+            execute_strategy_create(id, name, code, params, disabled).await?;
+        }
+        StrategyCommands::Update {
+            id,
+            name,
+            code,
+            params,
+            enable,
+            disable,
+        } => {
+            execute_strategy_update(id, name, code, params, enable, disable).await?;
+        }
+        StrategyCommands::Delete { id } => {
+            execute_strategy_delete(id).await?;
+        }
+        StrategyCommands::Run { name, mode, code } => {
+            run_strategy(name, mode, code).await?;
+        }
+        StrategyCommands::List => {
+            list_strategies().await?;
+        }
+        StrategyCommands::Show { name, id } => {
+            show_strategy_or_instance(name, id).await?;
+        }
+        StrategyCommands::Config(subcommand) => match subcommand {
+            StrategyConfigCommands::Init => {
+                execute_strategy_config_init().await?;
+            }
+            StrategyConfigCommands::Show => {
+                execute_strategy_config_show().await?;
+            }
+        },
+        StrategyCommands::Daemon(subcommand) => match subcommand {
+            StrategyDaemonCommands::Run { once } => {
+                execute_strategy_daemon_run(once).await?;
+            }
+        },
+        StrategyCommands::Signal(subcommand) => match subcommand {
+            StrategySignalCommands::List {
+                approval_status,
+                signal_status,
+                ..
+            } => {
+                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref())
+                    .await?;
+            }
+            StrategySignalCommands::Approve {
+                signal_id,
+                target_mode,
+                target_account,
+            } => {
+                execute_strategy_signal_approve(&signal_id, &target_mode, &target_account).await?;
+            }
+            StrategySignalCommands::Reject { signal_id, reason } => {
+                execute_strategy_signal_reject(&signal_id, reason.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Request(subcommand) => match subcommand {
+            StrategyRequestCommands::List {
+                status,
+                target_mode,
+                target_account,
+                limit,
+                stats,
+            } => {
+                execute_strategy_request_list(
+                    status.as_deref(),
+                    target_mode.as_deref(),
+                    target_account.as_deref(),
+                    limit,
+                    stats,
+                )
+                .await?;
+            }
+            StrategyRequestCommands::Show {
+                request_id,
+                verbose,
+            } => {
+                execute_strategy_request_show(&request_id, verbose).await?;
+            }
+            StrategyRequestCommands::Execute { request_id } => {
+                execute_strategy_request_execute(&request_id).await?;
+            }
+            StrategyRequestCommands::Cancel { request_id, reason } => {
+                execute_strategy_request_cancel(&request_id, reason.as_deref()).await?;
+            }
+        },
+        StrategyCommands::Service(subcommand) => match subcommand {
+            StrategyServiceCommands::Install => {
+                execute_strategy_service_command(StrategyServiceCommands::Install)?;
+            }
+            StrategyServiceCommands::Uninstall => {
+                execute_strategy_service_command(StrategyServiceCommands::Uninstall)?;
+            }
+            StrategyServiceCommands::Start => {
+                execute_strategy_service_command(StrategyServiceCommands::Start)?;
+            }
+            StrategyServiceCommands::Stop => {
+                execute_strategy_service_command(StrategyServiceCommands::Stop)?;
+            }
+            StrategyServiceCommands::Status => {
+                execute_strategy_service_command(StrategyServiceCommands::Status)?;
+            }
+            StrategyServiceCommands::Enable => {
+                execute_strategy_service_command(StrategyServiceCommands::Enable)?;
+            }
+            StrategyServiceCommands::Disable => {
+                execute_strategy_service_command(StrategyServiceCommands::Disable)?;
+            }
+        },
+        StrategyCommands::ServiceConfig(subcommand) => match subcommand {
+            StrategyServiceConfigCommands::Show => {
+                let output = execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Show,
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
+                print_strategy_service_config_output(output)?;
+            }
+            StrategyServiceConfigCommands::Set {
+                quantix_bin,
+                env_file,
+            } => {
+                let output = execute_strategy_service_config_command_with_store(
+                    StrategyServiceConfigCommands::Set {
+                        quantix_bin,
+                        env_file,
+                    },
+                    &JsonStrategyServiceConfigStore::with_default_path()?,
+                )?;
+                print_strategy_service_config_output(output)?;
+            }
+        },
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StrategyRunSummary {
+    pub(crate) run_id: String,
+    pub(crate) strategy_name: String,
+    pub(crate) mode: String,
+    pub(crate) symbol: String,
+    pub(crate) signal: Signal,
+    pub(crate) order_status: Option<OrderStatus>,
+    pub(crate) message: String,
+}
+
+#[derive(Debug, Clone)]
+struct StrategyRiskBridge<TradeStore, RiskStore> {
+    trade_store: TradeStore,
+    risk_service: RiskService<RiskStore>,
+}
+
+impl<TradeStore, RiskStore> StrategyRiskBridge<TradeStore, RiskStore> {
+    fn new(trade_store: TradeStore, risk_service: RiskService<RiskStore>) -> Self {
+        Self {
+            trade_store,
+            risk_service,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct StrategyFillDeltaBridge<TradeStore> {
+    trade_service: TradeService<TradeStore>,
+}
+
+impl<TradeStore> StrategyFillDeltaBridge<TradeStore>
+where
+    TradeStore: PaperTradeStore,
+{
+    fn new(trade_store: TradeStore) -> Self {
+        Self {
+            trade_service: TradeService::new(trade_store),
+        }
+    }
+}
+
+#[async_trait]
+impl<TradeStore> FillDeltaApplier for StrategyFillDeltaBridge<TradeStore>
+where
+    TradeStore: PaperTradeStore,
+{
+    async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult> {
+        if ctx.new_filled_quantity <= ctx.old_filled_quantity {
+            return Ok(FillDeltaResult {
+                applied: false,
+                delta_quantity: 0,
+                trade_record_id: None,
+            });
+        }
+
+        let fill_details = ctx.fill_details.ok_or_else(|| {
+            QuantixError::Other(
+                "strategy run --mode mock_live 增量成交缺少 fill_details".to_string(),
+            )
+        })?;
+
+        let request = TradeOrderRequest::new(
+            ctx.symbol.clone(),
+            decimal_to_f64(fill_details.fill_price, "strategy run --mode mock_live")?,
+            fill_details.fill_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode mock_live"))?;
+
+        let record = match ctx.side {
+            crate::execution::models::OrderSide::Buy => {
+                self.trade_service.buy(request, ctx.event_time).await?
+            }
+            crate::execution::models::OrderSide::Sell => {
+                self.trade_service.sell(request, ctx.event_time).await?
+            }
+        };
+
+        Ok(FillDeltaResult {
+            applied: true,
+            delta_quantity: fill_details.fill_quantity,
+            trade_record_id: Some(record.id),
+        })
+    }
+}
+
+#[async_trait]
+impl<TradeStore, RiskStore> RiskEvaluator for StrategyRiskBridge<TradeStore, RiskStore>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision> {
+        if intent.side == crate::execution::models::OrderSide::Sell {
+            return Ok(RiskDecision::Allow);
+        }
+
+        let account = load_initialized_trade_account(&self.trade_store).await?;
+        let snapshot = build_risk_account_snapshot(&account);
+        let request = TradeOrderRequest::new(
+            intent.symbol.clone(),
+            decimal_to_f64(intent.requested_price, "strategy run --mode paper")?,
+            intent.requested_quantity,
+        )
+        .map_err(|err| remap_trade_request_error(err, "strategy run --mode paper"))?;
+        let projected_buy = build_projected_buy_impact(&account, &request);
+
+        match self
+            .risk_service
+            .check_buy(&snapshot, &projected_buy, Utc::now())
+            .await
+        {
+            Ok(()) => Ok(RiskDecision::Allow),
+            Err(QuantixError::Other(reason)) => Ok(RiskDecision::Reject { reason }),
+            Err(other) => Err(other),
+        }
+    }
+
+    async fn sync_after_fill(&self) -> Result<()> {
+        sync_risk_from_trade_store(&self.trade_store, &self.risk_service).await
+    }
+}
+
 pub(crate) async fn execute_strategy_run_with_components<L, TS, RS>(
     name: &str,
     mode: &str,

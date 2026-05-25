@@ -9,7 +9,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Metric value types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +105,18 @@ impl MetricsCollector {
         Self::new("quantix")
     }
 
+    fn read_metrics(&self) -> RwLockReadGuard<'_, HashMap<String, Metric>> {
+        self.metrics
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn write_metrics(&self) -> RwLockWriteGuard<'_, HashMap<String, Metric>> {
+        self.metrics
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     /// Register a counter metric
     pub fn register_counter(
         &self,
@@ -122,7 +134,7 @@ impl MetricsCollector {
             updated_at: Utc::now(),
         };
 
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         metrics.insert(full_name.clone(), metric);
         full_name
     }
@@ -144,7 +156,7 @@ impl MetricsCollector {
             updated_at: Utc::now(),
         };
 
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         metrics.insert(full_name.clone(), metric);
         full_name
     }
@@ -166,14 +178,14 @@ impl MetricsCollector {
             updated_at: Utc::now(),
         };
 
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         metrics.insert(full_name.clone(), metric);
         full_name
     }
 
     /// Increment a counter
     pub fn increment_counter(&self, name: &str, delta: i64) {
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         if let Some(metric) = metrics.get_mut(name) {
             if let MetricValue::Counter(ref mut value) = metric.value {
                 *value += delta;
@@ -184,7 +196,7 @@ impl MetricsCollector {
 
     /// Set a gauge value
     pub fn set_gauge(&self, name: &str, value: f64) {
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         if let Some(metric) = metrics.get_mut(name) {
             if let MetricValue::Gauge(ref mut current) = metric.value {
                 *current = value;
@@ -195,7 +207,7 @@ impl MetricsCollector {
 
     /// Observe a histogram value
     pub fn observe_histogram(&self, name: &str, value: f64) {
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = self.write_metrics();
         if let Some(metric) = metrics.get_mut(name) {
             if let MetricValue::Histogram(ref mut hist) = metric.value {
                 hist.observe(value);
@@ -206,13 +218,13 @@ impl MetricsCollector {
 
     /// Get all metrics
     pub fn get_all(&self) -> Vec<Metric> {
-        let metrics = self.metrics.read().unwrap();
+        let metrics = self.read_metrics();
         metrics.values().cloned().collect()
     }
 
     /// Get a specific metric
     pub fn get(&self, name: &str) -> Option<Metric> {
-        let metrics = self.metrics.read().unwrap();
+        let metrics = self.read_metrics();
         metrics.get(name).cloned()
     }
 }

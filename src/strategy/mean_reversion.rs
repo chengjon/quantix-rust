@@ -5,8 +5,9 @@
 use async_trait::async_trait;
 
 use crate::analysis::indicators::{bollinger_bands, rsi};
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
-use crate::strategy::trait_def::{Signal, Strategy};
+use crate::strategy::trait_def::Strategy;
 
 /// 均值回归策略配置
 #[derive(Debug, Clone)]
@@ -205,7 +206,9 @@ mod tests {
             let _signal = strategy.on_bar(&bar).await.unwrap();
         }
 
-        // 验证策略没有 panic
+        assert_eq!(strategy.close_history.len(), 20);
+        assert_eq!(strategy.high_history.len(), 20);
+        assert_eq!(strategy.low_history.len(), 20);
     }
 
     #[test]

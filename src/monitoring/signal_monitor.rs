@@ -10,7 +10,7 @@ use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 use tokio::time::Instant;
 
-use crate::strategy::trait_def::Signal;
+use crate::core::signal::Signal;
 
 /// 信号监控配置
 #[derive(Debug, Clone, Serialize, Deserialize)]

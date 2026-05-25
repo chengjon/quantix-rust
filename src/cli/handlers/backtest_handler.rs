@@ -1,5 +1,16 @@
 #![allow(clippy::too_many_arguments)]
 
+use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
+use crate::cli::command_types::BacktestCommands;
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::data::models::Kline;
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal_macros::dec;
+use std::collections::{BTreeMap, HashMap};
+use std::str::FromStr;
+
 use super::*;
 use serde::{Deserialize, Serialize};
 

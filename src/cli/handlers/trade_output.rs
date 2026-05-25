@@ -1,5 +1,10 @@
 use super::*;
 
+use crate::trade::{
+    CashSnapshot, PaperTradeAccount, TradeFeeRow, TradeHistoryRow, TradeOverview, TradePosition,
+    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord,
+};
+
 pub(super) fn print_trade_command_output(output: &TradeCommandOutput) {
     match output {
         TradeCommandOutput::AccountInitialized(account) => {

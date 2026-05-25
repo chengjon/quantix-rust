@@ -1,5 +1,36 @@
 use super::*;
 
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::db::clickhouse::ClickHouseClient;
+use crate::monitor::{
+    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
+    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
+    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
+    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+};
+use crate::risk::{JsonRiskStore, RiskAccountSnapshot, RiskService};
+use crate::stop::{StopHistoryEventType, StopRule, StopRuleStore, StopService, StopStatusRow};
+use crate::trade::{
+    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
+    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
+    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
+};
+use crate::watchlist::{
+    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
+    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
+    WatchlistStorage, WatchlistStore,
+};
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
+use std::collections::{BTreeMap, HashMap};
+
+pub(crate) async fn create_clickhouse_client() -> Result<ClickHouseClient> {
+    let runtime = CliRuntime::load();
+    ClickHouseClient::from_settings(&runtime.clickhouse).await
+}
+
 pub(crate) fn build_trade_init_request(
     command_name: &str,
     capital: Option<f64>,
@@ -167,4 +198,105 @@ pub(crate) fn format_stop_eval_state(state: crate::stop::StopEvalState) -> &'sta
         crate::stop::StopEvalState::AnchorMissing => "anchor_missing",
         crate::stop::StopEvalState::QuoteMissing => "quote_missing",
     }
+}
+
+pub(crate) fn create_trade_store() -> JsonPaperTradeStore {
+    let runtime = CliRuntime::load();
+    JsonPaperTradeStore::new(runtime.trade_path)
+}
+
+pub(crate) fn create_risk_store() -> JsonRiskStore {
+    let runtime = CliRuntime::load();
+    JsonRiskStore::new(runtime.risk_path)
+}
+
+pub(crate) async fn sync_risk_from_trade_store<TradeStore, RiskStore>(
+    trade_store: &TradeStore,
+    risk_service: &RiskService<RiskStore>,
+) -> Result<()>
+where
+    TradeStore: PaperTradeStore,
+    RiskStore: crate::risk::RiskStore,
+{
+    let account = load_initialized_trade_account(trade_store).await?;
+    let snapshot = build_risk_account_snapshot(&account);
+    risk_service
+        .sync_after_trade_snapshot(&snapshot, Utc::now())
+        .await?;
+    Ok(())
+}
+
+pub(crate) async fn load_initialized_trade_account<Store>(
+    trade_store: &Store,
+) -> Result<PaperTradeAccount>
+where
+    Store: PaperTradeStore,
+{
+    trade_store
+        .load_state()
+        .await?
+        .and_then(|state| state.account)
+        .ok_or_else(|| {
+            QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
+        })
+}
+
+pub(crate) async fn load_trade_quote_prices<Q>(
+    state: &PaperTradeState,
+    quote_lookup: &Q,
+) -> BTreeMap<String, Decimal>
+where
+    Q: WatchlistQuoteLookup,
+{
+    let Some(account) = &state.account else {
+        return BTreeMap::new();
+    };
+
+    let codes: Vec<String> = account.positions.keys().cloned().collect();
+    quote_lookup
+        .lookup_quotes(&codes)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(code, snapshot)| (code, snapshot.latest_price))
+        .collect()
+}
+
+pub(crate) fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapshot {
+    let positions: Vec<(String, rust_decimal::Decimal)> = account
+        .positions
+        .values()
+        .map(|position| {
+            (
+                position.code.clone(),
+                rust_decimal::Decimal::from(position.volume) * position.last_trade_price,
+            )
+        })
+        .collect();
+    let position_value = positions
+        .iter()
+        .fold(rust_decimal::Decimal::ZERO, |acc, (_, value)| acc + *value);
+
+    RiskAccountSnapshot::new(
+        account.account_id.clone(),
+        account.available_cash + position_value,
+        positions,
+    )
+}
+
+pub(crate) fn build_projected_buy_impact(
+    account: &PaperTradeAccount,
+    request: &TradeOrderRequest,
+) -> crate::risk::ProjectedBuyImpact {
+    let current_position_value = account
+        .positions
+        .get(&request.code)
+        .map(|position| rust_decimal::Decimal::from(position.volume) * position.last_trade_price)
+        .unwrap_or(rust_decimal::Decimal::ZERO);
+
+    crate::risk::ProjectedBuyImpact::new(
+        request.code.clone(),
+        current_position_value + request.price * rust_decimal::Decimal::from(request.volume),
+        build_risk_account_snapshot(account).total_assets,
+    )
 }

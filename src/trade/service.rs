@@ -71,7 +71,10 @@ where
 
     pub async fn buy(&self, request: TradeOrderRequest, now: DateTime<Utc>) -> Result<TradeRecord> {
         let mut state = self.load_initialized_state().await?;
-        let account = state.account.as_mut().expect("initialized account");
+        let account = state
+            .account
+            .as_mut()
+            .ok_or_else(uninitialized_account_error)?;
         let amount = request.price * decimal_volume(request.volume)?;
         let fees =
             calculate_fee_breakdown(TradeSide::Buy, &request.code, amount, &account.fee_config);
@@ -125,7 +128,10 @@ where
         now: DateTime<Utc>,
     ) -> Result<TradeRecord> {
         let mut state = self.load_initialized_state().await?;
-        let account = state.account.as_mut().expect("initialized account");
+        let account = state
+            .account
+            .as_mut()
+            .ok_or_else(uninitialized_account_error)?;
         let position = account
             .positions
             .get_mut(&request.code)
@@ -161,17 +167,13 @@ where
 
     pub async fn positions(&self) -> Result<Vec<TradePosition>> {
         let state = self.load_initialized_state().await?;
-        Ok(state
-            .account
-            .expect("initialized account")
-            .positions
-            .into_values()
-            .collect())
+        let account = state.account.ok_or_else(uninitialized_account_error)?;
+        Ok(account.positions.into_values().collect())
     }
 
     pub async fn cash_snapshot(&self) -> Result<CashSnapshot> {
         let state = self.load_initialized_state().await?;
-        let account = state.account.expect("initialized account");
+        let account = state.account.ok_or_else(uninitialized_account_error)?;
         let estimated_position_value = account.positions.values().try_fold(
             Decimal::ZERO,
             |acc, position| -> Result<Decimal> {
@@ -194,13 +196,15 @@ where
     async fn load_initialized_state(&self) -> Result<PaperTradeState> {
         let state = self.store.load_state().await?.unwrap_or_default();
         if state.account.is_none() {
-            return Err(QuantixError::Other(
-                "trade account 尚未初始化，请先运行 trade init".to_string(),
-            ));
+            return Err(uninitialized_account_error());
         }
 
         Ok(state)
     }
+}
+
+fn uninitialized_account_error() -> QuantixError {
+    QuantixError::Other("trade account 尚未初始化，请先运行 trade init".to_string())
 }
 
 fn build_account(request: InitAccountRequest, now: DateTime<Utc>) -> PaperTradeAccount {

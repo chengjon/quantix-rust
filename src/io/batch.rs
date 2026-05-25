@@ -1,7 +1,7 @@
 /// 批处理模块
 ///
 /// 大数据量导入导出优化处理
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;
@@ -121,13 +121,41 @@ pub struct BatchProcessor {
 
 impl BatchProcessor {
     /// 创建新的批处理器
-    pub fn new(config: BatchConfig) -> Self {
-        Self { config }
+    pub fn new(config: BatchConfig) -> Result<Self> {
+        if config.batch_size == 0 {
+            return Err(QuantixError::Other(
+                "batch_size must be greater than zero".to_string(),
+            ));
+        }
+        if config.max_concurrent_tasks == 0 {
+            return Err(QuantixError::Other(
+                "max_concurrent_tasks must be greater than zero".to_string(),
+            ));
+        }
+
+        Ok(Self { config })
     }
 
     /// 使用默认配置创建
     pub fn with_defaults() -> Self {
-        Self::new(BatchConfig::default())
+        let config = BatchConfig::default();
+        if config.batch_size == 0 || config.max_concurrent_tasks == 0 {
+            return Self {
+                config: BatchConfig {
+                    batch_size: 1,
+                    max_concurrent_tasks: 1,
+                    ..config
+                },
+            };
+        }
+
+        Self { config }
+    }
+
+    fn default_progress_style() -> ProgressStyle {
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .unwrap_or_else(|_| ProgressStyle::default_bar())
     }
 
     /// 批量导出数据
@@ -151,11 +179,7 @@ impl BatchProcessor {
         };
 
         if let Some(bar) = &progress_bar {
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap(),
-            );
+            bar.set_style(Self::default_progress_style());
         }
 
         // 分批处理
@@ -211,11 +235,7 @@ impl BatchProcessor {
         };
 
         if let Some(bar) = &progress_bar {
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap(),
-            );
+            bar.set_style(Self::default_progress_style());
         }
 
         // 使用信号量限制并发
@@ -232,7 +252,9 @@ impl BatchProcessor {
             }
 
             let handle = tokio::spawn(async move {
-                let _permit = semaphore.acquire().await.unwrap();
+                let Ok(_permit) = semaphore.acquire().await else {
+                    return (0, 1);
+                };
                 let result = import_fn(source);
                 let (success, errors) = match result {
                     Ok(klines) => (klines.len(), 0),
@@ -267,17 +289,16 @@ impl BatchProcessor {
     }
 
     /// 分批处理数据（内存优化版本）
-    pub fn process_in_batches<T, F, R>(&self, data: Vec<T>, process_fn: F) -> Result<BatchProgress>
+    pub fn process_in_batches<T, F>(&self, data: Vec<T>, process_fn: F) -> Result<BatchProgress>
     where
         T: Send + Sync + 'static,
-        F: Fn(&[T]) -> R + Send + Sync,
-        R: Send + Sync,
+        F: Fn(&[T]) -> Result<()> + Send + Sync,
     {
         let batch_size = self.config.batch_size;
         let mut progress = BatchProgress::new(data.len(), batch_size);
 
         for chunk in data.chunks(batch_size) {
-            let _ = process_fn(chunk);
+            process_fn(chunk)?;
             progress.update(chunk.len(), 0);
         }
 
@@ -355,6 +376,36 @@ mod tests {
     }
 
     #[test]
+    fn batch_processor_rejects_zero_batch_size() {
+        let result = BatchProcessor::new(BatchConfig {
+            batch_size: 0,
+            enable_progress: false,
+            ..Default::default()
+        });
+
+        let error = match result {
+            Ok(_) => panic!("expected zero batch_size to be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("batch_size"));
+    }
+
+    #[test]
+    fn batch_processor_rejects_zero_max_concurrent_tasks() {
+        let result = BatchProcessor::new(BatchConfig {
+            max_concurrent_tasks: 0,
+            enable_progress: false,
+            ..Default::default()
+        });
+
+        let error = match result {
+            Ok(_) => panic!("expected zero max_concurrent_tasks to be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("max_concurrent_tasks"));
+    }
+
+    #[test]
     fn test_batch_progress() {
         let mut progress = BatchProgress::new(100, 10);
         assert_eq!(progress.total_records, 100);
@@ -383,10 +434,30 @@ mod tests {
         let result = processor.process_in_batches(data, |chunk| {
             // Just verify we can process the chunk
             assert!(!chunk.is_empty());
+            Ok::<(), crate::core::QuantixError>(())
         });
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().processed_records, 50);
+    }
+
+    #[test]
+    fn process_in_batches_returns_callback_error() {
+        let processor = BatchProcessor::new(BatchConfig {
+            batch_size: 10,
+            enable_progress: false,
+            ..Default::default()
+        })
+        .unwrap();
+        let data = create_test_klines(25);
+
+        let result = processor.process_in_batches(data, |_chunk| {
+            Err::<(), crate::core::QuantixError>(crate::core::QuantixError::Other(
+                "simulated batch failure".to_string(),
+            ))
+        });
+
+        assert!(result.is_err());
     }
 
     #[test]

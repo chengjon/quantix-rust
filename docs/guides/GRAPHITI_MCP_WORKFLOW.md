@@ -1,5 +1,8 @@
 # Quantix Graphiti MCP Workflow
 
+> 状态源说明：本文是 Graphiti MCP 工作流指南，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](../../FUNCTION_TREE.md) 的状态注册表行为准。
+
 ## Purpose
 
 本文件定义 `quantix-rust` 项目中对 `graphiti-mcp` 的使用边界、`group_id` 规划、必查/必写节点、回填规则和质量标准。

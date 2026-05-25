@@ -253,11 +253,11 @@ fn normalize_daily_bar_end(date: chrono::NaiveDate) -> Result<DateTime<Utc>> {
     Ok(local.with_timezone(&Utc))
 }
 
-fn signal_label(signal: crate::strategy::trait_def::Signal) -> &'static str {
+fn signal_label(signal: crate::core::signal::Signal) -> &'static str {
     match signal {
-        crate::strategy::trait_def::Signal::Buy => "buy",
-        crate::strategy::trait_def::Signal::Sell => "sell",
-        crate::strategy::trait_def::Signal::Hold => "hold",
+        crate::core::signal::Signal::Buy => "buy",
+        crate::core::signal::Signal::Sell => "sell",
+        crate::core::signal::Signal::Hold => "hold",
     }
 }
 

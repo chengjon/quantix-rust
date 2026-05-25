@@ -1,5 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 
+use crate::core::{CliRuntime, QuantixError, Result};
+
 use super::*;
 
 // ============================================================================
@@ -50,7 +52,7 @@ async fn run_anomaly_detection(
 ) -> Result<()> {
     use crate::anomaly::{
         AnomalyConfig, AnomalyDetector, DataSource, EastMoneyAnomalySource, FeatureConfig,
-        FilterConfig, ForestConfig, MockDataSource,
+        FilterConfig, ForestConfig, MockDataSource, OutputConfig,
     };
 
     println!("🚀 启动异常检测...");
@@ -74,6 +76,10 @@ async fn run_anomaly_detection(
             top_n,
             ..Default::default()
         },
+        output: OutputConfig {
+            format: output.clone(),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -91,36 +97,10 @@ async fn run_anomaly_detection(
 
     match detector.detect().await {
         Ok(result) => {
-            // 根据输出格式显示结果
-            match output.as_str() {
-                "json" => {
-                    let json = serde_json::to_string_pretty(&result)
-                        .map_err(|e| QuantixError::Other(format!("JSON序列化失败: {}", e)))?;
-                    println!("{}", json);
-                }
-                "csv" => {
-                    println!(
-                        "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
-                    );
-                    for (i, a) in result.anomalies.iter().enumerate() {
-                        println!(
-                            "{},{},{},{:.6},{},{:.4},{:.6},{:.6}",
-                            i + 1,
-                            a.code,
-                            a.name,
-                            a.score,
-                            a.is_anomaly,
-                            a.volume_ratio.unwrap_or(0.0),
-                            a.volatility_5.unwrap_or(0.0),
-                            a.volatility_20.unwrap_or(0.0)
-                        );
-                    }
-                }
-                _ => {
-                    // CLI 格式
-                    detector.output_results(&result);
-                }
-            }
+            let rendered = detector
+                .output_results(&result)
+                .map_err(|e| QuantixError::Other(format!("异常检测结果渲染失败: {}", e)))?;
+            print!("{rendered}");
             Ok(())
         }
         Err(e) => Err(QuantixError::Other(format!("异常检测失败: {}", e))),

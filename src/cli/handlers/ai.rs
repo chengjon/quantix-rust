@@ -1,5 +1,9 @@
 use super::*;
 
+use crate::ai::providers::OpenAICompatAdapter;
+use crate::ai::{DecisionEngine, LlmConfig};
+use crate::core::{CliRuntime, QuantixError, Result};
+
 /// 处理 AI 命令
 pub async fn run_ai_command(cmd: AiCommands) -> Result<()> {
     match cmd {

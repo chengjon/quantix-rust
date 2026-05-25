@@ -1,3 +1,7 @@
+use crate::market::service::{
+    market_sentiment_daily_to_snapshot, north_flow_daily_to_snapshot, sector_daily_to_board_rank,
+    sector_daily_to_leader,
+};
 use crate::market::{BoardType, LeaderFilter};
 
 use super::models::market_table_sqls;
@@ -45,9 +49,8 @@ fn test_market_sector_row_maps_to_board_rank_and_leader() {
         updated_at: "2026-03-10 15:00:00".to_string(),
     };
 
-    let board = row.clone().try_into_board_rank().unwrap();
-    let leader = row
-        .try_into_leader(LeaderFilter::Sector("银行".to_string()))
+    let board = sector_daily_to_board_rank(row.clone()).unwrap();
+    let leader = sector_daily_to_leader(row, LeaderFilter::Sector("银行".to_string()))
         .unwrap()
         .unwrap();
 
@@ -70,7 +73,7 @@ fn test_market_north_flow_row_maps_to_snapshot() {
         updated_at: "2026-03-10 15:00:00".to_string(),
     };
 
-    let snapshot = row.into_snapshot();
+    let snapshot = north_flow_daily_to_snapshot(row);
 
     assert_eq!(
         snapshot.trade_date,
@@ -94,7 +97,7 @@ fn test_market_sentiment_row_maps_to_snapshot() {
         updated_at: "2026-03-10 15:00:00".to_string(),
     };
 
-    let snapshot = row.into_snapshot();
+    let snapshot = market_sentiment_daily_to_snapshot(row);
 
     assert_eq!(snapshot.limit_up_count, 87);
     assert_eq!(snapshot.consecutive_board_count, 23);

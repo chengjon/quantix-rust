@@ -1,5 +1,7 @@
 # Quantix-Rust 用户手册
 
+> 本手册解释命令用法，不作为功能状态注册表；功能状态、已设计/待实现项和可用边界以根目录 `FUNCTION_TREE.md` 的状态注册表行为准。
+
 ## 目录
 
 - [项目简介](#项目简介)
@@ -28,14 +30,14 @@
 
 ## 项目简介
 
-**Quantix-Rust** 是一个 A股量化交易 CLI 工具，使用 Rust 实现高性能的数据采集、回测分析和任务调度功能。
+**Quantix-Rust** 是一个 A股量化交易 CLI 工具，使用 Rust 实现高性能的数据采集、回测分析，以及实验性 Foundation P0 任务调度辅助能力。
 
 ### 核心特性
 
 - **高性能数据采集** - 支持 TDX、AkShare、EastMoney 多数据源
 - **实时行情处理** - 竞价数据采集、K线聚合
 - **回测引擎** - 事件驱动回测框架，完整性能指标计算
-- **任务调度** - 基于 Cron 的定时任务调度器
+- **任务调度** - 基于 Cron 的实验性 Foundation P0 预置任务模板调度
 - **复权处理** - 通达信 day 文件解析与复权因子计算
 
 ### 技术架构
@@ -48,7 +50,7 @@
                           ↕ 共享数据库
 ┌─────────────────────────────────────────────────────────┐
 │                      quantix-rust                       │
-│           (高性能回测、实时分析、任务调度)                 │
+│      (高性能回测、实时分析、实验性任务调度辅助能力)         │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -653,11 +655,11 @@ quantix execution daemon run --once
 ##### Bridge 命令
 
 ```bash
-quantix execution qmt status
+quantix execution qmt status [--checklist]
 quantix execution qmt preview --request-id <ID>
 quantix execution qmt live --request-id <ID> [--yes]
 quantix execution qmt query --order-id <ORDER_ID>
-quantix execution bridge status
+quantix execution bridge status [--checklist]
 quantix execution bridge qmt-preview --request-id <ID>
 quantix execution bridge qmt-live --request-id <ID> [--yes]
 quantix execution bridge qmt-query --order-id <ORDER_ID>
@@ -665,6 +667,7 @@ quantix execution bridge qmt-query --order-id <ORDER_ID>
 
 - 如需真实 QMT 提交，Windows bridge 必须先满足 `qmt.enabled=true`、`qmt.mode=live`，并确保 `qmt.supports` 包含 `order_submit`
 - 推荐优先使用 `quantix execution qmt ...`，旧的 `quantix execution bridge ...` 仍保持兼容
+- `quantix execution qmt status --checklist` / `execution bridge status --checklist` 会在原始能力 JSON 之后追加 promotion checklist，帮助 operator 逐项核对 live-ready 前置条件
 - 手动执行 `quantix execution qmt live --request-id <ID>` 时，CLI 默认会要求输入 `YES` 确认；只有显式传入 `--yes` 才会跳过确认
 - `quantix execution qmt preview --request-id <ID>` 只做 preview，不是实盘提交
 - 提交成功后，继续执行 `quantix execution qmt query --order-id <ORDER_ID>` 核验券商侧订单状态
@@ -725,75 +728,56 @@ quantix strategy show -n ma_cross
 
 ### task - 任务调度
 
-管理定时任务的调度和执行。
+实验性 Foundation P0 任务入口。当前只支持查看预置任务模板、以前台模式启动它们，以及输出能力边界说明；它不是通用调度平台。
 
 #### 子命令
 
-- `add` - 添加定时任务
-- `list` - 列出所有任务
-- `start` - 启动任务调度器
-- `stop` - 停止任务调度器
-- `status` - 查看任务状态
+- `add` - 添加定时任务（当前未开放）
+- `list` - 列出预置任务模板
+- `start` - 以前台模式启动预置任务模板
+- `stop` - 输出前台停止提示
+- `status` - 查看实验性任务能力边界
 
-#### task add - 添加任务
+#### task add - 添加任务（当前未开放）
 
 ##### 用法
 
 ```bash
-quantix task add -n <NAME> [--cron <CRON>] -c <COMMAND>
+quantix task add --name <NAME> --cron <CRON> --command <COMMAND>
 ```
 
-##### 参数
+##### 说明
 
-| 参数 | 简写 | 说明 | 默认值 |
-|------|------|------|--------|
-| `--name` | `-n` | 任务名称 | 必填 |
-| `--cron` | - | Cron 表达式 | 必填 |
-| `--command` | `-c` | 执行命令 | 必填 |
-
-##### Cron 表达式格式
-
-支持标准 Cron 表达式和扩展语法：
-
-| 语法 | 说明 | 示例 |
-|------|------|------|
-| `*` | 任意值 | `* * * * *` |
-| `,` | 列表 | `1,2,3 * * * *` |
-| `-` | 范围 | `1-5 * * * *` |
-| `*/N` | 步长 | `*/5 * * * *` |
-
-格式: `分 时 日 月 周`
+`task add` 当前只是保留入口。参数解析成功后会直接返回 Unsupported，提示 Foundation P0 仅支持预置任务模板。
 
 ##### 示例
 
 ```bash
-# 每天 9:30 执行数据同步
-quantix task add -n morning_sync --cron "30 9 * * 1-5" -c "data sync"
-
-# 每5分钟执行一次
-quantix task add -n monitor --cron "*/5 * * * *" -c "status check"
-
-# 盘前任务 (每个交易日 8:30)
-quantix task add -n pre_market --cron "30 8 * * 1-5" -c "strategy run -n pre_market"
+quantix task add --name pre_market_check --cron "0 8 * * 1-5" --command "quantix market foundation"
 ```
 
-##### 输出
+##### 预期结果
 
 ```
-添加任务: morning_sync
-Cron: 30 9 * * 1-5
-命令: data sync
+⏰ 添加任务: pre_market_check
+  Cron: 0 8 * * 1-5
+  命令: quantix market foundation
+Foundation P0 仅支持预置任务模板；请使用 `quantix task list` 查看可运行任务
 ```
 
 ---
 
-#### task list - 列出任务
+#### task list - 列出预置任务模板
 
 ##### 用法
 
 ```bash
 quantix task list
 ```
+
+##### 说明
+
+这里列出的不是用户自定义任务，而是二进制内置的 6 个模板：`pre_market_check`、`auction_collection`、`market_open`、`market_close`、`post_market_process`、`data_sync`。
 
 ##### 示例
 
@@ -804,12 +788,22 @@ quantix task list
 ##### 输出
 
 ```
-定时任务列表:
+📋 Foundation P0 预置任务模板:
+
+  预定义任务模板 (名称 | 描述 | Cron):
+    - pre_market_check | 检查盘前数据 | 0 8 * * 1-5
+    - auction_collection | 竞价数据采集 | 30,0 9 * * 1-5
+    - market_open | 开盘检查 | 30 9 * * 1-5
+    - market_close | 收盘检查 | 0 15 * * 1-5
+    - post_market_process | 盘后数据处理 | 30 15 * * 1-5
+    - data_sync | 数据同步 | 0 16 * * *
+
+💡 Foundation P0 只支持前台启动预置模板: `quantix task start`
 ```
 
 ---
 
-#### task start - 启动调度器
+#### task start - 启动调度器（仅支持前台模式）
 
 ##### 用法
 
@@ -821,7 +815,7 @@ quantix task start [--daemon]
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--daemon` | 后台运行 | false |
+| `--daemon` | 后台运行（Foundation P0 不支持） | false |
 
 ##### 示例
 
@@ -829,19 +823,23 @@ quantix task start [--daemon]
 # 前台运行
 quantix task start
 
-# 后台运行
+# 后台守护模式（当前会返回 Unsupported）
 quantix task start --daemon
 ```
 
-##### 输出
+##### 预期结果
 
 ```
-启动任务调度器...
+⏰ 启动任务调度器...
+✅ 已添加预设任务
+✅ 任务调度器已启动
+
+按 Ctrl+C 停止调度器
 ```
 
 ---
 
-#### task stop - 停止调度器
+#### task stop - 停止调度器（提示型命令）
 
 ##### 用法
 
@@ -858,12 +856,13 @@ quantix task stop
 ##### 输出
 
 ```
-停止任务调度器...
+🛑 停止任务调度器...
+💡 提示: 在运行中的调度器按 Ctrl+C 停止
 ```
 
 ---
 
-#### task status - 查看状态
+#### task status - 查看实验性任务能力边界
 
 ##### 用法
 
@@ -880,7 +879,13 @@ quantix task status
 ##### 输出
 
 ```
-任务调度器状态:
+📊 Foundation P0 任务状态:
+
+  状态: 仅支持当前进程内调度器
+  持久化: 暂不支持
+  后台守护: 暂不支持
+
+💡 使用 `quantix task start` 以前台模式运行预置任务模板
 ```
 
 ---

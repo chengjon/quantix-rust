@@ -14,7 +14,8 @@ use self::state_helpers::{
     apply_daily_loss_rule, build_status, check_position_limit, find_enabled_rule, push_risk_event,
 };
 use crate::core::{QuantixError, Result};
-use crate::risk::industry::{IndustryResolver, ResolvedIndustry};
+use crate::risk::industry::ResolvedIndustry;
+use crate::risk::industry_resolver::IndustryResolver;
 use crate::risk::industry_store::SqliteIndustryStore;
 use crate::risk::models::{
     AutoReduceRecommendation, BuyLockState, DailyRiskBaseline, PositionRiskRow, ProjectedBuyImpact,

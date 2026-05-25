@@ -1,8 +1,99 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn is_repo_doc_path(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("md" | "html")
+    )
+}
+
+fn collect_main_workspace_doc_paths(dir: &Path, docs: &mut Vec<PathBuf>) {
+    let skip_dirs = [
+        ".git",
+        ".gitnexus",
+        ".idea",
+        ".vscode",
+        ".worktrees",
+        ".zread",
+        "node_modules",
+        "target",
+    ];
+
+    for entry in fs::read_dir(dir).unwrap_or_else(|_| panic!("expected {dir:?} to be readable")) {
+        let entry = entry.unwrap_or_else(|_| panic!("expected readable entry under {dir:?}"));
+        let path = entry.path();
+
+        if path.is_dir() {
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
+            if !skip_dirs.contains(&name) {
+                collect_main_workspace_doc_paths(&path, docs);
+            }
+            continue;
+        }
+
+        if is_repo_doc_path(&path) {
+            docs.push(path);
+        }
+    }
+}
+
+#[test]
+fn market_output_renderer_does_not_panic_on_string_writes() {
+    let path = repo_root().join("src/cli/handlers/market_output.rs");
+    let contents = fs::read_to_string(&path).expect("expected market output renderer to exist");
+
+    assert!(
+        !contents.contains(".unwrap(") && !contents.contains(".expect("),
+        "market output renderer should not panic while formatting CLI output"
+    );
+}
+
+#[test]
+fn cron_presets_do_not_panic_on_runtime_parse() {
+    let path = repo_root().join("src/tasks/cron.rs");
+    let contents = fs::read_to_string(&path).expect("expected cron scheduler to exist");
+    let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+
+    assert!(
+        !production.contains(".unwrap(") && !production.contains(".expect("),
+        "cron preset constructors should use validated constants instead of runtime unwraps"
+    );
+}
+
+#[test]
+fn anomaly_detector_does_not_write_directly_to_stdio() {
+    let path = repo_root().join("src/anomaly/detector.rs");
+    let contents = fs::read_to_string(&path).expect("expected anomaly detector to exist");
+    let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+
+    assert!(
+        !production.contains("println!(") && !production.contains("eprintln!("),
+        "anomaly detector should render results or use tracing instead of writing to stdio"
+    );
+}
+
+#[test]
+fn metrics_and_batch_production_paths_do_not_use_panic_prone_shortcuts() {
+    for relative_path in ["src/monitoring/metrics.rs", "src/io/batch.rs"] {
+        let path = repo_root().join(relative_path);
+        let contents = fs::read_to_string(&path).expect("expected hygiene target to exist");
+        let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+
+        assert!(
+            !production.contains(".unwrap(")
+                && !production.contains(".expect(")
+                && !production.contains("panic!("),
+            "{relative_path} production code should not use panic-prone shortcuts"
+        );
+    }
 }
 
 #[test]
@@ -55,6 +146,24 @@ fn readme_documents_foundation_p0_workspace_constraints() {
         contents.contains("历史/详情/实时功能延后"),
         "expected README to describe deferred market features"
     );
+}
+
+#[test]
+fn readme_documents_foundation_p0_task_boundary() {
+    let readme_path = repo_root().join("README.md");
+    let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
+
+    for expected in [
+        "`quantix task` CLI 当前只支持查看预置任务模板、以前台模式启动它们，以及输出能力边界说明",
+        "`task add` 与 `task start --daemon` 仍未开放",
+        "CLI 层当前只开放预置模板查看与前台启动；`task add` / `task start --daemon` 仍是保留入口",
+        "`task list/start/stop/status` - 实验性 Foundation P0 预置任务模板入口",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected README to contain {expected}"
+        );
+    }
 }
 
 #[test]
@@ -610,6 +719,9 @@ fn function_map_and_migration_docs_include_guarded_qmt_live_in_current_capabilit
     .expect("expected MIGRATION_FROM_DAILY_STOCK_ANALYSIS.md to exist");
 
     for expected in [
+        "本文件是 Quantix-Rust 当前主线唯一的功能全景图与状态注册表。",
+        "换言之，本文档同时承担“单一功能注册表”职责。",
+        "新增功能或设计项先在本注册表增加或更新节点，并显式标明状态、证据和边界",
         "`paper` + `mock_live` + guarded `qmt_live` | 当前已实现的执行目标",
         "Bridge v1 已支持受能力门控的 `qmt_live` 真实提交通道",
     ] {
@@ -627,10 +739,10 @@ fn function_map_and_migration_docs_include_guarded_qmt_live_in_current_capabilit
 
 #[test]
 fn current_state_summary_docs_lock_mock_and_qmt_live_boundary() {
+    let readme =
+        fs::read_to_string(repo_root().join("README.md")).expect("expected README.md to exist");
     let gap_analysis = fs::read_to_string(repo_root().join("docs").join("GAP_ANALYSIS.md"))
         .expect("expected GAP_ANALYSIS.md to exist");
-    let roadmap = fs::read_to_string(repo_root().join("docs").join("DEVELOPMENT_ROADMAP.md"))
-        .expect("expected DEVELOPMENT_ROADMAP.md to exist");
     let qmt_guide = fs::read_to_string(repo_root().join("docs").join("QMT_LIVE_TRADING_SETUP.md"))
         .expect("expected QMT_LIVE_TRADING_SETUP.md to exist");
 
@@ -646,30 +758,56 @@ fn current_state_summary_docs_lock_mock_and_qmt_live_boundary() {
     }
 
     for expected in [
-        "QMT Bridge v1 (`qmt-preview` + guarded `qmt_live`)",
-        "guarded `qmt_live` 已落地",
+        "功能状态、能力边界、已设计/待实现项都以单一注册表为准",
+        "功能全景图与状态注册表：[FUNCTION_TREE.md](FUNCTION_TREE.md)",
+        "不再维护独立规划文档；新增计划或设计项先登记到 `FUNCTION_TREE.md`",
     ] {
         assert!(
-            roadmap.contains(expected),
-            "expected DEVELOPMENT_ROADMAP.md to contain {expected}"
+            readme.contains(expected),
+            "expected README.md to contain {expected}"
         );
     }
+
+    for unexpected in [
+        "ROADMAP.md](ROADMAP.md)",
+        "DEVELOPMENT_ROADMAP.md",
+        "ROADMAP_REVIEW.md",
+    ] {
+        assert!(
+            !readme.contains(unexpected),
+            "expected README.md not to contain {unexpected}"
+        );
+    }
+
+    assert!(
+        !repo_root().join("ROADMAP.md").exists(),
+        "expected ROADMAP.md to be removed so FUNCTION_TREE.md remains the sole feature registry"
+    );
 
     for expected in [
         "受能力门控的 `qmt_live` 真实提交流程",
         "通用 `target_mode=live` 仍未实现，不应与 `qmt_live` 混写",
         "`mock_live` 是模拟执行路径，不属于本指南覆盖范围",
-        "docs/standards/MOCK_USAGE_POLICY.md",
+        "功能全景图与状态注册表",
     ] {
         assert!(
             qmt_guide.contains(expected),
             "expected QMT_LIVE_TRADING_SETUP.md to contain {expected}"
         );
     }
+
+    assert!(
+        !qmt_guide.contains("历史开发路线图"),
+        "expected QMT_LIVE_TRADING_SETUP.md not to mention the deleted historical roadmap"
+    );
+    assert!(
+        !qmt_guide.contains("../ROADMAP.md"),
+        "expected QMT_LIVE_TRADING_SETUP.md not to link to ROADMAP.md"
+    );
 }
 
 #[test]
-fn architecture_and_roadmap_review_docs_keep_current_qmt_live_conclusion() {
+fn architecture_docs_keep_current_qmt_live_conclusion_and_legacy_roadmap_docs_are_removed() {
     let architecture = fs::read_to_string(
         repo_root()
             .join("docs")
@@ -677,8 +815,6 @@ fn architecture_and_roadmap_review_docs_keep_current_qmt_live_conclusion() {
             .join("WSL2_WINDOWS_BRIDGE_ARCHITECTURE.md"),
     )
     .expect("expected WSL2_WINDOWS_BRIDGE_ARCHITECTURE.md to exist");
-    let roadmap_review = fs::read_to_string(repo_root().join("docs").join("ROADMAP_REVIEW.md"))
-        .expect("expected ROADMAP_REVIEW.md to exist");
 
     for expected in [
         "`QMT preview contract` 仍然保留，作为 `qmt-preview` 路径",
@@ -692,10 +828,273 @@ fn architecture_and_roadmap_review_docs_keep_current_qmt_live_conclusion() {
     }
 
     assert!(
-        roadmap_review.contains(
-            "guarded `qmt_live` 已落地，剩余主要是 callback/query/cancel 与实盘工作流 hardening"
-        ),
-        "expected roadmap review to keep the current qmt_live hardening conclusion"
+        !repo_root().join("ROADMAP.md").exists(),
+        "expected ROADMAP.md to be removed"
+    );
+    assert!(
+        !repo_root().join("docs").join("ROADMAP_REVIEW.md").exists(),
+        "expected ROADMAP_REVIEW.md to be removed"
+    );
+    assert!(
+        !repo_root()
+            .join("docs")
+            .join("DEVELOPMENT_ROADMAP.md")
+            .exists(),
+        "expected DEVELOPMENT_ROADMAP.md to be removed"
+    );
+}
+
+#[test]
+fn active_doc_entrypoints_do_not_reference_deleted_legacy_roadmap_docs() {
+    let active_docs = [
+        repo_root().join("CHANGELOG.md"),
+        repo_root().join("README.md"),
+        repo_root().join("FUNCTION_TREE.md"),
+        repo_root().join("docs").join("QMT_LIVE_TRADING_SETUP.md"),
+    ];
+
+    for doc_path in active_docs {
+        let content = fs::read_to_string(&doc_path)
+            .unwrap_or_else(|_| panic!("expected {doc_path:?} to exist"));
+
+        for unexpected in [
+            "ROADMAP.md",
+            "FUNCTION_MAP.md",
+            "DEVELOPMENT_ROADMAP.md",
+            "ROADMAP_REVIEW.md",
+            "路线图文档",
+            "路线图文件",
+            concat!("两份活跃", "事实源"),
+            concat!("两份活跃规划/", "能力边界入口"),
+            concat!("当前活跃的规划与能力边界", "文档仅保留两份"),
+        ] {
+            assert!(
+                !content.contains(unexpected),
+                "expected {doc_path:?} not to contain {unexpected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn main_workspace_docs_do_not_reintroduce_parallel_roadmap_or_function_map_language() {
+    let root = repo_root();
+    let mut docs = Vec::new();
+    collect_main_workspace_doc_paths(&root, &mut docs);
+
+    assert!(
+        !docs.is_empty(),
+        "expected repository docs to be discoverable"
+    );
+
+    for doc_path in docs {
+        let content = fs::read_to_string(&doc_path)
+            .unwrap_or_else(|_| panic!("expected {doc_path:?} to be readable as UTF-8"));
+
+        for unexpected in [
+            "ROADMAP.md",
+            "DEVELOPMENT_ROADMAP.md",
+            "ROADMAP_REVIEW.md",
+            "FUNCTION_MAP.md",
+            "FUNCTION_MAP",
+            "Backlog",
+            "backlog",
+            "roadmap",
+            "ROADMAP",
+            "路线图",
+        ] {
+            assert!(
+                !content.contains(unexpected),
+                "expected {doc_path:?} not to reintroduce parallel feature-truth term {unexpected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
+    let root = repo_root();
+    let mut docs = Vec::new();
+    collect_main_workspace_doc_paths(&root, &mut docs);
+
+    let status_terms = [
+        "已实现",
+        "部分实现",
+        "待实现",
+        "未实现",
+        "不可用",
+        "当前可用",
+        "当前不可用",
+        "已设计",
+        "非目标",
+        "可用能力",
+        "功能状态",
+        "状态注册表",
+    ];
+
+    for doc_path in docs {
+        let relative = doc_path
+            .strip_prefix(&root)
+            .unwrap_or(&doc_path)
+            .to_string_lossy();
+        if relative == "FUNCTION_TREE.md" || relative.starts_with("logs/") {
+            continue;
+        }
+
+        let content = fs::read_to_string(&doc_path)
+            .unwrap_or_else(|_| panic!("expected {doc_path:?} to be readable as UTF-8"));
+        if !status_terms
+            .iter()
+            .any(|status_term| content.contains(status_term))
+        {
+            continue;
+        }
+
+        assert!(
+            content.contains("FUNCTION_TREE.md"),
+            "expected status-bearing doc {doc_path:?} to point readers to FUNCTION_TREE.md"
+        );
+        assert!(
+            content.contains("状态注册表"),
+            "expected status-bearing doc {doc_path:?} to defer to FUNCTION_TREE.md status registry"
+        );
+        assert!(
+            content.contains("不作为功能状态注册表") || content.contains("不是功能状态注册表"),
+            "expected status-bearing doc {doc_path:?} not to present itself as a feature status registry"
+        );
+    }
+}
+
+#[test]
+fn status_bearing_docs_defer_to_function_tree_registry() {
+    let docs = [
+        repo_root().join("docs").join("GAP_ANALYSIS.md"),
+        repo_root().join("docs").join("USER_MANUAL.md"),
+        repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"),
+        repo_root()
+            .join("docs")
+            .join("standards")
+            .join("DEVELOPMENT_GUIDELINES.md"),
+        repo_root()
+            .join("docs")
+            .join("INDICATOR_PIPELINE_OPTIMIZATION_PLAN.md"),
+    ];
+
+    for doc_path in docs {
+        let content = fs::read_to_string(&doc_path)
+            .unwrap_or_else(|_| panic!("expected {doc_path:?} to exist"));
+        assert!(
+            content.contains("FUNCTION_TREE.md"),
+            "expected {doc_path:?} to point status readers to FUNCTION_TREE.md"
+        );
+        assert!(
+            content.contains("状态注册表"),
+            "expected {doc_path:?} to defer to the FUNCTION_TREE.md status registry"
+        );
+        assert!(
+            content.contains("不作为功能状态注册表") || content.contains("不是功能状态注册表"),
+            "expected {doc_path:?} not to present itself as a feature status registry"
+        );
+    }
+}
+
+#[test]
+fn function_tree_status_registry_is_single_source_of_status() {
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md to exist");
+
+    for expected in [
+        "本文件是 Quantix-Rust 当前主线唯一的功能全景图与状态注册表。",
+        "换言之，本文档同时承担“单一功能注册表”职责。",
+        "新增功能或设计项先在本注册表增加或更新节点，并显式标明状态、证据和边界",
+        "| 功能节点 | 状态 | 证据 | 边界 |",
+        "只以“状态注册表”中的表格行作为状态真相",
+        "后续树状代码块是证据摘录",
+    ] {
+        assert!(
+            function_tree.contains(expected),
+            "expected FUNCTION_TREE.md to contain {expected}"
+        );
+    }
+
+    for unexpected in ["[未实现]", "[待实现]"] {
+        assert!(
+            !function_tree.contains(unexpected),
+            "expected FUNCTION_TREE.md not to contain legacy status tag {unexpected}"
+        );
+    }
+
+    let status_tags = ["[已实现]", "[部分实现]", "[已设计/待实现]", "[非目标]"];
+    let mut in_code_fence = false;
+
+    for (line_index, line) in function_tree.lines().enumerate() {
+        if line.starts_with("```") {
+            in_code_fence = !in_code_fence;
+            continue;
+        }
+
+        if in_code_fence {
+            for status_tag in status_tags {
+                assert!(
+                    !line.contains(status_tag),
+                    "expected FUNCTION_TREE.md evidence code fence line {} not to contain status tag {status_tag}",
+                    line_index + 1
+                );
+            }
+        }
+    }
+
+    assert!(
+        !in_code_fence,
+        "expected FUNCTION_TREE.md code fences to be balanced"
+    );
+
+    let mut status_registry_rows = 0;
+    let mut designed_registry_rows = 0;
+
+    for (line_index, line) in function_tree.lines().enumerate() {
+        if !(line.starts_with('|')
+            && status_tags
+                .iter()
+                .any(|status_tag| line.contains(status_tag)))
+        {
+            continue;
+        }
+
+        let cells: Vec<_> = line
+            .split('|')
+            .map(str::trim)
+            .filter(|cell| !cell.is_empty())
+            .collect();
+        assert!(
+            cells.len() >= 4,
+            "expected FUNCTION_TREE.md status registry line {} to have feature/status/evidence/boundary cells: {line}",
+            line_index + 1
+        );
+        assert!(
+            !cells[0].is_empty() && !cells[2].is_empty() && !cells[3].is_empty(),
+            "expected FUNCTION_TREE.md status registry line {} to include non-empty feature/evidence/boundary cells: {line}",
+            line_index + 1
+        );
+        assert!(
+            status_tags.iter().any(|status_tag| cells[1] == *status_tag),
+            "expected FUNCTION_TREE.md status registry line {} to keep status in the second cell: {line}",
+            line_index + 1
+        );
+
+        status_registry_rows += 1;
+        if cells[1] == "[已设计/待实现]" {
+            designed_registry_rows += 1;
+        }
+    }
+
+    assert!(
+        status_registry_rows >= 90,
+        "expected FUNCTION_TREE.md to keep status/evidence/boundary registry rows; found {status_registry_rows}"
+    );
+    assert!(
+        designed_registry_rows >= 15,
+        "expected FUNCTION_TREE.md to keep explicit designed/pending registry rows; found {designed_registry_rows}"
     );
 }
 
@@ -793,6 +1192,34 @@ fn user_manual_documents_phase29c_execution_automation_commands() {
         "reconciliation 会收敛 delayed fill、partial fill 与 `unknown` 恢复语义",
         "`live` adapter 仍未实现",
         "当前真实提交只走受 `qmt.mode=live` 保护的 `qmt_live` 路径",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected USER_MANUAL to contain {expected}"
+        );
+    }
+}
+
+#[test]
+fn user_manual_documents_foundation_p0_task_boundary() {
+    let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
+    let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
+
+    for expected in [
+        "### task - 任务调度",
+        "实验性 Foundation P0 任务入口",
+        "`add` - 添加定时任务（当前未开放）",
+        "`list` - 列出预置任务模板",
+        "`start` - 以前台模式启动预置任务模板",
+        "`task add` 当前只是保留入口",
+        "Foundation P0 仅支持预置任务模板；请使用 `quantix task list` 查看可运行任务",
+        "📋 Foundation P0 预置任务模板:",
+        "💡 Foundation P0 只支持前台启动预置模板: `quantix task start`",
+        "`--daemon` | 后台运行（Foundation P0 不支持）",
+        "🛑 停止任务调度器...",
+        "💡 提示: 在运行中的调度器按 Ctrl+C 停止",
+        "📊 Foundation P0 任务状态:",
+        "状态: 仅支持当前进程内调度器",
     ] {
         assert!(
             contents.contains(expected),

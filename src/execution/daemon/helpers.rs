@@ -77,9 +77,9 @@ pub(super) fn build_prepared_request_from_execution_request(
         .get("signal_value")
         .and_then(|value| value.as_str())
         .and_then(|value| match value {
-            "buy" => Some(crate::strategy::trait_def::Signal::Buy),
-            "sell" => Some(crate::strategy::trait_def::Signal::Sell),
-            "hold" => Some(crate::strategy::trait_def::Signal::Hold),
+            "buy" => Some(crate::core::signal::Signal::Buy),
+            "sell" => Some(crate::core::signal::Signal::Sell),
+            "hold" => Some(crate::core::signal::Signal::Hold),
             _ => None,
         })
         .ok_or_else(|| {

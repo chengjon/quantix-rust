@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{Duration, NaiveDate};
 use chrono::{TimeZone, Utc};
+use quantix_cli::core::signal::Signal;
 use quantix_cli::core::{QuantixError, Result};
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::execution::adapter::{AdapterError, AdapterOrderRequest, ExecutionAdapter};
@@ -17,7 +18,6 @@ use quantix_cli::execution::models::{
 use quantix_cli::execution::paper::PaperExecutionAdapter;
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
-use quantix_cli::strategy::trait_def::Signal;
 use quantix_cli::trade::{InitAccountRequest, PaperTradeState, PaperTradeStore, TradeService};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;

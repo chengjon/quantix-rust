@@ -1,6 +1,9 @@
 # Phase 29C Mock Live Execution Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> 状态源说明：本文是历史实施计划，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](../../../FUNCTION_TREE.md) 的状态注册表行为准。
 
 **Goal:** Add a `mock_live` execution mode for `strategy run` with durable non-final order lifecycle semantics, while preserving the existing immediate-fill `paper` path.
 

@@ -9,9 +9,10 @@ use std::str::FromStr;
 
 use crate::core::{QuantixError, Result, UpstreamMySqlSettings};
 use crate::risk::industry::{
-    ClassificationStandard, IndustryResolver, ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow,
+    ClassificationStandard, ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow,
     normalize_security_code,
 };
+use crate::risk::industry_resolver::IndustryResolver;
 use crate::risk::industry_store::SqliteIndustryStore;
 
 const SHENWAN_CURRENT_SOURCE: &str = "mystocks.sw_industry_classification";

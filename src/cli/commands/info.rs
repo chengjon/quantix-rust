@@ -289,4 +289,87 @@ pub enum ImportCommands {
         #[arg(short, long)]
         input: String,
     },
+
+    /// 解析 miniQMT 发布的市场数据 manifest（仅 dry-run，不导入）
+    MarketManifest {
+        /// manifest JSON 文件路径
+        #[arg(long)]
+        manifest: String,
+
+        /// 期望的数据集版本
+        #[arg(long)]
+        dataset_version: String,
+
+        /// 期望的发布物类型（如 parquet/json）
+        #[arg(long)]
+        artifact_type: String,
+
+        /// 可选 schema version 约束
+        #[arg(long)]
+        schema_version: Option<String>,
+
+        /// 可选发布物 hash 约束
+        #[arg(long)]
+        artifact_hash: Option<String>,
+
+        /// 读取本地 artifact 文件并重算 hash（仅支持本地路径 / file://）
+        #[arg(long)]
+        verify_artifact_file: bool,
+
+        /// 本地 reference artifact，用于 opt-in double-read comparison（仅支持本地路径 / file://）
+        #[arg(long)]
+        comparison_reference_artifact: Option<String>,
+
+        /// source-of-truth 汇总 JSON，用于 opt-in read-only double-read comparison
+        #[arg(long)]
+        comparison_source_of_truth_summary: Option<String>,
+
+        /// ClickHouse HTTP URL，用于 opt-in 直接只读 double-read comparison
+        #[arg(long)]
+        comparison_clickhouse_url: Option<String>,
+
+        /// ClickHouse database，用于 opt-in 直接只读 double-read comparison
+        #[arg(long, default_value = "quantix")]
+        comparison_clickhouse_database: String,
+
+        /// ClickHouse user，用于 opt-in 直接只读 double-read comparison
+        #[arg(long, default_value = "default")]
+        comparison_clickhouse_user: String,
+
+        /// ClickHouse password，用于 opt-in 直接只读 double-read comparison
+        #[arg(long, default_value = "")]
+        comparison_clickhouse_password: String,
+
+        /// ClickHouse 表名，用于 opt-in 直接只读 double-read comparison
+        #[arg(long)]
+        comparison_clickhouse_table: Option<String>,
+
+        /// ClickHouse dataset_version 列名
+        #[arg(long, default_value = "dataset_version")]
+        comparison_clickhouse_dataset_version_column: String,
+
+        /// ClickHouse symbol 列名
+        #[arg(long, default_value = "symbol")]
+        comparison_clickhouse_symbol_column: String,
+
+        /// ClickHouse date 列名
+        #[arg(long, default_value = "date")]
+        comparison_clickhouse_date_column: String,
+
+        /// 输出 Quantix raw regression report JSON
+        #[arg(long)]
+        regression_report_output: Option<String>,
+
+        /// 输出 miniQMT controlled evidence JSON
+        #[arg(long)]
+        evidence_output: Option<String>,
+
+        /// Quantix consumer build commit（可用 QUANTIX_CONSUMER_BUILD_COMMIT 注入）
+        #[arg(long, env = "QUANTIX_CONSUMER_BUILD_COMMIT")]
+        consumer_build_commit: Option<String>,
+
+        /// Quantix 数据库目标；当前默认 dry-run-only，不执行数据库写入
+        #[arg(long, default_value = "dry-run-only")]
+        database_target: String,
+    },
 }
