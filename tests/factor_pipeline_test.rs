@@ -219,7 +219,7 @@ fn factor_score_cli_shape_parses() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn dataset_from_loader_normalizes_and_checks_schema() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame(),
@@ -263,7 +263,7 @@ fn operators_compute_aligned_series() {
     assert_eq!(ts_rank_values.get(5), Some(2.0));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_rank_close() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame(),
@@ -287,7 +287,7 @@ async fn catalog_lists_and_computes_rank_close() {
     assert_eq!(result.frame.height(), dataset.frame().height());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_ts_rank_close_5() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame_10d(),
@@ -321,7 +321,7 @@ async fn catalog_lists_and_computes_ts_rank_close_5() {
     assert_eq!(value.null_count(), 17);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_result_exports_csv_and_json_strings() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame(),
@@ -348,7 +348,7 @@ async fn factor_result_exports_csv_and_json_strings() {
     assert!(json.contains("rank_close"));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_result_exports_parquet_file() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame(),
@@ -379,7 +379,7 @@ async fn factor_result_exports_parquet_file() {
     assert_eq!(frame.get_column_names(), vec!["date", "symbol", "value"]);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_compute_cli_writes_parquet_output() {
     let tempdir = tempfile::tempdir().unwrap();
     let input = tempdir.path().join("bars.csv");
@@ -414,7 +414,7 @@ async fn factor_compute_cli_writes_parquet_output() {
     assert_eq!(frame.get_column_names(), vec!["date", "symbol", "value"]);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_score_cli_writes_csv_output() {
     let tempdir = tempfile::tempdir().unwrap();
     let input = tempdir.path().join("bars.csv");
@@ -455,7 +455,7 @@ async fn factor_score_cli_writes_csv_output() {
     assert_eq!(csv.lines().count(), 3);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn p1_pipeline_computes_rank_close_with_mock_loader() {
     let loader = MockFactorLoader {
         frame: mock_factor_frame_10d(),
@@ -486,7 +486,7 @@ async fn p1_pipeline_computes_rank_close_with_mock_loader() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_alpha101_first_batch() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -537,7 +537,7 @@ async fn catalog_lists_and_computes_alpha101_first_batch() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_alpha191_first_batch() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -582,7 +582,7 @@ async fn catalog_lists_and_computes_alpha191_first_batch() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_alpha191_second_batch() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -635,7 +635,7 @@ async fn catalog_lists_and_computes_alpha191_second_batch() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn catalog_lists_and_computes_alpha191_third_batch() {
     let loader = MockFactorLoader {
         frame: mock_alpha_frame_days(25),
@@ -691,7 +691,7 @@ async fn catalog_lists_and_computes_alpha191_third_batch() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn evaluation_computes_ic_ir_and_factor_correlation() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -732,7 +732,7 @@ async fn evaluation_computes_ic_ir_and_factor_correlation() {
     assert!(corr <= 1.0);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_evaluation_exports_parquet_file() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -764,7 +764,7 @@ async fn factor_evaluation_exports_parquet_file() {
     assert_eq!(frame.get_column_names(), vec!["date", "ic"]);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn factor_evaluate_cli_writes_parquet_output() {
     let tempdir = tempfile::tempdir().unwrap();
     let input = tempdir.path().join("bars.csv");
@@ -809,7 +809,7 @@ async fn factor_evaluate_cli_writes_parquet_output() {
     assert_eq!(frame.get_column_names(), vec!["date", "ic"]);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn neutralization_removes_cross_sectional_exposure_by_date() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),
@@ -866,7 +866,7 @@ async fn neutralization_removes_cross_sectional_exposure_by_date() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn layered_backtest_computes_group_returns_and_long_short() {
     let loader = MockFactorLoader {
         frame: mock_alpha101_frame(),

@@ -1,0 +1,6 @@
+[advisories]
+ignore = [
+    # No patched version exists yet. This is pulled transitively by sqlx-mysql,
+    # which is required by the upstream MySQL industry-sync implementation.
+    "RUSTSEC-2023-0071",
+]

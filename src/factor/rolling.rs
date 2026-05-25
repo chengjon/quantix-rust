@@ -10,9 +10,11 @@ pub(crate) fn rolling_corr_by_symbol(
         let left = group.column(left_col)?.f64()?;
         let right = group.column(right_col)?.f64()?;
         let values = rolling_corr_values(left, right, window);
-        DataFrame::new(vec![Series::new("__factor_value".into(), values)])
+        DataFrame::new_infer_height(vec![Series::new("__factor_value".into(), values).into()])
     })?;
-    frame.column("__factor_value").cloned()
+    frame
+        .column("__factor_value")
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn rolling_corr_values(
@@ -79,9 +81,11 @@ pub(crate) fn rolling_rank_by_symbol(
     let frame = df.group_by_stable(["symbol"])?.apply(|group| {
         let values = group.column(col_name)?.f64()?;
         let ranks = rolling_rank_values(values, window);
-        DataFrame::new(vec![Series::new("__factor_value".into(), ranks)])
+        DataFrame::new_infer_height(vec![Series::new("__factor_value".into(), ranks).into()])
     })?;
-    frame.column("__factor_value").cloned()
+    frame
+        .column("__factor_value")
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn rolling_rank_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64>> {
@@ -134,9 +138,11 @@ pub(crate) fn rolling_std_by_symbol(
     let frame = df.group_by_stable(["symbol"])?.apply(|group| {
         let values = group.column(col_name)?.f64()?;
         let stddev = rolling_std_values(values, window);
-        DataFrame::new(vec![Series::new("__factor_value".into(), stddev)])
+        DataFrame::new_infer_height(vec![Series::new("__factor_value".into(), stddev).into()])
     })?;
-    frame.column("__factor_value").cloned()
+    frame
+        .column("__factor_value")
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn rolling_std_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64>> {

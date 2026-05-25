@@ -6,7 +6,7 @@ fn collect_factor_value(df: &DataFrame, expr: Expr) -> PolarsResult<Series> {
         .with_columns([expr.alias("__factor_value")])
         .collect()?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn collect_intermediate(df: &DataFrame, exprs: Vec<Expr>) -> PolarsResult<DataFrame> {
@@ -57,9 +57,11 @@ fn rolling_corr_by_symbol(
         let left = group.column(left_col)?.f64()?;
         let right = group.column(right_col)?.f64()?;
         let values = rolling_corr_values(left, right, window);
-        DataFrame::new(vec![Series::new("__factor_value".into(), values)])
+        DataFrame::new_infer_height(vec![Series::new("__factor_value".into(), values).into()])
     })?;
-    frame.column("__factor_value").cloned()
+    frame
+        .column("__factor_value")
+        .map(|column| column.as_materialized_series().clone())
 }
 
 fn rolling_corr_values(
@@ -122,7 +124,7 @@ pub fn alpha101_002(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate_two_stage(
         df,
         vec![
-            ts_delta_expr(col("volume").cast(DataType::Float64).log(10.0), 2)
+            ts_delta_expr(col("volume").cast(DataType::Float64).log(lit(10.0)), 2)
                 .alias("__alpha101_002_volume_delta"),
             ((col("close") - col("open")) / col("open")).alias("__alpha101_002_intraday_return"),
         ],

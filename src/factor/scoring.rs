@@ -78,11 +78,11 @@ pub fn score_factors_latest(
         .iter()
         .map(|(_, _, factor_count)| *factor_count)
         .collect::<Vec<_>>();
-    let frame = DataFrame::new(vec![
-        Series::new("date".into(), dates),
-        Series::new("symbol".into(), symbols),
-        Series::new("score".into(), scores),
-        Series::new("factor_count".into(), counts),
+    let frame = DataFrame::new_infer_height(vec![
+        Series::new("date".into(), dates).into(),
+        Series::new("symbol".into(), symbols).into(),
+        Series::new("score".into(), scores).into(),
+        Series::new("factor_count".into(), counts).into(),
     ])
     .map_err(|e| QuantixError::DataParse(format!("factor score frame build failed: {}", e)))?;
 

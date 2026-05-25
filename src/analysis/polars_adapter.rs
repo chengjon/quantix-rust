@@ -257,7 +257,8 @@ impl PolarsCalculator {
                                 ..Default::default()
                             };
 
-                            let ma_result = close_series.rolling_mean(opts);
+                            let ma_result =
+                                close_series.as_materialized_series().rolling_mean(opts);
 
                             if let Ok(ma_series) = ma_result {
                                 let values: Vec<Option<Decimal>> = match ma_series

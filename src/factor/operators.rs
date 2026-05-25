@@ -9,7 +9,7 @@ pub fn cs_rank(df: &DataFrame, col_name: &str) -> PolarsResult<Series> {
             .alias("__factor_value")])
         .collect()?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }
 
 pub fn ts_delay(df: &DataFrame, col_name: &str, periods: usize) -> PolarsResult<Series> {
@@ -21,7 +21,7 @@ pub fn ts_delay(df: &DataFrame, col_name: &str, periods: usize) -> PolarsResult<
             .alias("__factor_value")])
         .collect()?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }
 
 pub fn ts_delta(df: &DataFrame, col_name: &str, periods: usize) -> PolarsResult<Series> {
@@ -34,7 +34,7 @@ pub fn ts_delta(df: &DataFrame, col_name: &str, periods: usize) -> PolarsResult<
         .alias("__factor_value")])
         .collect()?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }
 
 pub fn ts_rank(df: &DataFrame, col_name: &str, window: usize) -> PolarsResult<Series> {
@@ -44,9 +44,9 @@ pub fn ts_rank(df: &DataFrame, col_name: &str, window: usize) -> PolarsResult<Se
         .sort(["symbol", "date"], Default::default())?;
     let mut values = crate::factor::rolling::rolling_rank_by_symbol(&sorted, col_name, window)?;
     values.rename("__factor_value".into());
-    sorted.with_column(values)?;
+    sorted.with_column(values.into())?;
     sorted
         .sort(["__factor_row_nr"], Default::default())?
         .column("__factor_value")
-        .cloned()
+        .map(|column| column.as_materialized_series().clone())
 }

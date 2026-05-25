@@ -273,7 +273,7 @@ impl FactorCatalog {
             .map_err(|e| QuantixError::DataParse(format!("factor output select failed: {}", e)))?;
         let mut values = values.clone();
         values.rename("value".into());
-        frame.with_column(values).map_err(|e| {
+        frame.with_column(values.into()).map_err(|e| {
             QuantixError::DataParse(format!("factor output value attach failed: {}", e))
         })?;
 
