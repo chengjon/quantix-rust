@@ -710,10 +710,31 @@ fn monitor_notifications_enabled(config: &MonitorConfig) -> bool {
         )
 }
 
+#[async_trait]
+pub(crate) trait MonitorNotificationSender {
+    async fn notify(&mut self, notification: crate::monitoring::Notification) -> Result<()>;
+}
+
+#[async_trait]
+impl MonitorNotificationSender for crate::monitoring::NotificationService {
+    async fn notify(&mut self, notification: crate::monitoring::Notification) -> Result<()> {
+        crate::monitoring::NotificationService::notify(self, notification).await
+    }
+}
+
 async fn send_monitor_notifications(output: &MonitorIterationOutput) -> Result<()> {
     let config = crate::monitoring::NotificationConfig::from_env();
     let mut service = crate::monitoring::NotificationService::new(config);
+    send_monitor_notifications_with_service(output, &mut service).await
+}
 
+pub(crate) async fn send_monitor_notifications_with_service<S>(
+    output: &MonitorIterationOutput,
+    service: &mut S,
+) -> Result<()>
+where
+    S: MonitorNotificationSender,
+{
     for event in &output.new_events {
         let notification = crate::monitoring::Notification::new(
             format!(
@@ -739,7 +760,7 @@ async fn send_monitor_notifications(output: &MonitorIterationOutput) -> Result<(
             monitor_notification_run_mode_label(event.run_mode).to_string(),
         );
 
-        let _ = service.notify(notification).await;
+        service.notify(notification).await?;
     }
 
     Ok(())
