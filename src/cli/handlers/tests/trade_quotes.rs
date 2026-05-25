@@ -1,4 +1,7 @@
 use super::*;
+use crate::core::{CliRuntime, QuantixError, Result};
+use rust_decimal_macros::dec;
+use std::collections::{BTreeMap, HashMap};
 
 #[tokio::test]
 async fn test_execute_trade_position_current_uses_live_quotes_when_available() {

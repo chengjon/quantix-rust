@@ -1,4 +1,10 @@
 use super::*;
+use crate::analysis::candle_patterns::{
+    CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
+};
+use crate::core::{CliRuntime, QuantixError, Result};
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal_macros::dec;
 
 #[tokio::test]
 async fn test_create_clickhouse_client_uses_runtime_settings() {

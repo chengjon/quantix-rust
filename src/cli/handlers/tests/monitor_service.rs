@@ -1,4 +1,12 @@
 use super::*;
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::monitor::{
+    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
+    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
+    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
+    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
+    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+};
 
 #[test]
 fn test_execute_monitor_service_config_show_returns_saved_binary_path() {

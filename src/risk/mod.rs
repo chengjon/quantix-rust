@@ -1,6 +1,7 @@
 pub mod import_store;
 pub mod importer;
 pub mod industry;
+pub mod industry_resolver;
 pub mod industry_store;
 pub mod industry_sync;
 pub mod models;
@@ -13,9 +14,10 @@ pub use import_store::SqliteLiveImportStore;
 pub use importer::{parse_live_import_csv, parse_live_import_json};
 pub use industry::{
     ACTIVE_CLASSIFICATION_STANDARD, ACTIVE_INDUSTRY_LEVEL, ClassificationStandard,
-    IndustryClassificationLevel, IndustryReferenceRecord, IndustryResolver, IndustrySnapshotRecord,
+    IndustryClassificationLevel, IndustryReferenceRecord, IndustrySnapshotRecord,
     IndustrySourceTier, ResolvedIndustry, ShenwanCurrentSeedRow, ShenwanHistoricalSeedRow,
 };
+pub use industry_resolver::IndustryResolver;
 pub use industry_store::SqliteIndustryStore;
 pub use industry_sync::{
     IndustrySyncSource, IndustrySyncSummary, MySqlIndustrySyncSource,

@@ -1,5 +1,10 @@
 use super::*;
 
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::tasks::{TaskScheduler, TaskTemplates};
+use dialoguer::{Input, Select, theme::ColorfulTheme};
+use std::path::Path;
+
 pub async fn run_init(config_path: String) -> Result<()> {
     println!("🚀 初始化 Quantix CLI v{}", env!("CARGO_PKG_VERSION"));
     println!();

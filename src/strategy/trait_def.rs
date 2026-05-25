@@ -2,8 +2,8 @@
 ///
 /// 所有策略实现统一的 Strategy 接口
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
 
 /// 策略 trait
@@ -26,12 +26,4 @@ pub trait Strategy: Send + Sync {
     async fn finish(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
-}
-
-/// 交易信号
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Signal {
-    Buy,
-    Sell,
-    Hold,
 }

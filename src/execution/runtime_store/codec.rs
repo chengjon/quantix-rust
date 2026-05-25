@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
+use crate::core::signal::Signal;
 use crate::core::{QuantixError, Result};
-use crate::strategy::trait_def::Signal;
 
 pub(super) fn parse_signal_value(value: &str) -> Option<Signal> {
     match value {
