@@ -168,9 +168,7 @@ impl MarketDataReader for ClickHouseClient {
             .await
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询板块排名失败: {}", e)))?;
 
-        rows.into_iter()
-            .map(SectorDailyCH::try_into_board_rank)
-            .collect()
+        rows.into_iter().map(sector_daily_to_board_rank).collect()
     }
 
     async fn load_north_flow(&self, date: Option<NaiveDate>) -> Result<Option<NorthFlowSnapshot>> {
@@ -199,7 +197,7 @@ impl MarketDataReader for ClickHouseClient {
             .into_iter()
             .next();
 
-        Ok(row.map(NorthFlowDailyCH::into_snapshot))
+        Ok(row.map(north_flow_daily_to_snapshot))
     }
 
     async fn load_market_sentiment(
@@ -234,7 +232,7 @@ impl MarketDataReader for ClickHouseClient {
             .into_iter()
             .next();
 
-        Ok(row.map(MarketSentimentDailyCH::into_snapshot))
+        Ok(row.map(market_sentiment_daily_to_snapshot))
     }
 
     async fn load_leaders(
@@ -281,7 +279,7 @@ impl MarketDataReader for ClickHouseClient {
         let mut seen = HashSet::new();
         let mut leaders = Vec::new();
         for row in rows {
-            if let Some(leader) = row.try_into_leader(filter.clone())? {
+            if let Some(leader) = sector_daily_to_leader(row, filter.clone())? {
                 if seen.insert(leader.code.clone()) {
                     leaders.push(leader);
                 }
@@ -289,6 +287,85 @@ impl MarketDataReader for ClickHouseClient {
         }
 
         Ok(leaders)
+    }
+}
+
+pub(crate) fn sector_daily_to_board_rank(row: SectorDailyCH) -> Result<BoardRankRow> {
+    Ok(BoardRankRow::new(
+        row.sector_code,
+        row.sector_name,
+        parse_board_type(&row.sector_type)?,
+        row.rank as usize,
+        row.change_pct,
+    ))
+}
+
+pub(crate) fn sector_daily_to_leader(
+    row: SectorDailyCH,
+    filter: LeaderFilter,
+) -> Result<Option<LeaderRow>> {
+    let board_type = parse_board_type(&row.sector_type)?;
+    let leader_code = match row.leader_code {
+        Some(code) if !code.trim().is_empty() => code,
+        _ => return Ok(None),
+    };
+    let leader_name = match row.leader_name {
+        Some(name) if !name.trim().is_empty() => name,
+        _ => return Ok(None),
+    };
+    let change_pct = row.leader_change.unwrap_or_default();
+
+    let (sector_name, concept_name) = match filter {
+        LeaderFilter::Sector(name) => (Some(name), None),
+        LeaderFilter::Concept(name) => (None, Some(name)),
+        LeaderFilter::All => match board_type {
+            BoardType::Sector => (Some(row.sector_name), None),
+            BoardType::Concept => (None, Some(row.sector_name)),
+        },
+    };
+
+    Ok(Some(LeaderRow::new(
+        leader_code,
+        leader_name,
+        sector_name,
+        concept_name,
+        change_pct,
+    )))
+}
+
+pub(crate) fn north_flow_daily_to_snapshot(row: NorthFlowDailyCH) -> NorthFlowSnapshot {
+    NorthFlowSnapshot::new(
+        row.trade_date,
+        row.sh_amount,
+        row.sz_amount,
+        row.total_amount,
+        row.balance,
+    )
+}
+
+pub(crate) fn market_sentiment_daily_to_snapshot(
+    row: MarketSentimentDailyCH,
+) -> MarketSentimentSnapshot {
+    MarketSentimentSnapshot::new(
+        row.trade_date,
+        row.up_count as usize,
+        row.down_count as usize,
+        row.limit_up_count as usize,
+        row.limit_down_count as usize,
+        row.seal_rate,
+        row.break_rate,
+        row.consecutive_board_count as usize,
+    )
+}
+
+fn parse_board_type(sector_type: &str) -> Result<BoardType> {
+    match sector_type.trim().to_ascii_lowercase().as_str() {
+        "industry" | "sector" => Ok(BoardType::Sector),
+        "concept" => Ok(BoardType::Concept),
+        other => Err(QuantixError::DataParse(format!(
+            "未知的板块类型: {}",
+            other
+        ))),
     }
 }
 

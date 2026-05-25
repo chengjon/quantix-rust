@@ -2,13 +2,44 @@
 
 All notable changes to this project are documented here.
 
+> 状态源说明：本文记录历史变更，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
+
+## 2026-05-21
+
+### Changed
+- **miniQMT controlled evidence 边界继续收敛** (`FUNCTION_TREE.md`, `README.md`, `src/miniqmt_market.rs`, `src/cli/handlers/import.rs`, `tests/miniqmt_market_import_handler_test.rs`, `docs/superpowers/specs/2026-05-18-miniqmt-controlled-evidence-alignment-spec.md`)
+  - `quantix import market-manifest` 继续保持 dry-run-only 主线：支持本地 artifact hash 校验、Parquet metadata `computed_row_count`、本地 reference artifact 比较、source-of-truth 汇总 JSON 比较、direct ClickHouse read-only 比较和 `quantix_regression` evidence 输出，但仍不写入 ClickHouse、不接管 miniQMT registry
+  - 新增 `--comparison-source-of-truth-summary`，用于读取外部 source-of-truth 只读汇总文件，校验 dataset identity 并将 row-count/sample comparison 写入 report/evidence
+  - 新增 `--comparison-clickhouse-*` opt-in 只读比较路径，用 ClickHouse HTTP `SELECT` 查询 row-count/sample，并将 `direct_clickhouse_read_only_*` comparison 写入 report/evidence
+  - `FUNCTION_TREE.md` 继续作为唯一功能状态注册表，明确区分已实现、已设计/待实现与非目标边界
+  - `CHANGELOG.md` 只记录历史变更，不与 `FUNCTION_TREE.md` 争夺当前状态真相
+
+## 2026-05-14
+
+### Changed
+- **功能真相源收敛为单一注册表** (`FUNCTION_TREE.md`, `README.md`, `docs/QMT_LIVE_TRADING_SETUP.md`, `tests/repo_hygiene_test.rs`)
+  - 删除根目录旧规划文件，避免与 `FUNCTION_TREE.md` 形成并行功能真相源
+  - README 与 QMT 指南改为只指向 `FUNCTION_TREE.md`
+  - 仓库卫生测试锁定 `FUNCTION_TREE.md` 的功能节点必须显式标状态、证据和边界
+
+## 2026-05-03
+
+### Changed
+- **规划文档过渡收敛**（已由 2026-05-14 的单一功能注册表决策取代）
+  - 删除历史开发规划与规划评审文档
+  - README 当时收敛到更少入口；当前功能状态入口已进一步收敛为 `FUNCTION_TREE.md`
+  - README 的建议推进顺序同步到新的交易主线稳态化优先级
+  - 仓库卫生测试改为锁定旧规划文档已删除
+
 ## 2026-05-02
 
 ### Changed
 - **功能树文档统一为单一 canonical 文件** (`FUNCTION_TREE.md`, `README.md`, `tests/repo_hygiene_test.rs`)
   - 根目录 `FUNCTION_TREE.md` 升级为当前主线唯一功能树与能力边界文档
-  - 历史 `docs/FUNCTION_MAP.md` 停止单独维护并从主线移除
+  - 历史功能清单文档停止单独维护并从主线移除
   - 活跃入口与卫生校验统一切换到 `FUNCTION_TREE.md`
+  - 该统一已通过 PR #62 并入 `master`，形成当前主线基线 `origin/master@562fe84`
 
 ### Fixed
 - **`qmt_live` cancel 路由收口并并入本地主线** (`src/execution/qmt_task_submit_service.rs`, `src/execution/qmt_live_adapter.rs`, `tests/qmt_task_contract_test.rs`, `tests/qmt_live_adapter_test.rs`)
@@ -57,7 +88,7 @@ All notable changes to this project are documented here.
   - 锁定 `mock_live` / `live` / `qmt_live` 的当前兼容、拒绝与提示文案行为
 
 ### Changed
-- **文档与卫生契约同步到主线收口事实** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `ROADMAP.md`)
+- **文档与卫生契约同步到主线收口事实** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, 历史规划文件)
   - 同步 `strategy run` 与相关 execution wording 到当前 mock policy 边界
   - 将这轮执行边界收口作为后续 P0.2 / P0.3 的新主线基线
 
@@ -69,8 +100,8 @@ All notable changes to this project are documented here.
   - 明确 `mock_live` 是仿真执行与联调加固路径，不等于真实券商实盘
   - 明确真实提交单路径是受保护的 `qmt_live`
   - 明确泛化 `target_mode=live` 仍未实现，且真实路径不得静默回退到 mock
-- **文档事实收敛** (`docs/FUNCTION_MAP.md`, `docs/GAP_ANALYSIS.md`, `docs/DEVELOPMENT_ROADMAP.md`, `docs/ROADMAP_REVIEW.md`, `docs/QMT_LIVE_TRADING_SETUP.md`)
-  - 同步更新当前能力说明、架构边界、路线图判断与操作手册，消除 `mock_live` / `live` / `qmt_live` 表述漂移
+- **文档事实收敛**（历史功能清单文档, `docs/GAP_ANALYSIS.md`, 历史规划文档, `docs/QMT_LIVE_TRADING_SETUP.md`）
+  - 同步更新当前能力说明、架构边界、规划判断与操作手册，消除 `mock_live` / `live` / `qmt_live` 表述漂移
   - 为部分历史设计/计划文档补充“历史结论不代表当前实现状态”的上下文说明
 
 ### Changed
@@ -144,7 +175,7 @@ All notable changes to this project are documented here.
 ### Changed
 
 - 更新 `README.md` 添加 P0.2、AI 模块、News 模块说明
-- 更新 `docs/FUNCTION_MAP.md` 增加新 CLI 命令和模块功能树
+- 更新历史功能清单文档，增加新 CLI 命令和模块功能树
 
 ## 2026-03-27 (续2)
 
@@ -187,7 +218,7 @@ All notable changes to this project are documented here.
 ### Changed
 
 - 更新 `README.md` 添加多账户管理和 Graphiti MCP 说明
-- 更新 `docs/FUNCTION_MAP.md` 增加账户管理模块和 CLI 命令树
+- 更新历史功能清单文档，增加账户管理模块和 CLI 命令树
 
 ## 2026-03-27 (续)
 
@@ -262,7 +293,7 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- Added `docs/FUNCTION_MAP.md` to record the current completed functional design and system-level function tree.
+- Added the historical function-list document to record the then-current completed functional design and system-level function tree.
 - Added Windows Bridge v1 integration on the Rust side:
   - `src/bridge/*` HTTP client, models, and error layer
   - `src/sources/bridge_tdx.rs` for `TDX bridge source`

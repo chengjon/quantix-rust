@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 
+use crate::core::signal::Signal;
 use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use crate::execution::models::SignalEnvelope;
+use crate::strategy::Strategy;
 use crate::strategy::ma_cross::MACrossStrategy;
-use crate::strategy::{Strategy, trait_def::Signal};
 
 #[async_trait]
 pub trait StrategyBarLoader: Send + Sync {

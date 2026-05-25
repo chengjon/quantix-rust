@@ -1,8 +1,19 @@
 use super::*;
 use crate::core::config::{AkShareConfig, AppConfig, TdxConfig};
+use crate::core::{CliRuntime, QuantixError, Result};
+use crate::data::models::Kline;
+use crate::fundamental::dragon_tiger::DragonTigerFetcher;
+use crate::fundamental::earnings::EarningsFetcher;
+use crate::fundamental::institution::InstitutionFetcher;
+use crate::fundamental::valuation::ValuationFetcher;
+use crate::io::{DataExporter, ExportConfig, ExportFormat};
 use crate::sync::{DataSync, MarketFundamentalSyncRecord};
+use chrono::NaiveDate;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::path::Path;
+use std::time::Duration;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct DataSourceOverlay {
@@ -336,7 +347,7 @@ pub(crate) async fn export_data(code: String, format: String, output: String) ->
         return Ok(());
     }
 
-    let output_path = format!("{}/{}.{}", output, code, format);
+    let output_path = Path::new(&output).join(format!("{}.{}", code, format));
     let progress = ProgressBar::new(3);
     progress.set_style(
         ProgressStyle::default_bar()
@@ -351,13 +362,43 @@ pub(crate) async fn export_data(code: String, format: String, output: String) ->
             progress.set_message("写入 CSV...");
             progress.inc(1);
 
-            let mut wtr = csv::Writer::from_path(&output_path)
+            export_klines_to_file(&klines, "csv", &output_path).await?;
+
+            progress.inc(1);
+            progress.finish_with_message("CSV 导出完成");
+        }
+        "parquet" => {
+            progress.set_message("写入 Parquet...");
+            progress.inc(1);
+
+            export_klines_to_file(&klines, "parquet", &output_path).await?;
+
+            progress.inc(1);
+            progress.finish_with_message("Parquet 导出完成");
+        }
+        _ => {
+            return Err(QuantixError::Other(format!("不支持的格式: {}", format)));
+        }
+    }
+
+    println!("✅ 数据已导出到: {}", output_path.display());
+    Ok(())
+}
+
+async fn export_klines_to_file<P: AsRef<Path>>(
+    klines: &[Kline],
+    format: &str,
+    output_path: P,
+) -> Result<()> {
+    match format {
+        "csv" => {
+            let mut wtr = csv::Writer::from_path(output_path.as_ref())
                 .map_err(|e| QuantixError::Other(format!("创建 CSV 文件失败: {}", e)))?;
 
             wtr.write_record(["date", "open", "high", "low", "close", "volume"])
                 .map_err(|e| QuantixError::Other(format!("写入 CSV 头失败: {}", e)))?;
 
-            for kline in &klines {
+            for kline in klines {
                 wtr.write_record(&[
                     kline.date.to_string(),
                     kline.open.to_string(),
@@ -371,24 +412,18 @@ pub(crate) async fn export_data(code: String, format: String, output: String) ->
 
             wtr.flush()
                 .map_err(|e| QuantixError::Other(format!("刷新 CSV 失败: {}", e)))?;
-
-            progress.inc(1);
-            progress.finish_with_message("CSV 导出完成");
+            Ok(())
         }
         "parquet" => {
-            progress.set_message("写入 Parquet...");
-            progress.inc(1);
-
-            // TODO: 实现 Parquet 导出
-            progress.finish_with_message("Parquet 导出暂未实现");
+            let exporter = DataExporter::new(ExportConfig {
+                format: ExportFormat::Parquet,
+                ..Default::default()
+            });
+            exporter.export_klines(klines, output_path).await?;
+            Ok(())
         }
-        _ => {
-            return Err(QuantixError::Other(format!("不支持的格式: {}", format)));
-        }
+        _ => Err(QuantixError::Other(format!("不支持的格式: {}", format))),
     }
-
-    println!("✅ 数据已导出到: {}", output_path);
-    Ok(())
 }
 
 fn load_app_config(config_dir: &str) -> Result<AppConfig> {
@@ -464,6 +499,10 @@ fn format_akshare_summary(config: &AkShareConfig) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::models::{AdjustType, Kline};
+    use chrono::NaiveDate;
+    use rust_decimal_macros::dec;
+    use tempfile::tempdir;
 
     #[test]
     fn load_market_fundamental_records_parses_json_array() {
@@ -487,6 +526,30 @@ mod tests {
         assert_eq!(records[0].latest_report_profit, Some(862.1));
 
         let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn export_klines_writes_parquet_file() {
+        let dir = tempdir().unwrap();
+        let output_path = dir.path().join("000001.parquet");
+        let klines = vec![Kline {
+            code: "000001".to_string(),
+            date: NaiveDate::from_ymd_opt(2026, 1, 5).unwrap(),
+            open: dec!(10.1),
+            high: dec!(10.8),
+            low: dec!(9.9),
+            close: dec!(10.5),
+            volume: 120000,
+            amount: Some(dec!(1260000.0)),
+            adjust_type: AdjustType::None,
+        }];
+
+        export_klines_to_file(&klines, "parquet", &output_path)
+            .await
+            .unwrap();
+
+        assert!(output_path.exists());
+        assert!(fs::metadata(output_path).unwrap().len() > 0);
     }
 }
 

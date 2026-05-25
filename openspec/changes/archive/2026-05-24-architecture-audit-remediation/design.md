@@ -2,7 +2,7 @@
 
 The reviewed audit set defines the source of truth for architecture remediation:
 
-- `docs/reports/ARCHITECTURE_AUDIT_2026-05-23.md` is the primary findings and roadmap document.
+- `docs/reports/ARCHITECTURE_AUDIT_2026-05-23.md` is the primary findings and remediation-planning document.
 - `docs/reports/ARCHITECTURE_AUDIT_REVIEW_2026-05-23.md` is the correction baseline and takes precedence for refined architecture recommendations.
 - `docs/superpowers/specs/2026-05-23-architecture-audit-design.md` defines the three-document relationship and issue gate.
 

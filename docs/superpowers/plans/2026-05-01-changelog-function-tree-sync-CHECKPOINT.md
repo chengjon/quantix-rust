@@ -3,6 +3,9 @@
 Date: 2026-05-01
 Branch: `docs/changelog-function-tree-sync-20260501`
 
+Historical note:
+This checkpoint captures the 2026-05-01 transition state. Current active capability-boundary documentation now lives in root `FUNCTION_TREE.md`; mentions of the old function-list document below are preserved as historical context only.
+
 ## Summary
 
 - `CHANGELOG.md` was updated to add missing 2026-04-30 and 2026-05-01 entries for:
@@ -10,9 +13,9 @@ Branch: `docs/changelog-function-tree-sync-20260501`
   - miniQMT task-contract bridge/runtime alignment
   - `QmtTaskSubmitService`
   - `qmt_live` receipt/result semantics
-- `docs/FUNCTION_MAP.md` remains the canonical expanded function-tree document.
-- root `FUNCTION_TREE.md` was added as the compatibility entrypoint expected by external coordination, with a concise execution/bridge capability tree and a pointer back to `docs/FUNCTION_MAP.md`.
-- `docs/FUNCTION_MAP.md` was updated to document:
+- At that checkpoint, the old function-list document remained the canonical expanded function-tree document.
+- root `FUNCTION_TREE.md` was added as the compatibility entrypoint expected by external coordination, with a concise execution/bridge capability tree and a pointer back to the old function-list document.
+- The old function-list document was updated at that checkpoint to document:
   - `BridgeRuntimeSettings` contract-loading fields
   - `request_diagnostics`
   - `qmt_live_gate`

@@ -29,6 +29,7 @@ pub mod fundamental;
 pub mod import;
 pub mod io;
 pub mod market;
+pub mod miniqmt_market;
 pub mod monitor;
 pub mod monitoring;
 pub mod news;
@@ -42,6 +43,9 @@ pub mod tasks;
 pub mod trade;
 pub mod tui;
 pub mod watchlist;
+
+#[cfg(test)]
+pub(crate) mod test_support;
 
 // 重新导出常用类型
 pub use cli::Cli;

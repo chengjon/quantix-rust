@@ -67,6 +67,15 @@ impl SentimentAggregator {
             .map(|p| p.name().to_string())
             .collect();
 
+        let mut history = Vec::new();
+        for provider in &self.providers {
+            if provider.is_available() {
+                if let Ok(points) = provider.get_history(code, 7).await {
+                    history.extend(points);
+                }
+            }
+        }
+
         Ok(SentimentData {
             code: code.to_string(),
             timestamp: Utc::now(),
@@ -74,7 +83,7 @@ impl SentimentAggregator {
             sentiment_level,
             source_scores,
             recent_mentions,
-            trend: SentimentTrend::Stable, // TODO: 计算趋势
+            trend: infer_trend_from_history(&history),
             sources,
         })
     }
@@ -115,5 +124,125 @@ impl SentimentAggregator {
         }
         all_history.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         Ok(all_history)
+    }
+}
+
+fn infer_trend_from_history(history: &[SentimentHistoryPoint]) -> SentimentTrend {
+    if history.len() < 2 {
+        return SentimentTrend::Unavailable;
+    }
+
+    let mut points = history.to_vec();
+    points.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+    let split_at = points.len() / 2;
+    let previous = weighted_average_score(&points[..split_at]);
+    let recent = weighted_average_score(&points[split_at..]);
+    let delta = recent - previous;
+
+    if delta >= 0.4 {
+        SentimentTrend::RisingFast
+    } else if delta >= 0.1 {
+        SentimentTrend::Rising
+    } else if delta <= -0.4 {
+        SentimentTrend::FallingFast
+    } else if delta <= -0.1 {
+        SentimentTrend::Falling
+    } else {
+        SentimentTrend::Stable
+    }
+}
+
+fn weighted_average_score(points: &[SentimentHistoryPoint]) -> f64 {
+    let mut weighted_score = 0.0;
+    let mut total_weight = 0.0;
+
+    for point in points {
+        let weight = point.sample_count.max(1) as f64;
+        weighted_score += point.score * weight;
+        total_weight += weight;
+    }
+
+    weighted_score / total_weight
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::market::sentiment::types::SentimentScore;
+    use async_trait::async_trait;
+    use chrono::TimeZone;
+
+    struct StaticSentimentProvider {
+        history: Vec<SentimentHistoryPoint>,
+    }
+
+    #[async_trait]
+    impl SentimentProvider for StaticSentimentProvider {
+        fn name(&self) -> &'static str {
+            "static"
+        }
+
+        async fn get_sentiment(&self, code: &str) -> Result<SentimentData> {
+            Ok(SentimentData {
+                code: code.to_string(),
+                timestamp: Utc::now(),
+                overall_score: 0.0,
+                sentiment_level: SentimentLevel::Neutral,
+                source_scores: Vec::new(),
+                recent_mentions: Vec::new(),
+                trend: SentimentTrend::Unavailable,
+                sources: vec![self.name().to_string()],
+            })
+        }
+
+        async fn get_score(&self, _code: &str) -> Result<SentimentScore> {
+            Ok(SentimentScore {
+                source: self.name().to_string(),
+                score: 0.45,
+                sample_count: 10,
+                updated_at: Utc::now(),
+            })
+        }
+
+        async fn get_mentions(&self, _code: &str, _limit: usize) -> Result<Vec<SocialMention>> {
+            Ok(Vec::new())
+        }
+
+        async fn get_history(&self, _code: &str, _days: u32) -> Result<Vec<SentimentHistoryPoint>> {
+            Ok(self.history.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn get_sentiment_without_providers_marks_trend_unavailable() {
+        let aggregator = SentimentAggregator::new(vec![]);
+
+        let data = aggregator.get_sentiment("000001").await.unwrap();
+
+        assert_eq!(data.trend, SentimentTrend::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn get_sentiment_derives_trend_from_provider_history() {
+        let provider = StaticSentimentProvider {
+            history: vec![
+                SentimentHistoryPoint {
+                    timestamp: Utc.with_ymd_and_hms(2026, 5, 10, 9, 30, 0).unwrap(),
+                    score: 0.10,
+                    sample_count: 8,
+                },
+                SentimentHistoryPoint {
+                    timestamp: Utc.with_ymd_and_hms(2026, 5, 12, 9, 30, 0).unwrap(),
+                    score: 0.36,
+                    sample_count: 10,
+                },
+            ],
+        };
+        let aggregator = SentimentAggregator::new(vec![Box::new(provider)]);
+
+        let data = aggregator.get_sentiment("000001").await.unwrap();
+
+        assert_eq!(data.trend, SentimentTrend::Rising);
     }
 }

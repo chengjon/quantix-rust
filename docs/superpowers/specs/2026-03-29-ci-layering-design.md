@@ -1,5 +1,8 @@
 # CI 分层设计（2026-03-29）
 
+> 状态源说明：本文是 CI 分层设计说明，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](../../../FUNCTION_TREE.md) 的状态注册表行为准。
+
 ## 背景
 
 当前 `.github/workflows/ci.yml` 在 `pull_request` 上会默认执行：

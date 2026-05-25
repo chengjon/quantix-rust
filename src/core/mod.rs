@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod performance_utils;
 pub mod runtime;
+pub mod signal;
 pub mod trading_calendar;
 pub mod trading_time;
 
@@ -13,3 +14,4 @@ pub use performance_utils::{
     BatchOptimizationConfig, MemoryTracker, OptimizationSuggestion, PerfTimer, analyze_performance,
 };
 pub use runtime::{BridgeRuntimeSettings, CliRuntime, ClickHouseSettings, UpstreamMySqlSettings};
+pub use signal::Signal;

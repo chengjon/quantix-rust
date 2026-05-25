@@ -5,8 +5,9 @@
 use async_trait::async_trait;
 
 use crate::analysis::indicators::macd;
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
-use crate::strategy::trait_def::{Signal, Strategy};
+use crate::strategy::trait_def::Strategy;
 
 /// 动量策略配置
 #[derive(Debug, Clone)]
@@ -211,6 +212,8 @@ mod tests {
             let _signal = strategy.on_bar(&bar).await.unwrap();
         }
 
-        // 验证策略没有 panic
+        assert_eq!(strategy.close_history.len(), 50);
+        assert_eq!(strategy.macd_history.len(), 0);
+        assert_eq!(strategy.prev_macd, None);
     }
 }

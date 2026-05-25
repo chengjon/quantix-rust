@@ -3,6 +3,9 @@
 > 本文档记录 Quantix Rust 与 QMT 实盘交易的完整集成方案。
 > 适用于 AI 助手或开发者复现实盘交易功能。
 >
+> 状态源说明：本文是 QMT live 集成操作指南，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](../FUNCTION_TREE.md) 的状态注册表行为准。
+>
 > 当前边界说明：
 > - 本文档描述的是受能力门控的 `qmt_live` 真实提交流程。
 > - 通用 `target_mode=live` 仍未实现，不应与 `qmt_live` 混写。
@@ -492,7 +495,7 @@ netsh advfirewall firewall add rule name="Quantix Bridge" dir=in action=allow pr
 - [迅投 QMT 官方文档](https://dict.thinktrader.net/nativeApi/start_now.html)
 - [xtquant PyPI](https://pypi.org/project/xtquant/)
 - [项目 README](../../README.md)
-- [开发路线图](./DEVELOPMENT_ROADMAP.md)
+- [功能全景图与状态注册表](../FUNCTION_TREE.md)
 
 ---
 

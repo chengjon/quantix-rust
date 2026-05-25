@@ -4,11 +4,11 @@ use crate::analysis::{
     IndicatorInput, IndicatorInstanceId, IndicatorPipeline, IndicatorPipelineConfig,
     IndicatorSeries,
 };
+use crate::core::signal::Signal;
 use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use crate::execution::models::SignalEnvelope;
 use crate::strategy::ConfiguredStrategyInstance;
-use crate::strategy::trait_def::Signal;
 
 pub trait ConfiguredStrategyEvaluator: Send + Sync {
     fn lookback_required(&self) -> usize;

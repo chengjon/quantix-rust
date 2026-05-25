@@ -2,6 +2,9 @@
 
 > 目标：沉淀“可执行、可追溯、可并存”的改进方案。  
 > 约束：兼容 **Cursor + WSL** 并行开发，不强制单一运行方式。
+>
+> 历史说明：本文保留 2026-03-29 审计语境，不作为功能状态注册表。
+> 当时的功能清单文档已由根目录 [`FUNCTION_TREE.md`](../FUNCTION_TREE.md) 取代；当前功能状态、已设计/待实现项、证据和边界，以 `FUNCTION_TREE.md` 的状态注册表行为准。
 
 ---
 
@@ -10,7 +13,7 @@
 本次审计聚焦三个维度：
 
 1. 构建与测试稳定性（脚本、CI、基础入口）
-2. 架构与文档一致性（README / docs/FUNCTION_MAP.md / CLI 行为）
+2. 架构与文档一致性（README / 当时的功能清单文档，现对应 `FUNCTION_TREE.md` / CLI 行为）
 3. 风险与维护成本（外部依赖、预期告警、环境耦合）
 
 ---
@@ -61,12 +64,12 @@
 > 当前项目事实已变化：仓库现已提供受能力门控的 `qmt_live` 真实提交通道；
 > 通用 `live` 语义仍未实现，但“当前对外承诺仍以 preview-only 为准”已不再是现状描述。
 
-- `docs/FUNCTION_MAP.md` 提到 `/api/v1/broker/qmt/orders/live` 与“QMT 真实下单”树节点；
+- 当时的功能清单文档（现已并入 `FUNCTION_TREE.md`）提到 `/api/v1/broker/qmt/orders/live` 与“QMT 真实下单”树节点；
 - README 侧强调 `QMT preview-only`。
 
 ### 对策
 
-- 在 `docs/FUNCTION_MAP.md` 对应位置增加注记：
+- 在当时的功能清单文档（现对应 `FUNCTION_TREE.md`）位置增加注记：
   - `orders/live` 为桥接 API 端点能力描述；
   - 当时的 quantix-rust 对外承诺仍以 `preview-only` 为准。
 - 避免用户误解“端点存在 = 产品已开放”。
@@ -150,7 +153,7 @@
    - 去重 Phase 29/29B 重复块
    - 统一阶段口径表达
 
-2. **docs/FUNCTION_MAP.md 对齐（P0）**
+2. **功能树文档对齐（P0，历史项为旧功能清单文档）**
    - 在 Bridge/QMT 树节点处加“preview-only 承诺注记”
 
 3. **验收脚本微调（P1）**
@@ -179,7 +182,7 @@
 
 - [x] README 去重：移除重复的 Phase 29 / 29B 区块
 - [x] README 口径统一：将“全部 20 个阶段已完成”调整为“基础阶段 1-20 已完成，后续阶段持续演进”
-- [x] docs/FUNCTION_MAP.md 对齐：在 Bridge/QMT 处增加“API 端点能力 ≠ 当前对外承诺”注记
+- [x] 功能树文档对齐：在 Bridge/QMT 处增加“API 端点能力 ≠ 当前对外承诺”注记（当时修改对象为旧功能清单文档，现已并入 `FUNCTION_TREE.md`）
 - [x] `scripts/verify_features.sh` 前瞻性加固：Parquet placeholder 增加“无数据/empty/no data”等关键词覆盖
 - [x] README 增补 `Cursor + WSL` 并存最小前置检查清单
 
@@ -190,7 +193,7 @@
 
 ### 7.3 回归核对要点
 
-- README 与 docs/FUNCTION_MAP.md 在 QMT 边界表达保持一致
+- README 与功能树文档在 QMT 边界表达保持一致（历史对象为旧功能清单文档，当前为 `FUNCTION_TREE.md`）
 - 当前一致口径应为：`qmt_live` 是受能力门控的真实提交通道，通用 `live` 仍未实现
 - 验收脚本 WARN 项仍遵循“预期告警不计失败”
 - Cursor + WSL 并存策略保持“可并存、不互斥、可纯 CLI 执行”
@@ -199,6 +202,6 @@
 
 本文件是“审计结论 + 对策清单 + 实施跟踪”，用于：
 
-- 作为后续修订 README / docs/FUNCTION_MAP.md / CI 的输入
+- 作为后续修订 README / 功能树文档 / CI 的输入（历史对象为旧功能清单文档，当前为 `FUNCTION_TREE.md`）
 - 作为团队在 Cursor + WSL 并存开发下的约束参考
 - 作为下一轮迭代任务拆解与验收依据

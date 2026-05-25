@@ -4101,6 +4101,7 @@ dependencies = [
  "rustdx-complete",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "statrs",
  "tempfile",

@@ -4,8 +4,9 @@
 use async_trait::async_trait;
 
 use crate::analysis::indicators::ma;
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
-use crate::strategy::trait_def::{Signal, Strategy};
+use crate::strategy::trait_def::Strategy;
 
 /// MA 金叉死叉策略
 pub struct MACrossStrategy {

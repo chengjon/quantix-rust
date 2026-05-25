@@ -5,8 +5,9 @@
 use async_trait::async_trait;
 
 use crate::analysis::indicators::atr;
+use crate::core::signal::Signal;
 use crate::data::models::Kline;
-use crate::strategy::trait_def::{Signal, Strategy};
+use crate::strategy::trait_def::Strategy;
 
 /// 网格交易配置
 #[derive(Debug, Clone)]
