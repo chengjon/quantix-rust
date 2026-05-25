@@ -2,10 +2,11 @@ use super::{
     account::*, ai::*, algo::*, analyze_handler::*, anomaly::*, app_shell::*, backtest_handler::*,
     data_handler::*, execution_handler::*, factor::*, fundamental::*, import::*, market_handler::*,
     market_output::*, monitor_handler::*, monitor_output::*, news::*, notify::*,
-    performance_handler::*, risk::*, screener_handler::*, sentiment::*, shared_support::*,
-    stop_handler::*, stop_output::*, strategy_handler::*, trade_handler::*, trade_output::*,
-    watchlist_handler::*,
+    performance_handler::*, risk::*, safety::*, screener_handler::*, sentiment::*,
+    shared_support::*, stop_handler::*, stop_output::*, strategy_handler::*, trade_handler::*,
+    trade_output::*, watchlist_handler::*,
 };
+use crate::bridge::client::BridgeHttpClient;
 use crate::cli::command_types::*;
 use crate::core::config::{
     CLICKHOUSE_DB_ENV, CLICKHOUSE_PASSWORD_ENV, CLICKHOUSE_URL_ENV, CLICKHOUSE_USER_ENV,
@@ -181,6 +182,7 @@ mod monitor;
 mod monitor_helpers;
 mod monitor_runtime;
 mod monitor_service;
+mod safety;
 mod screener;
 mod stop;
 mod strategy_bridge;

@@ -84,6 +84,20 @@ pub fn build_daemon_live_mode_unsupported_diagnostics() -> Value {
     })
 }
 
+pub fn build_kill_switch_blocked_diagnostics(target_mode: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "code": "kill_switch_blocked",
+        "category": "gate",
+        "stage": "execute",
+        "semantics": null,
+        "order_terminality": "unknown",
+        "summary": format!("{target_mode} execution 被 kill switch 阻止"),
+        "operator_action": "disable_kill_switch_or_use_paper",
+        "hint_command": "quantix safety kill-switch status"
+    })
+}
+
 pub fn build_bridge_qmt_mode_not_live_diagnostics(observed_mode: &str) -> Value {
     json!({
         "schema_version": 1,
@@ -238,6 +252,24 @@ mod tests {
         assert_eq!(
             diagnostics["hint_command"].as_str(),
             Some("quantix execution bridge status")
+        );
+    }
+
+    #[test]
+    fn test_build_kill_switch_blocked_diagnostics_keeps_kill_switch_hint() {
+        let diagnostics = build_kill_switch_blocked_diagnostics("qmt_live");
+
+        assert_eq!(diagnostics["code"].as_str(), Some("kill_switch_blocked"));
+        assert_eq!(diagnostics["category"].as_str(), Some("gate"));
+        assert!(
+            diagnostics["summary"]
+                .as_str()
+                .unwrap()
+                .contains("qmt_live")
+        );
+        assert_eq!(
+            diagnostics["hint_command"].as_str(),
+            Some("quantix safety kill-switch status")
         );
     }
 

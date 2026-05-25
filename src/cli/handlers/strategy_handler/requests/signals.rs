@@ -1,4 +1,8 @@
 use super::*;
+use crate::safety::{
+    JsonKillSwitchStore, format_execution_kill_switch_block_message,
+    load_blocking_kill_switch_state,
+};
 
 pub(crate) async fn execute_strategy_signal_list(
     approval_status: Option<&str>,
@@ -84,23 +88,59 @@ pub(crate) async fn execute_strategy_signal_approve_with_store(
     target_mode: &str,
     target_account: &str,
 ) -> Result<ExecutionRequestRecord> {
-    match target_mode {
-        "paper" | "mock_live" | "qmt_live" => {}
-        "live" => {
-            return Err(QuantixError::Unsupported(format!(
-                "strategy signal approve 暂不支持 target_mode=live；如需真实 QMT 提交，请改用 target_mode=qmt_live，然后走 {QMT_LIVE_BRIDGE_COMMAND} 路径，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}"
-            )));
-        }
-        other => {
-            return Err(QuantixError::Unsupported(format!(
-                "strategy signal approve 不支持 target_mode={other}"
-            )));
-        }
-    }
+    let kill_switch_store = JsonKillSwitchStore::with_default_path()?;
+    execute_strategy_signal_approve_with_store_and_kill_switch(
+        store,
+        &kill_switch_store,
+        signal_id,
+        target_mode,
+        target_account,
+    )
+    .await
+}
+
+pub(crate) async fn execute_strategy_signal_approve_with_store_and_kill_switch(
+    store: &StrategyRuntimeStore,
+    kill_switch_store: &JsonKillSwitchStore,
+    signal_id: &str,
+    target_mode: &str,
+    target_account: &str,
+) -> Result<ExecutionRequestRecord> {
+    validate_strategy_signal_approval_target_mode(target_mode)?;
+    guard_strategy_signal_approval_kill_switch(kill_switch_store, target_mode)?;
 
     store
         .approve_signal_and_create_request(signal_id, target_mode, target_account, Some("cli"))
         .await
+}
+
+fn validate_strategy_signal_approval_target_mode(target_mode: &str) -> Result<()> {
+    match target_mode {
+        "paper" | "mock_live" | "qmt_live" => Ok(()),
+        "live" => Err(QuantixError::Unsupported(format!(
+            "strategy signal approve 暂不支持 target_mode=live；如需真实 QMT 提交，请改用 target_mode=qmt_live，然后走 {QMT_LIVE_BRIDGE_COMMAND} 路径，并确保 {QMT_LIVE_BRIDGE_MODE_REQUIREMENT}"
+        ))),
+        other => Err(QuantixError::Unsupported(format!(
+            "strategy signal approve 不支持 target_mode={other}"
+        ))),
+    }
+}
+
+fn guard_strategy_signal_approval_kill_switch(
+    kill_switch_store: &JsonKillSwitchStore,
+    target_mode: &str,
+) -> Result<()> {
+    if !matches!(target_mode, "mock_live" | "qmt_live") {
+        return Ok(());
+    }
+
+    if let Some(state) = load_blocking_kill_switch_state(kill_switch_store, target_mode)? {
+        return Err(QuantixError::Other(
+            format_execution_kill_switch_block_message(target_mode, &state),
+        ));
+    }
+
+    Ok(())
 }
 
 pub(crate) async fn execute_strategy_signal_reject(

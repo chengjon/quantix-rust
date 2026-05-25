@@ -13,6 +13,7 @@ mod market;
 mod monitor;
 mod performance;
 mod risk;
+mod safety;
 mod screener;
 mod stop;
 mod strategy;
