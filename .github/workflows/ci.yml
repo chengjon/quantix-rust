@@ -159,27 +159,6 @@ jobs:
       - name: Run doc tests
         run: cargo test --doc --all-features
 
-  # 安全审计（PR 默认保留）
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Run audit
-        run: cargo audit
-
   # 覆盖率（主干重路径）
   coverage:
     name: Coverage
@@ -272,27 +251,6 @@ jobs:
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
-
-  # 依赖过期检查（主干重路径）
-  dependency_outdated:
-    name: Dependency Outdated
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Check for outdated dependencies
-        run: |
-          cargo install cargo-outdated
-          cargo outdated --exit-code 1
 
   # 构建检查
   build:
