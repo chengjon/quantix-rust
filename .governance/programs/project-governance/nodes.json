@@ -1,0 +1,582 @@
+[
+  {
+    "id": "Q1.1",
+    "title": "Adopt function-tree governance entrypoint",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-bootstrap",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "Initialized project-governance program, generated root FUNCTION_TREE.md, and preserved previous document content",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T01:38:46.471Z"
+      }
+    ],
+    "allowed_paths": [
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code during bootstrap"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T01:38:37.981Z",
+    "updated_at": "2026-05-25T03:11:03.147Z",
+    "acceptance": {
+      "commit_gate": [
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE.md is refreshed with generated markers and preserved project notes",
+        "bootstrap node is closed and active gates are synchronized"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T03:10:24.040Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T03:10:31.260Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T03:10:42.822Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T03:11:03.146Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Initialized function-tree in quantix-rust, installed guard, generated FUNCTION_TREE.md, preserved previous document content, and validated governance state",
+      "compatibility": "Project-neutral function-tree skill remains installed from chengjon/myskills; Quantix-specific rules stay in this consuming repo",
+      "gates": [
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T03:10:50.420Z"
+    }
+  },
+  {
+    "id": "Q1.2",
+    "title": "Connect function-tree guard to project-local agent hooks",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-hooks",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": ".governance/guards/ft-scope-check.sh",
+        "note": "Bootstrap node Q1.1 is closed; project-local Claude settings exist without function-tree PostToolUse hook; scope guard wrapper is installed",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T05:21:56.613Z"
+      }
+    ],
+    "allowed_paths": [
+      ".claude/settings.local.json",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code while wiring function-tree hooks",
+      "Do not make Quantix-specific behavior part of the public function-tree skill"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T05:21:48.832Z",
+    "updated_at": "2026-05-25T05:24:03.299Z",
+    "acceptance": {
+      "commit_gate": [
+        "project .claude/settings.local.json remains valid JSON",
+        "function-tree validate passes",
+        "function-tree scope guard can be run from the repo"
+      ],
+      "closeout_gate": [
+        "PostToolUse hook is present in project-local settings",
+        "active gates are synchronized after closeout"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T05:22:18.188Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T05:22:24.458Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T05:22:43.084Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T05:24:03.299Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Connected the project-local Claude PostToolUse hook to the function-tree scope guard in .claude/settings.local.json",
+      "compatibility": "Hook command discovers the git top-level and only runs when .governance/guards/ft-scope-check.sh exists",
+      "gates": [
+        "project .claude/settings.local.json parsed as valid JSON",
+        "function-tree hook presence verified",
+        "function-tree validate passed before closeout"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T05:23:50.627Z"
+    }
+  },
+  {
+    "id": "Q1.3",
+    "title": "Add Quantix project-local function-tree profile",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-profile",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "AGENTS.md",
+        "note": "Quantix project rules require GitNexus for code structure and impact, Graphiti reads/writes with ingest verification, context-mode for broad scans, and FUNCTION_TREE.md as the sole feature status registry",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T08:14:52.878Z"
+      }
+    ],
+    "allowed_paths": [
+      ".governance/profile.md",
+      ".governance/**",
+      "FUNCTION_TREE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code while adding the project-local function-tree profile",
+      "Do not add Quantix-specific behavior to the public function-tree skill"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T08:14:39.628Z",
+    "updated_at": "2026-05-25T08:17:05.776Z",
+    "acceptance": {
+      "commit_gate": [
+        ".governance/profile.md exists and captures Quantix-specific gates",
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "closeout_gate": [
+        "Q1.3 is closed and active gates are synchronized"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T08:16:13.031Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T08:16:24.623Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T08:16:33.630Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T08:17:05.775Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Added .governance/profile.md as the Quantix project-local function-tree profile for GitNexus, Graphiti, context-mode, closure, and hook expectations",
+      "compatibility": "The public function-tree skill remains project-neutral; Quantix-specific rules live in the consuming repository profile",
+      "gates": [
+        ".governance/profile.md captures Quantix-specific gates",
+        "No application source code was modified for this governance-only profile"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T08:16:49.849Z"
+    }
+  },
+  {
+    "id": "Q1.4",
+    "title": "Add function-tree usage entrypoint for future agents",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-usage",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": ".governance/profile.md",
+        "note": "Project profile exists, but .governance/README.md usage entrypoint is missing",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T09:40:21.440Z"
+      }
+    ],
+    "allowed_paths": [
+      ".governance/README.md",
+      ".governance/**",
+      "FUNCTION_TREE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code while adding the function-tree usage entrypoint",
+      "Do not duplicate the full public skill documentation in this project"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T09:40:10.962Z",
+    "updated_at": "2026-05-25T09:42:46.594Z",
+    "acceptance": {
+      "commit_gate": [
+        ".governance/README.md documents the local function-tree workflow",
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "closeout_gate": [
+        "Q1.4 is closed and active gates are synchronized"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:42:02.177Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:42:11.214Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:42:19.922Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:42:46.594Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Added .governance/README.md as the local function-tree usage entrypoint for future agents",
+      "compatibility": "The README references the public function-tree helper and project-local Quantix profile without duplicating full skill documentation",
+      "gates": [
+        ".governance/README.md documents status, gate, new-node, observe, authorize, transition, closeout, and doc usage",
+        "No application source code was modified for this governance-only usage guide"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T09:42:37.490Z"
+    }
+  },
+  {
+    "id": "Q1.5",
+    "title": "Add project-local /ft slash command entrypoints",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-slash-commands",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": ".governance/README.md",
+        "note": "Function-tree README exists but project-local slash command files under .claude/commands/ft and .codex/commands/ft are missing",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T09:55:25.954Z"
+      }
+    ],
+    "allowed_paths": [
+      ".claude/commands/ft/**",
+      ".codex/commands/ft/**",
+      ".governance/README.md",
+      ".governance/**",
+      "FUNCTION_TREE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code while adding project-local slash command entrypoints",
+      "Do not duplicate the full public function-tree implementation in command files"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T09:55:12.283Z",
+    "updated_at": "2026-05-25T13:34:43.905Z",
+    "acceptance": {
+      "commit_gate": [
+        "Project-local ft command files exist for common function-tree workflows",
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md, .governance, .claude/commands/ft, and .codex/commands/ft"
+      ],
+      "closeout_gate": [
+        "Q1.5 is closed and active gates are synchronized"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:55:52.045Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T09:56:01.609Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T13:34:24.506Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T13:34:43.905Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Added project-local /ft slash command entrypoints for Claude Code and Codex under .claude/commands/ft and .codex/commands/ft, and updated .governance/README.md to reference them",
+      "compatibility": "Commands are lightweight project-local prompts that route to the public myskills:function-tree skill and local Quantix profile",
+      "gates": [
+        "Project-local ft command files exist for common function-tree workflows",
+        "No application source code was modified for slash command entrypoints"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T13:34:35.971Z"
+    }
+  },
+  {
+    "id": "Q1.6",
+    "title": "Regenerate FUNCTION_TREE with functional tree template",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-functional-template",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "Current generated section contains Project Snapshot / Skill Activation / Governance Programs / Operating Loop / State Files and preserved previous FUNCTION_TREE body; new generator should promote the functional tree body",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T16:52:33.728Z"
+      }
+    ],
+    "allowed_paths": [
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code while regenerating FUNCTION_TREE.md",
+      "Do not add Quantix-specific behavior to the public function-tree skill"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T16:52:23.003Z",
+    "updated_at": "2026-05-25T16:54:12.187Z",
+    "acceptance": {
+      "commit_gate": [
+        "FUNCTION_TREE.md no longer starts with Project Snapshot style sections",
+        "function-tree validate passes",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "closeout_gate": [
+        "Q1.6 is closed and active gates are synchronized"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T16:53:01.997Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T16:53:10.101Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T16:53:48.382Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T16:54:12.187Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Regenerated root FUNCTION_TREE.md with the functional tree template so it starts with feature-tree sections instead of project snapshot governance sections",
+      "compatibility": "Existing Quantix FUNCTION_TREE body was promoted from preserved project-notes content into the generated functional tree body",
+      "gates": [
+        "FUNCTION_TREE.md no longer contains Project Snapshot / Skill Activation / Governance Programs / Operating Loop / State Files sections",
+        "FUNCTION_TREE.md starts with 注册规则, 功能全景图, 状态注册表, 模块/命令证据展开, and 模块依赖关系",
+        "git diff --check passes for FUNCTION_TREE.md and .governance"
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T16:54:01.949Z"
+    }
+  },
+  {
+    "id": "Q1.7",
+    "title": "Clarify FUNCTION_TREE direction guidance",
+    "status": "closed",
+    "function_tree_ref": "project/root/function-tree-direction-guidance",
+    "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "Registration rules did not explicitly state current/future feature-tree purpose, existing plus planned/unfinished features, or developer direction-guide role.",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T17:20:48.627Z"
+      },
+      {
+        "kind": "verification",
+        "path": "FUNCTION_TREE.md",
+        "note": "Registration rules now state current/future feature tree, existing plus planned/unfinished features, developer direction guide, and avoid drift.",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "recorded_at": "2026-05-25T17:52:08.842Z"
+      }
+    ],
+    "allowed_paths": [
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change application source code or quantix feature statuses."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-05-25T17:20:48.568Z",
+    "updated_at": "2026-05-25T17:53:18.090Z",
+    "acceptance": {
+      "commit_gate": [
+        "FUNCTION_TREE.md explicitly states existing and planned/unfinished features plus developer direction guidance."
+      ],
+      "closeout_gate": [
+        "Validate FUNCTION_TREE.md contains the direction guidance wording and active gates close cleanly."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T17:21:00.957Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T17:21:00.999Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "FUNCTION_TREE.md direction-purpose wording landed; no source or feature-status change.",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T17:53:08.894Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "Closeout reviewed; Q1.7 completed.",
+        "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+        "transitioned_at": "2026-05-25T17:53:18.090Z"
+      }
+    ],
+    "closeout": {
+      "summary": "FUNCTION_TREE.md registration rules now define the file as the current/future feature tree, covering existing features and planned/unfinished features as a developer direction guide.",
+      "compatibility": "No source code, feature status, module evidence, or CLI evidence changed.",
+      "gates": [
+        "Content check found existing features, planned/unfinished features, direction guide wording, and avoid-drift wording.",
+        "scope-check --files passed for FUNCTION_TREE.md and Q1.7 governance files; whole-worktree scope-check remains blocked by unrelated pre-existing dirty files.",
+        "ft-governance validate passed."
+      ],
+      "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
+      "prepared_at": "2026-05-25T17:53:09.007Z"
+    }
+  }
+]

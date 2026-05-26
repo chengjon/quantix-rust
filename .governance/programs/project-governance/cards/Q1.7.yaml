@@ -1,0 +1,23 @@
+task:
+  id: "Q1.7"
+  title: "Clarify FUNCTION_TREE direction guidance"
+
+scope:
+  allowed_paths:
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not change application source code or quantix feature statuses."
+
+acceptance:
+  commit_gate:
+    - "FUNCTION_TREE.md explicitly states existing and planned/unfinished features plus developer direction guidance."
+  closeout_gate:
+    - "Validate FUNCTION_TREE.md contains the direction guidance wording and active gates close cleanly."
+
+evidence:
+  current_head: "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b"
+  notes: []

@@ -553,6 +553,19 @@ fn evaluate_rule_detects_fixed_profit_trigger() {
 }
 
 #[test]
+fn evaluate_rule_allows_price_between_fixed_loss_and_profit_thresholds() {
+    let service = StopService::new(FakeStopRuleStore::default());
+    let mut rule = sample_rule("000001");
+    rule.stop_loss_price = Some(14.5);
+    rule.take_profit_price = Some(16.5);
+
+    let result = service.evaluate_rule(&rule, Some(15.5), sample_time());
+
+    assert_eq!(result.updated_rule, rule);
+    assert_eq!(result.triggered_stop, None);
+}
+
+#[test]
 fn evaluate_rule_updates_trailing_highest_price() {
     let service = StopService::new(FakeStopRuleStore::default());
     let mut rule = sample_rule("000001");
@@ -667,6 +680,28 @@ fn status_rows_fall_back_to_reference_price_without_position() {
     assert_eq!(rows[0].anchor_price, Some(15.2));
     assert_eq!(rows[0].loss_threshold, Some(14.44));
     assert_eq!(rows[0].eval_state, StopEvalState::Armed);
+}
+
+#[test]
+fn status_rows_report_loss_trigger_diagnostics_from_position_anchor() {
+    let service = StopService::new(FakeStopRuleStore::default());
+    let mut rule = sample_rule("000001");
+    rule.stop_loss_pct = Some(5.0);
+
+    let rows = service.status_rows(
+        &[rule],
+        &[quote_row("000001", 14.9)],
+        &HashMap::from([("000001".to_string(), 16.0)]),
+        sample_time(),
+    );
+
+    assert_eq!(rows[0].last_price, Some(14.9));
+    assert_eq!(rows[0].anchor_source, Some(StopAnchorSource::PositionCost));
+    assert_eq!(rows[0].anchor_price, Some(16.0));
+    assert_eq!(rows[0].loss_threshold, Some(15.2));
+    assert_eq!(rows[0].profit_threshold, None);
+    assert_eq!(rows[0].last_triggered_at, Some(sample_time()));
+    assert_eq!(rows[0].eval_state, StopEvalState::Triggered);
 }
 
 #[test]

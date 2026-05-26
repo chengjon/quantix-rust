@@ -4,6 +4,7 @@ use quantix_cli::core::Result;
 use quantix_cli::data::models::{AdjustType, Kline};
 use quantix_cli::risk::{
     ProjectedBuyImpact, RiskAccountSnapshot, RiskService, RiskState, RiskStore,
+    VOLATILITY_REQUIRED_BARS,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -184,6 +185,40 @@ async fn volatility_limit_rejects_buy_when_available_bars_are_insufficient() {
 
     assert!(err.to_string().contains("volatility-limit"));
     assert!(err.to_string().contains("检查失败"));
+
+    let state = store.snapshot().unwrap();
+    assert!(!state.buy_lock.locked);
+    assert_eq!(state.events.len(), before_event_count);
+}
+
+#[tokio::test]
+async fn volatility_limit_rejects_buy_when_loader_returns_no_bars() {
+    let store = FakeRiskStore::default();
+    let service =
+        RiskService::with_bar_loader(store.clone(), FakeRiskBarLoader { bars: Vec::new() });
+
+    service
+        .set_rule("volatility-limit", "4%", fixed_ts())
+        .await
+        .unwrap();
+    let before = store.snapshot().unwrap();
+    let before_event_count = before.events.len();
+
+    let err = service
+        .check_buy(
+            &snapshot(dec!(1000000), &[("000001", dec!(100000))]),
+            &ProjectedBuyImpact::new("000001", dec!(150000), dec!(999500)),
+            fixed_ts() + Duration::minutes(1),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(err.to_string().contains("volatility-limit"));
+    assert!(err.to_string().contains("可用日线不足"));
+    assert!(
+        err.to_string()
+            .contains(&format!("至少需要 {} 条", VOLATILITY_REQUIRED_BARS))
+    );
 
     let state = store.snapshot().unwrap();
     assert!(!state.buy_lock.locked);
