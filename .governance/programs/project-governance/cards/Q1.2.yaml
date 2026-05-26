@@ -1,0 +1,28 @@
+task:
+  id: "Q1.2"
+  title: "Connect function-tree guard to project-local agent hooks"
+
+scope:
+  allowed_paths:
+    - ".claude/settings.local.json"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not change application source code while wiring function-tree hooks"
+  - "Do not make Quantix-specific behavior part of the public function-tree skill"
+
+acceptance:
+  commit_gate:
+    - "project .claude/settings.local.json remains valid JSON"
+    - "function-tree validate passes"
+    - "function-tree scope guard can be run from the repo"
+  closeout_gate:
+    - "PostToolUse hook is present in project-local settings"
+    - "active gates are synchronized after closeout"
+
+evidence:
+  current_head: "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b"
+  notes: []

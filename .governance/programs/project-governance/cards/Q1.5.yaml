@@ -1,0 +1,29 @@
+task:
+  id: "Q1.5"
+  title: "Add project-local /ft slash command entrypoints"
+
+scope:
+  allowed_paths:
+    - ".claude/commands/ft/**"
+    - ".codex/commands/ft/**"
+    - ".governance/README.md"
+    - ".governance/**"
+    - "FUNCTION_TREE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not change application source code while adding project-local slash command entrypoints"
+  - "Do not duplicate the full public function-tree implementation in command files"
+
+acceptance:
+  commit_gate:
+    - "Project-local ft command files exist for common function-tree workflows"
+    - "function-tree validate passes"
+    - "git diff --check passes for FUNCTION_TREE.md, .governance, .claude/commands/ft, and .codex/commands/ft"
+  closeout_gate:
+    - "Q1.5 is closed and active gates are synchronized"
+
+evidence:
+  current_head: "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b"
+  notes: []

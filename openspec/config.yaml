@@ -1,0 +1,34 @@
+schema: spec-driven
+context: |
+  Project: quantix-rust.
+
+  Architecture remediation is governed by the reviewed three-document audit set:
+  - docs/reports/ARCHITECTURE_AUDIT_2026-05-23.md
+  - docs/reports/ARCHITECTURE_AUDIT_REVIEW_2026-05-23.md
+  - docs/superpowers/specs/2026-05-23-architecture-audit-design.md
+
+  Resolution rules:
+  - When the primary audit and review conflict, the review's architecture recommendations take precedence.
+  - Extract only the shared Signal value type to core; do not move the full Strategy async interface.
+  - GitHub issues #64-#72 are the executable architecture remediation queue.
+  - Issue #63 is the completed evidence-correction baseline.
+  - FUNCTION_TREE.md remains the feature-status registry.
+
+  Project gates:
+  - Run Graphiti reads before design/review/debug work and write compact conclusion memories after decisions converge.
+  - Run GitNexus impact before editing functions, methods, classes, or refactor targets.
+  - Add characterization tests before changing architecture seams.
+  - Use focused validation for each slice, then run GitNexus detect_changes before closure.
+rules:
+  proposal:
+    - Reference the reviewed audit set and GitHub issue numbers when defining architecture remediation scope.
+    - Do not create implementation-only work without a corresponding behavior risk, dependency direction problem, or testability gap.
+  specs:
+    - Requirements MUST be testable and written with SHALL or MUST.
+    - Spec changes for architecture seams MUST preserve domain behavior unless explicitly marked as a behavior change.
+  design:
+    - Record dependency-direction decisions and non-goals explicitly.
+    - Prefer deep modules with meaningful ownership over pass-through file splits.
+  tasks:
+    - Keep tasks small enough for one development session.
+    - Mark tasks complete only after code, tests, GitNexus scope review, and issue updates are done.

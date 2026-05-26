@@ -1,0 +1,25 @@
+task:
+  id: "Q1.1"
+  title: "Adopt function-tree governance entrypoint"
+
+scope:
+  allowed_paths:
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not change application source code during bootstrap"
+
+acceptance:
+  commit_gate:
+    - "function-tree validate passes"
+    - "git diff --check passes for FUNCTION_TREE.md and .governance"
+  closeout_gate:
+    - "FUNCTION_TREE.md is refreshed with generated markers and preserved project notes"
+    - "bootstrap node is closed and active gates are synchronized"
+
+evidence:
+  current_head: "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b"
+  notes: []
