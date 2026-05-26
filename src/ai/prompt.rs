@@ -138,6 +138,9 @@ mod tests {
     #[test]
     fn test_prompt_registry() {
         let registry = PromptRegistry::new();
-        assert!(registry.get("stock_analysis").is_some());
+        let templates = registry.list();
+        assert!(templates.contains(&"stock_analysis"));
+        assert!(templates.contains(&"trading_decision"));
+        assert!(templates.contains(&"market_overview"));
     }
 }
