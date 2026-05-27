@@ -988,6 +988,22 @@ fn main_workspace_docs_do_not_reintroduce_parallel_roadmap_or_function_map_langu
 }
 
 #[test]
+fn deployment_docs_do_not_publish_placeholder_support_email() {
+    for relative_path in [
+        "docs/guides/PRODUCTION_DEPLOYMENT.md",
+        "docs/operations/DEPLOYMENT.md",
+    ] {
+        let content = fs::read_to_string(repo_root().join(relative_path))
+            .unwrap_or_else(|_| panic!("expected {relative_path} to be readable"));
+
+        assert!(
+            !content.contains("support@example.com"),
+            "expected {relative_path} not to publish placeholder support email"
+        );
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

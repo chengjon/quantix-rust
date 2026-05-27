@@ -352,7 +352,7 @@ docker-compose up -d --scale quantix=3
 
 - **文档**: `docs/operations/`
 - **问题**: https://github.com/chengjon/quantix-rust/issues
-- **邮件**: support@example.com
+- **邮件**: 替换为实际支持邮箱
 
 ---
 
