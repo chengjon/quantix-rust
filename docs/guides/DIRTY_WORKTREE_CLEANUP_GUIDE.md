@@ -972,6 +972,10 @@ git diff --binary
 git branch --list
 git worktree list --porcelain
 
+# Registered worktree status audit
+git worktree list --porcelain
+git -C <worktree-path> status --porcelain=v1
+
 # Recovery
 mkdir -p var/recovery/dirty-worktree-YYYY-MM-DD
 git diff --binary > var/recovery/dirty-worktree-YYYY-MM-DD/tracked.diff
@@ -1001,6 +1005,18 @@ git reset --hard origin/master
 # Residual check
 git diff --stat origin/master
 git status --porcelain=v1
+
+# Local-only runtime logs
+printf "logs/\n" >> .git/info/exclude
+git -C <worktree-path> status --ignored --porcelain=v1 -- logs/
+
+# Squash-merged PR branch cleanup check
+gh pr view <number> --json state,mergedAt,headRefName
+git rev-list --left-right --count master...<topic-branch>
+git merge-base --is-ancestor <topic-branch> master
+
+# Remote-tracking cleanup after deleting merged branches
+git fetch --prune origin
 ```
 
 ## Operating Rule
