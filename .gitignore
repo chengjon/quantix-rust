@@ -6,3 +6,4 @@
 .omc/state/
 .worktrees/
 .claude/edit_log.jsonl
+.mcp.json
