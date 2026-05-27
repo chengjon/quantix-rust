@@ -155,7 +155,10 @@
 - tracked diff。
 - untracked 文件列表、大小和哈希。
 - worktree 列表。
+- 每个 registered worktree 的 `git status --porcelain=v1`。
 - stash 列表。
+- open PR 列表和对应 head 分支。
+- 与 cleanup、dirty、recovery、rescue 相关的本地/远端 ref。
 
 命令模板：
 
@@ -173,6 +176,8 @@ git ls-remote origin refs/heads/master > remote-master.txt
 
 Inventory 只负责收集事实；分类结论以 `1.1 Classification` 的标准分类表为准，避免维护两套分类模型。
 
+不要只看根工作树。`git status` 在 root 为 clean 只说明当前 checkout 干净；同一个仓库可能还有 registered worktree 带着未提交代码、日志或恢复分支。最终 closure 之前必须把每个 registered worktree 都列入清单。
+
 ### 1.1 Classification
 
 清理前必须把脏文件标准化归类。不要只看路径名，要结合内容、来源、是否可重建、是否有审计价值来判断。
@@ -184,6 +189,7 @@ Inventory 只负责收集事实；分类结论以 `1.1 Classification` 的标准
 | 临时草稿 | review draft、brainstorm、旧计划、未定稿 spec | 是否已被正式记录替代？ | 默认保留在 recovery，必要时单独转正。 | 不直接合并。 |
 | 运行产物 | logs、coverage、test timing、raw evidence、generated reports | 是否可重建或已归档？ | 归档后路径级删除。 | 通常不合并。 |
 | 本地配置 | `.env`, `.mcp.json`, IDE settings, local credentials | 是否只对当前机器有效？ | 默认 keep local 或加入 ignore。 | 通常不合并。 |
+| 本地运行日志 | `logs/notifications.log`、本地 probe/test log | 是否只是当前机器运行噪声？ | 优先 keep local；用本地 exclude 隐藏。 | 不合并。 |
 | 垃圾文件 | 临时缓存、空目录、重复副本、失败生成物 | 是否有恢复价值？ | 快照覆盖后精确删除。 | 不合并。 |
 
 判定顺序：
@@ -214,6 +220,9 @@ Branch/worktree | HEAD | Dirty count | Stash count | Owner | Disposition
 3. 其他脏分支标记为 `defer`、`separate cleanup` 或 `owner review`。
 4. 不用全局 `git stash --include-untracked` 试图一次性收纳所有分支状态。
 5. 合并或删除 worktree 前，必须确认对应分支已经 merged、discarded 或 archived。
+6. 只有 local log 噪声的 worktree，可用本地 `.git/info/exclude` 收敛；不要为单机日志开仓库 PR。
+7. 有 tracked diff 或有价值 untracked 计划/文档的 worktree，不要删除或 ignore；优先提交到其当前本地分支，或单独开 PR。
+8. `rescue/*` 分支只要领先主干，就按恢复材料处理；不要为了“分支列表干净”删除。
 
 ## 2. Recovery Snapshot
 
@@ -513,6 +522,8 @@ docs/reports/evidence/
 3. 只对明确路径组申请删除批准。
 4. 删除时用精确路径，不用 `git clean -fd`。
 5. 如果产物代表正式证据，转成可审查报告或 retention policy 后再提交。
+6. 本地运行日志优先加入本地 `.git/info/exclude`，而不是仓库 `.gitignore`；只有跨团队都会产生且确定不应提交的产物，才考虑版本化 ignore。
+7. recovery snapshot 目录优先保留；只有所有切片、PR 和 residual disposition 都关闭后，才决定 ignore、外部归档或路径级删除。
 
 精确删除示例：
 
@@ -604,6 +615,7 @@ root realignment 后通常还会剩下一批未跟踪项。不要急着删。
 | Path | Evidence | Recommendation |
 | --- | --- | --- |
 | `.mcp.json` | local MCP host config | keep local or delete after confirming obsolete |
+| `logs/notifications.log` | local runtime notification log | keep local via `.git/info/exclude` |
 | `docs/...draft.md` | superseded by tracked spec/archive | preserve via recovery, delete after approval |
 | `var/recovery/...` | recovery snapshot | keep until all disposition decisions are complete |
 | `docs/...historical.md` | may have documentation value | defer to separate docs PR |
@@ -615,6 +627,9 @@ root realignment 后通常还会剩下一批未跟踪项。不要急着删。
 | Commit | 有明确仓库价值，引用已验证，可作为窄 PR。 |
 | Fix then commit | 有价值但当前内容有错误、过期引用或目标不明。 |
 | Keep local | 本地配置或工作资料，不进入仓库。 |
+| Versioned ignore | 团队共享的 local-only 路径，加入 `.gitignore` 并单独 PR。 |
+| Local exclude | 单机运行噪声，加入 `.git/info/exclude`，不提交。 |
+| Preserve on branch | worktree 内有实质 WIP，提交到当前本地分支保存，不合入主干。 |
 | Preserve then delete | 已被恢复包覆盖，可按路径级批准删除。 |
 | Defer | 价值不明，需要 owner 决策或单独任务。 |
 
@@ -625,6 +640,7 @@ root realignment 后通常还会剩下一批未跟踪项。不要急着删。
 - 主干已经包含所有选定切片。
 - recovery snapshot 已验证。
 - residual disposition 已审阅。
+- 所有 registered worktree 的 dirty status 已复核。
 - 每个删除路径都有明确批准。
 - 没有正在运行的工具依赖待删除路径。
 
@@ -633,6 +649,7 @@ root realignment 后通常还会剩下一批未跟踪项。不要急着删。
 - 已合并的本地临时分支。
 - 已合并的远端 cleanup 分支。
 - 已合并且不再需要的 clean review worktree。
+- 已删除远端分支留下的 stale remote-tracking refs。
 - 已明确无用的 untracked local config。
 - 已被恢复包覆盖并批准删除的历史草稿。
 - 已迁移到外部存储或不再需要的 recovery 包。
@@ -641,11 +658,22 @@ clean review worktree 的清理模板：
 
 ```bash
 git worktree list --porcelain
+git -C .worktrees/dirty-cleanup-review-base status --porcelain=v1
+git rev-list --count master..cleanup/dirty-worktree-review-base-YYYY-MM-DD
+git merge-base --is-ancestor cleanup/dirty-worktree-review-base-YYYY-MM-DD master
 git worktree remove .worktrees/dirty-cleanup-review-base
 git branch -d cleanup/dirty-worktree-review-base-YYYY-MM-DD
 ```
 
 远端 cleanup 分支只有在 PR 已合并、没有后续审计需要时再删除。
+
+如果 PR 使用 squash merge，本地 topic branch 往往不会出现在 `git branch --merged` 里。此时不要仅凭 `git branch --merged` 判断；应以 GitHub PR 状态、`mergedAt`、ahead/behind、`merge-base --is-ancestor` 和文件级验证共同确认，再删除本地或远端分支。
+
+远端分支删除后执行一次 prune，避免 stale remote-tracking refs 继续污染后续 inventory：
+
+```bash
+git fetch --prune origin
+```
 
 谨慎处理：
 
@@ -698,7 +726,11 @@ git branch -d cleanup/dirty-worktree-review-base-YYYY-MM-DD
 [ ] 没有把 generated/runtime artifacts 误提交。
 [ ] root realignment 已单独批准。
 [ ] root HEAD 与 origin/main 或 origin/master 对齐。
+[ ] 每个 registered worktree 的 status 都是 clean，或有单独 handoff。
 [ ] 剩余 untracked items 已生成 disposition。
+[ ] local-only 运行日志使用 local exclude；团队共享 ignore 才进入 `.gitignore`。
+[ ] squash-merged PR 分支已按 PR 状态和 ahead/behind 验证后清理。
+[ ] 已执行 remote prune，stale remote-tracking cleanup refs 不再出现。
 [ ] 删除动作都是路径级批准。
 [ ] 最终状态和剩余风险已写入 handoff 或 cleanup report。
 ```
@@ -714,6 +746,7 @@ git branch -d cleanup/dirty-worktree-review-base-YYYY-MM-DD
 | 变更可追溯 | 每个提交 path-scoped，PR 描述包含 include/exclude 和验证命令。 |
 | 功能可闭环 | 代码切片通过相关测试、格式化、lint；影响分析报告已生成，且无 HIGH/CRITICAL 未解决项。 |
 | 分支基线正常 | root `HEAD` 与 `origin/main` 或 `origin/master` 对齐，ahead/behind 为 `0 0`。 |
+| 全 worktree 干净 | 所有 registered worktree 的 `git status --porcelain` 为空；保留分支不是脏状态。 |
 | 备份完备 | recovery snapshot 可读取，tracked diff 可验证，restore instructions 存在。 |
 | 本地配置未泄漏 | `.env`、token、本地 MCP/IDE 配置未进入正式提交。 |
 | 删除可审计 | 每个删除路径都有审批记录和恢复来源。 |
