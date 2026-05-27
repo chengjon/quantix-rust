@@ -20,7 +20,12 @@ fn collect_main_workspace_doc_paths(dir: &Path, docs: &mut Vec<PathBuf>) {
         ".vscode",
         ".worktrees",
         ".zread",
+        "archive",
         "node_modules",
+        "openspec",
+        "plans",
+        "reports",
+        "superpowers",
         "target",
     ];
 
@@ -105,6 +110,77 @@ fn ignore_file_covers_repo_local_noise() {
         assert!(
             contents.lines().any(|line| line.trim() == entry),
             "expected .ignore to contain {entry}"
+        );
+    }
+}
+
+#[test]
+fn archive_index_describes_retention_buckets() {
+    let contents = fs::read_to_string(repo_root().join("docs").join("archive").join("README.md"))
+        .expect("expected docs/archive/README.md to exist");
+
+    for expected in [
+        "FUNCTION_TREE.md",
+        "docs/USER_MANUAL.md",
+        "docs/archive/plans/",
+        "docs/archive/reports/",
+        "docs/archive/ad-hoc/",
+        "current evidence report",
+    ] {
+        assert!(
+            contents.contains(expected),
+            "expected archive index to mention {expected}"
+        );
+    }
+}
+
+#[test]
+fn archive_bucket_indexes_exist() {
+    for relative_path in [
+        "docs/archive/plans/README.md",
+        "docs/archive/reports/README.md",
+        "docs/archive/ad-hoc/README.md",
+    ] {
+        assert!(
+            repo_root().join(relative_path).exists(),
+            "expected archive bucket index {relative_path} to exist"
+        );
+    }
+}
+
+#[test]
+fn legacy_docs_are_archived_without_moving_current_reports() {
+    for relative_path in [
+        "docs/archive/ad-hoc/AUDIT_OPTIMIZATION_PLAN_2026-03-29.md",
+        "docs/archive/plans/2026-03-10-phase21-watchlist-implementation.md",
+        "docs/archive/reports/CODE_RULE_SUMMARY.md",
+        "docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md",
+    ] {
+        assert!(
+            repo_root().join(relative_path).exists(),
+            "expected archived legacy document {relative_path} to exist"
+        );
+    }
+
+    for relative_path in [
+        "docs/AUDIT_OPTIMIZATION_PLAN_2026-03-29.md",
+        "docs/plans/2026-03-10-phase21-watchlist-implementation.md",
+        "docs/reports/CODE_RULE_SUMMARY.md",
+        "docs/reports/PHASE18_BENCHMARK_RESULTS.md",
+    ] {
+        assert!(
+            !repo_root().join(relative_path).exists(),
+            "expected legacy document {relative_path} to move into archive"
+        );
+    }
+
+    for relative_path in [
+        "docs/reports/ARCHITECTURE_AUDIT_2026-05-23.md",
+        "docs/reports/DIRTY_WORKTREE_RECHECK_DISPOSITION_2026-05-27.md",
+    ] {
+        assert!(
+            repo_root().join(relative_path).exists(),
+            "expected current evidence report {relative_path} to remain active"
         );
     }
 }
@@ -975,9 +1051,6 @@ fn status_bearing_docs_defer_to_function_tree_registry() {
             .join("docs")
             .join("standards")
             .join("DEVELOPMENT_GUIDELINES.md"),
-        repo_root()
-            .join("docs")
-            .join("INDICATOR_PIPELINE_OPTIMIZATION_PLAN.md"),
     ];
 
     for doc_path in docs {

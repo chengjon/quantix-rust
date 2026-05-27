@@ -734,7 +734,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 多规模测试（100-1M 条记录）
   - 自动化基线对比和回归检测
   - ✅ 性能基线已建立
-- **性能基线数据** (`docs/reports/PHASE18_BENCHMARK_RESULTS.md`)
+- **性能基线数据** (`docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md`)
   - 技术指标: SMA 1.54ms, MACD 5.57ms (10K条)
   - 数据导出: CSV 679K 记录/秒, JSON 593K 记录/秒
   - 性能计算: 总收益率 18.8M 次/秒

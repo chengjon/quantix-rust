@@ -106,7 +106,7 @@
 ## 📁 文件清单验证
 
 ### 新增文件
-- [x] `docs/reports/PHASE18_BENCHMARK_RESULTS.md` (新建)
+- [x] `docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md` (新建)
 - [x] `docs/reports/PHASE18_FINAL_VERIFICATION.md` (本文件)
 
 ### 修改文件

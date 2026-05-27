@@ -7,6 +7,7 @@
 > Skill directory: `skills/function-tree/`
 > Local user-level install recommendation: symlink `skills/function-tree` to `${CODEX_HOME:-$HOME/.codex}/skills/function-tree`
 > Boundary: 本文档授权创建用户级 Skill 与插件清单变更；不授权 quantix-rust 应用源码变更
+> Registry boundary: 本计划不是功能状态注册表；当前功能状态以 `FUNCTION_TREE.md` 的状态注册表为准
 
 ---
 
@@ -616,7 +617,7 @@ factor-pipeline (治理程序)
 
 | 层面 | GSD | FUNCTION_TREE (扩展后) | GitNexus |
 |------|-----|----------------------|----------|
-| 规划 | ROADMAP/phase/plan | 不参与规划 | 不参与规划 |
+| 规划 | legacy planning docs / phase notes / implementation plans | 不参与规划 | 不参与规划 |
 | 授权 | PLAN.md 隐含授权 | 显式 allowed/forbidden paths | 提供影响数据 |
 | 实现 | execute-phase | 绑定 PR，验证范围 | detect_changes |
 | 验证 | verify-work | closeout 检查 | impact analysis |
@@ -746,7 +747,7 @@ GSD 和 FUNCTION_TREE 治理层可以串联使用：
 | 反模式 | FUNCTION_TREE 治理层如何防止 |
 |--------|---------------------------|
 | 证据包包含可选代码修复 | `/ft:observe` 强制 state=evidence-prepared，禁止 source_edits_authorized |
-| 候选扫描变成 backlog | `/ft:authorize` 要求每个候选独立分类和授权 |
+| 候选扫描变成待办池 | `/ft:authorize` 要求每个候选独立分类和授权 |
 | 合并后跳过 closeout | `/ft:implement` → `/ft:closeout` 是强制状态流 |
 | 兼容面被静默删除 | closeout 检查 re-export 完整性 |
 | Issue label 被当成完整状态 | 状态机独立于 GitHub labels |
