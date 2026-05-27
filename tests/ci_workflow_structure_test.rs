@@ -52,6 +52,17 @@ fn ci_workflow_is_split_by_pr_push_and_main_weight() {
 }
 
 #[test]
+fn ci_docs_pages_cname_is_configurable() {
+    let workflow = fs::read_to_string(".github/workflows/ci.yml")
+        .expect("should read .github/workflows/ci.yml");
+
+    assert!(
+        workflow.contains("cname: ${{ vars.GITHUB_PAGES_CNAME || 'quantix-rust.dev' }}"),
+        "docs deployment should allow overriding the GitHub Pages CNAME"
+    );
+}
+
+#[test]
 fn cleanup_workflow_uses_repository_context() {
     let workflow = fs::read_to_string(".github/workflows/cleanup.yml")
         .expect("should read .github/workflows/cleanup.yml");
