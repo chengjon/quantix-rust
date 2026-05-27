@@ -1020,6 +1020,22 @@ fn active_setup_docs_do_not_publish_machine_specific_absolute_paths() {
 }
 
 #[test]
+fn zellij_install_aliases_do_not_assume_home_repo_name() {
+    let script_path = "scripts/zellij/install.sh";
+    let script = fs::read_to_string(repo_root().join(script_path))
+        .unwrap_or_else(|_| panic!("expected {script_path} to be readable"));
+
+    assert!(
+        !script.contains("~/quantix-rust/scripts/zellij/start-session.sh"),
+        "expected {script_path} aliases not to assume the repository lives at ~/quantix-rust"
+    );
+    assert!(
+        script.contains("$PROJECT_ROOT/scripts/zellij/start-session.sh"),
+        "expected {script_path} aliases to derive start-session.sh from PROJECT_ROOT"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

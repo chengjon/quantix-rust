@@ -147,6 +147,7 @@ setup_aliases() {
     log_info "创建 shell 别名..."
 
     local shell_rc=""
+    local start_session_script="$PROJECT_ROOT/scripts/zellij/start-session.sh"
     if [[ -f "$HOME/.bashrc" ]]; then
         shell_rc="$HOME/.bashrc"
     elif [[ -f "$HOME/.zshrc" ]]; then
@@ -154,14 +155,14 @@ setup_aliases() {
     fi
 
     if [[ -n "$shell_rc" ]]; then
-        cat >> "$shell_rc" << 'EOF'
+        cat >> "$shell_rc" << EOF
 
 # quantix-rust Zellij aliases
-alias qz='~/quantix-rust/scripts/zellij/start-session.sh'
-alias qz-main='~/quantix-rust/scripts/zellij/start-session.sh quantix main'
-alias qz-monitor='~/quantix-rust/scripts/zellij/start-session.sh monitor monitor'
-alias qz-backtest='~/quantix-rust/scripts/zellij/start-session.sh backtest backtest'
-alias qz-dev='~/quantix-rust/scripts/zellij/start-session.sh dev dev'
+alias qz='"$start_session_script"'
+alias qz-main='"$start_session_script" quantix main'
+alias qz-monitor='"$start_session_script" monitor monitor'
+alias qz-backtest='"$start_session_script" backtest backtest'
+alias qz-dev='"$start_session_script" dev dev'
 EOF
         log_success "别名已添加到 $shell_rc"
         log_info "请运行 'source $shell_rc' 使别名生效"
