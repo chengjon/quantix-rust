@@ -1004,6 +1004,22 @@ fn deployment_docs_do_not_publish_placeholder_support_email() {
 }
 
 #[test]
+fn active_setup_docs_do_not_publish_machine_specific_absolute_paths() {
+    for relative_path in [
+        "docs/QMT_LIVE_TRADING_SETUP.md",
+        "docs/architecture/WSL2_WINDOWS_BRIDGE_ARCHITECTURE.md",
+    ] {
+        let content = fs::read_to_string(repo_root().join(relative_path))
+            .unwrap_or_else(|_| panic!("expected {relative_path} to be readable"));
+
+        assert!(
+            !content.contains("/opt/claude/quantix-rust"),
+            "expected {relative_path} not to publish a machine-specific repository path"
+        );
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

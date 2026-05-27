@@ -527,7 +527,7 @@ Bridge 对外状态应与当前 `quantix-rust` `OrderStatus` 对齐：
 
 ## 8.1 `quantix-rust` 配置
 
-建议扩展现有 [default.toml](/opt/claude/quantix-rust/config/default.toml)：
+建议扩展现有 [default.toml](../../config/default.toml)：
 
 ```toml
 [bridge]
