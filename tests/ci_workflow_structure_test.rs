@@ -4,6 +4,8 @@ use std::fs;
 fn ci_workflow_is_split_by_pr_push_and_main_weight() {
     let workflow = fs::read_to_string(".github/workflows/ci.yml")
         .expect("should read .github/workflows/ci.yml");
+    let audit_workflow = fs::read_to_string(".github/workflows/audit.yml")
+        .expect("should read .github/workflows/audit.yml");
 
     assert!(
         workflow.contains("pull_request:"),
@@ -18,8 +20,20 @@ fn ci_workflow_is_split_by_pr_push_and_main_weight() {
         "workflow should define a dedicated coverage job"
     );
     assert!(
-        workflow.contains("\n  dependency_outdated:\n"),
-        "workflow should define a dedicated dependency_outdated job"
+        !workflow.contains("\n  security:\n"),
+        "ci workflow should not keep a duplicate security audit job"
+    );
+    assert!(
+        !workflow.contains("\n  dependency_outdated:\n"),
+        "ci workflow should not keep a duplicate dependency_outdated job"
+    );
+    assert!(
+        audit_workflow.contains("\n  audit:\n"),
+        "audit workflow should own the dedicated audit job"
+    );
+    assert!(
+        audit_workflow.contains("\n  outdated:\n"),
+        "audit workflow should own the dedicated outdated dependency job"
     );
     assert!(
         !workflow.contains("- name: Check documentation\n        if: github.event_name != 'pull_request'"),
