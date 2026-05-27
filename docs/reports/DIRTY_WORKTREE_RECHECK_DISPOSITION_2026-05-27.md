@@ -116,3 +116,26 @@ The recovery snapshot remains protected. It is not safe to delete in this pass.
   unless the user gives explicit path-level approval.
 - The next cleanup action should be a docs/governance slice for the
   dirty-worktree guide and evidence files listed above.
+
+## Post-Closure Documentation Addendum
+
+After the recheck slice was merged, the cleanup produced additional field
+lessons that were folded back into the primary guide in follow-up PRs:
+
+| PR | Scope | Guide update |
+| --- | --- | --- |
+| #86 | Field lessons | Added all-worktree inventory, local exclude versus versioned ignore, squash-merge branch cleanup, remote prune, WIP branch preservation, and rescue branch handling. |
+| #87 | Failure modes | Added centralized failure modes for root-only status checks, local log ignore mistakes, squash PR branch checks, WIP worktree deletion risk, and rescue branch deletion risk. |
+| #88 | Command appendix | Added executable templates for registered worktree audits, local runtime log excludes, squash-merged PR branch checks, and remote-tracking prune. |
+
+Final cleanup closure is stricter than this report's original root-worktree
+recheck scope:
+
+- Root `master` is synced with `origin/master` at `cf8130d`.
+- All registered worktrees have clean `git status --porcelain=v1`.
+- `.mcp.json` and `var/recovery/` are intentionally ignored.
+- `var/recovery/dirty-master-2026-05-26/` remains physically present and was
+  not deleted or moved.
+- `rescue/dirty-master-2026-05-26` remains a recovery ref, not dirty state.
+- `cleanup/mainline-repo-hygiene` remains as a clean local branch preserving WIP
+  commit `3c5412e`.
