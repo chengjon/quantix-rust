@@ -346,7 +346,7 @@ docker image prune -a
 
 - GitHub Issues: https://github.com/chengjon/quantix-rust/issues
 - 文档: docs/guides/
-- 邮件: support@example.com
+- 邮件: 替换为实际支持邮箱
 
 ---
 
