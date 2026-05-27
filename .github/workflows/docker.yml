@@ -11,7 +11,9 @@ on:
 # 环境变量
 env:
   CARGO_TERM_COLOR: always
-  DOCKER_REPO: ghcr.io/chengjon/quantix-rust
+  GH_REPO: ${{ github.repository }}
+  REPO_URL: https://github.com/${{ github.repository }}
+  DOCKER_REPO: ghcr.io/${{ github.repository }}
   DOCKER_IMAGE: quantix
 
 jobs:
@@ -145,17 +147,17 @@ jobs:
           ## Quantix Rust CLI ${{ steps.get_version.outputs.VERSION }}
 
           ### Docker Images
-          - \`ghcr.io/chengjon/quantix-rust/quantix:${{ steps.get_version.outputs.VERSION }}\`
-          - \`ghcr.io/chengjon/quantix-rust/quantix:latest\`
+          - \`${{ env.DOCKER_REPO }}/${{ env.DOCKER_IMAGE }}:${{ steps.get_version.outputs.VERSION }}\`
+          - \`${{ env.DOCKER_REPO }}/${{ env.DOCKER_IMAGE }}:latest\`
 
           ### Quick Start
           \`\`\`bash
-          docker pull ghcr.io/chengjon/quantix-rust/quantix:${{ steps.get_version.outputs.VERSION }}
-          docker run -v ./config:/app/config ghcr.io/chengjon/quantix-rust/quantix:${{ steps.get_version.outputs.VERSION }}
+          docker pull ${{ env.DOCKER_REPO }}/${{ env.DOCKER_IMAGE }}:${{ steps.get_version.outputs.VERSION }}
+          docker run -v ./config:/app/config ${{ env.DOCKER_REPO }}/${{ env.DOCKER_IMAGE }}:${{ steps.get_version.outputs.VERSION }}
           \`\`\`
 
           ### What's Changed
-          See [CHANGELOG.md](https://github.com/chengjon/quantix-rust/blob/main/CHANGELOG.md) for details.
+          See [CHANGELOG.md](${{ env.REPO_URL }}/blob/main/CHANGELOG.md) for details.
           EOF
 
       - name: Create Release
