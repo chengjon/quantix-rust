@@ -823,6 +823,56 @@ docs/governance/code/tests/generated artifacts 分开 PR 或分开提交。
 提交 example/template 或 docs，真实本地配置留在本机或安全存储。
 ```
 
+### 8. 只检查 root worktree 就宣布完成
+
+root `git status` 为空，不代表 registered worktree 全部干净。其他 worktree 可能仍有 tracked diff、untracked logs 或 WIP 文档。
+
+替代：
+
+```text
+用 git worktree list --porcelain 枚举所有 worktree，并逐个运行 git status --porcelain=v1。
+```
+
+### 9. 把单机运行日志写进版本化 ignore
+
+`logs/notifications.log` 这类本地测试日志通常只属于当前机器。把它写进 `.gitignore` 会把单机习惯升级成团队规则。
+
+替代：
+
+```text
+单机噪声用 .git/info/exclude；只有团队共享且稳定的 local-only 路径才进 .gitignore。
+```
+
+### 10. 只靠 `git branch --merged` 判断 squash PR 分支
+
+squash merge 后，topic branch 的 commit 不会原样出现在主干，`git branch --merged` 可能显示未合并。
+
+替代：
+
+```text
+结合 PR state/mergedAt、ahead/behind、merge-base --is-ancestor 和文件级验证判断是否可删。
+```
+
+### 11. 把有实质 WIP 的 worktree 当作垃圾目录
+
+worktree 里可能同时有代码 diff、测试更新和未跟踪计划文档。直接 delete 或 ignore 会丢失上下文。
+
+替代：
+
+```text
+先提交到当前本地分支保存，或写 handoff 标为 separate cleanup；不要用 ignore 掩盖实质 WIP。
+```
+
+### 12. 为了“分支列表干净”删除 rescue 分支
+
+`rescue/*` 分支如果领先主干，通常是恢复包的 Git 指针。删掉它会削弱回滚能力。
+
+替代：
+
+```text
+保留 rescue 分支，直到恢复包外部归档、路径级 disposition 和 owner 批准全部完成。
+```
+
 ## Long-Term Prevention
 
 脏线清理不能只解决当下，还要降低复发概率。
