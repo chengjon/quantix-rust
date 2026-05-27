@@ -74,3 +74,31 @@ fn cleanup_workflow_uses_repository_context() {
         "cleanup workflow package API calls should use the derived repository"
     );
 }
+
+#[test]
+fn docker_workflow_uses_repository_context() {
+    let workflow = fs::read_to_string(".github/workflows/docker.yml")
+        .expect("should read .github/workflows/docker.yml");
+
+    assert!(
+        !workflow.contains("chengjon/quantix-rust") && !workflow.contains("ghcr.io/chengjon"),
+        "docker workflow should not hard-code the source or image repository"
+    );
+    assert!(
+        workflow.contains("GH_REPO: ${{ github.repository }}"),
+        "docker workflow should derive the GitHub repository from workflow context"
+    );
+    assert!(
+        workflow.contains("REPO_URL: https://github.com/${{ github.repository }}"),
+        "docker workflow should derive GitHub links from workflow context"
+    );
+    assert!(
+        workflow.contains("DOCKER_REPO: ghcr.io/${{ github.repository }}"),
+        "docker workflow should derive the GHCR repository from workflow context"
+    );
+    assert!(
+        workflow.contains("${{ env.DOCKER_REPO }}/${{ env.DOCKER_IMAGE }}:latest")
+            && workflow.contains("${{ env.REPO_URL }}/blob/main/CHANGELOG.md"),
+        "docker workflow release notes should use derived image and repository URLs"
+    );
+}
