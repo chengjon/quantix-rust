@@ -167,7 +167,7 @@ cargo bench --bench bench_main
 | 最大回撤 | 102.22 µs | 9.78K 次/秒 |
 | 夏普比率 | 236.35 µs | 4.23K 次/秒 |
 
-详细结果见: `docs/reports/PHASE18_BENCHMARK_RESULTS.md`
+详细结果见: `docs/archive/reports/PHASE18_BENCHMARK_RESULTS.md`
 
 ## 🏆 Phase 18 状态
 

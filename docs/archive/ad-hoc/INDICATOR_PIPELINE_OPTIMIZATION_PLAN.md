@@ -3,7 +3,7 @@
 > 本文档是指标体系专项设计，不作为功能状态注册表；功能状态、已设计/待实现项和可用边界以根目录 `FUNCTION_TREE.md` 的状态注册表行为准。
 
 > 本文档聚焦“先定契约，再做工厂/缓存/配置化”，避免新抽象与现有调用方脱节。  
-> `docs/INDICATOR_PIPELINE_MVP_PLAN.md` 作为子文档，承载分任务实施清单。
+> `docs/archive/ad-hoc/INDICATOR_PIPELINE_MVP_PLAN.md` 作为子文档，承载分任务实施清单。
 
 ---
 
@@ -246,4 +246,4 @@ pub struct IndicatorCacheKey {
 ## 7. 与子文档的关系
 
 - 本文档：定义“接口契约与边界”
-- 子文档 `docs/INDICATOR_PIPELINE_MVP_PLAN.md`：定义“按文件/工时/任务拆分”的落地执行计划
+- 子文档 `docs/archive/ad-hoc/INDICATOR_PIPELINE_MVP_PLAN.md`：定义“按文件/工时/任务拆分”的落地执行计划
