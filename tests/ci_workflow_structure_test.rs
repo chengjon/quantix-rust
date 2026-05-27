@@ -50,3 +50,27 @@ fn ci_workflow_is_split_by_pr_push_and_main_weight() {
         "bench job should remain main-only"
     );
 }
+
+#[test]
+fn cleanup_workflow_uses_repository_context() {
+    let workflow = fs::read_to_string(".github/workflows/cleanup.yml")
+        .expect("should read .github/workflows/cleanup.yml");
+
+    assert!(
+        !workflow.contains("chengjon/quantix-rust") && !workflow.contains("/repos/chengjon/"),
+        "cleanup workflow should not hard-code the source repository"
+    );
+    assert!(
+        workflow.contains("GH_REPO: ${{ github.repository }}"),
+        "cleanup workflow should derive the GitHub repository from workflow context"
+    );
+    assert!(
+        workflow.contains("DOCKER_REPO: ghcr.io/${{ github.repository }}"),
+        "cleanup workflow should derive the GHCR repository from workflow context"
+    );
+    assert!(
+        workflow.contains("/repos/${GH_REPO}/packages")
+            && workflow.contains("/repos/${GH_REPO}/packages/$pkg_id/versions"),
+        "cleanup workflow package API calls should use the derived repository"
+    );
+}

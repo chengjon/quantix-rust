@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_REPO: ghcr.io/chengjon/quantix-rust
+  GH_REPO: ${{ github.repository }}
+  DOCKER_REPO: ghcr.io/${{ github.repository }}
 
 jobs:
   cleanup:
@@ -38,7 +39,7 @@ jobs:
 
           # 获取所有镜像标签
           ALL_TAGS=$(gh api \
-            /repos/chengjon/quantix-rust/packages \
+            /repos/${GH_REPO}/packages \
             | jq -r '.[] | select(.name | contains("quantix")) | .id')
 
           # 删除30天前的未使用镜像
@@ -47,14 +48,14 @@ jobs:
 
             # 获取包的所有版本
             VERSIONS=$(gh api \
-              "/repos/chengjon/quantix-rust/packages/$pkg_id/versions" \
+              "/repos/${GH_REPO}/packages/$pkg_id/versions" \
               --jq '.[] | select(.created_at | fromdateiso8601TZ < (now - 30days)) | .id')
 
             for ver_id in $VERSIONS; do
               echo "Deleting version: $ver_id"
               gh api \
                 --method DELETE \
-                "/repos/chengjon/quantix-rust/packages/$pkg_id/versions/$ver_id" \
+                "/repos/${GH_REPO}/packages/$pkg_id/versions/$ver_id" \
                 || true
             done
           done
