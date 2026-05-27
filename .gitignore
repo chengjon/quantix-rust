@@ -7,3 +7,4 @@
 .worktrees/
 .claude/edit_log.jsonl
 .mcp.json
+var/recovery/
