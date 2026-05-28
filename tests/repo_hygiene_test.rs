@@ -1630,6 +1630,54 @@ fn importer_reuses_optional_decimal_default_helper() {
 }
 
 #[test]
+fn importer_reuses_parquet_decimal_conversion_helper() {
+    let source_path = "src/io/importer.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains("fn decimal_from_f64_or_default(value: f64) -> Decimal"),
+        "expected {source_path} to define one reusable Parquet f64 Decimal conversion helper"
+    );
+
+    let import_parquet_start = source
+        .find("fn import_parquet")
+        .unwrap_or_else(|| panic!("expected {source_path} to define import_parquet"));
+    let import_parquet_end = [
+        "fn csv_row_to_kline",
+        "fn json_row_to_kline",
+        "fn parse_date",
+        "fn decimal_from_f64_or_default",
+        "fn parse_required_decimal",
+    ]
+    .iter()
+    .filter_map(|marker| {
+        source[import_parquet_start..]
+            .find(marker)
+            .map(|offset| import_parquet_start + offset)
+    })
+    .min()
+    .unwrap_or(source.len());
+    let import_parquet_body = &source[import_parquet_start..import_parquet_end];
+
+    for expected_call in [
+        "decimal_from_f64_or_default(opens.value(i))",
+        "decimal_from_f64_or_default(0.0)",
+        "decimal_from_f64_or_default(closes.value(i))",
+    ] {
+        assert!(
+            import_parquet_body.contains(expected_call),
+            "expected import_parquet in {source_path} to call `{expected_call}`"
+        );
+    }
+
+    assert!(
+        !import_parquet_body.contains("Decimal::from_f64_retain("),
+        "expected import_parquet in {source_path} not to inline Parquet f64 Decimal conversion"
+    );
+}
+
+#[test]
 fn exporter_reuses_decimal_formatter_helper() {
     let source_path = "src/io/exporter.rs";
     let source = fs::read_to_string(repo_root().join(source_path))

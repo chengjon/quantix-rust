@@ -247,10 +247,10 @@ impl DataImporter {
                 klines.push(Kline {
                     code: codes.value(i).to_string(),
                     date,
-                    open: Decimal::from_f64_retain(opens.value(i)).unwrap_or_default(),
-                    high: Decimal::from_f64_retain(0.0).unwrap(), // Parquet 可能没有 high/low
-                    low: Decimal::from_f64_retain(0.0).unwrap(),
-                    close: Decimal::from_f64_retain(closes.value(i)).unwrap_or_default(),
+                    open: decimal_from_f64_or_default(opens.value(i)),
+                    high: decimal_from_f64_or_default(0.0), // Parquet 可能没有 high/low
+                    low: decimal_from_f64_or_default(0.0),
+                    close: decimal_from_f64_or_default(closes.value(i)),
                     volume: volumes.value(i),
                     amount: None,
                     adjust_type: AdjustType::None,
@@ -311,6 +311,10 @@ fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
     Decimal::from_str(value).map_err(|_| {
         crate::core::QuantixError::Other(format!("无效的 {} 值: {}", field_name, value))
     })
+}
+
+fn decimal_from_f64_or_default(value: f64) -> Decimal {
+    Decimal::from_f64_retain(value).unwrap_or_default()
 }
 
 fn parse_optional_decimal_or_default(value: Option<&str>) -> Decimal {
