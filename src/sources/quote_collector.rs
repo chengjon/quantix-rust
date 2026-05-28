@@ -176,24 +176,25 @@ impl Default for QuoteCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sources::tdx::offline_tdx_source;
 
     #[test]
     fn test_quote_collector_creation() {
-        let source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let source = offline_tdx_source();
         let collector = QuoteCollector::new(source, 800, 10);
         assert_eq!(collector.batch_size(), 800);
     }
 
     #[test]
     fn test_quote_collector_batch_size() {
-        let tdx_source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let tdx_source = offline_tdx_source();
         let collector = QuoteCollector::new(tdx_source, 100, 5);
         assert_eq!(collector.batch_size(), 100);
     }
 
     #[tokio::test]
     async fn test_collect_empty_batch() {
-        let tdx_source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let tdx_source = offline_tdx_source();
         let collector = QuoteCollector::new(tdx_source, 800, 10);
         let result = collector.collect_batch(&[]).await;
         assert!(result.is_ok());
