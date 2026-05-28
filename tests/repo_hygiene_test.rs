@@ -1371,6 +1371,33 @@ fn deployment_docs_show_explicit_deploy_path_configuration() {
 }
 
 #[test]
+fn health_check_script_reuses_response_matcher() {
+    let script_path = "scripts/health-check.sh";
+    let script = fs::read_to_string(repo_root().join(script_path))
+        .unwrap_or_else(|_| panic!("expected {script_path} to be readable"));
+
+    assert_eq!(
+        script.matches("is_healthy_response()").count(),
+        1,
+        "expected {script_path} to define exactly one health response matcher"
+    );
+    assert!(
+        script.contains(r#"printf '%s\n' "$response" | is_healthy_response"#),
+        "expected curl branch in {script_path} to use the shared response matcher"
+    );
+    assert!(
+        script.contains(r#"wget -q --timeout="$TIMEOUT" -O - "$HEALTH_URL" | is_healthy_response"#),
+        "expected wget branch in {script_path} to use the shared response matcher"
+    );
+    assert!(
+        !script.contains(
+            r#"echo "$response" | grep -q '"status":"ok"' || echo "$response" | grep -q '"healthy":true'"#
+        ),
+        "expected {script_path} not to duplicate the curl response matcher"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
