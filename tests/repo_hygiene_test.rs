@@ -1036,6 +1036,62 @@ fn zellij_install_aliases_do_not_assume_home_repo_name() {
 }
 
 #[test]
+fn production_compose_requires_explicit_image_name() {
+    let compose_path = "docker-compose.prod.yml";
+    let compose = fs::read_to_string(repo_root().join(compose_path))
+        .unwrap_or_else(|_| panic!("expected {compose_path} to be readable"));
+
+    assert!(
+        compose.contains("image: ${IMAGE_NAME:?IMAGE_NAME required}:${VERSION:-latest}"),
+        "expected {compose_path} to require IMAGE_NAME instead of publishing a default image"
+    );
+    assert!(
+        !compose.contains("image: ghcr.io/chengjon/quantix-rust/quantix:${VERSION:-latest}")
+            && !compose.contains("${IMAGE_NAME:-ghcr.io/chengjon/quantix-rust/quantix}"),
+        "expected {compose_path} not to default production deployments to the maintainer image"
+    );
+
+    for relative_path in [
+        "docs/guides/PRODUCTION_DEPLOYMENT.md",
+        "docs/operations/DEPLOYMENT.md",
+    ] {
+        let content = fs::read_to_string(repo_root().join(relative_path))
+            .unwrap_or_else(|_| panic!("expected {relative_path} to be readable"));
+
+        assert!(
+            content.contains("IMAGE_NAME=ghcr.io/your-org/quantix-rust/quantix"),
+            "expected {relative_path} to document the required IMAGE_NAME setting"
+        );
+    }
+}
+
+#[test]
+fn production_compose_quantix_service_has_single_labels_block() {
+    let compose_path = "docker-compose.prod.yml";
+    let compose = fs::read_to_string(repo_root().join(compose_path))
+        .unwrap_or_else(|_| panic!("expected {compose_path} to be readable"));
+    let quantix_service = compose
+        .split("\n  postgres:\n")
+        .next()
+        .expect("expected quantix service to precede postgres service");
+
+    let labels_blocks = quantix_service
+        .lines()
+        .filter(|line| *line == "    labels:")
+        .count();
+
+    assert_eq!(
+        labels_blocks, 1,
+        "expected quantix service in {compose_path} to have a single labels block"
+    );
+    assert!(
+        quantix_service.contains("\"prometheus.io/scrape=true\"")
+            && quantix_service.contains("\"traefik.enable=true\""),
+        "expected the single quantix labels block in {compose_path} to retain prometheus and traefik labels"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

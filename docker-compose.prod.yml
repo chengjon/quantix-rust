@@ -7,7 +7,7 @@ version: '3.8'
 
 services:
   quantix:
-    image: ghcr.io/chengjon/quantix-rust/quantix:${VERSION:-latest}
+    image: ${IMAGE_NAME:?IMAGE_NAME required}:${VERSION:-latest}
     restart: always
     environment:
       - RUST_LOG=info
@@ -40,15 +40,14 @@ services:
       - "prometheus.io/scrape=true"
       - "prometheus.io/port=8080"
       - "prometheus.io/path=/metrics"
-    networks:
-      - quantix-network
-      - traefik-public
-    labels:
       - "traefik.enable=true"
       - "traefik.http.routers.quantix.rule=Host(`quantix.example.com`)"
       - "traefik.http.routers.quantix.entrypoints=websecure"
       - "traefik.http.routers.quantix.tls.certresolver=letsencrypt"
       - "traefik.http.services.quantix.loadbalancer.server.port=8080"
+    networks:
+      - quantix-network
+      - traefik-public
 
   postgres:
     restart: always

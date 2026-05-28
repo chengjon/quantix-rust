@@ -58,6 +58,9 @@ cp .env.example .env
 
 ```bash
 # .env 文件内容
+# 镜像配置
+IMAGE_NAME=ghcr.io/your-org/quantix-rust/quantix
+
 # 数据库密码（生产环境必须修改！）
 POSTGRES_PASSWORD=your_secure_postgres_password
 CLICKHOUSE_PASSWORD=your_secure_clickhouse_password
