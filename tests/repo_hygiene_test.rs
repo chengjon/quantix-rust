@@ -102,6 +102,36 @@ fn metrics_and_batch_production_paths_do_not_use_panic_prone_shortcuts() {
 }
 
 #[test]
+fn grid_initialize_range_does_not_unwrap_bounds() {
+    let source_path = "src/strategy/grid.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    let initialize_start = source
+        .find("fn initialize_grid")
+        .unwrap_or_else(|| panic!("expected {source_path} to define initialize_grid"));
+    let initialize_end = source[initialize_start..]
+        .find("fn generate_grid_orders")
+        .map(|offset| initialize_start + offset)
+        .unwrap_or(source.len());
+    let initialize_body = &source[initialize_start..initialize_end];
+
+    assert!(
+        initialize_body.contains("let upper_bound = current_price + half_range;"),
+        "expected initialize_grid in {source_path} to calculate upper_bound as a local value"
+    );
+    assert!(
+        initialize_body.contains("let lower_bound = current_price - half_range;"),
+        "expected initialize_grid in {source_path} to calculate lower_bound as a local value"
+    );
+    assert!(
+        !initialize_body.contains("upper_bound.unwrap()")
+            && !initialize_body.contains("lower_bound.unwrap()"),
+        "expected initialize_grid in {source_path} not to unwrap stored bounds while calculating range"
+    );
+}
+
+#[test]
 fn ignore_file_covers_repo_local_noise() {
     let ignore_path = repo_root().join(".ignore");
     let contents = fs::read_to_string(ignore_path).expect("expected .ignore to exist");

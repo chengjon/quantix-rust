@@ -106,11 +106,13 @@ impl GridStrategy {
         // 计算上下边界
         let half_range =
             current_atr * self.config.range_multiplier / rust_decimal::Decimal::from(10);
-        self.upper_bound = Some(current_price + half_range);
-        self.lower_bound = Some(current_price - half_range);
+        let upper_bound = current_price + half_range;
+        let lower_bound = current_price - half_range;
+        self.upper_bound = Some(upper_bound);
+        self.lower_bound = Some(lower_bound);
 
         // 计算网格间距
-        let range = self.upper_bound.unwrap() - self.lower_bound.unwrap();
+        let range = upper_bound - lower_bound;
         self.grid_spacing =
             Some(range / rust_decimal::Decimal::from(self.config.grid_count as u64));
 
