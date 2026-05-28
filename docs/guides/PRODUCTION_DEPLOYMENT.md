@@ -60,6 +60,7 @@ nano .env
 
 **.env 必填项**:
 ```bash
+IMAGE_NAME=ghcr.io/your-org/quantix-rust/quantix
 POSTGRES_PASSWORD=your_secure_password
 CLICKHOUSE_PASSWORD=your_secure_password
 GRAFANA_ADMIN_PASSWORD=your_secure_password
