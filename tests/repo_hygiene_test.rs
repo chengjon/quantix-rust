@@ -1630,6 +1630,51 @@ fn importer_reuses_optional_decimal_default_helper() {
 }
 
 #[test]
+fn importer_reuses_parquet_date_conversion_helper() {
+    let source_path = "src/io/importer.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains("fn date_from_parquet_day(days: i32) -> Result<NaiveDate>"),
+        "expected {source_path} to define one reusable Parquet Date32 conversion helper"
+    );
+
+    let import_parquet_start = source
+        .find("fn import_parquet")
+        .unwrap_or_else(|| panic!("expected {source_path} to define import_parquet"));
+    let import_parquet_end = [
+        "fn csv_row_to_kline",
+        "fn json_row_to_kline",
+        "fn parse_date",
+        "fn date_from_parquet_day",
+        "fn parse_required_decimal",
+    ]
+    .iter()
+    .filter_map(|marker| {
+        source[import_parquet_start..]
+            .find(marker)
+            .map(|offset| import_parquet_start + offset)
+    })
+    .min()
+    .unwrap_or(source.len());
+    let import_parquet_body = &source[import_parquet_start..import_parquet_end];
+
+    assert!(
+        import_parquet_body.contains("date_from_parquet_day(dates.value(i))?"),
+        "expected import_parquet in {source_path} to call date_from_parquet_day"
+    );
+    assert!(
+        !import_parquet_body.contains("NaiveDate::from_ymd_opt(1970, 1, 1)"),
+        "expected import_parquet in {source_path} not to inline Parquet Date32 epoch conversion"
+    );
+    assert!(
+        !import_parquet_body.contains("chrono::Duration::days("),
+        "expected import_parquet in {source_path} not to inline Parquet Date32 day offsets"
+    );
+}
+
+#[test]
 fn importer_reuses_parquet_decimal_conversion_helper() {
     let source_path = "src/io/importer.rs";
     let source = fs::read_to_string(repo_root().join(source_path))

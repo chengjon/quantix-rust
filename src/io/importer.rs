@@ -238,11 +238,7 @@ impl DataImporter {
 
             // 转换为 Kline
             for i in 0..batch.num_rows() {
-                let date_value = dates.value(i);
-                let date = NaiveDate::from_ymd_opt(1970, 1, 1)
-                    .unwrap()
-                    .checked_add_signed(chrono::Duration::days(date_value as i64))
-                    .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))?;
+                let date = date_from_parquet_day(dates.value(i))?;
 
                 klines.push(Kline {
                     code: codes.value(i).to_string(),
@@ -311,6 +307,13 @@ fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
     Decimal::from_str(value).map_err(|_| {
         crate::core::QuantixError::Other(format!("无效的 {} 值: {}", field_name, value))
     })
+}
+
+fn date_from_parquet_day(days: i32) -> Result<NaiveDate> {
+    NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .checked_add_signed(chrono::Duration::days(days as i64))
+        .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))
 }
 
 fn decimal_from_f64_or_default(value: f64) -> Decimal {
