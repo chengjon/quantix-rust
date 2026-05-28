@@ -71,6 +71,9 @@ GRAFANA_ADMIN_PASSWORD=your_secure_grafana_password
 
 # Traefik 配置
 ACME_EMAIL=your-email@example.com
+QUANTIX_PUBLIC_HOST=quantix.your-domain.com
+GRAFANA_PUBLIC_HOST=grafana.your-domain.com
+TRAEFIK_PUBLIC_HOST=traefik.your-domain.com
 TRAEFIK_AUTH_USERS=admin:$$apr1$$xxx...  # htpasswd 生成
 
 # 应用版本
@@ -132,10 +135,10 @@ docker-compose exec clickhouse clickhouse-client --query "SELECT 1"
 
 | 服务 | URL | 说明 |
 |------|-----|------|
-| Quantix API | https://quantix.example.com | 主应用 API |
-| Grafana | https://grafana.example.com | 监控面板 |
+| Quantix API | https://$QUANTIX_PUBLIC_HOST | 主应用 API |
+| Grafana | https://$GRAFANA_PUBLIC_HOST | 监控面板 |
 | Prometheus | http://localhost:9090 | 指标采集（内部） |
-| Traefik | https://traefik.example.com | 反向代理仪表板 |
+| Traefik | https://$TRAEFIK_PUBLIC_HOST | 反向代理仪表板 |
 
 ## 更新部署
 
@@ -216,7 +219,7 @@ docker-compose logs --since 1h quantix
 
 ### Grafana 仪表板
 
-1. 访问 https://grafana.example.com
+1. 访问 https://$GRAFANA_PUBLIC_HOST
 2. 登录（admin/your_password）
 3. 导入预配置的仪表板
 
