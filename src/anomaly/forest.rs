@@ -18,6 +18,7 @@
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 /// Anomaly score result for a single sample
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -359,7 +360,7 @@ impl IsolationForest {
             .collect();
 
         // Sort by score (ascending - most anomalous first)
-        results.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
+        results.sort_by(|a, b| compare_scores_ascending(a.score, b.score));
         results.into_iter().take(top_n).collect()
     }
 
@@ -373,9 +374,18 @@ impl IsolationForest {
     /// Get the anomaly threshold based on contamination
     fn get_threshold(&self, scores: &[f64]) -> f64 {
         let mut sorted = scores.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| compare_scores_ascending(*a, *b));
         let idx = ((self.contamination * sorted.len() as f64).ceil() as usize).min(sorted.len());
         sorted[idx.min(sorted.len().saturating_sub(1))]
+    }
+}
+
+fn compare_scores_ascending(left: f64, right: f64) -> Ordering {
+    match (left.is_nan(), right.is_nan()) {
+        (true, true) => Ordering::Equal,
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        (false, false) => left.total_cmp(&right),
     }
 }
 
@@ -468,5 +478,14 @@ mod tests {
         for a in &anomalies {
             assert!(a.score < 0.0);
         }
+    }
+
+    #[test]
+    fn threshold_orders_nan_scores_after_finite_scores() {
+        let forest = IsolationForest::new().contamination(0.1);
+
+        let threshold = forest.get_threshold(&[-0.25, f64::NAN, 0.25]);
+
+        assert_eq!(threshold, 0.25);
     }
 }
