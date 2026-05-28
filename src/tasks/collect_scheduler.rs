@@ -320,6 +320,7 @@ impl CollectScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sources::tdx::TdxSource;
 
     #[tokio::test]
     async fn test_scheduler_config_default() {
@@ -336,7 +337,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_scheduler_creation() {
-        let collector = QuoteCollector::with_default_config().unwrap();
+        let tdx_source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let collector = QuoteCollector::new(tdx_source, 800, 10);
         let scheduler = CollectScheduler::new(collector).await;
         assert!(scheduler.is_ok());
     }

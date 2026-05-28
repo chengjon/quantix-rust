@@ -193,7 +193,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_collect_empty_batch() {
-        let collector = QuoteCollector::with_default_config().unwrap();
+        let tdx_source = TdxSource::new(1, vec![], 7709, 10).unwrap();
+        let collector = QuoteCollector::new(tdx_source, 800, 10);
         let result = collector.collect_batch(&[]).await;
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
