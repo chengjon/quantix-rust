@@ -1797,6 +1797,34 @@ fn unit_tests_avoid_tcp_backed_default_source_unwraps() {
 }
 
 #[test]
+fn unit_tests_reuse_offline_tdx_source_helper() {
+    let tdx_source_path = "src/sources/tdx.rs";
+    let tdx_source = fs::read_to_string(repo_root().join(tdx_source_path))
+        .unwrap_or_else(|_| panic!("expected {tdx_source_path} to be readable"));
+    assert!(
+        tdx_source.contains("pub(crate) fn offline_tdx_source() -> TdxSource"),
+        "expected {tdx_source_path} to define one shared offline TDX source test helper"
+    );
+
+    for source_path in [
+        "src/sources/quote_collector.rs",
+        "src/sources/tdx.rs",
+        "src/tasks/collect_scheduler.rs",
+    ] {
+        let source = fs::read_to_string(repo_root().join(source_path))
+            .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+        let tests_start = source
+            .find("#[cfg(test)]")
+            .unwrap_or_else(|| panic!("expected {source_path} to define test module"));
+        let test_source = &source[tests_start..];
+        assert!(
+            !test_source.contains("TdxSource::new(1, vec![], 7709, 10).unwrap()"),
+            "expected tests in {source_path} to use offline_tdx_source() instead of hand-written offline TDX source construction"
+        );
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
