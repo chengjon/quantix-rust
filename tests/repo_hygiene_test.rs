@@ -1772,6 +1772,31 @@ fn exporter_reuses_csv_kline_header_constant() {
 }
 
 #[test]
+fn unit_tests_avoid_tcp_backed_default_source_unwraps() {
+    for source_path in [
+        "src/sources/quote_collector.rs",
+        "src/sources/tdx.rs",
+        "src/tasks/collect_scheduler.rs",
+    ] {
+        let source = fs::read_to_string(repo_root().join(source_path))
+            .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+        let tests_start = source
+            .find("#[cfg(test)]")
+            .unwrap_or_else(|| panic!("expected {source_path} to define test module"));
+        let test_source = &source[tests_start..];
+        for forbidden in [
+            "with_default_config().unwrap()",
+            "with_default_config().expect(",
+        ] {
+            assert!(
+                !test_source.contains(forbidden),
+                "expected tests in {source_path} not to call `{forbidden}`; use offline constructors for unit tests that do not need live TDX connectivity"
+            );
+        }
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

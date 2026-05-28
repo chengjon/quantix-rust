@@ -339,14 +339,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_tdx_get_stock_info_returns_unsupported() {
-        let source = TdxSource::with_default_config().unwrap();
+        let source = TdxSource::new(1, vec![], 7709, 10).unwrap();
         let err = source.get_stock_info("000001").await.unwrap_err();
         assert!(matches!(err, QuantixError::Unsupported(_)));
     }
 
     #[tokio::test]
     async fn test_tdx_get_kline_returns_unsupported() {
-        let source = TdxSource::with_default_config().unwrap();
+        let source = TdxSource::new(1, vec![], 7709, 10).unwrap();
         let err = source
             .get_kline(
                 "000001",
