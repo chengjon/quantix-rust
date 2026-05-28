@@ -1530,6 +1530,72 @@ fn importer_reuses_date_parser_helper() {
 }
 
 #[test]
+fn importer_reuses_required_decimal_parser_helper() {
+    let source_path = "src/io/importer.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains(
+            "fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal>"
+        ),
+        "expected {source_path} to define one reusable required decimal parser helper"
+    );
+
+    for expected_call in [
+        "parse_required_decimal(&row.open, \"open\")?",
+        "parse_required_decimal(&row.high, \"high\")?",
+        "parse_required_decimal(&row.low, \"low\")?",
+        "parse_required_decimal(&row.close, \"close\")?",
+        ".map(|s| parse_required_decimal(s, \"amount\"))",
+    ] {
+        assert!(
+            source.contains(expected_call),
+            "expected {source_path} to contain `{expected_call}`"
+        );
+    }
+
+    let csv_row_start = source
+        .find("fn csv_row_to_kline")
+        .unwrap_or_else(|| panic!("expected {source_path} to define csv_row_to_kline"));
+    let csv_row_body = &source[csv_row_start
+        ..source[csv_row_start..]
+            .find("fn json_row_to_kline")
+            .map(|offset| csv_row_start + offset)
+            .unwrap_or(source.len())];
+    for inline_parse in [
+        "Decimal::from_str(&row.open)",
+        "Decimal::from_str(&row.high)",
+        "Decimal::from_str(&row.low)",
+        "Decimal::from_str(&row.close)",
+        "Decimal::from_str(s).map_err",
+    ] {
+        assert!(
+            !csv_row_body.contains(inline_parse),
+            "expected csv_row_to_kline in {source_path} not to inline `{inline_parse}`"
+        );
+    }
+
+    let json_row_start = source
+        .find("fn json_row_to_kline")
+        .unwrap_or_else(|| panic!("expected {source_path} to define json_row_to_kline"));
+    let json_row_body = &source[json_row_start
+        ..source[json_row_start..]
+            .find("fn parse_date")
+            .map(|offset| json_row_start + offset)
+            .unwrap_or(source.len())];
+    for inline_parse in [
+        "Decimal::from_str(&row.open)",
+        "Decimal::from_str(&row.close)",
+    ] {
+        assert!(
+            !json_row_body.contains(inline_parse),
+            "expected json_row_to_kline in {source_path} not to inline `{inline_parse}`"
+        );
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

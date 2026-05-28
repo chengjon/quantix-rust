@@ -268,29 +268,17 @@ impl DataImporter {
         Ok(Kline {
             code: row.code.clone(),
             date,
-            open: Decimal::from_str(&row.open).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open))
-            })?,
-            high: Decimal::from_str(&row.high).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 high 值: {}", row.high))
-            })?,
-            low: Decimal::from_str(&row.low).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 low 值: {}", row.low))
-            })?,
-            close: Decimal::from_str(&row.close).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close))
-            })?,
+            open: parse_required_decimal(&row.open, "open")?,
+            high: parse_required_decimal(&row.high, "high")?,
+            low: parse_required_decimal(&row.low, "low")?,
+            close: parse_required_decimal(&row.close, "close")?,
             volume: row.volume.parse::<i64>().map_err(|_| {
                 crate::core::QuantixError::Other(format!("无效的 volume 值: {}", row.volume))
             })?,
             amount: row
                 .amount
                 .as_ref()
-                .map(|s| {
-                    Decimal::from_str(s).map_err(|_| {
-                        crate::core::QuantixError::Other(format!("无效的 amount 值: {}", s))
-                    })
-                })
+                .map(|s| parse_required_decimal(s, "amount"))
                 .transpose()?,
             adjust_type: AdjustType::None,
         })
@@ -303,9 +291,7 @@ impl DataImporter {
         Ok(Kline {
             code: row.code.clone(),
             date,
-            open: Decimal::from_str(&row.open).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 open 值: {}", row.open))
-            })?,
+            open: parse_required_decimal(&row.open, "open")?,
             high: row
                 .high
                 .as_ref()
@@ -316,9 +302,7 @@ impl DataImporter {
                 .as_ref()
                 .map(|s| Decimal::from_str(s).unwrap_or_default())
                 .unwrap_or_default(),
-            close: Decimal::from_str(&row.close).map_err(|_| {
-                crate::core::QuantixError::Other(format!("无效的 close 值: {}", row.close))
-            })?,
+            close: parse_required_decimal(&row.close, "close")?,
             volume: row.volume,
             amount: None,
             adjust_type: AdjustType::None,
@@ -329,6 +313,12 @@ impl DataImporter {
 fn parse_date(value: &str, format: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(value, format)
         .map_err(|_| crate::core::QuantixError::Other(format!("无效的日期格式: {}", value)))
+}
+
+fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
+    Decimal::from_str(value).map_err(|_| {
+        crate::core::QuantixError::Other(format!("无效的 {} 值: {}", field_name, value))
+    })
 }
 
 /// CSV K线行格式
