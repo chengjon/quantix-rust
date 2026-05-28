@@ -1826,6 +1826,50 @@ fn exporter_reuses_parquet_decimal_conversion_helpers() {
 }
 
 #[test]
+fn exporter_reuses_parquet_date_conversion_helper() {
+    let source_path = "src/io/exporter.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains("fn date_to_parquet_day(date: NaiveDate) -> i32"),
+        "expected {source_path} to define one reusable Parquet Date32 conversion helper"
+    );
+
+    let export_parquet_start = source
+        .find("fn export_parquet")
+        .unwrap_or_else(|| panic!("expected {source_path} to define export_parquet"));
+    let export_parquet_end = [
+        "fn date_to_parquet_day",
+        "fn decimal_to_f64_or_zero",
+        "fn format_decimal",
+    ]
+    .iter()
+    .filter_map(|marker| {
+        source[export_parquet_start..]
+            .find(marker)
+            .map(|offset| export_parquet_start + offset)
+    })
+    .min()
+    .unwrap_or(source.len());
+    let export_parquet_body = &source[export_parquet_start..export_parquet_end];
+
+    assert!(
+        export_parquet_body.contains(".map(|k| date_to_parquet_day(k.date))"),
+        "expected export_parquet in {source_path} to map dates through date_to_parquet_day"
+    );
+    for inline_detail in [
+        "NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()",
+        ".signed_duration_since(",
+    ] {
+        assert!(
+            !export_parquet_body.contains(inline_detail),
+            "expected export_parquet in {source_path} not to inline Parquet date conversion `{inline_detail}`"
+        );
+    }
+}
+
+#[test]
 fn unit_tests_avoid_tcp_backed_default_source_unwraps() {
     for source_path in [
         "src/sources/quote_collector.rs",
