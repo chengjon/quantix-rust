@@ -137,22 +137,10 @@ impl DataExporter {
             wtr.write_record(&[
                 &kline.code,
                 &kline.date.to_string(),
-                &format!(
-                    "{:.prec$}",
-                    kline.open,
-                    prec = self.config.decimal_precision
-                ),
-                &format!(
-                    "{:.prec$}",
-                    kline.high,
-                    prec = self.config.decimal_precision
-                ),
-                &format!("{:.prec$}", kline.low, prec = self.config.decimal_precision),
-                &format!(
-                    "{:.prec$}",
-                    kline.close,
-                    prec = self.config.decimal_precision
-                ),
+                &format_decimal(kline.open, self.config.decimal_precision),
+                &format_decimal(kline.high, self.config.decimal_precision),
+                &format_decimal(kline.low, self.config.decimal_precision),
+                &format_decimal(kline.close, self.config.decimal_precision),
                 &kline.volume.to_string(),
                 &kline
                     .amount
@@ -281,6 +269,10 @@ impl DataExporter {
 
         Ok(())
     }
+}
+
+fn format_decimal(value: Decimal, precision: usize) -> String {
+    format!("{:.prec$}", value, prec = precision)
 }
 
 #[cfg(test)]
