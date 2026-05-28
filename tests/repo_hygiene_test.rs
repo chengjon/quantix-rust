@@ -1640,10 +1640,10 @@ fn exporter_reuses_decimal_formatter_helper() {
         "expected {source_path} to define one reusable CSV decimal formatter helper"
     );
     for expected_call in [
-        "format_decimal(kline.open, self.config.decimal_precision)",
-        "format_decimal(kline.high, self.config.decimal_precision)",
-        "format_decimal(kline.low, self.config.decimal_precision)",
-        "format_decimal(kline.close, self.config.decimal_precision)",
+        "format_decimal(kline.open, decimal_precision)",
+        "format_decimal(kline.high, decimal_precision)",
+        "format_decimal(kline.low, decimal_precision)",
+        "format_decimal(kline.close, decimal_precision)",
     ] {
         assert!(
             source.contains(expected_call),
@@ -1663,6 +1663,47 @@ fn exporter_reuses_decimal_formatter_helper() {
         !export_csv_body.contains("\"{:.prec$}\""),
         "expected export_csv in {source_path} not to inline Decimal precision formatting"
     );
+}
+
+#[test]
+fn exporter_reuses_csv_kline_record_helper() {
+    let source_path = "src/io/exporter.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains(
+            "fn csv_kline_record(kline: &Kline, decimal_precision: usize) -> [String; 9]"
+        ),
+        "expected {source_path} to define one reusable CSV kline record helper"
+    );
+    assert!(
+        source.contains("csv_kline_record(kline, self.config.decimal_precision)"),
+        "expected export_csv in {source_path} to use the CSV kline record helper"
+    );
+
+    let export_csv_start = source
+        .find("fn export_csv")
+        .unwrap_or_else(|| panic!("expected {source_path} to define export_csv"));
+    let export_csv_body = &source[export_csv_start
+        ..source[export_csv_start..]
+            .find("fn export_json")
+            .map(|offset| export_csv_start + offset)
+            .unwrap_or(source.len())];
+
+    for inline_detail in [
+        "kline.date.to_string()",
+        "format_decimal(kline.open",
+        "format_decimal(kline.high",
+        "format_decimal(kline.low",
+        "format_decimal(kline.close",
+        "format!(\"{:?}\", kline.adjust_type)",
+    ] {
+        assert!(
+            !export_csv_body.contains(inline_detail),
+            "expected export_csv in {source_path} not to inline CSV record field `{inline_detail}`"
+        );
+    }
 }
 
 #[test]
