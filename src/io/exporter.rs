@@ -182,14 +182,7 @@ impl DataExporter {
 
         // 转换数据
         let codes: Vec<&str> = klines.iter().map(|k| k.code.as_str()).collect();
-        let dates: Vec<i32> = klines
-            .iter()
-            .map(|k| {
-                k.date
-                    .signed_duration_since(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap())
-                    .num_days() as i32
-            })
-            .collect();
+        let dates: Vec<i32> = klines.iter().map(|k| date_to_parquet_day(k.date)).collect();
         let opens: Vec<f64> = klines
             .iter()
             .map(|k| decimal_to_f64_or_zero(k.open))
@@ -260,6 +253,11 @@ impl DataExporter {
 
         Ok(())
     }
+}
+
+fn date_to_parquet_day(date: NaiveDate) -> i32 {
+    date.signed_duration_since(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap())
+        .num_days() as i32
 }
 
 fn decimal_to_f64_or_zero(value: Decimal) -> f64 {
