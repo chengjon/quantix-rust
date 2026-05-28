@@ -114,7 +114,7 @@ docker-compose ps
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # 或者使用部署脚本
-./scripts/deploy/deploy.sh --environment production --tag v1.0.0
+PRODUCTION_K8S_DIR=k8s/overlays/production ./scripts/deploy/deploy.sh --environment production --tag v1.0.0
 ```
 
 ### 验证部署
@@ -152,7 +152,7 @@ docker-compose pull quantix
 docker-compose up -d --no-deps --build quantix
 
 # 或使用部署脚本
-./scripts/deploy/deploy.sh --environment production --tag v1.1.0
+PRODUCTION_K8S_DIR=k8s/overlays/production ./scripts/deploy/deploy.sh --environment production --tag v1.1.0
 ```
 
 ### 数据库迁移

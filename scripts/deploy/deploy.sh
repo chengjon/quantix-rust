@@ -12,6 +12,8 @@ IMAGE_TAG="${IMAGE_TAG:-latest}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
 DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}"
+STAGING_COMPOSE_FILE="${STAGING_COMPOSE_FILE:-}"
+PRODUCTION_K8S_DIR="${PRODUCTION_K8S_DIR:-}"
 
 if [[ "$HEALTH_URL" == */health ]]; then
     DEFAULT_LOCAL_ACCESS_URL="${HEALTH_URL%/health}"
@@ -36,6 +38,55 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+resolve_project_path() {
+    local configured_path="$1"
+    case "$configured_path" in
+        /*)
+            printf '%s\n' "$configured_path"
+            ;;
+        *)
+            printf '%s/%s\n' "$PROJECT_ROOT" "$configured_path"
+            ;;
+    esac
+}
+
+require_env_value() {
+    local variable_name="$1"
+    local variable_value="$2"
+    local guidance="$3"
+
+    if [ -z "$variable_value" ]; then
+        log_error "$variable_name 未设置；$guidance"
+        exit 1
+    fi
+}
+
+require_compose_file() {
+    local variable_name="$1"
+    local configured_path="$2"
+    local resolved_path
+
+    require_env_value "$variable_name" "$configured_path" "请显式指定测试环境 Compose override 文件"
+    resolved_path="$(resolve_project_path "$configured_path")"
+    if [ ! -f "$resolved_path" ]; then
+        log_error "$variable_name 指向的 Compose 文件不存在: $configured_path"
+        exit 1
+    fi
+}
+
+require_directory() {
+    local variable_name="$1"
+    local configured_path="$2"
+    local resolved_path
+
+    require_env_value "$variable_name" "$configured_path" "请显式指定生产环境 Kubernetes overlay 目录"
+    resolved_path="$(resolve_project_path "$configured_path")"
+    if [ ! -d "$resolved_path" ]; then
+        log_error "$variable_name 指向的目录不存在: $configured_path"
+        exit 1
+    fi
 }
 
 resolve_repo_slug() {
@@ -103,18 +154,18 @@ OPTIONS:
 
 EXAMPLES:
     # 部署到生产环境
-    $(basename "$0") --environment production
+    PRODUCTION_K8S_DIR=k8s/overlays/production $(basename "$0") --environment production
 
     # 部署特定版本
-    $(basename "$0") --environment production --tag v1.0.0
+    PRODUCTION_K8S_DIR=k8s/overlays/production $(basename "$0") --environment production --tag v1.0.0
 
     # 模拟部署
-    $(basename "$0") --environment staging --dry-run
+    STAGING_COMPOSE_FILE=docker-compose.test.yml $(basename "$0") --environment staging --dry-run
 
 ENVIRONMENTS:
     dev         开发环境（本地）
-    staging     测试环境
-    production  生产环境
+    staging     测试环境（需要 STAGING_COMPOSE_FILE）
+    production  生产环境（需要 PRODUCTION_K8S_DIR）
 EOF
 }
 
@@ -154,6 +205,15 @@ case "$ENVIRONMENT" in
         log_error "无效的环境: $ENVIRONMENT"
         show_help
         exit 1
+        ;;
+esac
+
+case "$ENVIRONMENT" in
+    staging)
+        require_compose_file "STAGING_COMPOSE_FILE" "$STAGING_COMPOSE_FILE"
+        ;;
+    production)
+        require_directory "PRODUCTION_K8S_DIR" "$PRODUCTION_K8S_DIR"
         ;;
 esac
 
@@ -204,11 +264,11 @@ case "$ENVIRONMENT" in
         if [ "$DRY_RUN" = false ]; then
             cd "$PROJECT_ROOT"
             # 使用测试环境配置
-            docker-compose -f docker-compose.yml -f docker-compose.test.yml \
+            docker-compose -f docker-compose.yml -f "$STAGING_COMPOSE_FILE" \
                 up -d --force-recreate quantix
             docker-compose ps
         else
-            log_info "[DRY RUN] docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d"
+            log_info "[DRY RUN] docker-compose -f docker-compose.yml -f $STAGING_COMPOSE_FILE up -d"
         fi
         ;;
 
@@ -222,10 +282,7 @@ case "$ENVIRONMENT" in
             fi
 
             # 部署到 Kubernetes
-            cd "$PROJECT_ROOT/k8s/overlays/production"
-
-            # 应用配置
-            kubectl apply -k .
+            kubectl apply -k "$PRODUCTION_K8S_DIR"
 
             # 等待部署完成
             kubectl rollout status deployment/quantix --timeout=5m
@@ -233,7 +290,7 @@ case "$ENVIRONMENT" in
             # 显示状态
             kubectl get pods -l app=quantix
         else
-            log_info "[DRY RUN] kubectl apply -k k8s/overlays/production"
+            log_info "[DRY RUN] kubectl apply -k $PRODUCTION_K8S_DIR"
             log_info "[DRY RUN] kubectl rollout status deployment/quantix"
         fi
         ;;
