@@ -8,6 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SERVICE_DIR="$PROJECT_ROOT/config/systemd"
 SYSTEMD_DIR="/etc/systemd/system"
+SERVICES=(
+    "quantix-data-collector.service"
+    "quantix-strategy-runner.service"
+    "quantix-task-scheduler.service"
+)
 
 echo "📦 安装 quantix-rust systemd 服务..."
 echo ""
@@ -35,22 +40,22 @@ systemctl daemon-reload
 
 # 启用服务（不启动）
 echo "✅ 启用服务..."
-systemctl enable quantix-data-collector.service 2>/dev/null || true
-systemctl enable quantix-strategy-runner.service 2>/dev/null || true
-systemctl enable quantix-task-scheduler.service 2>/dev/null || true
+for service in "${SERVICES[@]}"; do
+    systemctl enable "$service" 2>/dev/null || true
+done
 
 echo ""
 echo "✅ 服务安装完成！"
 echo ""
 echo "可用服务："
-echo "  - quantix-data-collector.service"
-echo "  - quantix-strategy-runner.service"
-echo "  - quantix-task-scheduler.service"
+for service in "${SERVICES[@]}"; do
+    echo "  - $service"
+done
 echo ""
-echo "使用 ./scripts/services.sh 管理服务："
-echo "  ./scripts/services.sh {start|stop|restart|status|logs} <service>"
+echo "使用 ./scripts/runtime/services.sh 管理服务："
+echo "  ./scripts/runtime/services.sh {start|stop|restart|status|logs} <service>"
 echo ""
 echo "示例："
-echo "  ./scripts/services.sh start data-collector"
-echo "  ./scripts/services.sh status data-collector"
-echo "  ./scripts/services.sh logs data-collector"
+echo "  ./scripts/runtime/services.sh start data-collector"
+echo "  ./scripts/runtime/services.sh status data-collector"
+echo "  ./scripts/runtime/services.sh logs data-collector"

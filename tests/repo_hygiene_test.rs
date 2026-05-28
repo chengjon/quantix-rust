@@ -1398,6 +1398,48 @@ fn health_check_script_reuses_response_matcher() {
 }
 
 #[test]
+fn runtime_install_services_script_reuses_service_list() {
+    let script_path = "scripts/runtime/install-services.sh";
+    let script = fs::read_to_string(repo_root().join(script_path))
+        .unwrap_or_else(|_| panic!("expected {script_path} to be readable"));
+
+    assert!(
+        script.contains("SERVICES=("),
+        "expected {script_path} to define one shared service list"
+    );
+    assert!(
+        script
+            .matches(r#"for service in "${SERVICES[@]}"; do"#)
+            .count()
+            >= 2,
+        "expected {script_path} to reuse the shared service list for enablement and display"
+    );
+    assert!(
+        script.contains(r#"systemctl enable "$service" 2>/dev/null || true"#),
+        "expected {script_path} to enable services from the shared list"
+    );
+    for service in [
+        "quantix-data-collector.service",
+        "quantix-strategy-runner.service",
+        "quantix-task-scheduler.service",
+    ] {
+        assert_eq!(
+            script.matches(service).count(),
+            1,
+            "expected {service} to appear only in the shared service list in {script_path}"
+        );
+    }
+    assert!(
+        script.contains("./scripts/runtime/services.sh"),
+        "expected {script_path} to point operators at the runtime service manager"
+    );
+    assert!(
+        !script.contains("./scripts/services.sh"),
+        "expected {script_path} not to reference the old service manager path"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
