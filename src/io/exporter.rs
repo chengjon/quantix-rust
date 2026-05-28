@@ -9,6 +9,18 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
 
+const CSV_KLINE_HEADER: [&str; 9] = [
+    "code",
+    "date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "amount",
+    "adjust_type",
+];
+
 /// 导出格式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExportFormat {
@@ -118,18 +130,8 @@ impl DataExporter {
 
         // 写入表头
         if self.config.include_header {
-            wtr.write_record(&[
-                "code",
-                "date",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-                "amount",
-                "adjust_type",
-            ])
-            .map_err(|e| crate::core::QuantixError::Other(format!("写入 CSV 头失败: {}", e)))?;
+            wtr.write_record(CSV_KLINE_HEADER)
+                .map_err(|e| crate::core::QuantixError::Other(format!("写入 CSV 头失败: {}", e)))?;
         }
 
         // 写入数据

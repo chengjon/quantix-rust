@@ -1707,6 +1707,71 @@ fn exporter_reuses_csv_kline_record_helper() {
 }
 
 #[test]
+fn exporter_reuses_csv_kline_header_constant() {
+    let source_path = "src/io/exporter.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    let header_start = source
+        .find("const CSV_KLINE_HEADER: [&str; 9] = [")
+        .unwrap_or_else(|| {
+            panic!("expected {source_path} to define one reusable CSV kline header constant")
+        });
+    let header_body = &source[header_start
+        ..source[header_start..]
+            .find("];")
+            .map(|offset| header_start + offset)
+            .unwrap_or(source.len())];
+    for expected_header in [
+        "\"code\"",
+        "\"date\"",
+        "\"open\"",
+        "\"high\"",
+        "\"low\"",
+        "\"close\"",
+        "\"volume\"",
+        "\"amount\"",
+        "\"adjust_type\"",
+    ] {
+        assert!(
+            header_body.contains(expected_header),
+            "expected CSV_KLINE_HEADER in {source_path} to contain `{expected_header}`"
+        );
+    }
+
+    assert!(
+        source.contains("wtr.write_record(CSV_KLINE_HEADER)"),
+        "expected export_csv in {source_path} to use CSV_KLINE_HEADER"
+    );
+
+    let export_csv_start = source
+        .find("fn export_csv")
+        .unwrap_or_else(|| panic!("expected {source_path} to define export_csv"));
+    let export_csv_body = &source[export_csv_start
+        ..source[export_csv_start..]
+            .find("fn export_json")
+            .map(|offset| export_csv_start + offset)
+            .unwrap_or(source.len())];
+
+    for inline_header in [
+        "\"code\"",
+        "\"date\"",
+        "\"open\"",
+        "\"high\"",
+        "\"low\"",
+        "\"close\"",
+        "\"volume\"",
+        "\"amount\"",
+        "\"adjust_type\"",
+    ] {
+        assert!(
+            !export_csv_body.contains(inline_header),
+            "expected export_csv in {source_path} not to inline CSV header field `{inline_header}`"
+        );
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();

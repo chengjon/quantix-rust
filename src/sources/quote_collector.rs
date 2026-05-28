@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_quote_collector_batch_size() {
-        let tdx_source = TdxSource::with_default_config().unwrap();
+        let tdx_source = TdxSource::new(1, vec![], 7709, 10).unwrap();
         let collector = QuoteCollector::new(tdx_source, 100, 5);
         assert_eq!(collector.batch_size(), 100);
     }
