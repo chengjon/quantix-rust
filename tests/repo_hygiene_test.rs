@@ -1491,11 +1491,15 @@ fn importer_reuses_date_parser_helper() {
 
     assert!(
         source.contains("fn parse_date(value: &str, format: &str) -> Result<NaiveDate>"),
-        "expected {source_path} to define one reusable CSV date parser helper"
+        "expected {source_path} to define one reusable importer date parser helper"
     );
     assert!(
         source.contains("let date = parse_date(&row.date, &self.config.date_format)?;"),
         "expected csv_row_to_kline in {source_path} to use the reusable date parser"
+    );
+    assert!(
+        source.contains("let date = parse_date(&row.date, \"%Y-%m-%d\")?;"),
+        "expected json_row_to_kline in {source_path} to use the reusable date parser"
     );
 
     let csv_row_start = source
@@ -1509,6 +1513,19 @@ fn importer_reuses_date_parser_helper() {
     assert!(
         !csv_row_body.contains("NaiveDate::parse_from_str"),
         "expected csv_row_to_kline in {source_path} not to inline date parsing"
+    );
+
+    let json_row_start = source
+        .find("fn json_row_to_kline")
+        .unwrap_or_else(|| panic!("expected {source_path} to define json_row_to_kline"));
+    let json_row_body = &source[json_row_start
+        ..source[json_row_start..]
+            .find("fn parse_date")
+            .map(|offset| json_row_start + offset)
+            .unwrap_or(source.len())];
+    assert!(
+        !json_row_body.contains("NaiveDate::parse_from_str"),
+        "expected json_row_to_kline in {source_path} not to inline date parsing"
     );
 }
 
