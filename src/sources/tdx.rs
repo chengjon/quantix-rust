@@ -293,7 +293,13 @@ impl Default for TdxSource {
 
 #[cfg(test)]
 pub(crate) fn offline_tdx_source() -> TdxSource {
-    TdxSource::new(1, vec![], 7709, 10).expect("offline TDX source config should be valid")
+    TdxSource {
+        tcp_pool: Vec::new(),
+        connection_index: Arc::new(AtomicUsize::new(0)),
+        _hosts: Vec::new(),
+        _port: 7709,
+        timeout: 10,
+    }
 }
 
 #[cfg(test)]
@@ -303,8 +309,8 @@ mod tests {
 
     #[test]
     fn test_tdx_source_creation() {
-        let source = TdxSource::with_default_config();
-        assert!(source.is_ok());
+        let source = offline_tdx_source();
+        assert_eq!(source.tcp_pool.len(), 0);
     }
 
     #[test]

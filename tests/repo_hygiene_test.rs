@@ -1785,12 +1785,14 @@ fn unit_tests_avoid_tcp_backed_default_source_unwraps() {
             .unwrap_or_else(|| panic!("expected {source_path} to define test module"));
         let test_source = &source[tests_start..];
         for forbidden in [
+            "TdxSource::with_default_config()",
+            "QuoteCollector::with_default_config()",
             "with_default_config().unwrap()",
             "with_default_config().expect(",
         ] {
             assert!(
                 !test_source.contains(forbidden),
-                "expected tests in {source_path} not to call `{forbidden}`; use offline constructors for unit tests that do not need live TDX connectivity"
+                "expected tests in {source_path} not to call `{forbidden}`; use offline_tdx_source() for unit tests that do not need live TDX connectivity"
             );
         }
     }
@@ -1804,6 +1806,18 @@ fn unit_tests_reuse_offline_tdx_source_helper() {
     assert!(
         tdx_source.contains("pub(crate) fn offline_tdx_source() -> TdxSource"),
         "expected {tdx_source_path} to define one shared offline TDX source test helper"
+    );
+    let helper_start = tdx_source
+        .find("pub(crate) fn offline_tdx_source() -> TdxSource")
+        .unwrap_or_else(|| panic!("expected {tdx_source_path} to define offline_tdx_source"));
+    let helper_body = &tdx_source[helper_start
+        ..tdx_source[helper_start..]
+            .find("\n}\n")
+            .map(|offset| helper_start + offset)
+            .unwrap_or(tdx_source.len())];
+    assert!(
+        !helper_body.contains("TdxSource::new("),
+        "expected offline_tdx_source() in {tdx_source_path} not to call TdxSource::new(), which creates TCP handles"
     );
 
     for source_path in [
