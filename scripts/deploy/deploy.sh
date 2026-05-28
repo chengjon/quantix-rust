@@ -10,6 +10,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
+HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}"
+DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}"
+
+if [[ "$HEALTH_URL" == */health ]]; then
+    DEFAULT_LOCAL_ACCESS_URL="${HEALTH_URL%/health}"
+else
+    DEFAULT_LOCAL_ACCESS_URL="$HEALTH_URL"
+fi
 
 # 颜色输出
 RED='\033[0;31m'
@@ -241,7 +249,7 @@ if [ "$DRY_RUN" = false ]; then
 
             # 检查健康端点
             if command -v curl &> /dev/null; then
-                if curl -f http://localhost:8080/health &> /dev/null; then
+                if curl -f "$HEALTH_URL" &> /dev/null; then
                     log_info "健康检查通过 ✓"
                 else
                     log_error "健康检查失败 ✗"
@@ -266,7 +274,9 @@ fi
 # 完成
 log_info "部署完成！"
 if [ "$ENVIRONMENT" = "production" ]; then
-    log_info "生产环境访问: https://quantix.example.com"
+    if [ -n "$DEPLOY_ACCESS_URL" ]; then
+        log_info "生产环境访问: $DEPLOY_ACCESS_URL"
+    fi
 else
-    log_info "本地访问: http://localhost:8080"
+    log_info "本地访问: ${DEPLOY_ACCESS_URL:-$DEFAULT_LOCAL_ACCESS_URL}"
 fi

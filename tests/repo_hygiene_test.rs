@@ -1208,6 +1208,83 @@ fn deploy_script_derives_default_image_name_from_github_repository() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn deploy_script_reuses_configured_endpoint_values() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let script_path = "scripts/deploy/deploy.sh";
+    let script = fs::read_to_string(repo_root().join(script_path))
+        .unwrap_or_else(|_| panic!("expected {script_path} to be readable"));
+
+    for expected in [
+        r#"HEALTH_URL="${HEALTH_URL:-http://localhost:8080/health}""#,
+        r#"DEPLOY_ACCESS_URL="${DEPLOY_ACCESS_URL:-}""#,
+        r#"curl -f "$HEALTH_URL""#,
+    ] {
+        assert!(
+            script.contains(expected),
+            "expected {script_path} to contain endpoint configuration {expected}"
+        );
+    }
+    assert!(
+        !script.contains("curl -f http://localhost:8080/health"),
+        "expected {script_path} not to hardcode the health check URL"
+    );
+
+    let temp_dir = std::env::temp_dir().join(format!(
+        "quantix-deploy-endpoint-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("expected system time after unix epoch")
+            .as_nanos()
+    ));
+    let fake_bin = temp_dir.join("bin");
+    fs::create_dir_all(&fake_bin).expect("expected fake bin dir to be creatable");
+
+    for executable in ["docker", "kubectl"] {
+        let path = fake_bin.join(executable);
+        fs::write(&path, "#!/bin/sh\nexit 0\n")
+            .unwrap_or_else(|_| panic!("expected fake {executable} to be writable"));
+        let mut permissions = fs::metadata(&path)
+            .unwrap_or_else(|_| panic!("expected fake {executable} metadata"))
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions)
+            .unwrap_or_else(|_| panic!("expected fake {executable} to be executable"));
+    }
+
+    let path = format!("{}:/usr/bin:/bin", fake_bin.display());
+    let output = std::process::Command::new("bash")
+        .arg(repo_root().join(script_path))
+        .arg("--environment")
+        .arg("production")
+        .arg("--dry-run")
+        .env("PATH", path)
+        .env("GITHUB_REPOSITORY", "example-org/example-repo")
+        .env("DEPLOY_ACCESS_URL", "https://deploy.example.invalid")
+        .env_remove("IMAGE_NAME")
+        .output()
+        .expect("expected deploy script dry-run to execute");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    assert!(
+        output.status.success(),
+        "expected deploy script dry-run to succeed\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stdout.contains("生产环境访问: https://deploy.example.invalid"),
+        "expected deploy script to log configured production access URL\nstdout:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("https://quantix.example.com"),
+        "expected deploy script not to publish placeholder production access URL\nstdout:\n{stdout}"
+    );
+}
+
 #[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
