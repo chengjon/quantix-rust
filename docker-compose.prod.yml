@@ -41,7 +41,7 @@ services:
       - "prometheus.io/port=8080"
       - "prometheus.io/path=/metrics"
       - "traefik.enable=true"
-      - "traefik.http.routers.quantix.rule=Host(`quantix.example.com`)"
+      - "traefik.http.routers.quantix.rule=Host(`${QUANTIX_PUBLIC_HOST:?QUANTIX_PUBLIC_HOST required}`)"
       - "traefik.http.routers.quantix.entrypoints=websecure"
       - "traefik.http.routers.quantix.tls.certresolver=letsencrypt"
       - "traefik.http.services.quantix.loadbalancer.server.port=8080"
@@ -143,7 +143,7 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD required}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=https://grafana.example.com
+      - GF_SERVER_ROOT_URL=https://${GRAFANA_PUBLIC_HOST:?GRAFANA_PUBLIC_HOST required}
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
     deploy:
       resources:
@@ -157,7 +157,7 @@ services:
       - grafana-data:/var/lib/grafana
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.example.com`)"
+      - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_PUBLIC_HOST:?GRAFANA_PUBLIC_HOST required}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
@@ -226,7 +226,7 @@ services:
           memory: 256M
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.example.com`)"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_PUBLIC_HOST:?TRAEFIK_PUBLIC_HOST required}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"

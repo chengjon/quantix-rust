@@ -1092,6 +1092,66 @@ fn production_compose_quantix_service_has_single_labels_block() {
 }
 
 #[test]
+fn production_compose_requires_explicit_public_hosts() {
+    let compose_path = "docker-compose.prod.yml";
+    let compose = fs::read_to_string(repo_root().join(compose_path))
+        .unwrap_or_else(|_| panic!("expected {compose_path} to be readable"));
+
+    for expected in [
+        r#"Host(`${QUANTIX_PUBLIC_HOST:?QUANTIX_PUBLIC_HOST required}`)"#,
+        r#"Host(`${GRAFANA_PUBLIC_HOST:?GRAFANA_PUBLIC_HOST required}`)"#,
+        r#"Host(`${TRAEFIK_PUBLIC_HOST:?TRAEFIK_PUBLIC_HOST required}`)"#,
+        "GF_SERVER_ROOT_URL=https://${GRAFANA_PUBLIC_HOST:?GRAFANA_PUBLIC_HOST required}",
+    ] {
+        assert!(
+            compose.contains(expected),
+            "expected {compose_path} to require explicit public host setting {expected}"
+        );
+    }
+
+    for stale_host in [
+        "quantix.example.com",
+        "grafana.example.com",
+        "traefik.example.com",
+    ] {
+        assert!(
+            !compose.contains(stale_host),
+            "expected {compose_path} not to publish placeholder host {stale_host}"
+        );
+    }
+
+    for relative_path in [
+        "docs/guides/PRODUCTION_DEPLOYMENT.md",
+        "docs/operations/DEPLOYMENT.md",
+    ] {
+        let content = fs::read_to_string(repo_root().join(relative_path))
+            .unwrap_or_else(|_| panic!("expected {relative_path} to be readable"));
+
+        for expected in [
+            "QUANTIX_PUBLIC_HOST=quantix.your-domain.com",
+            "GRAFANA_PUBLIC_HOST=grafana.your-domain.com",
+            "TRAEFIK_PUBLIC_HOST=traefik.your-domain.com",
+        ] {
+            assert!(
+                content.contains(expected),
+                "expected {relative_path} to document required public host setting {expected}"
+            );
+        }
+
+        for stale_url in [
+            "https://quantix.example.com",
+            "https://grafana.example.com",
+            "https://traefik.example.com",
+        ] {
+            assert!(
+                !content.contains(stale_url),
+                "expected {relative_path} not to publish placeholder URL {stale_url}"
+            );
+        }
+    }
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
