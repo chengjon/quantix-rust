@@ -164,21 +164,12 @@ impl DataExporter {
     /// 导出为 Parquet
     async fn export_parquet<P: AsRef<Path>>(&self, klines: &[Kline], output_path: P) -> Result<()> {
         use arrow::array::{Float64Array, PrimitiveArray, RecordBatch, StringArray};
-        use arrow::datatypes::{DataType, Date32Type, Field, Int64Type, Schema};
+        use arrow::datatypes::{Date32Type, Int64Type};
         use parquet::arrow::arrow_writer::ArrowWriter;
         use std::sync::Arc;
 
         // 定义 Schema
-        let schema = Schema::new(vec![
-            Field::new("code", DataType::Utf8, false),
-            Field::new("date", DataType::Date32, false),
-            Field::new("open", DataType::Float64, false),
-            Field::new("high", DataType::Float64, false),
-            Field::new("low", DataType::Float64, false),
-            Field::new("close", DataType::Float64, false),
-            Field::new("volume", DataType::Int64, false),
-            Field::new("amount", DataType::Float64, true),
-        ]);
+        let schema = parquet_kline_schema();
 
         // 转换数据
         let codes: Vec<&str> = klines.iter().map(|k| k.code.as_str()).collect();
@@ -253,6 +244,21 @@ impl DataExporter {
 
         Ok(())
     }
+}
+
+fn parquet_kline_schema() -> arrow::datatypes::Schema {
+    use arrow::datatypes::{DataType, Field, Schema};
+
+    Schema::new(vec![
+        Field::new("code", DataType::Utf8, false),
+        Field::new("date", DataType::Date32, false),
+        Field::new("open", DataType::Float64, false),
+        Field::new("high", DataType::Float64, false),
+        Field::new("low", DataType::Float64, false),
+        Field::new("close", DataType::Float64, false),
+        Field::new("volume", DataType::Int64, false),
+        Field::new("amount", DataType::Float64, true),
+    ])
 }
 
 fn date_to_parquet_day(date: NaiveDate) -> i32 {
