@@ -1630,6 +1630,42 @@ fn importer_reuses_optional_decimal_default_helper() {
 }
 
 #[test]
+fn exporter_reuses_decimal_formatter_helper() {
+    let source_path = "src/io/exporter.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains("fn format_decimal(value: Decimal, precision: usize) -> String"),
+        "expected {source_path} to define one reusable CSV decimal formatter helper"
+    );
+    for expected_call in [
+        "format_decimal(kline.open, self.config.decimal_precision)",
+        "format_decimal(kline.high, self.config.decimal_precision)",
+        "format_decimal(kline.low, self.config.decimal_precision)",
+        "format_decimal(kline.close, self.config.decimal_precision)",
+    ] {
+        assert!(
+            source.contains(expected_call),
+            "expected {source_path} to contain `{expected_call}`"
+        );
+    }
+
+    let export_csv_start = source
+        .find("fn export_csv")
+        .unwrap_or_else(|| panic!("expected {source_path} to define export_csv"));
+    let export_csv_body = &source[export_csv_start
+        ..source[export_csv_start..]
+            .find("fn export_json")
+            .map(|offset| export_csv_start + offset)
+            .unwrap_or(source.len())];
+    assert!(
+        !export_csv_body.contains("\"{:.prec$}\""),
+        "expected export_csv in {source_path} not to inline Decimal precision formatting"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
