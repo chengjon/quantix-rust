@@ -164,9 +164,6 @@ impl DataExporter {
 
     /// 导出为 Parquet
     async fn export_parquet<P: AsRef<Path>>(&self, klines: &[Kline], output_path: P) -> Result<()> {
-        use parquet::arrow::arrow_writer::ArrowWriter;
-        use std::sync::Arc;
-
         // 定义 Schema
         let schema = parquet_kline_schema();
 
@@ -174,27 +171,35 @@ impl DataExporter {
         let batch = parquet_kline_record_batch(&schema, klines)?;
 
         // 写入 Parquet 文件
-        let file = File::create(output_path.as_ref()).map_err(|e| {
-            crate::core::QuantixError::Other(format!("创建 Parquet 文件失败: {}", e))
-        })?;
-
-        let props = parquet::file::properties::WriterProperties::builder().build();
-
-        let mut writer =
-            ArrowWriter::try_new(file, Arc::new(schema), Some(props)).map_err(|e| {
-                crate::core::QuantixError::Other(format!("创建 ArrowWriter 失败: {}", e))
-            })?;
-
-        writer.write(&batch).map_err(|e| {
-            crate::core::QuantixError::Other(format!("写入 Parquet 数据失败: {}", e))
-        })?;
-
-        writer.close().map_err(|e| {
-            crate::core::QuantixError::Other(format!("完成 Parquet 写入失败: {}", e))
-        })?;
-
-        Ok(())
+        write_parquet_record_batch(output_path.as_ref(), schema, &batch)
     }
+}
+
+fn write_parquet_record_batch(
+    path: &Path,
+    schema: arrow::datatypes::Schema,
+    batch: &RecordBatch,
+) -> Result<()> {
+    use parquet::arrow::arrow_writer::ArrowWriter;
+    use std::sync::Arc;
+
+    let file = File::create(path)
+        .map_err(|e| crate::core::QuantixError::Other(format!("创建 Parquet 文件失败: {}", e)))?;
+
+    let props = parquet::file::properties::WriterProperties::builder().build();
+
+    let mut writer = ArrowWriter::try_new(file, Arc::new(schema), Some(props))
+        .map_err(|e| crate::core::QuantixError::Other(format!("创建 ArrowWriter 失败: {}", e)))?;
+
+    writer
+        .write(batch)
+        .map_err(|e| crate::core::QuantixError::Other(format!("写入 Parquet 数据失败: {}", e)))?;
+
+    writer
+        .close()
+        .map_err(|e| crate::core::QuantixError::Other(format!("完成 Parquet 写入失败: {}", e)))?;
+
+    Ok(())
 }
 
 fn parquet_kline_record_batch(
