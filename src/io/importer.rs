@@ -298,9 +298,7 @@ impl DataImporter {
 
     /// JSON 行转 Kline
     fn json_row_to_kline(&self, row: &JsonKlineRow) -> Result<Kline> {
-        let date = NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").map_err(|_| {
-            crate::core::QuantixError::Other(format!("无效的日期格式: {}", row.date))
-        })?;
+        let date = parse_date(&row.date, "%Y-%m-%d")?;
 
         Ok(Kline {
             code: row.code.clone(),
