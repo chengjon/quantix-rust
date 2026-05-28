@@ -134,21 +134,10 @@ impl DataExporter {
 
         // 写入数据
         for kline in klines {
-            wtr.write_record(&[
-                &kline.code,
-                &kline.date.to_string(),
-                &format_decimal(kline.open, self.config.decimal_precision),
-                &format_decimal(kline.high, self.config.decimal_precision),
-                &format_decimal(kline.low, self.config.decimal_precision),
-                &format_decimal(kline.close, self.config.decimal_precision),
-                &kline.volume.to_string(),
-                &kline
-                    .amount
-                    .map(|a| a.to_string())
-                    .unwrap_or_else(|| "0".to_string()),
-                &format!("{:?}", kline.adjust_type),
-            ])
-            .map_err(|e| crate::core::QuantixError::Other(format!("写入 CSV 数据失败: {}", e)))?;
+            let record = csv_kline_record(kline, self.config.decimal_precision);
+            wtr.write_record(&record).map_err(|e| {
+                crate::core::QuantixError::Other(format!("写入 CSV 数据失败: {}", e))
+            })?;
         }
 
         wtr.flush()
@@ -273,6 +262,23 @@ impl DataExporter {
 
 fn format_decimal(value: Decimal, precision: usize) -> String {
     format!("{:.prec$}", value, prec = precision)
+}
+
+fn csv_kline_record(kline: &Kline, decimal_precision: usize) -> [String; 9] {
+    [
+        kline.code.clone(),
+        kline.date.to_string(),
+        format_decimal(kline.open, decimal_precision),
+        format_decimal(kline.high, decimal_precision),
+        format_decimal(kline.low, decimal_precision),
+        format_decimal(kline.close, decimal_precision),
+        kline.volume.to_string(),
+        kline
+            .amount
+            .map(|amount| amount.to_string())
+            .unwrap_or_else(|| "0".to_string()),
+        format!("{:?}", kline.adjust_type),
+    ]
 }
 
 #[cfg(test)]
