@@ -192,24 +192,24 @@ impl DataExporter {
             .collect();
         let opens: Vec<f64> = klines
             .iter()
-            .map(|k| k.open.to_f64().unwrap_or(0.0))
+            .map(|k| decimal_to_f64_or_zero(k.open))
             .collect();
         let highs: Vec<f64> = klines
             .iter()
-            .map(|k| k.high.to_f64().unwrap_or(0.0))
+            .map(|k| decimal_to_f64_or_zero(k.high))
             .collect();
         let lows: Vec<f64> = klines
             .iter()
-            .map(|k| k.low.to_f64().unwrap_or(0.0))
+            .map(|k| decimal_to_f64_or_zero(k.low))
             .collect();
         let closes: Vec<f64> = klines
             .iter()
-            .map(|k| k.close.to_f64().unwrap_or(0.0))
+            .map(|k| decimal_to_f64_or_zero(k.close))
             .collect();
         let volumes: Vec<i64> = klines.iter().map(|k| k.volume).collect();
         let amounts: Vec<f64> = klines
             .iter()
-            .map(|k| k.amount.map(|a| a.to_f64().unwrap_or(0.0)).unwrap_or(0.0))
+            .map(|k| optional_decimal_to_f64_or_zero(k.amount))
             .collect();
 
         // 创建 Arrow Arrays
@@ -260,6 +260,14 @@ impl DataExporter {
 
         Ok(())
     }
+}
+
+fn decimal_to_f64_or_zero(value: Decimal) -> f64 {
+    value.to_f64().unwrap_or(0.0)
+}
+
+fn optional_decimal_to_f64_or_zero(value: Option<Decimal>) -> f64 {
+    value.map(decimal_to_f64_or_zero).unwrap_or(0.0)
 }
 
 fn format_decimal(value: Decimal, precision: usize) -> String {

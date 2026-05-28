@@ -1772,6 +1772,60 @@ fn exporter_reuses_csv_kline_header_constant() {
 }
 
 #[test]
+fn exporter_reuses_parquet_decimal_conversion_helpers() {
+    let source_path = "src/io/exporter.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    for expected_helper in [
+        "fn decimal_to_f64_or_zero(value: Decimal) -> f64",
+        "fn optional_decimal_to_f64_or_zero(value: Option<Decimal>) -> f64",
+    ] {
+        assert!(
+            source.contains(expected_helper),
+            "expected {source_path} to define `{expected_helper}`"
+        );
+    }
+
+    let export_parquet_start = source
+        .find("fn export_parquet")
+        .unwrap_or_else(|| panic!("expected {source_path} to define export_parquet"));
+    let export_parquet_end = ["fn decimal_to_f64_or_zero", "fn format_decimal"]
+        .iter()
+        .filter_map(|marker| {
+            source[export_parquet_start..]
+                .find(marker)
+                .map(|offset| export_parquet_start + offset)
+        })
+        .min()
+        .unwrap_or(source.len());
+    let export_parquet_body = &source[export_parquet_start..export_parquet_end];
+
+    for expected_call in [
+        "decimal_to_f64_or_zero(k.open)",
+        "decimal_to_f64_or_zero(k.high)",
+        "decimal_to_f64_or_zero(k.low)",
+        "decimal_to_f64_or_zero(k.close)",
+        "optional_decimal_to_f64_or_zero(k.amount)",
+    ] {
+        assert!(
+            export_parquet_body.contains(expected_call),
+            "expected export_parquet in {source_path} to call `{expected_call}`"
+        );
+    }
+
+    for inline_detail in [
+        ".to_f64().unwrap_or(0.0)",
+        ".map(|a| a.to_f64().unwrap_or(0.0)).unwrap_or(0.0)",
+    ] {
+        assert!(
+            !export_parquet_body.contains(inline_detail),
+            "expected export_parquet in {source_path} not to inline Decimal conversion `{inline_detail}`"
+        );
+    }
+}
+
+#[test]
 fn unit_tests_avoid_tcp_backed_default_source_unwraps() {
     for source_path in [
         "src/sources/quote_collector.rs",
