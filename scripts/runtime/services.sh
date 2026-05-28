@@ -53,36 +53,52 @@ get_service_name() {
     echo "${SERVICES[$short_name]}"
 }
 
+require_valid_service() {
+    local service_name=$1
+
+    if [ -z "$service_name" ]; then
+        echo -e "${RED}错误: 请指定服务名称${NC}"
+        show_usage
+        exit 1
+    fi
+
+    if [ -z "${SERVICES[$service_name]}" ]; then
+        echo -e "${RED}错误: 未知服务 '$service_name'${NC}"
+        show_usage
+        exit 1
+    fi
+}
+
 # 启动服务
 start_service() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${GREEN}▶ 启动服务: $service${NC}"
     systemctl start "$service"
 }
 
 # 停止服务
 stop_service() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${YELLOW}■ 停止服务: $service${NC}"
     systemctl stop "$service"
 }
 
 # 重启服务
 restart_service() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${GREEN}↻ 重启服务: $service${NC}"
     systemctl restart "$service"
 }
 
 # 查看状态
 show_status() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     systemctl status "$service"
 }
 
 # 查看日志
 show_logs() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${GREEN}📋 实时日志: $service${NC}"
     echo "按 Ctrl+C 退出"
     echo ""
@@ -91,14 +107,14 @@ show_logs() {
 
 # 启用服务
 enable_service() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${GREEN}✓ 启用服务: $service${NC}"
     systemctl enable "$service"
 }
 
 # 禁用服务
 disable_service() {
-    local service=$(get_service_name $1)
+    local service=$(get_service_name "$1")
     echo -e "${YELLOW}✗ 禁用服务: $service${NC}"
     systemctl disable "$service"
 }
@@ -126,7 +142,7 @@ status_all() {
     echo -e "${GREEN}📊 所有服务状态:${NC}"
     echo ""
     for short_name in "${!SERVICES[@]}"; do
-        local service=$(get_service_name $short_name)
+        local service=$(get_service_name "$short_name")
         echo -e "${GREEN}=== $service ===${NC}"
         systemctl is-active "$service" && echo -e "状态: ${GREEN}运行中${NC}" || echo -e "状态: ${RED}已停止${NC}"
         echo ""
@@ -139,94 +155,31 @@ SERVICE=$2
 
 case "$ACTION" in
     start)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         start_service "$SERVICE"
         ;;
     stop)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         stop_service "$SERVICE"
         ;;
     restart)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         restart_service "$SERVICE"
         ;;
     status)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         show_status "$SERVICE"
         ;;
     logs)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         show_logs "$SERVICE"
         ;;
     enable)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         enable_service "$SERVICE"
         ;;
     disable)
-        if [ -z "$SERVICE" ]; then
-            echo -e "${RED}错误: 请指定服务名称${NC}"
-            show_usage
-            exit 1
-        fi
-        if [ -z "${SERVICES[$SERVICE]}" ]; then
-            echo -e "${RED}错误: 未知服务 '$SERVICE'${NC}"
-            show_usage
-            exit 1
-        fi
+        require_valid_service "$SERVICE"
         disable_service "$SERVICE"
         ;;
     start-all)
