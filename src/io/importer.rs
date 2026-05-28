@@ -292,16 +292,8 @@ impl DataImporter {
             code: row.code.clone(),
             date,
             open: parse_required_decimal(&row.open, "open")?,
-            high: row
-                .high
-                .as_ref()
-                .map(|s| Decimal::from_str(s).unwrap_or_default())
-                .unwrap_or_default(),
-            low: row
-                .low
-                .as_ref()
-                .map(|s| Decimal::from_str(s).unwrap_or_default())
-                .unwrap_or_default(),
+            high: parse_optional_decimal_or_default(row.high.as_deref()),
+            low: parse_optional_decimal_or_default(row.low.as_deref()),
             close: parse_required_decimal(&row.close, "close")?,
             volume: row.volume,
             amount: None,
@@ -319,6 +311,12 @@ fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
     Decimal::from_str(value).map_err(|_| {
         crate::core::QuantixError::Other(format!("无效的 {} 值: {}", field_name, value))
     })
+}
+
+fn parse_optional_decimal_or_default(value: Option<&str>) -> Decimal {
+    value
+        .and_then(|value| Decimal::from_str(value).ok())
+        .unwrap_or_default()
 }
 
 /// CSV K线行格式
