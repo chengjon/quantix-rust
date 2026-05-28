@@ -1484,6 +1484,35 @@ fn runtime_services_script_reuses_service_validation() {
 }
 
 #[test]
+fn importer_reuses_date_parser_helper() {
+    let source_path = "src/io/importer.rs";
+    let source = fs::read_to_string(repo_root().join(source_path))
+        .unwrap_or_else(|_| panic!("expected {source_path} to be readable"));
+
+    assert!(
+        source.contains("fn parse_date(value: &str, format: &str) -> Result<NaiveDate>"),
+        "expected {source_path} to define one reusable CSV date parser helper"
+    );
+    assert!(
+        source.contains("let date = parse_date(&row.date, &self.config.date_format)?;"),
+        "expected csv_row_to_kline in {source_path} to use the reusable date parser"
+    );
+
+    let csv_row_start = source
+        .find("fn csv_row_to_kline")
+        .unwrap_or_else(|| panic!("expected {source_path} to define csv_row_to_kline"));
+    let csv_row_body = &source[csv_row_start
+        ..source[csv_row_start..]
+            .find("fn json_row_to_kline")
+            .map(|offset| csv_row_start + offset)
+            .unwrap_or(source.len())];
+    assert!(
+        !csv_row_body.contains("NaiveDate::parse_from_str"),
+        "expected csv_row_to_kline in {source_path} not to inline date parsing"
+    );
+}
+
+#[test]
 fn main_workspace_status_bearing_docs_defer_to_function_tree_registry() {
     let root = repo_root();
     let mut docs = Vec::new();
