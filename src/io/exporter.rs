@@ -3,6 +3,7 @@
 /// 支持多种数据格式导出
 use crate::core::Result;
 use crate::data::models::Kline;
+use arrow::array::RecordBatch;
 use chrono::NaiveDate;
 use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -163,64 +164,14 @@ impl DataExporter {
 
     /// 导出为 Parquet
     async fn export_parquet<P: AsRef<Path>>(&self, klines: &[Kline], output_path: P) -> Result<()> {
-        use arrow::array::{Float64Array, PrimitiveArray, RecordBatch, StringArray};
-        use arrow::datatypes::{Date32Type, Int64Type};
         use parquet::arrow::arrow_writer::ArrowWriter;
         use std::sync::Arc;
 
         // 定义 Schema
         let schema = parquet_kline_schema();
 
-        // 转换数据
-        let codes: Vec<&str> = klines.iter().map(|k| k.code.as_str()).collect();
-        let dates: Vec<i32> = klines.iter().map(|k| date_to_parquet_day(k.date)).collect();
-        let opens: Vec<f64> = klines
-            .iter()
-            .map(|k| decimal_to_f64_or_zero(k.open))
-            .collect();
-        let highs: Vec<f64> = klines
-            .iter()
-            .map(|k| decimal_to_f64_or_zero(k.high))
-            .collect();
-        let lows: Vec<f64> = klines
-            .iter()
-            .map(|k| decimal_to_f64_or_zero(k.low))
-            .collect();
-        let closes: Vec<f64> = klines
-            .iter()
-            .map(|k| decimal_to_f64_or_zero(k.close))
-            .collect();
-        let volumes: Vec<i64> = klines.iter().map(|k| k.volume).collect();
-        let amounts: Vec<f64> = klines
-            .iter()
-            .map(|k| optional_decimal_to_f64_or_zero(k.amount))
-            .collect();
-
-        // 创建 Arrow Arrays
-        let code_array = StringArray::from(codes);
-        let date_array = PrimitiveArray::<Date32Type>::from(dates);
-        let open_array = Float64Array::from(opens);
-        let high_array = Float64Array::from(highs);
-        let low_array = Float64Array::from(lows);
-        let close_array = Float64Array::from(closes);
-        let volume_array = PrimitiveArray::<Int64Type>::from(volumes);
-        let amount_array = Float64Array::from(amounts);
-
         // 创建 RecordBatch
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![
-                Arc::new(code_array),
-                Arc::new(date_array),
-                Arc::new(open_array),
-                Arc::new(high_array),
-                Arc::new(low_array),
-                Arc::new(close_array),
-                Arc::new(volume_array),
-                Arc::new(amount_array),
-            ],
-        )
-        .map_err(|e| crate::core::QuantixError::Other(format!("创建 RecordBatch 失败: {}", e)))?;
+        let batch = parquet_kline_record_batch(&schema, klines)?;
 
         // 写入 Parquet 文件
         let file = File::create(output_path.as_ref()).map_err(|e| {
@@ -244,6 +195,65 @@ impl DataExporter {
 
         Ok(())
     }
+}
+
+fn parquet_kline_record_batch(
+    schema: &arrow::datatypes::Schema,
+    klines: &[Kline],
+) -> Result<RecordBatch> {
+    use arrow::array::{Float64Array, PrimitiveArray, StringArray};
+    use arrow::datatypes::{Date32Type, Int64Type};
+    use std::sync::Arc;
+
+    // 转换数据
+    let codes: Vec<&str> = klines.iter().map(|k| k.code.as_str()).collect();
+    let dates: Vec<i32> = klines.iter().map(|k| date_to_parquet_day(k.date)).collect();
+    let opens: Vec<f64> = klines
+        .iter()
+        .map(|k| decimal_to_f64_or_zero(k.open))
+        .collect();
+    let highs: Vec<f64> = klines
+        .iter()
+        .map(|k| decimal_to_f64_or_zero(k.high))
+        .collect();
+    let lows: Vec<f64> = klines
+        .iter()
+        .map(|k| decimal_to_f64_or_zero(k.low))
+        .collect();
+    let closes: Vec<f64> = klines
+        .iter()
+        .map(|k| decimal_to_f64_or_zero(k.close))
+        .collect();
+    let volumes: Vec<i64> = klines.iter().map(|k| k.volume).collect();
+    let amounts: Vec<f64> = klines
+        .iter()
+        .map(|k| optional_decimal_to_f64_or_zero(k.amount))
+        .collect();
+
+    // 创建 Arrow Arrays
+    let code_array = StringArray::from(codes);
+    let date_array = PrimitiveArray::<Date32Type>::from(dates);
+    let open_array = Float64Array::from(opens);
+    let high_array = Float64Array::from(highs);
+    let low_array = Float64Array::from(lows);
+    let close_array = Float64Array::from(closes);
+    let volume_array = PrimitiveArray::<Int64Type>::from(volumes);
+    let amount_array = Float64Array::from(amounts);
+
+    RecordBatch::try_new(
+        Arc::new(schema.clone()),
+        vec![
+            Arc::new(code_array),
+            Arc::new(date_array),
+            Arc::new(open_array),
+            Arc::new(high_array),
+            Arc::new(low_array),
+            Arc::new(close_array),
+            Arc::new(volume_array),
+            Arc::new(amount_array),
+        ],
+    )
+    .map_err(|e| crate::core::QuantixError::Other(format!("创建 RecordBatch 失败: {}", e)))
 }
 
 fn parquet_kline_schema() -> arrow::datatypes::Schema {
