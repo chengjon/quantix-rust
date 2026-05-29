@@ -146,6 +146,10 @@ pub(crate) fn rolling_std_by_symbol(
 }
 
 fn rolling_std_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64>> {
+    if window == 0 {
+        return vec![None; values.len()];
+    }
+
     let mut out = Vec::with_capacity(values.len());
     for idx in 0..values.len() {
         if idx + 1 < window {
@@ -182,4 +186,27 @@ fn rolling_std_values(values: &Float64Chunked, window: usize) -> Vec<Option<f64>
         out.push(Some(variance.sqrt()));
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rolling_std_by_symbol_returns_nulls_for_zero_window() {
+        let frame = df!(
+            "symbol" => &["000001.SZ", "000001.SZ", "000001.SZ"],
+            "close" => &[10.0, 11.0, 12.0],
+        )
+        .expect("test frame builds");
+
+        let result = rolling_std_by_symbol(&frame, "close", 0).expect("std computes");
+        let values = result
+            .f64()
+            .expect("std result is f64")
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(values, vec![None, None, None]);
+    }
 }
