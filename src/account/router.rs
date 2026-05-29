@@ -2,7 +2,7 @@
 //!
 //! 智能订单路由，根据账户配置将订单分配到正确的执行适配器
 
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 use std::collections::HashMap;
 
 use super::models::{
@@ -190,10 +190,7 @@ impl AccountRouter {
 
         for account in accounts {
             let ratio = account.initial_capital / total_capital;
-            let qty = (Decimal::from(total_quantity) * ratio)
-                .to_string()
-                .parse::<i64>()
-                .unwrap_or(0);
+            let qty = decimal_quantity_to_i64(Decimal::from(total_quantity) * ratio);
 
             if qty > 0 {
                 splits.push(SplitOrder {
@@ -245,10 +242,7 @@ impl AccountRouter {
             }
 
             let ratio = weight / total_weight;
-            let qty = (Decimal::from(total_quantity) * ratio)
-                .to_string()
-                .parse::<i64>()
-                .unwrap_or(0);
+            let qty = decimal_quantity_to_i64(Decimal::from(total_quantity) * ratio);
 
             if qty > 0 {
                 splits.push(SplitOrder {
@@ -326,6 +320,10 @@ impl AccountRouter {
     pub async fn get_default_account(&self) -> Option<AccountConfig> {
         self.registry.get_default_account().await
     }
+}
+
+fn decimal_quantity_to_i64(quantity: Decimal) -> i64 {
+    quantity.trunc().to_i64().unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -416,6 +414,63 @@ mod tests {
 
         let total: i64 = result.splits.iter().map(|s| s.quantity).sum();
         assert_eq!(total, 1000);
+    }
+
+    #[tokio::test]
+    async fn test_split_order_group_proportional_keeps_fractional_allocations() {
+        let registry = create_test_registry().await;
+        registry
+            .set_group_allocation_strategy("group-1", AllocationStrategy::Proportional)
+            .await
+            .unwrap();
+        let router = AccountRouter::new(registry);
+
+        let request = OrderSplitRequest {
+            symbol: "600519.SH".to_string(),
+            side: "buy".to_string(),
+            total_quantity: 1000,
+            price: Some(dec!(100)),
+            target: SplitTarget::Group("group-1".to_string()),
+        };
+
+        let result = router.split_order(request).await.unwrap();
+        let total: i64 = result.splits.iter().map(|s| s.quantity).sum();
+
+        assert_eq!(result.splits.len(), 3);
+        assert_eq!(total, 1000);
+        assert!(result.splits.iter().all(|s| s.quantity > 0));
+    }
+
+    #[tokio::test]
+    async fn test_split_order_group_weighted_keeps_fractional_allocations() {
+        let registry = create_test_registry().await;
+        registry
+            .set_group_allocation_strategy(
+                "group-1",
+                AllocationStrategy::Weighted(HashMap::from([
+                    ("acc-1".to_string(), dec!(1)),
+                    ("acc-2".to_string(), dec!(2)),
+                    ("acc-3".to_string(), dec!(3)),
+                ])),
+            )
+            .await
+            .unwrap();
+        let router = AccountRouter::new(registry);
+
+        let request = OrderSplitRequest {
+            symbol: "600519.SH".to_string(),
+            side: "buy".to_string(),
+            total_quantity: 1000,
+            price: Some(dec!(100)),
+            target: SplitTarget::Group("group-1".to_string()),
+        };
+
+        let result = router.split_order(request).await.unwrap();
+        let total: i64 = result.splits.iter().map(|s| s.quantity).sum();
+
+        assert_eq!(result.splits.len(), 3);
+        assert_eq!(total, 1000);
+        assert!(result.splits.iter().all(|s| s.quantity > 0));
     }
 
     #[tokio::test]
