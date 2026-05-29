@@ -108,6 +108,17 @@ fn test_atr() {
 }
 
 #[test]
+fn atr_returns_none_for_zero_period() {
+    let high = vec![dec!(12), dec!(13), dec!(14)];
+    let low = vec![dec!(10), dec!(11), dec!(12)];
+    let close = vec![dec!(11), dec!(12), dec!(13)];
+
+    let result = atr(&high, &low, &close, 0);
+
+    assert_eq!(result, vec![None, None, None]);
+}
+
+#[test]
 fn test_obv() {
     let close = vec![dec!(10), dec!(11), dec!(10), dec!(12), dec!(11)];
     let volume = vec![1000, 2000, 1500, 3000, 2500];

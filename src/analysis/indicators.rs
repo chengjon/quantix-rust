@@ -171,7 +171,7 @@ pub fn atr(
 
     let mut result = vec![None; high.len()];
 
-    if high.len() < period + 1 {
+    if period == 0 || high.len() < period + 1 {
         return result;
     }
 
