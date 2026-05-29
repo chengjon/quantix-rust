@@ -145,6 +145,17 @@ fn test_cci() {
 }
 
 #[test]
+fn cci_returns_none_for_zero_period() {
+    let high = vec![dec!(12), dec!(13), dec!(14)];
+    let low = vec![dec!(10), dec!(11), dec!(12)];
+    let close = vec![dec!(11), dec!(12), dec!(13)];
+
+    let result = cci(&high, &low, &close, 0);
+
+    assert_eq!(result, vec![None, None, None]);
+}
+
+#[test]
 fn test_williams_r() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
     let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
