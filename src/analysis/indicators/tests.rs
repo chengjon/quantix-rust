@@ -167,6 +167,20 @@ fn test_obv() {
 }
 
 #[test]
+fn obv_saturates_when_cumulative_volume_exceeds_i64_bounds() {
+    let upper_close = vec![dec!(10), dec!(11)];
+    let upper_volume = vec![i64::MAX, 1];
+    let lower_close = vec![dec!(10), dec!(9)];
+    let lower_volume = vec![i64::MIN, 1];
+
+    let upper_result = obv(&upper_close, &upper_volume);
+    let lower_result = obv(&lower_close, &lower_volume);
+
+    assert_eq!(upper_result, vec![Some(i64::MAX), Some(i64::MAX)]);
+    assert_eq!(lower_result, vec![Some(i64::MIN), Some(i64::MIN)]);
+}
+
+#[test]
 fn test_cci() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
     let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
