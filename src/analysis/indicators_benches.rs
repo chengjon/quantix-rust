@@ -21,7 +21,7 @@ pub fn calculate_sma(closes: &[Decimal], period: usize) -> Vec<Decimal> {
 
 /// 计算指数移动平均
 pub fn calculate_ema(closes: &[Decimal], period: usize) -> Vec<Decimal> {
-    if closes.is_empty() || period == 0 {
+    if closes.is_empty() || period == 0 || closes.len() < period {
         return Vec::new();
     }
 
@@ -161,6 +161,13 @@ mod tests {
     #[test]
     fn calculate_ema_returns_empty_for_zero_period() {
         let ema = calculate_ema(&[Decimal::from(1), Decimal::from(2)], 0);
+
+        assert!(ema.is_empty());
+    }
+
+    #[test]
+    fn calculate_ema_returns_empty_for_unrepresentable_period() {
+        let ema = calculate_ema(&[Decimal::from(1), Decimal::from(2)], usize::MAX);
 
         assert!(ema.is_empty());
     }
