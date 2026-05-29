@@ -17,6 +17,10 @@ pub fn calculate_sma(closes: &[Decimal], period: usize) -> Vec<Decimal> {
 
 /// 计算指数移动平均
 pub fn calculate_ema(closes: &[Decimal], period: usize) -> Vec<Decimal> {
+    if closes.is_empty() {
+        return Vec::new();
+    }
+
     let multiplier = Decimal::from(2) / (Decimal::from(period as i64) + Decimal::from(1));
     let mut ema = vec![closes[0]];
 
@@ -101,4 +105,25 @@ pub fn calculate_macd(
         .collect();
 
     (macd_line, signal_line, histogram)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculate_ema_returns_empty_for_empty_input() {
+        let ema = calculate_ema(&[], 12);
+
+        assert!(ema.is_empty());
+    }
+
+    #[test]
+    fn calculate_macd_returns_empty_lines_for_empty_input() {
+        let (macd_line, signal_line, histogram) = calculate_macd(&[], 12, 26, 9);
+
+        assert!(macd_line.is_empty());
+        assert!(signal_line.is_empty());
+        assert!(histogram.is_empty());
+    }
 }
