@@ -243,7 +243,7 @@ pub fn cci(
 
     let mut result = vec![None; high.len()];
 
-    if high.len() < period {
+    if period == 0 || high.len() < period {
         return result;
     }
 
