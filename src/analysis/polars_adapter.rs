@@ -139,6 +139,9 @@ impl PolarsCalculator {
         let alpha_f64 = alpha.to_f64().unwrap_or(2.0 / (period as f64 + 1.0));
 
         let mut result = vec![None; data.len()];
+        if period == 0 {
+            return result;
+        }
         if data.len() < period {
             return result;
         }
