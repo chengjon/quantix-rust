@@ -95,6 +95,10 @@ pub fn calculate_macd(
     slow_period: usize,
     signal_period: usize,
 ) -> (Vec<Decimal>, Vec<Decimal>, Vec<Decimal>) {
+    if fast_period == 0 || slow_period == 0 || signal_period == 0 {
+        return (Vec::new(), Vec::new(), Vec::new());
+    }
+
     let ema_fast = calculate_ema(closes, fast_period);
     let ema_slow = calculate_ema(closes, slow_period);
 
@@ -138,6 +142,22 @@ mod tests {
         let ema = calculate_ema(&[Decimal::from(1), Decimal::from(2)], 0);
 
         assert!(ema.is_empty());
+    }
+
+    #[test]
+    fn calculate_macd_returns_empty_lines_for_zero_period() {
+        for periods in [(0, 26, 9), (12, 0, 9), (12, 26, 0)] {
+            let (macd_line, signal_line, histogram) = calculate_macd(
+                &[Decimal::from(1), Decimal::from(2)],
+                periods.0,
+                periods.1,
+                periods.2,
+            );
+
+            assert!(macd_line.is_empty());
+            assert!(signal_line.is_empty());
+            assert!(histogram.is_empty());
+        }
     }
 
     #[test]
