@@ -55,6 +55,16 @@ fn test_rsi() {
 }
 
 #[test]
+fn rsi_returns_none_for_unrepresentable_period_window() {
+    let data = vec![dec!(10), dec!(11), dec!(12)];
+
+    let result = rsi(&data, usize::MAX);
+
+    assert_eq!(result.len(), data.len());
+    assert!(result.iter().all(Option::is_none));
+}
+
+#[test]
 fn test_macd() {
     let data: Vec<Decimal> = (1..=50).map(|x| Decimal::from(x)).collect();
     let result = macd(&data, 12, 26, 9);

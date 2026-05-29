@@ -8,7 +8,7 @@ pub fn rsi(data: &[Decimal], period: usize) -> Vec<Option<Decimal>> {
 
     let mut result = vec![None; data.len()];
 
-    if data.len() < period + 1 {
+    if data.len() <= period {
         return result;
     }
 
