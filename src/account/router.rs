@@ -50,6 +50,13 @@ impl AccountRouter {
 
     /// 拆分订单到多个账户
     pub async fn split_order(&self, request: OrderSplitRequest) -> Result<OrderSplitResult> {
+        if request.total_quantity <= 0 {
+            return Err(QuantixError::Other(format!(
+                "订单数量必须大于 0: {}",
+                request.total_quantity
+            )));
+        }
+
         let total_quantity = request.total_quantity;
         let price = request.price;
         let target = request.target.clone();
@@ -409,6 +416,32 @@ mod tests {
 
         let total: i64 = result.splits.iter().map(|s| s.quantity).sum();
         assert_eq!(total, 1000);
+    }
+
+    #[tokio::test]
+    async fn test_split_order_rejects_non_positive_total_quantity() {
+        let registry = create_test_registry().await;
+        let router = AccountRouter::new(registry);
+
+        for total_quantity in [0, -100] {
+            let request = OrderSplitRequest {
+                symbol: "600519.SH".to_string(),
+                side: "buy".to_string(),
+                total_quantity,
+                price: Some(dec!(100)),
+                target: SplitTarget::Single("acc-1".to_string()),
+            };
+
+            let result = router.split_order(request).await;
+
+            assert!(result.is_err());
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("订单数量必须大于 0")
+            );
+        }
     }
 
     #[tokio::test]
