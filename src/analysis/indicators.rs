@@ -219,9 +219,9 @@ pub fn obv(close: &[Decimal], volume: &[i64]) -> Vec<Option<i64>> {
 
     for i in 1..close.len() {
         if close[i] > close[i - 1] {
-            obv_value += volume[i];
+            obv_value = obv_value.saturating_add(volume[i]);
         } else if close[i] < close[i - 1] {
-            obv_value -= volume[i];
+            obv_value = obv_value.saturating_sub(volume[i]);
         }
         // 收盘价相等时 OBV 不变
         result[i] = Some(obv_value);
