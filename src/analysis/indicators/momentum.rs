@@ -135,7 +135,7 @@ pub fn kdj(
 
     let mut result = vec![None; high.len()];
 
-    if high.len() < n {
+    if n == 0 || high.len() < n {
         return result;
     }
 

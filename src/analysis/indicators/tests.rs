@@ -80,6 +80,18 @@ fn test_kdj() {
 }
 
 #[test]
+fn kdj_returns_none_for_zero_n() {
+    let high = vec![dec!(12), dec!(13), dec!(14)];
+    let low = vec![dec!(10), dec!(11), dec!(12)];
+    let close = vec![dec!(11), dec!(12), dec!(13)];
+
+    let result = kdj(&high, &low, &close, 0, 3, 3);
+
+    assert_eq!(result.len(), 3);
+    assert!(result.iter().all(Option::is_none));
+}
+
+#[test]
 fn test_bollinger_bands() {
     let data: Vec<Decimal> = (1..=30).map(|x| Decimal::from(x)).collect();
     let result = bollinger_bands(&data, 20, 2);
