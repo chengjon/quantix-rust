@@ -6,6 +6,10 @@ use rust_decimal::Decimal;
 
 /// 计算简单移动平均
 pub fn calculate_sma(closes: &[Decimal], period: usize) -> Vec<Decimal> {
+    if period == 0 {
+        return Vec::new();
+    }
+
     closes
         .windows(period)
         .map(|w| {
@@ -110,6 +114,13 @@ pub fn calculate_macd(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn calculate_sma_returns_empty_for_zero_period() {
+        let sma = calculate_sma(&[Decimal::from(1), Decimal::from(2)], 0);
+
+        assert!(sma.is_empty());
+    }
 
     #[test]
     fn calculate_ema_returns_empty_for_empty_input() {
