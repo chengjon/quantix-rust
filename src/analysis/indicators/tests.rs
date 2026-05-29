@@ -172,6 +172,17 @@ fn test_williams_r() {
 }
 
 #[test]
+fn williams_r_returns_none_for_zero_period() {
+    let high = vec![dec!(12), dec!(13), dec!(14)];
+    let low = vec![dec!(10), dec!(11), dec!(12)];
+    let close = vec![dec!(11), dec!(12), dec!(13)];
+
+    let result = williams_r(&high, &low, &close, 0);
+
+    assert_eq!(result, vec![None, None, None]);
+}
+
+#[test]
 fn test_wma() {
     let data = vec![dec!(1), dec!(2), dec!(3), dec!(4), dec!(5)];
     let result = wma(&data, 3);
