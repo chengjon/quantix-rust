@@ -39,7 +39,7 @@ pub fn calculate_ema(closes: &[Decimal], period: usize) -> Vec<Decimal> {
 
 /// 计算相对强弱指标 (RSI)
 pub fn calculate_rsi(closes: &[Decimal], period: usize) -> Vec<Decimal> {
-    if period == 0 {
+    if closes.is_empty() || period == 0 {
         return Vec::new();
     }
 
@@ -133,6 +133,13 @@ mod tests {
     #[test]
     fn calculate_rsi_returns_empty_for_zero_period() {
         let rsi = calculate_rsi(&[Decimal::from(1), Decimal::from(2)], 0);
+
+        assert!(rsi.is_empty());
+    }
+
+    #[test]
+    fn calculate_rsi_returns_empty_for_empty_input() {
+        let rsi = calculate_rsi(&[], 14);
 
         assert!(rsi.is_empty());
     }
