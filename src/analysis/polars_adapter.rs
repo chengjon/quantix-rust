@@ -135,16 +135,13 @@ impl PolarsCalculator {
         let name = PlSmallStr::from("close");
         let _s = Series::new(name, &data.close);
         // EMA 需要 custom rolling window
+        let mut result = vec![None; data.len()];
+        if period == 0 || data.len() < period {
+            return result;
+        }
+
         let alpha = Decimal::from(2) / (Decimal::from(period as i64) + Decimal::ONE);
         let alpha_f64 = alpha.to_f64().unwrap_or(2.0 / (period as f64 + 1.0));
-
-        let mut result = vec![None; data.len()];
-        if period == 0 {
-            return result;
-        }
-        if data.len() < period {
-            return result;
-        }
 
         // 初始 SMA
         let mut sum = 0.0;

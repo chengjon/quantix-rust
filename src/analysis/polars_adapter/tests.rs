@@ -68,6 +68,25 @@ fn test_calculator_ema_returns_none_for_zero_period() {
 }
 
 #[test]
+fn test_calculator_ema_returns_none_for_unrepresentable_period() {
+    let calc = PolarsCalculator::new();
+    let data = BatchKlineData {
+        code: "000001".to_string(),
+        timestamps: vec![1, 2, 3],
+        open: vec![10.0, 11.0, 12.0],
+        high: vec![10.5, 11.5, 12.5],
+        low: vec![9.5, 10.5, 11.5],
+        close: vec![10.0, 11.0, 12.0],
+        volume: vec![1000, 2000, 3000],
+        amount: vec![10000.0, 20000.0, 30000.0],
+    };
+
+    let result = calc.ema(&data, usize::MAX);
+
+    assert_eq!(result, vec![None, None, None]);
+}
+
+#[test]
 fn test_calculator_batch() {
     let calc = PolarsCalculator::new();
     let data = BatchKlineData {
