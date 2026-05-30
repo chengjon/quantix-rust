@@ -41,6 +41,15 @@ fn rejects_invalid_param_key_for_preset() {
 }
 
 #[test]
+fn rejects_duplicate_param_keys() {
+    let period_err = parse_preset_invocation("close_above_ma:period=5,period=10").unwrap_err();
+    let value_err = parse_preset_invocation("rsi_gte:period=14,value=50,value=55").unwrap_err();
+
+    assert!(period_err.to_string().contains("period"));
+    assert!(value_err.to_string().contains("value"));
+}
+
+#[test]
 fn rejects_invalid_numeric_param_value() {
     let err = parse_preset_invocation("rsi_gte:period=abc,value=55").unwrap_err();
 

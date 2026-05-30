@@ -37,11 +37,18 @@ fn parse_params(raw_params: &str) -> Result<BTreeMap<String, String>> {
             .split_once('=')
             .ok_or_else(|| QuantixError::Other(format!("无效的参数格式: {}", item)))?;
 
-        if key.trim().is_empty() || value.trim().is_empty() {
+        let key = key.trim();
+        let value = value.trim();
+
+        if key.is_empty() || value.is_empty() {
             return Err(QuantixError::Other(format!("参数不能为空: {}", item)));
         }
 
-        params.insert(key.trim().to_string(), value.trim().to_string());
+        if params.contains_key(key) {
+            return Err(QuantixError::Other(format!("重复参数: {}", key)));
+        }
+
+        params.insert(key.to_string(), value.to_string());
     }
 
     if params.is_empty() {
