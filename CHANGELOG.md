@@ -5,6 +5,22 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-05-31
+
+### Added
+- **GitNexus MCP 日常工作流建议** (`docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md`, `README.md`, `FUNCTION_TREE.md`)
+  - 新增 GitNexus MCP 日常使用建议，沉淀显式 repo 参数、索引新鲜度、impact/detect gate、rename/cypher 使用、HIGH/CRITICAL 风险处理和项目边界提醒
+  - README 增加文档入口，并继续声明 `FUNCTION_TREE.md` 是功能状态、证据和边界的唯一注册表
+  - `FUNCTION_TREE.md` 的可编辑 project-notes 区块记录本轮文档同步，不改写 generated 状态注册区
+
+### Fixed
+- **screener preset 输入边界硬化** (`src/screener/parser.rs`, `src/screener/evaluator.rs`, `tests/screener_parser_test.rs`, `tests/screener_evaluator_test.rs`)
+  - preset 参数解析拒绝零周期/窗口、非有限阈值、重复 key 和空参数段，避免静默覆盖或接受畸形输入
+  - `volume_ratio_gte` 零窗口、RSI lookback 溢出和手工构造非法 invocation 都返回显式错误，而不是除零、回绕或 panic
+  - README 的 `screener` 边界说明同步补充严格参数解析约束
+- **EMA benchmark 边界补齐** (`src/analysis/indicators_benches.rs`)
+  - benchmark 版 EMA 在 period 大于数据长度时返回空结果，避免巨大 period 下的无效 Decimal 分母和 panic
+
 ## 2026-05-21
 
 ### Changed

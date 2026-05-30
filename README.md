@@ -95,10 +95,12 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 
 ## 当前完成状态
 
-截至 2026-03-27，当前已经完成并落地的任务可概括为：
+截至 2026-05-31，当前已经完成并落地的任务可概括为：
 
 - 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
+- `screener` preset 解析和运行时边界已补齐异常输入防线：空参数段、重复参数、零窗口/周期、非有限阈值和 RSI lookback 溢出都会返回显式错误，而不是静默覆盖、回绕或 panic。
+- GitNexus MCP 日常使用建议已沉淀为 `docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md`，用于配合 `FUNCTION_TREE.md`、GitNexus impact/detect gate 和 Graphiti 记忆流程进行日常开发。
 - Windows Bridge v1 已完成首版设计与实现集成：
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
   - `QMT` 已接入 execution bridge CLI：`qmt-preview` 用于基于 frozen request 做 broker payload 预览，guarded `qmt_live` 用于真实提交
@@ -317,6 +319,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 仅支持日线筛选
   - `preset` 只表达单一指标条件，但支持重复 `--preset` 做 `AND` 组合
   - 条件完全参数化，例如 `close_above_ma:period=20`
+  - preset 参数解析拒绝空参数段、重复 key、零周期/窗口、非有限数值和 lookback 溢出
   - 不支持全市场扫描、DSL、实时筛选、OR 逻辑
 
 #### Phase 23: 市场分析 ✅
@@ -964,6 +967,8 @@ quantix analyze screener run \
   --limit 20
 ```
 
+Preset 参数必须是完整的 `key=value` 片段；尾随逗号、连续逗号、重复 key、零周期/窗口、`NaN`/`inf` 阈值和 lookback 溢出都会被解析层或运行时边界拒绝。
+
 ### 市场分析 CLI
 
 ```bash
@@ -1137,6 +1142,7 @@ MyStocks Team
 
 - [开发规范指南](docs/standards/DEVELOPMENT_GUIDELINES.md) - 必读！
 - [用户手册](docs/USER_MANUAL.md)
+- [GitNexus MCP 日常使用建议](docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md)
 - [Python quantix](https://github.com/chengjon/mystocks)
 - [问题反馈](https://github.com/chengjon/quantix-rust/issues)
 
