@@ -50,6 +50,15 @@ fn rejects_duplicate_param_keys() {
 }
 
 #[test]
+fn rejects_empty_param_segments() {
+    let trailing_err = parse_preset_invocation("close_above_ma:period=20,").unwrap_err();
+    let middle_err = parse_preset_invocation("rsi_gte:period=14,,value=55").unwrap_err();
+
+    assert!(trailing_err.to_string().contains("参数"));
+    assert!(middle_err.to_string().contains("参数"));
+}
+
+#[test]
 fn rejects_invalid_numeric_param_value() {
     let err = parse_preset_invocation("rsi_gte:period=abc,value=55").unwrap_err();
 
