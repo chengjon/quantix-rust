@@ -89,9 +89,15 @@ fn validate_exact_keys(params: &BTreeMap<String, String>, allowed: &[&str]) -> R
 }
 
 fn parse_usize_param(params: &BTreeMap<String, String>, key: &str) -> Result<usize> {
-    params[key]
+    let value = params[key]
         .parse::<usize>()
-        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是正整数", key)))
+        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是正整数", key)))?;
+
+    if value == 0 {
+        return Err(QuantixError::Other(format!("参数 {} 必须是正整数", key)));
+    }
+
+    Ok(value)
 }
 
 fn parse_f64_param(params: &BTreeMap<String, String>, key: &str) -> Result<f64> {

@@ -1,8 +1,11 @@
 use chrono::NaiveDate;
 use quantix_cli::data::models::{AdjustType, Kline};
-use quantix_cli::screener::{evaluate_preset, parse_preset_invocation, required_lookback};
+use quantix_cli::screener::{
+    PresetInvocation, PresetKind, evaluate_preset, parse_preset_invocation, required_lookback,
+};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::collections::BTreeMap;
 
 fn make_kline(day: u32, close: Decimal, volume: i64) -> Kline {
     Kline {
@@ -113,7 +116,13 @@ fn evaluates_volume_ratio_gte() {
 
 #[test]
 fn rejects_volume_ratio_zero_window_without_panicking() {
-    let invocation = parse_preset_invocation("volume_ratio_gte:window=0,value=1.5").unwrap();
+    let invocation = PresetInvocation {
+        kind: PresetKind::VolumeRatioGte,
+        params: BTreeMap::from([
+            ("window".to_string(), "0".to_string()),
+            ("value".to_string(), "1.5".to_string()),
+        ]),
+    };
     let klines = vec![make_kline(1, dec!(10), 100)];
 
     let lookback_err = required_lookback(&invocation).unwrap_err();
