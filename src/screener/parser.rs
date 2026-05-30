@@ -101,7 +101,13 @@ fn parse_usize_param(params: &BTreeMap<String, String>, key: &str) -> Result<usi
 }
 
 fn parse_f64_param(params: &BTreeMap<String, String>, key: &str) -> Result<f64> {
-    params[key]
+    let value = params[key]
         .parse::<f64>()
-        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是数字", key)))
+        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是数字", key)))?;
+
+    if !value.is_finite() {
+        return Err(QuantixError::Other(format!("参数 {} 必须是数字", key)));
+    }
+
+    Ok(value)
 }

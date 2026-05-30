@@ -57,6 +57,15 @@ fn rejects_zero_usize_params() {
 }
 
 #[test]
+fn rejects_non_finite_value_params() {
+    let nan_err = parse_preset_invocation("rsi_gte:period=14,value=NaN").unwrap_err();
+    let inf_err = parse_preset_invocation("volume_ratio_gte:window=5,value=inf").unwrap_err();
+
+    assert!(nan_err.to_string().contains("value"));
+    assert!(inf_err.to_string().contains("value"));
+}
+
+#[test]
 fn parses_volume_ratio_gte_with_decimal_value() {
     let invocation = parse_preset_invocation("volume_ratio_gte:window=5,value=1.5").unwrap();
 
