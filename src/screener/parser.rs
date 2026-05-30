@@ -30,7 +30,7 @@ fn parse_params(raw_params: &str) -> Result<BTreeMap<String, String>> {
 
     for item in raw_params.split(',') {
         if item.trim().is_empty() {
-            continue;
+            return Err(QuantixError::Other(format!("无效的参数格式: {}", item)));
         }
 
         let (key, value) = item
