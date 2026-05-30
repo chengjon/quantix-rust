@@ -9,7 +9,9 @@ pub fn required_lookback(invocation: &PresetInvocation) -> Result<usize> {
         PresetKind::CloseAboveMa | PresetKind::CloseBelowMa => {
             get_usize_param(invocation, "period")
         }
-        PresetKind::RsiGte | PresetKind::RsiLte => Ok(get_usize_param(invocation, "period")? + 1),
+        PresetKind::RsiGte | PresetKind::RsiLte => get_usize_param(invocation, "period")?
+            .checked_add(1)
+            .ok_or_else(|| QuantixError::Other("参数 period 过大".to_string())),
         PresetKind::VolumeRatioGte => get_usize_param(invocation, "window"),
     }
 }

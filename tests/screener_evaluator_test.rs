@@ -96,6 +96,21 @@ fn evaluates_rsi_lte() {
 }
 
 #[test]
+fn rejects_rsi_lookback_overflow_without_panicking() {
+    let invocation = PresetInvocation {
+        kind: PresetKind::RsiGte,
+        params: BTreeMap::from([
+            ("period".to_string(), usize::MAX.to_string()),
+            ("value".to_string(), "55".to_string()),
+        ]),
+    };
+
+    let err = required_lookback(&invocation).unwrap_err();
+
+    assert!(err.to_string().contains("period"));
+}
+
+#[test]
 fn evaluates_volume_ratio_gte() {
     let invocation = parse_preset_invocation("volume_ratio_gte:window=5,value=1.5").unwrap();
     let klines = vec![
