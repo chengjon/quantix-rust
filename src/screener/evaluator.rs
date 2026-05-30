@@ -138,9 +138,15 @@ fn preset_name(kind: &PresetKind) -> &'static str {
 }
 
 fn get_usize_param(invocation: &PresetInvocation, key: &str) -> Result<usize> {
-    invocation.params[key]
+    let value = invocation.params[key]
         .parse::<usize>()
-        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是正整数", key)))
+        .map_err(|_| QuantixError::Other(format!("参数 {} 必须是正整数", key)))?;
+
+    if value == 0 {
+        return Err(QuantixError::Other(format!("参数 {} 必须是正整数", key)));
+    }
+
+    Ok(value)
 }
 
 fn get_decimal_param(invocation: &PresetInvocation, key: &str) -> Result<Decimal> {

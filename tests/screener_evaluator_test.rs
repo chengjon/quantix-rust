@@ -112,6 +112,18 @@ fn evaluates_volume_ratio_gte() {
 }
 
 #[test]
+fn rejects_volume_ratio_zero_window_without_panicking() {
+    let invocation = parse_preset_invocation("volume_ratio_gte:window=0,value=1.5").unwrap();
+    let klines = vec![make_kline(1, dec!(10), 100)];
+
+    let lookback_err = required_lookback(&invocation).unwrap_err();
+    let err = evaluate_preset(&invocation, &klines).unwrap_err();
+
+    assert!(lookback_err.to_string().contains("window"));
+    assert!(err.to_string().contains("window"));
+}
+
+#[test]
 fn returns_non_match_with_reason_when_kline_window_is_too_short() {
     let invocation = parse_preset_invocation("close_above_ma:period=5").unwrap();
     let klines = vec![
