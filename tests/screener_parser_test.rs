@@ -48,6 +48,15 @@ fn rejects_invalid_numeric_param_value() {
 }
 
 #[test]
+fn rejects_zero_usize_params() {
+    let period_err = parse_preset_invocation("close_above_ma:period=0").unwrap_err();
+    let window_err = parse_preset_invocation("volume_ratio_gte:window=0,value=1.5").unwrap_err();
+
+    assert!(period_err.to_string().contains("period"));
+    assert!(window_err.to_string().contains("window"));
+}
+
+#[test]
 fn parses_volume_ratio_gte_with_decimal_value() {
     let invocation = parse_preset_invocation("volume_ratio_gte:window=5,value=1.5").unwrap();
 
