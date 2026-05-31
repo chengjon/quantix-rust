@@ -8,12 +8,19 @@ All notable changes to this project are documented here.
 ## 2026-05-31
 
 ### Added
+- **TUI 菜单首屏接线** (`src/tui/app.rs`, `src/cli/handlers/app_shell.rs`, `src/tui/mod.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`, `docs/USER_MANUAL.md`)
+  - `menu --tui` 在启用 `tui` feature 的构建中进入 ratatui 首屏菜单，支持上下选择、Enter 分发、q/Esc 退出，并复用现有简单菜单 handler
+  - 默认构建保留清晰的 feature-gating 提示，避免把未启用可选依赖的路径误报为完整 TUI
+  - 同步关闭审计项 `AUDIT-S3-009`，并更新当前功能状态注册表与用户文档
 - **GitNexus MCP 日常工作流建议** (`docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md`, `README.md`, `FUNCTION_TREE.md`)
   - 新增 GitNexus MCP 日常使用建议，沉淀显式 repo 参数、索引新鲜度、impact/detect gate、rename/cypher 使用、HIGH/CRITICAL 风险处理和项目边界提醒
   - README 增加文档入口，并继续声明 `FUNCTION_TREE.md` 是功能状态、证据和边界的唯一注册表
   - `FUNCTION_TREE.md` 的可编辑 project-notes 区块记录本轮文档同步，不改写 generated 状态注册区
 
 ### Fixed
+- **流式批处理进度追踪** (`src/io/batch.rs`)
+  - `BatchProcessor::stream_process` 在未知总量的流式输入下维护已观察到的 `total_batches/current_batch`，避免首批更新时除零 panic
+  - 启用进度显示时使用 spinner 展示已处理批次和记录数，并补齐流式 chunk 完成回归测试
 - **screener preset 输入边界硬化** (`src/screener/parser.rs`, `src/screener/evaluator.rs`, `tests/screener_parser_test.rs`, `tests/screener_evaluator_test.rs`)
   - preset 参数解析拒绝零周期/窗口、非有限阈值、重复 key 和空参数段，避免静默覆盖或接受畸形输入
   - `volume_ratio_gte` 零窗口、RSI lookback 溢出和手工构造非法 invocation 都返回显式错误，而不是除零、回绕或 panic

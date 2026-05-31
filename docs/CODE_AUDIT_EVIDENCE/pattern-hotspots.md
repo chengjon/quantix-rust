@@ -26,5 +26,5 @@ The scan covered 411 files under `src`, `tests`, `benches`, `examples`, `scripts
 ## Manual Classification Notes
 
 - `unsafe {` initially appeared in production files because `src/sync/etl.rs` contains test code in a production path. A line-level review found 74 matches inside `#[cfg(test)]` modules and 54 matches in test files; no production runtime unsafe block was found.
-- `TODO[^-]` includes `src/tui/app.rs:8`, supporting carried-forward `AUDIT-S3-009`.
+- At audit time, `TODO[^-]` included `src/tui/app.rs:8`, supporting carried-forward `AUDIT-S3-009`; post-remediation PR #159 removed that TODO and implemented the TUI menu shell.
 - High-volume `println!` matches are mostly CLI output paths and were not converted directly into findings.

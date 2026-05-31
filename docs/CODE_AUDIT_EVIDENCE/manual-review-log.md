@@ -9,15 +9,15 @@ This log implements the manual review phases from the 2026-05-15 audit execution
 
 ## Historical Evidence Review
 
-The prior `findings.csv` contained 19 rows and one known open finding: `AUDIT-S3-009`. The current audit rechecked that finding and kept it open because the same command contract mismatch remains visible in code.
+At audit time, the prior `findings.csv` contained 19 rows and one known unresolved finding: `AUDIT-S3-009`. The audit rechecked that finding and recorded it as unresolved because the same command contract mismatch was visible in code. Post-remediation PR #159 fixed the TUI placeholder path and `findings.csv` now marks `AUDIT-S3-009` fixed.
 
 ## P0 Review
 
 ### CLI Menu / TUI Contract
 
-Evidence: `src/cli/commands/mod.rs:67` declares `Menu`; `src/cli/commands/mod.rs:69` describes `--tui`; `src/cli/commands/mod.rs:180` dispatches `Commands::Menu { tui }`; `src/cli/handlers/app_shell.rs:244` implements `run_tui_menu`; `src/cli/handlers/app_shell.rs:245` prints an in-progress message; `src/cli/handlers/app_shell.rs:247` returns `Ok(())`; `src/tui/app.rs:8` still contains the implementation note for a ratatui menu.
+Evidence at audit time: `src/cli/commands/mod.rs:67` declares `Menu`; `src/cli/commands/mod.rs:69` describes `--tui`; `src/cli/commands/mod.rs:180` dispatches `Commands::Menu { tui }`; `src/cli/handlers/app_shell.rs:244` implements `run_tui_menu`; `src/cli/handlers/app_shell.rs:245` prints an in-progress message; `src/cli/handlers/app_shell.rs:247` returns `Ok(())`; `src/tui/app.rs:8` still contains the implementation note for a ratatui menu. Post-remediation evidence: `src/cli/handlers/app_shell.rs` now delegates to `crate::tui::run_menu` under `cfg(feature = "tui")`, and `src/tui/app.rs` contains the ratatui menu shell.
 
-Conclusion: `AUDIT-S3-009` remains valid.
+Conclusion: `AUDIT-S3-009` was valid during the audit and is now fixed by the post-audit TUI remediation.
 
 ### Factor Score CLI Gate Failure
 

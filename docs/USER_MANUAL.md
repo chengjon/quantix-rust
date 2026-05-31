@@ -313,6 +313,8 @@ quantix menu [--tui]
 |------|------|--------|
 | `--tui` | 启用 TUI 界面 (ratatui) | false |
 
+> `--tui` 需要使用启用 `tui` feature 的构建；默认构建会给出 feature-gating 提示并建议使用普通 `quantix menu`。
+
 #### 示例
 
 ```bash
@@ -325,6 +327,8 @@ quantix menu --tui
 
 #### 输出
 
+普通菜单输出：
+
 ```
 === Quantix CLI 交互菜单 ===
 1. 数据同步
@@ -333,6 +337,8 @@ quantix menu --tui
 4. 任务管理
 0. 退出
 ```
+
+启用 `tui` feature 后，`--tui` 会进入 ratatui 首屏菜单，支持方向键或 `j/k` 移动、`Enter` 选择、`q`/`Esc` 退出。
 
 ---
 
