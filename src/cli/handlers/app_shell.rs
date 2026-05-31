@@ -247,8 +247,28 @@ pub async fn run_simple_menu() -> Result<()> {
 }
 
 pub async fn run_tui_menu() -> Result<()> {
-    println!("🎨 TUI 菜单功能开发中...");
-    println!("💡 提示: 使用 'quantix menu' 进入简单菜单");
+    #[cfg(feature = "tui")]
+    {
+        match crate::tui::run_menu()? {
+            crate::tui::TuiMenuAction::DataSync => run_data_sync_menu().await?,
+            crate::tui::TuiMenuAction::StrategyRun => strategy_handler::run_strategy_menu().await?,
+            crate::tui::TuiMenuAction::Backtest => run_backtest_menu().await?,
+            crate::tui::TuiMenuAction::TaskManagement => run_task_menu().await?,
+            crate::tui::TuiMenuAction::TechnicalAnalysis => run_analysis_menu().await?,
+            crate::tui::TuiMenuAction::DataExport => run_export_menu().await?,
+            crate::tui::TuiMenuAction::Exit => {
+                println!("👋 再见！");
+            }
+        }
+    }
+
+    #[cfg(not(feature = "tui"))]
+    {
+        println!("🎨 TUI 菜单需要启用 tui feature");
+        println!("💡 使用: cargo run --features tui -- menu --tui");
+        println!("💡 或使用 'quantix menu' 进入简单菜单");
+    }
+
     Ok(())
 }
 

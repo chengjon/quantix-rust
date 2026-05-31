@@ -3,4 +3,4 @@
 /// 交互式终端界面
 pub mod app;
 
-pub use app::run_menu;
+pub use app::{TuiMenuAction, run_menu};
