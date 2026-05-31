@@ -158,6 +158,12 @@ impl BatchProcessor {
             .unwrap_or_else(|_| ProgressStyle::default_bar())
     }
 
+    fn stream_progress_style() -> ProgressStyle {
+        ProgressStyle::default_spinner()
+            .template("{spinner:.green} [{elapsed_precise}] {pos} {msg}")
+            .unwrap_or_else(|_| ProgressStyle::default_spinner())
+    }
+
     /// 批量导出数据
     pub async fn batch_export<F>(
         &self,
@@ -317,10 +323,19 @@ impl BatchProcessor {
     {
         let mut progress = BatchProgress::new(0, batch_size);
         let mut batch_num = 0;
+        let progress_bar = if self.config.enable_progress {
+            let bar = ProgressBar::new_spinner();
+            bar.set_style(Self::stream_progress_style());
+            bar.set_message("等待流式批次");
+            Some(bar)
+        } else {
+            None
+        };
 
         loop {
-            // TODO: 添加流式进度显示
-            let _ = &self.config.enable_progress;
+            if let Some(bar) = &progress_bar {
+                bar.set_message(format!("读取流式批次 {}", batch_num + 1));
+            }
 
             let chunk = stream_fn(batch_num).await?;
 
@@ -330,12 +345,26 @@ impl BatchProcessor {
 
             batch_num += 1;
             progress.total_records += chunk.len();
+            progress.total_batches = batch_num;
             progress.update(chunk.len(), 0);
+            progress.current_batch = batch_num;
+
+            if let Some(bar) = &progress_bar {
+                bar.inc(chunk.len() as u64);
+                bar.set_message(format!(
+                    "已处理 {} 批 / {} 条",
+                    progress.current_batch, progress.processed_records
+                ));
+            }
 
             // 内存控制：定期释放
             if batch_num % 10 == 0 {
                 tokio::task::yield_now().await;
             }
+        }
+
+        if let Some(bar) = &progress_bar {
+            bar.finish_with_message("流式处理完成");
         }
 
         Ok(progress)
@@ -458,6 +487,43 @@ mod tests {
         });
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn stream_process_tracks_progress_for_streamed_chunks() {
+        let processor = BatchProcessor::new(BatchConfig {
+            batch_size: 2,
+            enable_progress: false,
+            ..Default::default()
+        })
+        .unwrap();
+        let chunks = std::sync::Arc::new(vec![
+            create_test_klines(2),
+            create_test_klines(3),
+            Vec::new(),
+        ]);
+
+        let result = processor
+            .stream_process(
+                |batch_num| {
+                    let chunks = chunks.clone();
+                    async move {
+                        Ok::<Vec<Kline>, QuantixError>(
+                            chunks.get(batch_num).cloned().unwrap_or_default(),
+                        )
+                    }
+                },
+                2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.processed_records, 5);
+        assert_eq!(result.success_count, 5);
+        assert_eq!(result.error_count, 0);
+        assert_eq!(result.current_batch, 2);
+        assert_eq!(result.total_batches, 2);
+        assert!(result.is_complete());
     }
 
     #[test]
