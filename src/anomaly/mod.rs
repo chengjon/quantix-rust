@@ -25,7 +25,7 @@
 //!     let results = detector.detect().await?;
 //!
 //!     for anomaly in results.iter().take(10) {
-//!         println!("{}: score={:.4}", anomaly.code, anomaly.score);
+//!         tracing::info!(code = %anomaly.code, score = anomaly.score);
 //!     }
 //!
 //!     Ok(())

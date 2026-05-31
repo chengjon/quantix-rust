@@ -325,7 +325,11 @@ impl AlertManager {
     pub fn send_alert(&mut self, alert: Alert) -> Alert {
         // 输出到控制台
         if self.config.enable_console_output {
-            println!("{}", alert.format_message());
+            tracing::info!(
+                target: "quantix::alert_console",
+                "{}",
+                alert.format_message()
+            );
         }
 
         // 输出到日志

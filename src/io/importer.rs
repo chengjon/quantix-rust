@@ -130,7 +130,7 @@ impl DataImporter {
                         skipped += 1;
                     } else {
                         errors += 1;
-                        eprintln!("CSV 解析错误: {}", e);
+                        tracing::warn!("CSV 解析错误: {}", e);
                     }
                 }
             }
