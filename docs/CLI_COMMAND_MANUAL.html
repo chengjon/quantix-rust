@@ -5824,7 +5824,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <pre class='shell'>quantix fundamental show --code 600519
 quantix fundamental valuation --code 600519</pre>
 <h4>功能说明</h4>
-<p>当前可用主线集中在 <code>show</code>、<code>valuation</code>、<code>earnings</code>、<code>institution</code>、<code>dragon-tiger</code>。其中 <code>dividend</code> 仍是占位输出，而 <code>capital-flow</code> 虽已进入功能树规划，但当前二进制尚无 CLI 子命令。</p>
+<p>当前可用主线集中在 <code>show</code>、<code>valuation</code>、<code>earnings</code>、<code>institution</code>、<code>dragon-tiger</code>。其中 <code>dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>；<code>capital-flow</code> 虽已进入功能树规划，但当前二进制尚无 CLI 子命令。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-fundamental-show'><code>quantix fundamental show</code></a>：显示基本面数据</li>
@@ -5834,7 +5834,7 @@ quantix fundamental valuation --code 600519</pre>
 <li><a href='#cmd-fundamental-dragon-tiger'><code>quantix fundamental dragon-tiger</code></a>：查看龙虎榜</li>
 <li><a href='#cmd-fundamental-dividend'><code>quantix fundamental dividend</code></a>：查看分红信息</li>
 </ul>
-<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix fundamental capital-flow</code> 目前还没有 CLI 入口；<code>quantix fundamental dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回 Unsupported。</div>
+<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix fundamental capital-flow</code> 目前还没有 CLI 入口；<code>quantix fundamental dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>。</div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>6 个下级命令</span><span class='chip'>1 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-fundamental-show'>

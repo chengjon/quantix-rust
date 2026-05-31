@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-01
 
 ### Fixed
+- **fundamental dividend CLI 手册边界同步** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `FUNCTION_TREE.md`)
+  - 修正 `quantix fundamental` 总览中仍称 `dividend` 为占位输出的陈旧文案，统一写明命令壳存在但真实分红数据源未接线时会返回显式 `Unsupported`
+  - 新增仓库卫生测试，防止 CLI HTML 手册重新把已 fail-closed 的分红命令写回占位成功输出状态
 - **data export CLI 手册状态同步** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `FUNCTION_TREE.md`)
   - 修正 `quantix data export` 手册中仍称 Parquet 为占位实现的陈旧文案，改为反映当前 CSV/Parquet 分支都会调用导出器写出实际文件
   - 新增仓库卫生测试，防止 CLI HTML 手册重新把已接线的 Parquet 导出写回占位状态
