@@ -133,50 +133,59 @@ impl TradingCalendar {
 
     /// 加载配置文件
     async fn load_config(&mut self) -> Result<()> {
-        let path = match &self.config_path {
-            Some(p) => p.clone(),
-            None => return Ok(()),
-        };
-
-        if !path.exists() {
-            tracing::warn!("节假日配置文件不存在: {:?}", path);
+        let Some(config) = self.read_holiday_config().await? else {
             return Ok(());
-        }
-
-        let content = tokio::fs::read_to_string(&path)
-            .await
-            .map_err(|e| QuantixError::Other(format!("读取节假日配置失败: {}", e)))?;
-
-        let config: HolidayConfig = serde_json::from_str(&content)
-            .map_err(|e| QuantixError::Other(format!("解析节假日配置失败: {}", e)))?;
+        };
 
         for (year_str, year_data) in config.years {
             let year: i32 = year_str
                 .parse()
                 .map_err(|_| QuantixError::Other(format!("无效的年份: {}", year_str)))?;
 
-            // 解析节假日
-            let mut holiday_set = HashSet::new();
-            for date_str in &year_data.holidays {
-                if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-                    holiday_set.insert(date);
-                }
-            }
+            let (holiday_set, workday_set) = Self::parse_year_holidays(&year_data);
             self.holidays.insert(year, holiday_set);
-
-            // 解析调休工作日
-            let mut workday_set = HashSet::new();
-            for date_str in &year_data.workdays_on_weekend {
-                if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-                    workday_set.insert(date);
-                }
-            }
             self.workdays_on_weekend.insert(year, workday_set);
         }
 
         tracing::info!("已加载 {} 年的节假日数据", self.holidays.len());
 
         Ok(())
+    }
+
+    async fn read_holiday_config(&self) -> Result<Option<HolidayConfig>> {
+        let path = match &self.config_path {
+            Some(path) => path,
+            None => return Ok(None),
+        };
+
+        if !path.exists() {
+            tracing::warn!("节假日配置文件不存在: {:?}", path);
+            return Ok(None);
+        }
+
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| QuantixError::Other(format!("读取节假日配置失败: {}", e)))?;
+
+        let config = serde_json::from_str(&content)
+            .map_err(|e| QuantixError::Other(format!("解析节假日配置失败: {}", e)))?;
+
+        Ok(Some(config))
+    }
+
+    fn parse_year_holidays(year_data: &YearHolidays) -> (HashSet<NaiveDate>, HashSet<NaiveDate>) {
+        let holiday_set = year_data
+            .holidays
+            .iter()
+            .filter_map(|date_str| NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok())
+            .collect();
+        let workday_set = year_data
+            .workdays_on_weekend
+            .iter()
+            .filter_map(|date_str| NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok())
+            .collect();
+
+        (holiday_set, workday_set)
     }
 
     /// 判断指定日期是否为交易日
@@ -433,13 +442,17 @@ impl TradingCalendar {
 
     /// 加载指定年份的节假日数据
     pub async fn load_holidays_for_year(&mut self, year: i32) -> Result<()> {
-        // TODO: 实现从文件或数据库加载节假日数据
-        // 可以从 Python quantix 项目的节假日数据同步
-        let holiday_set = HashSet::new();
-
-        tracing::info!("加载 {} 年节假日数据 (当前为空，待实现)", year);
+        let year_key = year.to_string();
+        let (holiday_set, workday_set) = self
+            .read_holiday_config()
+            .await?
+            .and_then(|config| config.years.get(&year_key).map(Self::parse_year_holidays))
+            .unwrap_or_default();
 
         self.holidays.insert(year, holiday_set);
+        self.workdays_on_weekend.insert(year, workday_set);
+        tracing::info!("已加载 {} 年节假日数据", year);
+
         Ok(())
     }
 
@@ -503,5 +516,49 @@ mod tests {
         assert_eq!(TradingSession::Afternoon.as_str(), "afternoon");
         assert_eq!(TradingSession::Auction.as_str(), "auction");
         assert_eq!(TradingSession::Closed.as_str(), "closed");
+    }
+
+    #[tokio::test]
+    async fn test_load_holidays_for_year_reads_configured_year() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("holidays.json");
+        tokio::fs::write(
+            &config_path,
+            r#"{
+                "description": "test holidays",
+                "source": "test",
+                "years": {
+                    "2026": {
+                        "holidays": ["2026-01-01"],
+                        "early_close": [],
+                        "workdays_on_weekend": ["2026-01-04"]
+                    }
+                }
+            }"#,
+        )
+        .await
+        .unwrap();
+
+        let mut calendar = TradingCalendar {
+            holidays: HashMap::new(),
+            workdays_on_weekend: HashMap::new(),
+            config_path: Some(config_path),
+        };
+
+        calendar.load_holidays_for_year(2026).await.unwrap();
+
+        assert!(
+            calendar
+                .holidays
+                .get(&2026)
+                .unwrap()
+                .contains(&NaiveDate::from_ymd_opt(2026, 1, 1).unwrap())
+        );
+        assert!(
+            calendar
+                .is_holiday(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap())
+                .await
+        );
+        assert!(calendar.is_workday_on_weekend(NaiveDate::from_ymd_opt(2026, 1, 4).unwrap()));
     }
 }
