@@ -50,6 +50,22 @@ fn collect_main_workspace_doc_paths(dir: &Path, docs: &mut Vec<PathBuf>) {
     }
 }
 
+fn collect_rust_paths(dir: &Path, paths: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).unwrap_or_else(|_| panic!("expected {dir:?} to be readable")) {
+        let entry = entry.unwrap_or_else(|_| panic!("expected readable entry under {dir:?}"));
+        let path = entry.path();
+
+        if path.is_dir() {
+            collect_rust_paths(&path, paths);
+            continue;
+        }
+
+        if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
+            paths.push(path);
+        }
+    }
+}
+
 #[test]
 fn market_output_renderer_does_not_panic_on_string_writes() {
     let path = repo_root().join("src/cli/handlers/market_output.rs");
@@ -82,6 +98,43 @@ fn anomaly_detector_does_not_write_directly_to_stdio() {
     assert!(
         !production.contains("println!(") && !production.contains("eprintln!("),
         "anomaly detector should render results or use tracing instead of writing to stdio"
+    );
+}
+
+#[test]
+fn non_cli_production_modules_do_not_write_directly_to_stdio() {
+    let root = repo_root();
+    let src_dir = root.join("src");
+    let mut rust_paths = Vec::new();
+    collect_rust_paths(&src_dir, &mut rust_paths);
+
+    let mut offenders = Vec::new();
+    for path in rust_paths {
+        let relative_path = path.strip_prefix(&root).unwrap_or(&path);
+        let relative = relative_path.to_string_lossy();
+
+        if relative.starts_with("src/cli/")
+            || relative.starts_with("src/bin/")
+            || relative.starts_with("src/tui/")
+            || relative == "src/main.rs"
+            || relative.ends_with("/tests.rs")
+            || relative.contains("/tests/")
+        {
+            continue;
+        }
+
+        let contents = fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("expected {relative} to be readable"));
+        let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+        if production.contains("println!(") || production.contains("eprintln!(") {
+            offenders.push(relative.into_owned());
+        }
+    }
+
+    assert!(
+        offenders.is_empty(),
+        "non-CLI production modules should use tracing or returned renderable data instead of direct stdio writes: {}",
+        offenders.join(", ")
     );
 }
 

@@ -25,10 +25,10 @@ impl PerfTimer {
         self.start.elapsed()
     }
 
-    /// 打印耗时并返回
+    /// 记录耗时并返回
     pub fn stop_and_print(self) -> std::time::Duration {
         let elapsed = self.elapsed();
-        println!("[{}] {} ms", self.name, elapsed.as_millis());
+        tracing::info!(target: "quantix::performance", name = %self.name, elapsed_ms = elapsed.as_millis());
         elapsed
     }
 }
@@ -37,7 +37,12 @@ impl Drop for PerfTimer {
     fn drop(&mut self) {
         let elapsed = self.elapsed();
         if elapsed.as_millis() > 100 {
-            println!("[{}] ⚠️  Slow: {} ms", self.name, elapsed.as_millis());
+            tracing::warn!(
+                target: "quantix::performance",
+                name = %self.name,
+                elapsed_ms = elapsed.as_millis(),
+                "slow operation"
+            );
         }
     }
 }
@@ -86,15 +91,30 @@ impl MemoryTracker {
         current as isize - self.initial_kb as isize
     }
 
-    /// 打印内存使用并返回
+    /// 记录内存使用并返回
     pub fn stop_and_print(self) -> isize {
         let delta = self.delta_kb();
         if delta > 0 {
-            println!("[{}] +{} KB allocated", self.name, delta);
+            tracing::info!(
+                target: "quantix::performance",
+                name = %self.name,
+                delta_kb = delta,
+                "memory allocated"
+            );
         } else if delta < 0 {
-            println!("[{}] {} KB freed", self.name, delta.abs());
+            tracing::info!(
+                target: "quantix::performance",
+                name = %self.name,
+                delta_kb = delta,
+                "memory freed"
+            );
         } else {
-            println!("[{}] No memory change", self.name);
+            tracing::info!(
+                target: "quantix::performance",
+                name = %self.name,
+                delta_kb = delta,
+                "memory unchanged"
+            );
         }
         delta
     }
