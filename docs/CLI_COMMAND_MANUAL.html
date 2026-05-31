@@ -5588,7 +5588,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai analyze --code 600519 --model deepseek --with-news</pre>
 <h4>功能说明</h4>
-<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，实际适配器仍按环境中已配置 provider 的优先级选择。</p>
+<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。运行时会明确打印“当前使用模拟价格/指标上下文”；当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，实际适配器仍按环境中已配置 provider 的优先级选择。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -5612,7 +5612,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai decide --code 600519 --position 200 --risk high</pre>
 <h4>功能说明</h4>
-<p>该命令会把股票代码、当前持仓和风险等级送入 LLM 决策引擎，返回动作、置信度和理由。当前分析背景仍写死为 <code>技术面分析结果 (模拟)</code>，不会自动读取账户实仓、行情或信号流水，所以它更像是策略话术生成器，而不是已接好真实数据面的交易决策器。</p>
+<p>该命令会把股票代码、当前持仓和风险等级送入 LLM 决策引擎，返回动作、置信度和理由。运行时会明确打印“当前使用模拟技术面分析上下文”；当前分析背景仍写死为 <code>技术面分析结果 (模拟)</code>，不会自动读取账户实仓、行情或信号流水，所以它更像是策略话术生成器，而不是已接好真实数据面的交易决策器。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -5658,7 +5658,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai market --date 20260504</pre>
 <h4>功能说明</h4>
-<p>命令会向 LLM 发送一段固定的“A 股市场复盘/明日展望”提示词，并返回自由文本分析。当前并不会根据 <code>--date</code> 自动抓取当天指数、板块或资金流数据，因此输出质量主要取决于模型自身知识和提示词，不等同于基于本地行情数据的复盘结果。</p>
+<p>命令会向 LLM 发送一段固定的“A 股市场复盘/明日展望”提示词，并返回自由文本分析。运行时会明确打印“当前使用固定提示词”；当前并不会根据 <code>--date</code> 自动抓取当天指数、板块或资金流数据，因此输出质量主要取决于模型自身知识和提示词，不等同于基于本地行情数据的复盘结果。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
