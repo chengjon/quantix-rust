@@ -2502,6 +2502,23 @@ fn generated_cli_manual_documents_data_export_parquet_as_wired() {
 }
 
 #[test]
+fn generated_cli_manual_documents_fundamental_dividend_as_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains(
+            "<code>dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>"
+        ),
+        "expected CLI_COMMAND_MANUAL.html to document fundamental dividend as fail-closed"
+    );
+    assert!(
+        !cli_manual.contains("<code>dividend</code> 仍是占位输出"),
+        "CLI_COMMAND_MANUAL.html still describes fundamental dividend as placeholder output"
+    );
+}
+
+#[test]
 fn user_manual_documents_phase29b_strategy_daemon_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");

@@ -1203,6 +1203,7 @@ Windows Bridge v1
 <!-- function-tree:generated:end -->
 
 <!-- function-tree:project-notes:start -->
+- 2026-06-01 docs sync: `docs/CLI_COMMAND_MANUAL.html` now consistently documents `fundamental dividend` as a fail-closed command shell that returns explicit `Unsupported` until a real dividend data source is wired. A repo hygiene guard prevents reintroducing the stale "dividend placeholder output" manual wording. The generated function/status registry above remains the source of feature truth.
 - 2026-06-01 docs sync: `docs/CLI_COMMAND_MANUAL.html` now reflects the current `data export` boundary that both CSV and Parquet branches call the exporter and write actual files. A repo hygiene guard prevents reintroducing the stale "Parquet placeholder" manual wording. The generated function/status registry above remains the source of feature truth.
 - 2026-05-31 docs sync: README and CHANGELOG now reflect the merged screener preset hardening line through PR #151 and the GitNexus MCP workflow guide from PR #152. The generated function/status registry above remains the source of feature truth; this note only records the documentation synchronization boundary.
 - 2026-05-31 screener boundary note: `screener/` remains implemented for parameterized daily-line presets and repeated `--preset` AND composition. Recent parser/evaluator hardening rejects empty parameter segments, duplicate keys, zero periods/windows, non-finite thresholds, and RSI lookback overflow as invalid input rather than treating them as alternate feature semantics.
