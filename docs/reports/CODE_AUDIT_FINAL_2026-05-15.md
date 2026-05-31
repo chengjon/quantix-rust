@@ -7,7 +7,7 @@
 
 The audit execution spec was implemented as an evidence package under `docs/CODE_AUDIT_EVIDENCE/`.
 
-The repository runtime gates are locally closed after follow-up remediation: formatting, all-target tests, and release build pass. No S0 or S1 issue was confirmed in the sampled manual review. Residual release risk is now the open S3 TUI placeholder finding and the broad unrelated dirty worktree, not the runtime gate loop.
+The repository runtime gates are locally closed after follow-up remediation: formatting, all-target tests, and release build pass. No S0 or S1 issue was confirmed in the sampled manual review. The former S3 TUI placeholder finding is fixed by the `menu --tui` ratatui shell; current functional boundaries are tracked in `FUNCTION_TREE.md`.
 
 ## Evidence Package
 
@@ -64,7 +64,7 @@ The dirty worktree materially limits confidence. Findings describe the local wor
 | `AUDIT-S2-010` | S2 | fixed | Formatting gate now passes. |
 | `AUDIT-S2-011` | S2 | fixed | Factor score CSV output test and all-target test now pass after preserving plain symbol strings before CSV output. |
 | `AUDIT-S3-010` | S3 | fixed | Release build gate reproduced as pass; evidence is `docs/CODE_AUDIT_EVIDENCE/logs/cargo-build-release-20260517T174008Z.log`. |
-| `AUDIT-S3-009` | S3 | open | `menu --tui` still advertises TUI behavior but returns success from an in-progress placeholder. |
+| `AUDIT-S3-009` | S3 | fixed | `menu --tui` now enters a feature-gated ratatui first-screen menu instead of returning placeholder success. |
 
 No S0 or S1 finding was confirmed.
 
@@ -74,7 +74,7 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 
 ## Manual Review
 
-- The existing TUI command contract finding remains open.
+- The former TUI command contract finding was valid during audit and is now fixed by post-audit remediation.
 - Factor scoring has a confirmed user-facing output test failure.
 - QMT task submit payload construction maps side, quantity, price, and order type into the bridge payload in the sampled path.
 - No production runtime `unsafe` block was confirmed by line-level review.
@@ -91,7 +91,7 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 | `findings.csv` uses required schema | met |
 | Final report exists | met |
 | S0/S1/S2 findings have explicit status and evidence | met; S2 findings are fixed with evidence |
-| Remaining S3/S4 findings listed | met; `AUDIT-S3-010` is fixed and `AUDIT-S3-009` remains open |
+| Remaining S3/S4 findings listed | met; `AUDIT-S3-010` and `AUDIT-S3-009` are fixed |
 | Graphiti review memory completed ingestion | met; episode `c987c1b4-8b27-4fe0-b92e-10b466ab4939` completed ingestion |
 | Graphiti read evidence supplement | met; `graphiti-memory.md` added after review |
 | Evidence manifest supplement | met; `evidence-manifest.md` added after review |
@@ -99,9 +99,9 @@ The pattern scan covered 411 files. `unsafe {` had 128 raw matches, all manually
 
 ## Recommended Remediation Order
 
-1. Decide whether `menu --tui` should launch a real TUI or return an unsupported/non-zero result until implemented.
-2. Keep release-gate evidence current if additional runtime code changes are made.
+1. Keep release-gate evidence current if additional runtime code changes are made.
+2. Continue treating `FUNCTION_TREE.md` as the current feature status and boundary registry.
 
 ## Final Status
 
-Audit execution completed with runtime gates locally closed and one known S3 finding still open. Graphiti review memory completed ingestion. Post-review evidence supplements and follow-up gate evidence were added without changing `FUNCTION_TREE.md` feature-status authority.
+Audit execution completed with runtime gates locally closed, and the known S3 follow-up finding has since been fixed. Graphiti review memory completed ingestion. Post-review evidence supplements and follow-up gate evidence were added while preserving `FUNCTION_TREE.md` as the feature-status authority.

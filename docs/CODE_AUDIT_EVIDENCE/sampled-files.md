@@ -15,9 +15,9 @@
 
 | File | Reason | Conclusion |
 |---|---|---|
-| `src/cli/commands/mod.rs` | CLI `menu --tui` dispatch and advertised option | Supports carried-forward `AUDIT-S3-009`. |
-| `src/cli/handlers/app_shell.rs` | TUI handler behavior and CLI menu surface | `run_tui_menu` prints in-progress text and returns success. |
-| `src/tui/app.rs` | TUI placeholder implementation | Contains implementation note and simple printed menu. |
+| `src/cli/commands/mod.rs` | CLI `menu --tui` dispatch and advertised option | Supported carried-forward `AUDIT-S3-009` during audit; post-remediation dispatch now reaches a feature-gated TUI shell. |
+| `src/cli/handlers/app_shell.rs` | TUI handler behavior and CLI menu surface | `run_tui_menu` now delegates to the ratatui menu under `cfg(feature = "tui")` and prints a feature-gating fallback in default builds. |
+| `src/tui/app.rs` | TUI menu implementation | Contains the TUI menu action model, ratatui first-screen renderer, navigation state, and regression tests. |
 | `tests/factor_pipeline_test.rs` | Failing all-target test | Supports `AUDIT-S2-011`. |
 | `src/cli/handlers/factor.rs` | Factor score command path | Confirms CLI score output path and GitNexus flow. |
 | `src/factor/scoring.rs` | Formatting failure and factor scoring output construction | Supports `AUDIT-S2-010`; relevant to `AUDIT-S2-011`. |
