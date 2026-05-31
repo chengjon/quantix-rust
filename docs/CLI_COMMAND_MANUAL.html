@@ -5689,7 +5689,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <div class='kicker'>1 级命令</div>
 <h3>quantix news</h3>
 <div class='meta'>命令路径：<code>quantix news</code></div>
-<p>新闻 provider 检查与占位搜索入口</p>
+<p>新闻 provider 聚合搜索入口</p>
 <div class='subgrid'>
 <div>
 <h4>用法</h4>
@@ -5702,7 +5702,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix news providers</pre>
 <h4>功能说明</h4>
-<p>当前 <code>search</code> 与 <code>code</code> 主要完成参数解析、API Key 检查以及可用 provider 列表输出，尚未真正返回新闻结果；<code>trend</code> 仍是开发中占位命令；<code>providers</code> 则用于查看 Tavily、SerpAPI、博查三类搜索后端的环境准备情况。也就是说，这组命令目前更偏“接线状态检查”，而不是成熟的新闻聚合能力。</p>
+<p>当前 <code>search</code> 与 <code>code</code> 会根据环境中的 <code>TAVILY_API_KEY</code>、<code>SERPAPI_API_KEY</code>、<code>BOCHA_API_KEY</code> 构建可用 provider，并通过新闻聚合器发起搜索；未配置 provider 时会输出显式配置提示；<code>trend</code> 仍是开发中占位命令；<code>providers</code> 则用于查看三类搜索后端的环境准备情况。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-news-search'><code>quantix news search</code></a>：搜索新闻</li>
@@ -5734,7 +5734,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix news search --query "机器人" --code 300024 --days 5 --max 10 --provider tavily</pre>
 <h4>功能说明</h4>
-<p>命令会先检查 <code>TAVILY_API_KEY</code>、<code>SERPAPI_API_KEY</code>、<code>BOCHA_API_KEY</code> 是否至少配置其一，然后输出当前可用 provider 列表。当前实现不会真正发起新闻搜索，也不会返回新闻标题或链接；<code>--provider</code> 参数现阶段只用于命令输入记录，不会强制绑定某个后端。</p>
+<p>命令会先根据 <code>TAVILY_API_KEY</code>、<code>SERPAPI_API_KEY</code>、<code>BOCHA_API_KEY</code> 构建可用 provider；至少配置其一时会通过新闻聚合器发起搜索并输出结果，未配置时会提示需要配置搜索 provider；<code>--provider</code> 可用于指定 tavily、serpapi 或 bocha 后端。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>6 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -5758,7 +5758,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix news code --code 600519 --days 7 --max 10</pre>
 <h4>功能说明</h4>
-<p>这是 <code>news search</code> 的股票代码快捷入口，内部会把查询词改写成 <code>{code} 股票</code> 后复用同一套逻辑。因此它与 <code>search</code> 一样，当前只会做 API Key 检查、显示 provider 准备状态，并不会返回真正的新闻搜索结果。</p>
+<p>这是 <code>news search</code> 的股票代码快捷入口，内部会把查询词改写成 <code>{code} 股票</code> 后复用同一套 provider 聚合搜索逻辑；未配置 provider 时同样返回配置提示。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
