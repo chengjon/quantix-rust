@@ -950,7 +950,7 @@ quantix
 │   │   ├── --provider     # 指定数据源
 │   │   └── --days         # 时间范围
 │   ├── code                # 按股票代码搜索（复用 provider 聚合搜索流程）
-│   ├── trend               # 市场热点趋势（占位提示）
+│   ├── trend               # 市场热点趋势（provider 聚合搜索；非完整趋势模型）
 │   └── providers           # 提供商状态
 │
 ├── fundamental             # 基本面分析

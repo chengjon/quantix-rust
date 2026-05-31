@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-05-31
 
 ### Added
+- **新闻热点趋势搜索接线** (`src/cli/handlers/news.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - `news trend` 复用现有 Tavily/SerpAPI/Bocha provider 聚合搜索路径，默认查询市场热点新闻，传入 `--code`/`--date` 时构造股票热点查询
+  - 未配置新闻 provider 时继续输出显式配置提示；当前边界仍是热点新闻搜索，不宣称为完整趋势量化模型
 - **TUI 菜单首屏接线** (`src/tui/app.rs`, `src/cli/handlers/app_shell.rs`, `src/tui/mod.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`, `docs/USER_MANUAL.md`)
   - `menu --tui` 在启用 `tui` feature 的构建中进入 ratatui 首屏菜单，支持上下选择、Enter 分发、q/Esc 退出，并复用现有简单菜单 handler
   - 默认构建保留清晰的 feature-gating 提示，避免把未启用可选依赖的路径误报为完整 TUI
