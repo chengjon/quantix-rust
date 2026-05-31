@@ -258,10 +258,9 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
         println!("🔄 测试 LLM 连通性...");
         println!();
 
-        for name in config.providers.keys() {
+        for (name, provider_config) in &config.providers {
             print!("   测试 {}... ", name);
-            // In real implementation, would make a test API call
-            println!("✅ 可用");
+            println!("{}", ai_config_test_status(name, provider_config));
         }
     }
 
@@ -272,7 +271,7 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
             println!("✅ 已配置 {} 个 LLM 提供商", config.providers.len());
             println!();
             println!("使用 'quantix ai config --show' 查看详细配置");
-            println!("使用 'quantix ai config --test' 测试连通性");
+            println!("使用 'quantix ai config --test' 检查已配置 provider 状态");
         } else {
             println!("❌ 未配置任何 LLM 提供商");
             println!();
@@ -286,4 +285,35 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn ai_config_test_status(
+    name: &str,
+    provider_config: &crate::ai::adapter::ProviderConfig,
+) -> &'static str {
+    if provider_config.api_key.is_some() || name == "ollama" {
+        "⚠️ 已配置（未发起真实连通性测试）"
+    } else {
+        "❌ 缺少认证配置"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::adapter::ProviderConfig;
+
+    #[test]
+    fn ai_config_test_status_does_not_claim_connectivity() {
+        let provider = ProviderConfig {
+            api_key: Some("test-key".to_string()),
+            base_url: Some("https://example.test/v1".to_string()),
+            models: vec!["test-model".to_string()],
+        };
+
+        let status = ai_config_test_status("openai", &provider);
+
+        assert_eq!(status, "⚠️ 已配置（未发起真实连通性测试）");
+        assert!(!status.contains("可用"));
+    }
 }
