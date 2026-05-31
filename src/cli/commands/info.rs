@@ -103,7 +103,7 @@ pub enum AiCommands {
         #[arg(long)]
         show: bool,
 
-        /// 测试 API 连接
+        /// 检查已配置 provider 状态（不发起真实 API 请求）
         #[arg(long)]
         test: bool,
     },

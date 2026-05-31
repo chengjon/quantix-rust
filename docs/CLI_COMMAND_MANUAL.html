@@ -5674,14 +5674,14 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>参数</h4>
 <table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
 <tr><td><code>--show</code></td><td>-</td><td>显示当前配置</td></tr>
-<tr><td><code>--test</code></td><td>-</td><td>测试 API 连接</td></tr>
+<tr><td><code>--test</code></td><td>-</td><td>检查已配置 provider 状态（不发起真实 API 请求）</td></tr>
 <tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
 </tbody></table>
 </div><div>
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai config --show</pre>
 <h4>功能说明</h4>
-<p>默认模式只汇总“已配置了多少个 provider”；<code>--show</code> 会打印默认模型、温度、超时和各 provider 的环境配置状态；<code>--test</code> 当前不会发起真实 API 请求，只是遍历已配置 provider 并输出“可用”占位结果，因此它更适合作为环境自检提示，而非真正的连通性验收。</p>
+<p>默认模式只汇总“已配置了多少个 provider”；<code>--show</code> 会打印默认模型、温度、超时和各 provider 的环境配置状态；<code>--test</code> 当前不会发起真实 API 请求，只是遍历已配置 provider 并输出“已配置（未发起真实连通性测试）”，因此它更适合作为配置自检提示，而非真正的连通性验收。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

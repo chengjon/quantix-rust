@@ -2519,6 +2519,21 @@ fn generated_cli_manual_documents_fundamental_dividend_as_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("输出“已配置（未发起真实连通性测试）”"),
+        "expected CLI_COMMAND_MANUAL.html to document ai config --test as a non-connectivity check"
+    );
+    assert!(
+        !cli_manual.contains("输出“可用”占位结果"),
+        "CLI_COMMAND_MANUAL.html still describes ai config --test as printing a fake availability result"
+    );
+}
+
+#[test]
 fn user_manual_documents_phase29b_strategy_daemon_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");

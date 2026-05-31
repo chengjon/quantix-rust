@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-01
 
 ### Fixed
+- **AI 配置测试状态避免误报可用** (`src/cli/handlers/ai.rs`, `src/cli/commands/info.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`)
+  - `quantix ai config --test` 不再把未实际联网探测的 provider 打印成“✅ 可用”，改为明确输出“已配置（未发起真实连通性测试）”
+  - CLI help 与 HTML 手册同步说明该命令是配置状态检查，不是真实 API 连通性验收，并补齐单元测试与手册卫生测试
 - **fundamental dividend CLI 手册边界同步** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `FUNCTION_TREE.md`)
   - 修正 `quantix fundamental` 总览中仍称 `dividend` 为占位输出的陈旧文案，统一写明命令壳存在但真实分红数据源未接线时会返回显式 `Unsupported`
   - 新增仓库卫生测试，防止 CLI HTML 手册重新把已 fail-closed 的分红命令写回占位成功输出状态
