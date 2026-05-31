@@ -11,6 +11,9 @@ All notable changes to this project are documented here.
 - **AI 命令运行时边界提示** (`src/cli/handlers/ai.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix ai analyze` / `decide` / `ask` / `market` 在执行时显式打印模拟价格/指标、模拟技术面分析、问答参数或固定 prompt 边界，避免用户把 LLM 接线验证误读为实时投研或实仓决策能力
   - CLI HTML 手册、README 与 FUNCTION_TREE 同步记录该边界，并新增仓库卫生测试防止手册遗漏运行时提示说明
+- **AI 配置测试运行时标题同步** (`src/cli/handlers/ai.rs`, `docs/CLI_COMMAND_MANUAL.html`, `README.md`, `tests/repo_hygiene_test.rs`, `FUNCTION_TREE.md`)
+  - `quantix ai config --test` 的运行时标题从“测试 LLM 连通性”改为“检查 LLM 配置状态”，provider 行前缀同步为“检查 ...”
+  - CLI HTML 手册、README 与 FUNCTION_TREE 同步说明该入口只是配置状态检查，不发起真实 API 连通性请求，并补齐单元测试与手册卫生测试
 - **AI 配置测试状态避免误报可用** (`src/cli/handlers/ai.rs`, `src/cli/commands/info.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`)
   - `quantix ai config --test` 不再把未实际联网探测的 provider 打印成“✅ 可用”，改为明确输出“已配置（未发起真实连通性测试）”
   - CLI help 与 HTML 手册同步说明该命令是配置状态检查，不是真实 API 连通性验收，并补齐单元测试与手册卫生测试

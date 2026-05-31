@@ -2528,8 +2528,16 @@ fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
         "expected CLI_COMMAND_MANUAL.html to document ai config --test as a non-connectivity check"
     );
     assert!(
+        cli_manual.contains("运行时标题为“检查 LLM 配置状态”"),
+        "expected CLI_COMMAND_MANUAL.html to document the ai config --test runtime status-check heading"
+    );
+    assert!(
         !cli_manual.contains("输出“可用”占位结果"),
         "CLI_COMMAND_MANUAL.html still describes ai config --test as printing a fake availability result"
+    );
+    assert!(
+        !cli_manual.contains("测试 LLM 连通性"),
+        "CLI_COMMAND_MANUAL.html still describes ai config --test as a real connectivity test"
     );
 }
 
