@@ -36,6 +36,7 @@ async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> R
     if with_news {
         println!("   包含新闻: 是");
     }
+    println!("{}", ai_analyze_context_warning(with_news));
     println!();
 
     let config = LlmConfig::from_env();
@@ -99,6 +100,7 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
     println!("   代码: {}", code);
     println!("   持仓: {}", position.unwrap_or(0));
     println!("   风险: {}", risk);
+    println!("{}", ai_decide_context_warning());
     println!();
 
     let config = LlmConfig::from_env();
@@ -190,6 +192,7 @@ async fn run_ai_market(date: Option<&str>) -> Result<()> {
     if let Some(d) = date {
         println!("   日期: {}", d);
     }
+    println!("{}", ai_market_context_warning());
     println!();
 
     let config = LlmConfig::from_env();
@@ -298,6 +301,23 @@ fn ai_config_test_status(
     }
 }
 
+fn ai_analyze_context_warning(with_news: bool) -> String {
+    let mut warning =
+        "⚠️ 当前使用模拟价格/指标上下文；不会读取实时行情、财务或技术指标流水".to_string();
+    if with_news {
+        warning.push_str("；--with-news 仅回显，不注入真实新闻数据");
+    }
+    warning
+}
+
+fn ai_decide_context_warning() -> &'static str {
+    "⚠️ 当前使用模拟技术面分析上下文；不会读取实仓、行情或信号流水"
+}
+
+fn ai_market_context_warning() -> &'static str {
+    "⚠️ 当前使用固定提示词；不会抓取实时市场数据"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,5 +335,30 @@ mod tests {
 
         assert_eq!(status, "⚠️ 已配置（未发起真实连通性测试）");
         assert!(!status.contains("可用"));
+    }
+
+    #[test]
+    fn ai_analyze_context_warning_discloses_simulated_inputs() {
+        let warning = ai_analyze_context_warning(true);
+
+        assert!(warning.contains("模拟价格/指标上下文"));
+        assert!(warning.contains("--with-news 仅回显"));
+        assert!(warning.contains("不注入真实新闻数据"));
+    }
+
+    #[test]
+    fn ai_decide_context_warning_discloses_simulated_analysis() {
+        let warning = ai_decide_context_warning();
+
+        assert!(warning.contains("模拟技术面分析上下文"));
+        assert!(warning.contains("不会读取实仓、行情或信号流水"));
+    }
+
+    #[test]
+    fn ai_market_context_warning_discloses_fixed_prompt_boundary() {
+        let warning = ai_market_context_warning();
+
+        assert!(warning.contains("固定提示词"));
+        assert!(warning.contains("不会抓取实时市场数据"));
     }
 }

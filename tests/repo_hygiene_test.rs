@@ -2534,6 +2534,23 @@ fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
 }
 
 #[test]
+fn generated_cli_manual_documents_ai_runtime_context_warnings() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for expected in [
+        "运行时会明确打印“当前使用模拟价格/指标上下文”",
+        "运行时会明确打印“当前使用模拟技术面分析上下文”",
+        "运行时会明确打印“当前使用固定提示词”",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document AI runtime warning: {expected}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase29b_strategy_daemon_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
