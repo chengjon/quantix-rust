@@ -454,16 +454,16 @@ async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
     println!("   年数: {}", years);
     println!();
 
-    println!("🚧 功能开发中...");
-    println!();
-    println!("📊 分红数据获取功能即将上线，敬请期待！");
+    println!("⚠️ 分红数据源尚未接入，命令将返回 Unsupported");
     println!();
     println!("💡 您可以先使用以下命令查看其他基本面数据:");
     println!("   - quantix fundamental valuation {}   # 估值指标", code);
     println!("   - quantix fundamental earnings {}    # 财报数据", code);
     println!("   - quantix fundamental institution {} # 机构持仓", code);
 
-    Ok(())
+    Err(QuantixError::Unsupported(format!(
+        "fundamental dividend 尚未接入真实分红数据源；code={code}, years={years}"
+    )))
 }
 
 /// Helper function to format optional Decimal values for display
@@ -480,5 +480,24 @@ pub fn truncate_str(s: &str, max_len: usize) -> String {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     } else {
         s.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn fundamental_dividend_returns_unsupported_until_provider_is_wired() {
+        let error = run_fundamental_dividend("600519", 3)
+            .await
+            .expect_err("dividend must fail closed until real dividend data is wired");
+
+        assert!(matches!(
+            error,
+            QuantixError::Unsupported(message)
+                if message.contains("fundamental dividend")
+                    && message.contains("尚未接入真实分红数据源")
+        ));
     }
 }

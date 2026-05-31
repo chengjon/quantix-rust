@@ -21,6 +21,9 @@ All notable changes to this project are documented here.
   - `FUNCTION_TREE.md` 的可编辑 project-notes 区块记录本轮文档同步，不改写 generated 状态注册区
 
 ### Fixed
+- **fundamental dividend 失败关闭** (`src/cli/handlers/fundamental.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - `quantix fundamental dividend` 不再打印“功能开发中”后以成功状态退出；在真实分红数据源接线前改为返回 `QuantixError::Unsupported`
+  - 补齐回归测试，锁定分红命令壳必须 fail-closed，避免把未实现能力误报为可用查询
 - **功能状态文档残留旧状态同步** (`README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
   - 修正 `FUNCTION_TREE.md` 中 TUI、data export、news search/code 与当前实现不一致的残留旧文案
   - README 推进顺序与 CLI HTML 手册同步反映当前 data CSV/Parquet 导出和 provider-backed news search 状态

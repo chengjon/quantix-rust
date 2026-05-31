@@ -302,6 +302,7 @@ quantix fundamental valuation --code 600519
 quantix fundamental earnings --code 600519
 quantix fundamental institution --code 600519
 quantix fundamental dragon-tiger --code 600519
+# 当前应返回 Unsupported，直到真实分红数据源接线
 quantix fundamental dividend --code 600519
 ```
 
