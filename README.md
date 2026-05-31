@@ -116,6 +116,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `DecisionEngine` - 决策仪表盘生成
   - `ConversationManager` - 多轮对话上下文管理
   - `ai analyze` / `ai decide` / `ai ask` / `ai market` 会在运行时显式提示模拟价格/指标、模拟技术面分析、问答参数或固定 prompt 边界；这些入口适合验证 LLM 接线，不等同于实时投研或实仓交易决策
+  - `ai config --test` 是配置状态检查，运行时标题为“检查 LLM 配置状态”，不会发起真实 API 连通性请求
 - **新闻搜索模块**已完成基础实现 (Phase 3)：
   - `NewsProvider` trait - 新闻提供者接口
   - 多源支持：Tavily、SerpAPI、博查搜索、Brave、SearXNG

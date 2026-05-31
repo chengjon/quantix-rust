@@ -259,11 +259,11 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
 
     if test {
         println!();
-        println!("🔄 测试 LLM 连通性...");
+        println!("{}", ai_config_test_heading());
         println!();
 
         for (name, provider_config) in &config.providers {
-            print!("   测试 {}... ", name);
+            print!("{}", ai_config_provider_status_prefix(name));
             println!("{}", ai_config_test_status(name, provider_config));
         }
     }
@@ -289,6 +289,14 @@ async fn run_ai_config(show: bool, test: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn ai_config_test_heading() -> &'static str {
+    "🔄 检查 LLM 配置状态..."
+}
+
+fn ai_config_provider_status_prefix(name: &str) -> String {
+    format!("   检查 {name}... ")
 }
 
 fn ai_config_test_status(
@@ -334,6 +342,22 @@ fn ai_ask_context_warning(code: Option<&str>, model: Option<&str>) -> String {
 mod tests {
     use super::*;
     use crate::ai::adapter::ProviderConfig;
+
+    #[test]
+    fn ai_config_test_heading_describes_status_check_not_connectivity_test() {
+        let heading = ai_config_test_heading();
+
+        assert_eq!(heading, "🔄 检查 LLM 配置状态...");
+        assert!(!heading.contains("连通性"));
+    }
+
+    #[test]
+    fn ai_config_provider_status_prefix_describes_check_not_test() {
+        let prefix = ai_config_provider_status_prefix("openai");
+
+        assert_eq!(prefix, "   检查 openai... ");
+        assert!(!prefix.contains("测试"));
+    }
 
     #[test]
     fn ai_config_test_status_does_not_claim_connectivity() {
