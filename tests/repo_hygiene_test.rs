@@ -2480,6 +2480,28 @@ fn generated_cli_manual_keeps_qmt_and_mock_boundary() {
 }
 
 #[test]
+fn generated_cli_manual_documents_data_export_parquet_as_wired() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual
+            .contains("<code>csv</code> 和 <code>parquet</code> 分支都会调用导出器写出实际文件"),
+        "expected CLI_COMMAND_MANUAL.html to document CSV/Parquet data export as wired"
+    );
+    for stale in [
+        "当前只有 <code>csv</code> 分支真正落盘",
+        "Parquet 导出暂未实现",
+        "把 Parquet 占位实现误判为已完成能力",
+    ] {
+        assert!(
+            !cli_manual.contains(stale),
+            "CLI_COMMAND_MANUAL.html still contains stale data export boundary: {stale}"
+        );
+    }
+}
+
+#[test]
 fn user_manual_documents_phase29b_strategy_daemon_commands() {
     let manual_path = repo_root().join("docs").join("USER_MANUAL.md");
     let contents = fs::read_to_string(manual_path).expect("expected USER_MANUAL.md to exist");
