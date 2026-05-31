@@ -613,9 +613,9 @@ quantix data source add --type tdx --hosts 127.0.0.1,192.168.1.10 --port 7709 --
 <h4>使用示例</h4>
 <pre class='shell'>quantix data export --code 600519 --format csv --output ./exports</pre>
 <h4>功能说明</h4>
-<p>会先创建输出目录，再从 ClickHouse 读取指定股票的日线数据并写出文件。当前只有 <code>csv</code> 分支真正落盘；默认值 <code>--format parquet</code> 仍是占位实现，会显示 <code>Parquet 导出暂未实现</code>，但随后仍打印成功路径，因此手工验证必须检查目标文件是否真实生成。</p>
+<p>会先创建输出目录，再从 ClickHouse 读取指定股票的日线数据并写出文件。<code>csv</code> 和 <code>parquet</code> 分支都会调用导出器写出实际文件；默认值 <code>--format parquet</code> 会生成 <code>.parquet</code> 文件，手工验证时应检查目标文件是否真实生成且可被下游工具读取。</p>
 </div></div>
-<div class='chips'><span class='chip partial'>部分实现</span><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div><div class='testbox'><h4>测试记录</h4><p><b>预期结果</b>：<code>csv</code> 模式应生成实际文件；<code>parquet</code> 模式当前应视为占位，不应仅凭成功提示判定通过。</p><p><b>常见失败原因</b>：ClickHouse 无数据、输出目录无权限、把 Parquet 占位实现误判为已完成能力。</p><pre>命令:
+<div class='chips'><span class='chip partial'>部分实现</span><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div><div class='testbox'><h4>测试记录</h4><p><b>预期结果</b>：<code>csv</code> 模式应生成实际文件；<code>parquet</code> 模式应生成实际 <code>.parquet</code> 文件，不能只检查成功提示。</p><p><b>常见失败原因</b>：ClickHouse 无数据、输出目录无权限、文件存在但为空或下游读取失败。</p><pre>命令:
 输出目录:
 是否生成文件:
 返回码:

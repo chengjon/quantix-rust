@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-01
+
+### Fixed
+- **data export CLI 手册状态同步** (`docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `FUNCTION_TREE.md`)
+  - 修正 `quantix data export` 手册中仍称 Parquet 为占位实现的陈旧文案，改为反映当前 CSV/Parquet 分支都会调用导出器写出实际文件
+  - 新增仓库卫生测试，防止 CLI HTML 手册重新把已接线的 Parquet 导出写回占位状态
+
 ## 2026-05-31
 
 ### Added
