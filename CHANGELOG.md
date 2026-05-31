@@ -21,6 +21,9 @@ All notable changes to this project are documented here.
   - `FUNCTION_TREE.md` 的可编辑 project-notes 区块记录本轮文档同步，不改写 generated 状态注册区
 
 ### Fixed
+- **交互菜单历史回测入口接线** (`src/cli/handlers/app_shell.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - `quantix menu` / `menu --tui` 选择“查看历史回测”时不再打印“功能开发中”后成功返回，而是复用现有 `backtest list` 报告列表路径
+  - 补齐菜单动作映射测试，锁定该菜单项继续委托到已实现的回测报告列表命令
 - **fundamental dividend 失败关闭** (`src/cli/handlers/fundamental.rs`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
   - `quantix fundamental dividend` 不再打印“功能开发中”后以成功状态退出；在真实分红数据源接线前改为返回 `QuantixError::Unsupported`
   - 补齐回归测试，锁定分红命令壳必须 fail-closed，避免把未实现能力误报为可用查询

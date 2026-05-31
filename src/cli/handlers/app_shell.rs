@@ -649,12 +649,16 @@ async fn run_backtest_menu() -> Result<()> {
 
             run_ma_cross_backtest(Some(code)).await?;
         }
-        1 => println!("📋 历史回测列表... (功能开发中)"),
+        1 => run_backtest_command(backtest_history_menu_command()).await?,
         2 => {}
         _ => {}
     }
 
     Ok(())
+}
+
+fn backtest_history_menu_command() -> crate::cli::command_types::BacktestCommands {
+    crate::cli::command_types::BacktestCommands::List
 }
 
 async fn run_task_menu() -> Result<()> {
@@ -760,4 +764,17 @@ async fn run_export_menu() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backtest_history_menu_uses_existing_report_list_command() {
+        assert!(matches!(
+            backtest_history_menu_command(),
+            crate::cli::command_types::BacktestCommands::List
+        ));
+    }
 }
