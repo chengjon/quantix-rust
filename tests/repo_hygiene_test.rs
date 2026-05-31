@@ -2541,6 +2541,7 @@ fn generated_cli_manual_documents_ai_runtime_context_warnings() {
     for expected in [
         "运行时会明确打印“当前使用模拟价格/指标上下文”",
         "运行时会明确打印“当前使用模拟技术面分析上下文”",
+        "运行时会明确打印“当前 AI 问答参数边界”",
         "运行时会明确打印“当前使用固定提示词”",
     ] {
         assert!(
