@@ -3,6 +3,9 @@ use crate::news::aggregator::AggregatorConfig;
 use crate::news::providers::{BochaProvider, SerpApiProvider, TavilyProvider};
 use crate::news::{NewsAggregator, NewsSearchRequest, NewsSearchResult};
 
+const NEWS_TREND_DEFAULT_DAYS: u32 = 3;
+const NEWS_TREND_DEFAULT_MAX_RESULTS: usize = 20;
+
 // ============================================================
 // 新闻搜索命令
 // ============================================================
@@ -74,6 +77,29 @@ fn build_news_search_request(
     }
     request.provider = provider.map(str::to_string);
     request
+}
+
+fn build_news_trend_search_request(date: Option<&str>, code: Option<&str>) -> NewsSearchRequest {
+    let query = build_news_trend_query(date, code);
+    build_news_search_request(
+        &query,
+        code,
+        NEWS_TREND_DEFAULT_DAYS,
+        NEWS_TREND_DEFAULT_MAX_RESULTS,
+        None,
+    )
+}
+
+fn build_news_trend_query(date: Option<&str>, code: Option<&str>) -> String {
+    let mut query = match code {
+        Some(code) => format!("{} 股票热点 新闻", code),
+        None => "市场热点 新闻".to_string(),
+    };
+    if let Some(date) = date.map(str::trim).filter(|date| !date.is_empty()) {
+        query.push(' ');
+        query.push_str(date);
+    }
+    query
 }
 
 fn build_news_aggregator_from_env() -> NewsAggregator {
@@ -169,7 +195,18 @@ async fn run_news_trend(date: Option<&str>, code: Option<&str>) -> Result<()> {
         println!("   股票代码: {}", c);
     }
     println!();
-    println!("💡 趋势分析功能开发中...");
+
+    println!("⏳ 正在搜索趋势相关新闻...");
+
+    let request = build_news_trend_search_request(date, code);
+    let aggregator = build_news_aggregator_from_env();
+    if aggregator.available_providers().is_empty() {
+        print_missing_news_provider_config();
+        return Ok(());
+    }
+
+    let result = execute_news_search(&aggregator, &request).await?;
+    print_news_search_result(&result, request.max_results);
 
     Ok(())
 }
@@ -283,5 +320,27 @@ mod tests {
         assert_eq!(seen.days, 7);
         assert_eq!(seen.max_results, 3);
         assert_eq!(seen.provider.as_deref(), Some("fake"));
+    }
+
+    #[test]
+    fn news_trend_builds_market_hotspot_query() {
+        let request = build_news_trend_search_request(None, None);
+
+        assert_eq!(request.query, "市场热点 新闻");
+        assert!(request.codes.is_empty());
+        assert_eq!(request.days, 3);
+        assert_eq!(request.max_results, 20);
+        assert_eq!(request.provider, None);
+    }
+
+    #[test]
+    fn news_trend_builds_code_and_date_query() {
+        let request = build_news_trend_search_request(Some("20260531"), Some("600519"));
+
+        assert_eq!(request.query, "600519 股票热点 新闻 20260531");
+        assert_eq!(request.codes, vec!["600519"]);
+        assert_eq!(request.days, 3);
+        assert_eq!(request.max_results, 20);
+        assert_eq!(request.provider, None);
     }
 }

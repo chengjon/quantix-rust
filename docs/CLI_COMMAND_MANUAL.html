@@ -254,7 +254,7 @@
 </ul></aside><main class='main'>
 <section class='hero' id='overview'><h2>Quantix CLI 命令手册</h2><p>这份手册用于手工测试与命令查阅，覆盖当前项目可见的全部 CLI 命令层级。重点对齐面包括 <code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理、<code>task</code> 实验性边界，以及推荐优先使用的 <code>execution qmt</code> 入口。</p><p>兼容性原则：<code>execution qmt</code> 是当前推荐业务入口，<code>execution bridge</code> 保留为向后兼容路径；<code>analyze screener</code> 当前公开 <code>preset-list</code> 与 <code>run</code> 两条命令路径。另有少数能力已进入功能树规划但尚未暴露为当前二进制命令，本手册会在对应分组里明确标注。</p>
 <div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>133</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
-<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>import from-excel</code> 仍无 CLI 入口；<code>fundamental dividend</code>、<code>news trend</code> 仍是占位输出。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
+<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>import from-excel</code> 仍无 CLI 入口；<code>fundamental dividend</code> 仍是占位输出；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
 <section class='section card' id='test-summary'><div class='kicker'>测试汇总</div><h3>手工测试结果总表</h3><div class='meta'>用途：测完后统一沉淀结论，区分通过、外部依赖失败与 CLI 缺陷。</div><div class='testbox'><h4>总表模板</h4><pre>测试日期:
 测试二进制: ./target/debug/quantix
 测试环境:
@@ -5702,7 +5702,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix news providers</pre>
 <h4>功能说明</h4>
-<p>当前 <code>search</code> 与 <code>code</code> 会根据环境中的 <code>TAVILY_API_KEY</code>、<code>SERPAPI_API_KEY</code>、<code>BOCHA_API_KEY</code> 构建可用 provider，并通过新闻聚合器发起搜索；未配置 provider 时会输出显式配置提示；<code>trend</code> 仍是开发中占位命令；<code>providers</code> 则用于查看三类搜索后端的环境准备情况。</p>
+<p>当前 <code>search</code>、<code>code</code> 与 <code>trend</code> 会根据环境中的 <code>TAVILY_API_KEY</code>、<code>SERPAPI_API_KEY</code>、<code>BOCHA_API_KEY</code> 构建可用 provider，并通过新闻聚合器发起搜索；未配置 provider 时会输出显式配置提示；<code>trend</code> 当前是热点新闻搜索，不是完整趋势量化模型；<code>providers</code> 则用于查看三类搜索后端的环境准备情况。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-news-search'><code>quantix news search</code></a>：搜索新闻</li>
@@ -5781,9 +5781,9 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix news trend --date 20260504 --code 600519</pre>
 <h4>功能说明</h4>
-<p>当前只会把传入的 <code>date</code>/<code>code</code> 原样回显，然后提示“趋势分析功能开发中”，尚未真正生成趋势聚合结果。也就是说，<code>YYYYMMDD</code> 这一格式目前只停留在帮助文本层面，handler 并没有继续做业务计算或趋势汇总；它适合作为 CLI 壳与参数解析验证，不适合作为业务可用能力验收。</p>
+<p>命令会构造热点新闻搜索请求：未指定股票时查询“市场热点 新闻”，指定 <code>--code</code> 时查询 <code>{code} 股票热点 新闻</code>，指定 <code>--date</code> 时把日期追加到关键词中；随后复用 Tavily、SerpAPI、博查 provider 聚合搜索路径。当前结果来自新闻搜索 provider，不做独立趋势量化、热度打分或跨日统计。</p>
 </div></div>
-<div class='chips'><span class='chip todo'>开发中</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-news-providers'>
 <div class='kicker'>2 级命令</div>
