@@ -18,6 +18,9 @@ All notable changes to this project are documented here.
   - `FUNCTION_TREE.md` 的可编辑 project-notes 区块记录本轮文档同步，不改写 generated 状态注册区
 
 ### Fixed
+- **功能状态文档残留旧状态同步** (`README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - 修正 `FUNCTION_TREE.md` 中 TUI、data export、news search/code 与当前实现不一致的残留旧文案
+  - README 推进顺序与 CLI HTML 手册同步反映当前 data CSV/Parquet 导出和 provider-backed news search 状态
 - **流式批处理进度追踪** (`src/io/batch.rs`)
   - `BatchProcessor::stream_process` 在未知总量的流式输入下维护已观察到的 `total_batches/current_batch`，避免首批更新时除零 panic
   - 启用进度显示时使用 spinner 展示已处理批次和记录数，并补齐流式 chunk 完成回归测试
