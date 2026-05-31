@@ -5636,7 +5636,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai ask --question "请分析 600519 当前估值风险" --code 600519</pre>
 <h4>功能说明</h4>
-<p>这是当前最直接的 LLM 聊天入口：命令会用固定系统提示加用户问题发起一次问答。实现上 <code>--code</code> 只用于 CLI 输出回显，不会自动拼进 prompt；<code>--model</code> 参数目前也未真正切换底层模型。如果问题依赖个股上下文，建议把股票代码或名称直接写进 <code>--question</code>。</p>
+<p>这是当前最直接的 LLM 聊天入口：命令会用固定系统提示加用户问题发起一次问答。运行时会明确打印“当前 AI 问答参数边界”；实现上 <code>--code</code> 只用于 CLI 输出回显，不会自动拼进 prompt；<code>--model</code> 参数目前也未真正切换底层模型。如果问题依赖个股上下文，建议把股票代码或名称直接写进 <code>--question</code>。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

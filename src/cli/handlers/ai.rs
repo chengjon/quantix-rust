@@ -144,12 +144,13 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
     }
 }
 
-async fn run_ai_ask(question: &str, code: Option<&str>, _model: Option<String>) -> Result<()> {
+async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -> Result<()> {
     println!("💬 AI 问答");
     println!("   问题: {}", question);
     if let Some(c) = code {
         println!("   相关股票: {}", c);
     }
+    println!("{}", ai_ask_context_warning(code, model.as_deref()));
     println!();
 
     let config = LlmConfig::from_env();
@@ -318,6 +319,17 @@ fn ai_market_context_warning() -> &'static str {
     "⚠️ 当前使用固定提示词；不会抓取实时市场数据"
 }
 
+fn ai_ask_context_warning(code: Option<&str>, model: Option<&str>) -> String {
+    let mut warnings = Vec::new();
+    if code.is_some() {
+        warnings.push("--code 仅回显，不会自动拼进 prompt");
+    }
+    if model.is_some() {
+        warnings.push("--model 不会强制切换 provider，实际适配器仍按环境配置优先级选择");
+    }
+    format!("⚠️ 当前 AI 问答参数边界：{}", warnings.join("；"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -360,5 +372,14 @@ mod tests {
 
         assert!(warning.contains("固定提示词"));
         assert!(warning.contains("不会抓取实时市场数据"));
+    }
+
+    #[test]
+    fn ai_ask_context_warning_discloses_echo_only_code_and_model_boundary() {
+        let warning = ai_ask_context_warning(Some("600519"), Some("openai"));
+
+        assert!(warning.contains("--code 仅回显"));
+        assert!(warning.contains("不会自动拼进 prompt"));
+        assert!(warning.contains("--model 不会强制切换 provider"));
     }
 }
