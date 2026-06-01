@@ -524,6 +524,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 批准 signal 只会创建 `execution_request`，不会自动交易
   - `request execute` 会手动消费一个 `pending execution_request`
   - `strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`
+  - `strategy signal list` 支持按 `--strategy-instance`、`--strategy`、`--code`、`--approval-status`、`--signal-status` 过滤，并在过滤后应用 `--limit`
   - `strategy signal approve` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
   - `strategy request list` 输出包含 `target=<MODE>/<ACCOUNT> status=<STATUS>`
   - request completed 但订单仍非终态时，`strategy request list` / `execution daemon run --once` 会额外输出 `semantics=request_completed_order_non_terminal`

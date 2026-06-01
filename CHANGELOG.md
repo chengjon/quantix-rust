@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-01
 
 ### Fixed
+- **strategy signal list 过滤参数接线** (`src/cli/handlers/strategy_handler.rs`, `src/cli/handlers/strategy_handler/requests/signals.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix strategy signal list` 现在会实际使用已解析的 `--strategy-instance`、`--strategy`、`--code` 和 `--limit`，与原有 `--approval-status` / `--signal-status` 一起过滤已落库 signal
+  - CLI HTML 手册、README 与 FUNCTION_TREE 同步删除“参数尚未传入 handler”的陈旧边界说明，并新增回归测试和手册卫生测试
 - **AI 命令运行时边界提示** (`src/cli/handlers/ai.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix ai analyze` / `decide` / `ask` / `market` 在执行时显式打印模拟价格/指标、模拟技术面分析、问答参数或固定 prompt 边界，避免用户把 LLM 接线验证误读为实时投研或实仓决策能力
   - CLI HTML 手册、README 与 FUNCTION_TREE 同步记录该边界，并新增仓库卫生测试防止手册遗漏运行时提示说明

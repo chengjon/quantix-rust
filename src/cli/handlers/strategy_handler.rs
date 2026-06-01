@@ -100,12 +100,22 @@ pub(crate) async fn execute_strategy_command(cmd: StrategyCommands) -> Result<()
         },
         StrategyCommands::Signal(subcommand) => match subcommand {
             StrategySignalCommands::List {
+                strategy_instance,
+                strategy,
+                code,
                 approval_status,
                 signal_status,
-                ..
+                limit,
             } => {
-                execute_strategy_signal_list(approval_status.as_deref(), signal_status.as_deref())
-                    .await?;
+                execute_strategy_signal_list(
+                    strategy_instance.as_deref(),
+                    strategy.as_deref(),
+                    code.as_deref(),
+                    approval_status.as_deref(),
+                    signal_status.as_deref(),
+                    limit,
+                )
+                .await?;
             }
             StrategySignalCommands::Approve {
                 signal_id,

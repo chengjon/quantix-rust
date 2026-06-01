@@ -704,6 +704,7 @@ fn readme_documents_phase29b_strategy_signal_daemon_boundary() {
         "QUANTIX_TDX_ROOT",
         "QUANTIX_TDX_MARKET",
         "strategy signal list` 输出包含 `source=<SOURCE> fallback=<BOOL>`",
+        "strategy signal list` 支持按 `--strategy-instance`、`--strategy`、`--code`、`--approval-status`、`--signal-status` 过滤，并在过滤后应用 `--limit`",
         "strategy daemon run --once` 首次启动只 bootstrap 到最新 bar",
         "批准 signal 只会创建 `execution_request`，不会自动交易",
         "request execute` 会手动消费一个 `pending execution_request`",
@@ -2538,6 +2539,25 @@ fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
     assert!(
         !cli_manual.contains("测试 LLM 连通性"),
         "CLI_COMMAND_MANUAL.html still describes ai config --test as a real connectivity test"
+    );
+}
+
+#[test]
+fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("<code>--strategy-instance</code>、<code>--strategy</code>、<code>--code</code>、<code>--approval-status</code>、<code>--signal-status</code> 都会参与结果过滤"),
+        "expected CLI_COMMAND_MANUAL.html to document strategy signal list filters as wired"
+    );
+    assert!(
+        cli_manual.contains("<code>--limit</code> 会在过滤后限制输出条数"),
+        "expected CLI_COMMAND_MANUAL.html to document strategy signal list limit as post-filter"
+    );
+    assert!(
+        !cli_manual.contains("还没有传入 handler"),
+        "CLI_COMMAND_MANUAL.html still says strategy signal list filters are parsed but not passed to the handler"
     );
 }
 
