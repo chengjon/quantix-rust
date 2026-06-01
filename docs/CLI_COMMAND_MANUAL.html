@@ -5590,7 +5590,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai analyze --code 600519 --model deepseek --with-news</pre>
 <h4>功能说明</h4>
-<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。运行时会明确打印“当前使用模拟价格/指标上下文”；当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，实际适配器仍按环境中已配置 provider 的优先级选择。</p>
+<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。运行时会明确打印“当前使用模拟价格/指标上下文”；当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，runtime 只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；如果环境里只配置 Gemini/Anthropic 等未接线 provider，会失败关闭而不是静默回退。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

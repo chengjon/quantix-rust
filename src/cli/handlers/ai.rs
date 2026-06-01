@@ -1,8 +1,9 @@
 use super::*;
 
+use crate::ai::adapter::LlmAdapter;
 use crate::ai::providers::OpenAICompatAdapter;
 use crate::ai::{DecisionEngine, LlmConfig};
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 
 /// 处理 AI 命令
 pub async fn run_ai_command(cmd: AiCommands) -> Result<()> {
@@ -24,6 +25,37 @@ pub async fn run_ai_command(cmd: AiCommands) -> Result<()> {
         } => run_ai_ask(&question, code.as_deref(), Some(model)).await,
         AiCommands::Market { date } => run_ai_market(date.as_deref()).await,
         AiCommands::Config { show, test } => run_ai_config(show, test).await,
+    }
+}
+
+fn build_supported_ai_adapter(config: &LlmConfig) -> Result<Box<dyn LlmAdapter>> {
+    if config.get_provider("deepseek").is_some() {
+        Ok(Box::new(OpenAICompatAdapter::deepseek(config)) as Box<dyn LlmAdapter>)
+    } else if config.get_provider("openai").is_some() {
+        Ok(Box::new(OpenAICompatAdapter::openai(config)) as Box<dyn LlmAdapter>)
+    } else if config.get_provider("ollama").is_some() {
+        Ok(Box::new(OpenAICompatAdapter::ollama(config)) as Box<dyn LlmAdapter>)
+    } else {
+        Err(QuantixError::Unsupported(format!(
+            "AI 运行时仅支持已接线 provider: deepseek, openai, ollama；当前已配置但未接线: {}",
+            configured_unwired_ai_providers(config)
+        )))
+    }
+}
+
+fn configured_unwired_ai_providers(config: &LlmConfig) -> String {
+    let mut providers = config
+        .providers
+        .keys()
+        .filter(|name| !matches!(name.as_str(), "deepseek" | "openai" | "ollama"))
+        .cloned()
+        .collect::<Vec<_>>();
+    providers.sort();
+
+    if providers.is_empty() {
+        "无".to_string()
+    } else {
+        providers.join(", ")
     }
 }
 
@@ -52,17 +84,7 @@ async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> R
         return Ok(());
     }
 
-    // Create adapter based on available provider
-    let adapter = if config.get_provider("deepseek").is_some() {
-        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
-    } else if config.get_provider("openai").is_some() {
-        Box::new(OpenAICompatAdapter::openai(&config))
-    } else if config.get_provider("ollama").is_some() {
-        Box::new(OpenAICompatAdapter::ollama(&config))
-    } else {
-        println!("❌ 不支持的 LLM 提供商配置");
-        return Ok(());
-    };
+    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -110,13 +132,7 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
         return Ok(());
     }
 
-    let adapter = if config.get_provider("deepseek").is_some() {
-        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
-    } else if config.get_provider("openai").is_some() {
-        Box::new(OpenAICompatAdapter::openai(&config))
-    } else {
-        Box::new(OpenAICompatAdapter::ollama(&config))
-    };
+    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -160,13 +176,7 @@ async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -
         return Ok(());
     }
 
-    let adapter = if config.get_provider("deepseek").is_some() {
-        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
-    } else if config.get_provider("openai").is_some() {
-        Box::new(OpenAICompatAdapter::openai(&config))
-    } else {
-        Box::new(OpenAICompatAdapter::ollama(&config))
-    };
+    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -203,13 +213,7 @@ async fn run_ai_market(date: Option<&str>) -> Result<()> {
         return Ok(());
     }
 
-    let adapter = if config.get_provider("deepseek").is_some() {
-        Box::new(OpenAICompatAdapter::deepseek(&config)) as Box<dyn crate::ai::adapter::LlmAdapter>
-    } else if config.get_provider("openai").is_some() {
-        Box::new(OpenAICompatAdapter::openai(&config))
-    } else {
-        Box::new(OpenAICompatAdapter::ollama(&config))
-    };
+    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 

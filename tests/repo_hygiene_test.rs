@@ -2595,6 +2595,21 @@ fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
 }
 
 #[test]
+fn generated_cli_manual_documents_ai_unwired_provider_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("runtime 只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter"),
+        "expected CLI_COMMAND_MANUAL.html to document wired AI runtime providers"
+    );
+    assert!(
+        cli_manual.contains("只配置 Gemini/Anthropic 等未接线 provider，会失败关闭而不是静默回退"),
+        "expected CLI_COMMAND_MANUAL.html to document unwired AI provider fail-closed behavior"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
