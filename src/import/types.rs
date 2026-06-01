@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum ImportSource {
     Image,
     Csv,
+    Excel,
     Text,
     Clipboard,
 }

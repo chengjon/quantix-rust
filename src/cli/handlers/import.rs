@@ -653,13 +653,36 @@ async fn run_import_from_excel(file: &str, sheet: Option<&str>) -> Result<()> {
         println!("   Sheet: {}", sheet);
     }
     println!();
-    println!("⚠️  Excel parser 尚未接入，命令将返回 Unsupported");
 
-    Err(QuantixError::Unsupported(format!(
-        "import from-excel 尚未接入真实 Excel parser；file={}, sheet={}",
-        file,
-        sheet.unwrap_or("<default>")
-    )))
+    let parser = crate::import::ExcelParser::with_defaults();
+    let result = parser.parse_file(file, sheet)?;
+
+    if result.items.is_empty() {
+        println!("❌ 未从 Excel 中解析到股票信息");
+        if !result.errors.is_empty() {
+            println!();
+            println!("解析错误:");
+            for err in &result.errors {
+                println!("   - {}", err);
+            }
+        }
+        return Ok(());
+    }
+
+    println!(
+        "✅ 解析完成: {} 只股票 (共 {} 行, 跳过 {} 行)",
+        result.parsed_count, result.total_input_lines, result.skipped_count
+    );
+    println!();
+    println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
+    println!("{}", "-".repeat(35));
+    for item in &result.items {
+        let code = item.code.as_deref().unwrap_or("-");
+        let name = item.name.as_deref().unwrap_or("-");
+        println!("{:<10} {:<12} {:.0}%", code, name, item.confidence * 100.0);
+    }
+
+    Ok(())
 }
 
 async fn run_import_from_clipboard() -> Result<()> {
@@ -811,16 +834,25 @@ fn get_clipboard_content() -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::import::excel_parser::tests::write_minimal_xlsx;
 
     #[tokio::test]
-    async fn import_from_excel_returns_unsupported_until_parser_is_wired() {
-        let err = run_import_from_excel("/tmp/watchlist.xlsx", Some("positions"))
-            .await
-            .expect_err("from-excel should fail closed until the Excel parser is wired");
+    async fn import_from_excel_uses_real_parser() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("watchlist.xlsx");
+        write_minimal_xlsx(
+            &path,
+            "positions",
+            &[
+                &["代码", "名称"],
+                &["000001", "平安银行"],
+                &["600036", "招商银行"],
+            ],
+        )
+        .unwrap();
 
-        assert!(matches!(err, QuantixError::Unsupported(message)
-                if message.contains("import from-excel")
-                    && message.contains("/tmp/watchlist.xlsx")
-                    && message.contains("positions")));
+        run_import_from_excel(path.to_str().unwrap(), Some("positions"))
+            .await
+            .expect("from-excel should parse a valid workbook instead of returning Unsupported");
     }
 }

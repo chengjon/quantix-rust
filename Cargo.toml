@@ -94,6 +94,7 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # TDX data source (rustdx)
 rustdx-complete = "0.6.4"
+calamine = "0.35.0"
 
 [features]
 default = ["postgresql", "tdengine-rest"]

@@ -8,12 +8,14 @@
 
 pub mod code_resolver;
 pub mod csv_parser;
+pub mod excel_parser;
 pub mod image_extractor;
 pub mod text_parser;
 pub mod types;
 
 pub use code_resolver::CodeResolver;
 pub use csv_parser::CsvParser;
+pub use excel_parser::ExcelParser;
 pub use image_extractor::ImageExtractor;
 pub use text_parser::TextParser;
 pub use types::{
