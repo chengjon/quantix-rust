@@ -112,7 +112,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 特征提取：成交量回报、对数回报、EOM指标
 - **AI 决策模块**已完成基础实现 (Phase 2)：
   - `LLMAdapter` - OpenAI 协议统一适配器
-  - 运行时已接线 provider：OpenAI、DeepSeek、Ollama；Gemini、Anthropic 目前仅有配置/模型枚举，`ai analyze` / `ai decide` / `ai ask` / `ai market` 会 fail-closed，不会静默回退到 Ollama
+  - 运行时已接线 provider：OpenAI、DeepSeek、Ollama；Gemini、Anthropic 目前仅有配置/模型枚举，`ai analyze` / `ai decide` / `ai ask` / `ai market` 在未配置任一已接线 provider 或只配置 Gemini/Anthropic 等未接线 provider 时会 fail-closed，不会静默回退到 Ollama；`ai config` 仅查看配置状态
   - `DecisionEngine` - 决策仪表盘生成
   - `ConversationManager` - 多轮对话上下文管理
   - `ai analyze` / `ai decide` / `ai ask` / `ai market` 会在运行时显式提示模拟价格/指标、模拟技术面分析、问答参数或固定 prompt 边界；这些入口适合验证 LLM 接线，不等同于实时投研或实仓交易决策

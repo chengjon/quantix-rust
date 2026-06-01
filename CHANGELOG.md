@@ -17,8 +17,9 @@ All notable changes to this project are documented here.
   - `quantix algo plan` 现在会在输出切片预览前复用 `AlgoParams::validate`，拒绝 `side` 非 `buy`/`sell` 等无效参数，不再生成带非法方向的 JSON/table 预览
   - `AlgoParams::validate` 补充 `slice_count=0` 和 `interval_seconds=0` 校验，避免 TWAP/VWAP create/plan 进入除零或零间隔切片计划
   - `--output` 现在只接受 `table` 或 `json`，未知格式会失败关闭，不再静默回退到 table 预览
-- **AI 未接线 provider 失败关闭** (`src/cli/handlers/ai.rs`, `tests/ai_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`)
-  - `quantix ai analyze` / `decide` / `ask` / `market` 现在只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；如果环境里只配置 Gemini/Anthropic 等未接线 provider，会返回 `Unsupported`，不再成功退出或静默回退到 Ollama
+- **AI 未配置/未接线 provider 失败关闭** (`src/cli/handlers/ai.rs`, `tests/ai_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - `quantix ai analyze` / `decide` / `ask` / `market` 现在只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；未配置任一已接线 provider 时会返回 `Unsupported`，错误包含 `AI provider 尚未配置`，不再成功输出“未配置 LLM”提示
+  - 如果环境里只配置 Gemini/Anthropic 等未接线 provider，也会返回 `Unsupported`，不再成功退出或静默回退到 Ollama；`ai config` 继续作为配置状态查看入口
 - **sentiment 空 provider 输出模板失败关闭** (`src/cli/handlers/sentiment.rs`, `tests/sentiment_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
   - `quantix sentiment show` / `history` / `mentions` 现在会在真实 `SentimentProvider` 接线前返回 `Unsupported`，不再成功输出中性情绪、空历史或空提及模板
 - **news 未配置 provider 失败关闭** (`src/cli/handlers/news.rs`, `tests/news_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)

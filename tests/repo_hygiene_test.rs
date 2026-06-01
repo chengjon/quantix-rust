@@ -2600,12 +2600,30 @@ fn generated_cli_manual_documents_ai_unwired_provider_fail_closed() {
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
 
     assert!(
+        cli_manual.contains(
+            "ai analyze/decide/ask/market</code> 在未配置 DeepSeek/OpenAI/Ollama provider 时会返回显式 <code>Unsupported</code>"
+        ),
+        "expected CLI_COMMAND_MANUAL.html to document missing wired AI provider fail-closed behavior"
+    );
+    assert!(
+        cli_manual.contains("AI provider 尚未配置"),
+        "expected CLI_COMMAND_MANUAL.html to include the missing AI provider boundary error text"
+    );
+    assert!(
         cli_manual.contains("runtime 只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter"),
         "expected CLI_COMMAND_MANUAL.html to document wired AI runtime providers"
     );
     assert!(
         cli_manual.contains("只配置 Gemini/Anthropic 等未接线 provider，会失败关闭而不是静默回退"),
         "expected CLI_COMMAND_MANUAL.html to document unwired AI provider fail-closed behavior"
+    );
+    assert!(
+        cli_manual.contains("<code>ai config</code> 仍用于查看配置状态"),
+        "expected CLI_COMMAND_MANUAL.html to preserve ai config as the status-view entry"
+    );
+    assert!(
+        !cli_manual.contains("未配置任何 LLM 提供商"),
+        "CLI_COMMAND_MANUAL.html still documents the old successful missing-LLM prompt"
     );
 }
 
