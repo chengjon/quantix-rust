@@ -154,8 +154,6 @@ async fn run_notify_check(channel: String) -> Result<()> {
         AlertLevel, Notification, NotificationChannel, NotificationConfig, NotificationService,
     };
 
-    println!("🔍 检查渠道连通性: {}", channel);
-
     let target_channel = match channel.to_lowercase().as_str() {
         "telegram" => NotificationChannel::Telegram,
         "wechat_work" | "wechat" | "企业微信" => NotificationChannel::WechatWork,
@@ -174,7 +172,7 @@ async fn run_notify_check(channel: String) -> Result<()> {
 
     // 检查环境变量配置
     let config = NotificationConfig::from_env();
-    let is_configured = match target_channel {
+    let is_configured = match &target_channel {
         NotificationChannel::Telegram => {
             std::env::var("TELEGRAM_BOT_TOKEN").is_ok() && std::env::var("TELEGRAM_CHAT_ID").is_ok()
         }
@@ -190,61 +188,43 @@ async fn run_notify_check(channel: String) -> Result<()> {
         NotificationChannel::Email => false, // 预留
     };
 
-    if is_configured {
-        println!("✅ 环境变量已配置");
+    if !is_configured {
+        let required_envs = match &target_channel {
+            NotificationChannel::Telegram => "TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID",
+            NotificationChannel::WechatWork => "WECHAT_WORK_WEBHOOK_URL",
+            NotificationChannel::Feishu => "FEISHU_WEBHOOK_URL",
+            NotificationChannel::Discord => "DISCORD_WEBHOOK_URL",
+            NotificationChannel::Slack => "SLACK_WEBHOOK_URL",
+            NotificationChannel::Dingtalk => "DINGTALK_WEBHOOK_URL",
+            NotificationChannel::Pushplus => "PUSHPLUS_TOKEN",
+            NotificationChannel::Webhook => "WEBHOOK_URL",
+            NotificationChannel::Email => "EMAIL_*",
+            NotificationChannel::Desktop | NotificationChannel::Log => "",
+        };
 
-        // 尝试发送测试通知
-        let mut test_config = config;
-        test_config.enabled_channels = vec![target_channel];
-        let mut service = NotificationService::new(test_config);
+        return Err(QuantixError::Unsupported(format!(
+            "notify channel 尚未配置: {channel}；请配置 {required_envs} 后再执行 notify check --channel {channel}"
+        )));
+    }
 
-        let notification =
-            Notification::new("连通性测试", "这是一条连通性测试通知", AlertLevel::Info);
+    println!("🔍 检查渠道连通性: {}", channel);
+    println!("✅ 环境变量已配置");
 
-        match service.notify(notification).await {
-            Ok(()) => {
-                println!("✅ 测试通知发送成功");
-                Ok(())
-            }
-            Err(e) => {
-                println!("❌ 测试通知发送失败: {}", e);
-                Err(e)
-            }
+    // 尝试发送测试通知
+    let mut test_config = config;
+    test_config.enabled_channels = vec![target_channel];
+    let mut service = NotificationService::new(test_config);
+
+    let notification = Notification::new("连通性测试", "这是一条连通性测试通知", AlertLevel::Info);
+
+    match service.notify(notification).await {
+        Ok(()) => {
+            println!("✅ 测试通知发送成功");
+            Ok(())
         }
-    } else {
-        println!("❌ 环境变量未配置");
-        println!();
-        println!("请配置以下环境变量:");
-        match target_channel {
-            NotificationChannel::Telegram => {
-                println!("  TELEGRAM_BOT_TOKEN=your_bot_token");
-                println!("  TELEGRAM_CHAT_ID=your_chat_id");
-            }
-            NotificationChannel::WechatWork => {
-                println!(
-                    "  WECHAT_WORK_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
-                );
-            }
-            NotificationChannel::Feishu => {
-                println!("  FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx");
-            }
-            NotificationChannel::Discord => {
-                println!("  DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxx");
-            }
-            NotificationChannel::Slack => {
-                println!("  SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx");
-            }
-            NotificationChannel::Dingtalk => {
-                println!(
-                    "  DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx"
-                );
-                println!("  DINGTALK_SECRET=your_secret");
-            }
-            NotificationChannel::Pushplus => {
-                println!("  PUSHPLUS_TOKEN=your_token");
-            }
-            _ => {}
+        Err(e) => {
+            println!("❌ 测试通知发送失败: {}", e);
+            Err(e)
         }
-        Ok(())
     }
 }
