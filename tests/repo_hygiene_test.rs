@@ -2639,6 +2639,37 @@ fn generated_cli_manual_documents_sentiment_provider_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_news_missing_provider_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("news search/code/trend</code> 当前返回显式 <code>Unsupported</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document news missing-provider fail-closed behavior"
+    );
+    assert!(
+        cli_manual.contains("news provider 尚未配置"),
+        "expected CLI_COMMAND_MANUAL.html to include the news provider boundary error text"
+    );
+    assert!(
+        cli_manual.contains("<code>providers</code> 则用于查看三类搜索后端的环境准备情况"),
+        "expected CLI_COMMAND_MANUAL.html to keep news providers as status-only"
+    );
+    assert!(
+        !cli_manual.contains("未配置 provider 时会输出显式配置提示"),
+        "CLI_COMMAND_MANUAL.html still describes missing news providers as a successful stdout prompt"
+    );
+    assert!(
+        !cli_manual.contains("未配置时会提示需要配置搜索 provider"),
+        "CLI_COMMAND_MANUAL.html still describes news search missing-provider behavior as prompt-only"
+    );
+    assert!(
+        !cli_manual.contains("未配置 provider 时同样返回配置提示"),
+        "CLI_COMMAND_MANUAL.html still describes news code missing-provider behavior as prompt-only"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

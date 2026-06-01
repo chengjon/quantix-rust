@@ -1,4 +1,5 @@
 use super::*;
+use crate::core::QuantixError;
 use crate::news::aggregator::AggregatorConfig;
 use crate::news::providers::{BochaProvider, SerpApiProvider, TavilyProvider};
 use crate::news::{NewsAggregator, NewsSearchRequest, NewsSearchResult};
@@ -35,6 +36,10 @@ async fn run_news_search(
     max: usize,
     provider: Option<&str>,
 ) -> Result<()> {
+    let request = build_news_search_request(query, code, days, max, provider);
+    let aggregator = build_news_aggregator_from_env();
+    ensure_news_provider_configured(&aggregator)?;
+
     println!("📰 新闻搜索");
     println!("   关键词: {}", query);
     if let Some(c) = code {
@@ -48,13 +53,6 @@ async fn run_news_search(
     println!();
 
     println!("⏳ 正在搜索...");
-
-    let request = build_news_search_request(query, code, days, max, provider);
-    let aggregator = build_news_aggregator_from_env();
-    if aggregator.available_providers().is_empty() {
-        print_missing_news_provider_config();
-        return Ok(());
-    }
 
     let result = execute_news_search(&aggregator, &request).await?;
     print_news_search_result(&result, max);
@@ -102,6 +100,21 @@ fn build_news_trend_query(date: Option<&str>, code: Option<&str>) -> String {
     query
 }
 
+fn ensure_news_provider_configured(aggregator: &NewsAggregator) -> Result<()> {
+    if aggregator.available_providers().is_empty() {
+        Err(news_provider_unconfigured_error())
+    } else {
+        Ok(())
+    }
+}
+
+fn news_provider_unconfigured_error() -> QuantixError {
+    QuantixError::Unsupported(
+        "news provider 尚未配置；请配置 TAVILY_API_KEY、SERPAPI_API_KEY 或 BOCHA_API_KEY 后再执行 news search/code/trend；可用 news providers 查看状态"
+            .to_string(),
+    )
+}
+
 fn build_news_aggregator_from_env() -> NewsAggregator {
     let mut providers = Vec::new();
     if let Ok(provider) = TavilyProvider::from_env() {
@@ -128,15 +141,6 @@ async fn execute_news_search(
     request: &NewsSearchRequest,
 ) -> Result<NewsSearchResult> {
     aggregator.search(request).await
-}
-
-fn print_missing_news_provider_config() {
-    println!("❌ 未配置任何新闻搜索 API");
-    println!();
-    println!("请配置以下环境变量之一:");
-    println!("  TAVILY_API_KEY=your_key     (推荐，高质量 AI 友好)");
-    println!("  SERPAPI_API_KEY=your_key    (Google 搜索)");
-    println!("  BOCHA_API_KEY=your_key      (中文优化)");
 }
 
 fn print_news_search_result(result: &NewsSearchResult, max: usize) {
@@ -175,18 +179,16 @@ fn print_news_search_result(result: &NewsSearchResult, max: usize) {
 }
 
 async fn run_news_by_code(code: &str, days: u32, max: usize) -> Result<()> {
-    println!("📰 股票相关新闻");
-    println!("   代码: {}", code);
-    println!("   时间范围: {} 天", days);
-    println!("   最大结果: {}", max);
-    println!();
-
     // 使用股票名称作为搜索关键词
     let query = format!("{} 股票", code);
     run_news_search(&query, Some(code), days, max, None).await
 }
 
 async fn run_news_trend(date: Option<&str>, code: Option<&str>) -> Result<()> {
+    let request = build_news_trend_search_request(date, code);
+    let aggregator = build_news_aggregator_from_env();
+    ensure_news_provider_configured(&aggregator)?;
+
     println!("📊 新闻趋势分析");
     if let Some(d) = date {
         println!("   日期: {}", d);
@@ -197,13 +199,6 @@ async fn run_news_trend(date: Option<&str>, code: Option<&str>) -> Result<()> {
     println!();
 
     println!("⏳ 正在搜索趋势相关新闻...");
-
-    let request = build_news_trend_search_request(date, code);
-    let aggregator = build_news_aggregator_from_env();
-    if aggregator.available_providers().is_empty() {
-        print_missing_news_provider_config();
-        return Ok(());
-    }
 
     let result = execute_news_search(&aggregator, &request).await?;
     print_news_search_result(&result, request.max_results);
