@@ -5,20 +5,43 @@ use crate::safety::{
 };
 
 pub(crate) async fn execute_strategy_signal_list(
+    strategy_instance: Option<&str>,
+    strategy: Option<&str>,
+    code: Option<&str>,
     approval_status: Option<&str>,
     signal_status: Option<&str>,
+    limit: usize,
 ) -> Result<()> {
     let runtime = CliRuntime::load();
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
-    let rows =
-        execute_strategy_signal_list_with_store(&runtime_store, approval_status, signal_status)
-            .await?;
+    let rows = execute_strategy_signal_list_with_store(
+        &runtime_store,
+        StrategySignalListFilters {
+            strategy_instance,
+            strategy,
+            code,
+            approval_status,
+            signal_status,
+            limit: Some(limit),
+        },
+    )
+    .await?;
 
     for row in rows {
         println!("{}", format_strategy_signal_row(&row));
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct StrategySignalListFilters<'a> {
+    pub(crate) strategy_instance: Option<&'a str>,
+    pub(crate) strategy: Option<&'a str>,
+    pub(crate) code: Option<&'a str>,
+    pub(crate) approval_status: Option<&'a str>,
+    pub(crate) signal_status: Option<&'a str>,
+    pub(crate) limit: Option<usize>,
 }
 
 pub(crate) fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
@@ -50,18 +73,37 @@ pub(crate) fn format_strategy_signal_row(row: &StrategySignalRecord) -> String {
 
 pub(crate) async fn execute_strategy_signal_list_with_store(
     store: &StrategyRuntimeStore,
-    approval_status: Option<&str>,
-    signal_status: Option<&str>,
+    filters: StrategySignalListFilters<'_>,
 ) -> Result<Vec<StrategySignalRecord>> {
-    let approval_filter = approval_status.map(parse_approval_status).transpose()?;
-    let signal_filter = signal_status.map(parse_signal_status).transpose()?;
+    let approval_filter = filters
+        .approval_status
+        .map(parse_approval_status)
+        .transpose()?;
+    let signal_filter = filters.signal_status.map(parse_signal_status).transpose()?;
 
     let rows = store.list_signals().await?;
-    Ok(rows
+    let mut filtered = rows
         .into_iter()
+        .filter(|row| {
+            filters
+                .strategy_instance
+                .is_none_or(|id| row.strategy_instance_id == id)
+        })
+        .filter(|row| {
+            filters
+                .strategy
+                .is_none_or(|name| row.strategy_name == name)
+        })
+        .filter(|row| filters.code.is_none_or(|code| row.symbol == code))
         .filter(|row| approval_filter.is_none_or(|status| row.approval_status == status))
         .filter(|row| signal_filter.is_none_or(|status| row.signal_status == status))
-        .collect())
+        .collect::<Vec<_>>();
+
+    if let Some(limit) = filters.limit {
+        filtered.truncate(limit);
+    }
+
+    Ok(filtered)
 }
 
 pub(crate) async fn execute_strategy_signal_approve(

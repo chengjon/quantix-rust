@@ -28,9 +28,15 @@ async fn test_execute_strategy_signal_list_approve_reject_and_request_list() {
     };
     runtime_store.insert_signal(&signal).await.unwrap();
 
-    let pending = execute_strategy_signal_list_with_store(&runtime_store, Some("pending"), None)
-        .await
-        .unwrap();
+    let pending = execute_strategy_signal_list_with_store(
+        &runtime_store,
+        StrategySignalListFilters {
+            approval_status: Some("pending"),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
     assert_eq!(pending.len(), 1);
 
     let request =
@@ -59,6 +65,104 @@ async fn test_execute_strategy_signal_list_approve_reject_and_request_list() {
         rejected.approval_status,
         crate::execution::models::ApprovalStatus::Rejected
     );
+}
+
+#[tokio::test]
+async fn test_execute_strategy_signal_list_applies_declared_filters_and_limit() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let run = sample_run("000001", fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+
+    let matching_signal = crate::execution::models::StrategySignalRecord {
+        signal_id: "signal-match".to_string(),
+        strategy_instance_id: "ma_fast_5_slow_20".to_string(),
+        strategy_name: "ma_cross".to_string(),
+        symbol: "000001".to_string(),
+        timeframe: "1d".to_string(),
+        bar_end: fixed_ts(),
+        signal_value: "buy".to_string(),
+        signal_status: crate::execution::models::SignalStatus::New,
+        approval_status: crate::execution::models::ApprovalStatus::Pending,
+        run_id: run.run_id.clone(),
+        metadata_json: json!({}),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+    };
+    let same_filter_later_signal = crate::execution::models::StrategySignalRecord {
+        signal_id: "signal-match-later".to_string(),
+        bar_end: fixed_ts() - chrono::Duration::days(1),
+        ..matching_signal.clone()
+    };
+    let wrong_code_signal = crate::execution::models::StrategySignalRecord {
+        signal_id: "signal-wrong-code".to_string(),
+        symbol: "000002".to_string(),
+        bar_end: fixed_ts() + chrono::Duration::days(2),
+        ..matching_signal.clone()
+    };
+    let wrong_strategy_signal = crate::execution::models::StrategySignalRecord {
+        signal_id: "signal-wrong-strategy".to_string(),
+        strategy_instance_id: "breakout_000001".to_string(),
+        strategy_name: "breakout".to_string(),
+        bar_end: fixed_ts() + chrono::Duration::days(3),
+        ..matching_signal.clone()
+    };
+
+    for signal in [
+        &wrong_code_signal,
+        &wrong_strategy_signal,
+        &same_filter_later_signal,
+        &matching_signal,
+    ] {
+        runtime_store.insert_signal(signal).await.unwrap();
+    }
+
+    let rows = execute_strategy_signal_list_with_store(
+        &runtime_store,
+        StrategySignalListFilters {
+            strategy_instance: Some("ma_fast_5_slow_20"),
+            strategy: Some("ma_cross"),
+            code: Some("000001"),
+            approval_status: Some("pending"),
+            signal_status: Some("new"),
+            limit: Some(1),
+        },
+    )
+    .await
+    .unwrap();
+
+    let signal_ids = rows
+        .iter()
+        .map(|row| row.signal_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(signal_ids.len(), 1);
+    assert!(matches!(
+        signal_ids.as_slice(),
+        ["signal-match"] | ["signal-match-later"]
+    ));
+
+    let all_matching_rows = execute_strategy_signal_list_with_store(
+        &runtime_store,
+        StrategySignalListFilters {
+            strategy_instance: Some("ma_fast_5_slow_20"),
+            strategy: Some("ma_cross"),
+            code: Some("000001"),
+            approval_status: Some("pending"),
+            signal_status: Some("new"),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let all_matching_ids = all_matching_rows
+        .iter()
+        .map(|row| row.signal_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(all_matching_ids.len(), 2);
+    assert!(all_matching_ids.contains(&"signal-match"));
+    assert!(all_matching_ids.contains(&"signal-match-later"));
 }
 
 #[tokio::test]

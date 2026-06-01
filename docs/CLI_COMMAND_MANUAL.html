@@ -986,7 +986,7 @@ quantix strategy signal approve --signal-id signal-1 --target-mode qmt_live --ta
 <h4>使用示例</h4>
 <pre class='shell'>quantix strategy signal list --approval-status pending --signal-status new</pre>
 <h4>功能说明</h4>
-<p>当前真正生效的只有 <code>--approval-status</code> 与 <code>--signal-status</code> 两个过滤条件，对应取值分别是 <code>pending/approved/rejected</code> 和 <code>new/superseded/expired</code>。<code>--strategy-instance</code>、<code>--strategy</code>、<code>--code</code>、<code>--limit</code> 目前虽然能通过 CLI 解析，但还没有传入 handler，因此暂时不会影响结果集。</p>
+<p>按已落库 signal 列表做本地过滤。<code>--strategy-instance</code>、<code>--strategy</code>、<code>--code</code>、<code>--approval-status</code>、<code>--signal-status</code> 都会参与结果过滤，状态取值分别是 <code>pending/approved/rejected</code> 和 <code>new/superseded/expired</code>；<code>--limit</code> 会在过滤后限制输出条数。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>7 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
