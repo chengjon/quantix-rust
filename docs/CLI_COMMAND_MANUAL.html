@@ -6002,7 +6002,7 @@ quantix fundamental valuation --code 600519</pre>
 <div class='kicker'>1 级命令</div>
 <h3>quantix sentiment</h3>
 <div class='meta'>命令路径：<code>quantix sentiment</code></div>
-<p>舆情输出模板与后续 provider 接入口</p>
+<p>舆情命令壳与后续 provider 接入口</p>
 <div class='subgrid'>
 <div>
 <h4>用法</h4>
@@ -6015,7 +6015,7 @@ quantix fundamental valuation --code 600519</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix sentiment show --code 600519</pre>
 <h4>功能说明</h4>
-<p>这组命令已经具备完整的 CLI 形态与输出格式，但当前 handler 会以空 provider 列表创建 <code>SentimentAggregator</code>，因此不会主动抓取真实舆情源。实际效果更接近“输出模板验收”：<code>show</code> 会给出默认聚合结果和空来源提示，<code>history</code>/<code>mentions</code> 通常返回“暂无数据”，用于后续 provider 真正接入前的接口占位。</p>
+<p>这组命令已经具备 CLI 形态，但真实 <code>SentimentProvider</code>、默认 provider 注入和趋势计算尚未接线。<code>sentiment show/history/mentions</code> 当前返回显式 <code>Unsupported</code>，错误信息包含“sentiment provider 尚未接线”，不会成功输出中性情绪、空历史或空提及模板。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-sentiment-show'><code>quantix sentiment show</code></a>：显示舆情数据</li>
@@ -6042,7 +6042,7 @@ quantix fundamental valuation --code 600519</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix sentiment show --code 600519</pre>
 <h4>功能说明</h4>
-<p>命令会打印情绪等级、情绪指数和趋势方向等固定格式字段。由于当前没有实际 provider 被注入聚合器，输出通常是基于空样本得到的默认结果，随后提示“暂无舆情数据源，请配置 SentimentProvider”；即使未来接上数据，趋势字段当前也仍是聚合器里的固定 <code>Stable</code> 占位值。</p>
+<p>命令壳保留 <code>--code</code> 参数，但在真实 provider 接线前会返回显式 <code>Unsupported</code>，错误信息包含“sentiment provider 尚未接线”。当前不会打印情绪等级、情绪指数或趋势方向占位字段。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -6065,7 +6065,7 @@ quantix fundamental valuation --code 600519</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix sentiment history --code 600519 --days 14</pre>
 <h4>功能说明</h4>
-<p>命令会请求聚合器返回指定天数的历史情绪点，并按时间输出表格。就当前实现而言，因为 provider 列表为空，所以它通常会直接打印“暂无数据”以及“历史舆情需要配置 SentimentProvider 后获取”的提示，主要用于验证参数与空结果分支。</p>
+<p>命令壳保留 <code>--code</code> 和 <code>--days</code> 参数，但在真实 provider 接线前会返回显式 <code>Unsupported</code>，错误信息包含“sentiment provider 尚未接线”。当前不会输出空历史表格或“暂无数据”模板。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -6088,7 +6088,7 @@ quantix fundamental valuation --code 600519</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix sentiment mentions --code 600519 --max 10</pre>
 <h4>功能说明</h4>
-<p>命令预期展示最近提及的时间、平台、截断后的内容、情绪分值与作者信息。当前因为没有实际 provider 接入，常见结果是“最近提及: (暂无数据)”并附带接入提示，所以它现在主要验证的是 CLI 输出形态，而非真实社交媒体聚合能力。</p>
+<p>命令壳保留 <code>--code</code> 和 <code>--max</code> 参数，但在真实 provider 接线前会返回显式 <code>Unsupported</code>，错误信息包含“sentiment provider 尚未接线”。当前不会输出空提及列表或社交媒体聚合占位内容。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

@@ -19,6 +19,8 @@ All notable changes to this project are documented here.
   - `--output` 现在只接受 `table` 或 `json`，未知格式会失败关闭，不再静默回退到 table 预览
 - **AI 未接线 provider 失败关闭** (`src/cli/handlers/ai.rs`, `tests/ai_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix ai analyze` / `decide` / `ask` / `market` 现在只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；如果环境里只配置 Gemini/Anthropic 等未接线 provider，会返回 `Unsupported`，不再成功退出或静默回退到 Ollama
+- **sentiment 空 provider 输出模板失败关闭** (`src/cli/handlers/sentiment.rs`, `tests/sentiment_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
+  - `quantix sentiment show` / `history` / `mentions` 现在会在真实 `SentimentProvider` 接线前返回 `Unsupported`，不再成功输出中性情绪、空历史或空提及模板
 - **EastMoney 资金流向隐藏占位数据失败关闭** (`src/sources/eastmoney.rs`, `FUNCTION_TREE.md`)
   - `EastMoneySource::parse_money_flow` 不再为未映射响应返回空代码、当日日期和全 0 金额的 `MoneyFlowData`
   - 在真实资金流向字段映射接线前，该路径会返回显式 `QuantixError::Unsupported`，与 `fundamental capital-flow` CLI 的 fail-closed 边界保持一致
