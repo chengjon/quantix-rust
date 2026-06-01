@@ -141,6 +141,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - **算法交易执行器**已完成基础实现：
   - TWAP (时间加权平均价格) 执行器
   - VWAP (成交量加权平均价格) 执行器
+  - `algo create` / `algo plan` 会对方向、切片数和切片间隔等参数 fail-closed；POV / Iceberg 仍未接线
 - **Graphiti MCP 集成**已完成：
   - 语义记忆层用于设计决策、代码审查、调试、交接和文档
   - Group IDs: `quantix_rust_main`, `_review`, `_debug`, `_handoff`, `_docs`
