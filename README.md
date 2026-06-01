@@ -132,6 +132,8 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `import from-image` / `from-csv` / `from-excel` / `from-clipboard` / `from-text` / `resolve` / `market-manifest` 是当前已接线入口
   - `import from-image --model deepseek|openai` 会按所选 Vision provider 读取对应 API key/base URL/model 环境变量；缺少所选 provider 的 API key 时返回显式 `Unsupported`，错误包含 `Vision provider 尚未配置`
   - `import from-excel` 可读取首个或指定 worksheet 中的 watchlist 代码/名称行；复杂 Excel schema 与持久化导入闭环仍不是当前能力
+- **data export CLI 边界**已同步到当前实现：
+  - `data export --format` 仅支持 `csv` 和 `parquet`；未知格式会在任何 stdout 导出提示、ClickHouse 读取或输出目录创建之前返回显式 `Unsupported`，错误包含 `data export format 不支持`
 - **P0.2 执行请求生命周期增强**已完成：
   - `strategy request show` - 查看请求详情
   - `strategy request list --stats` - 统计汇总视图
@@ -293,7 +295,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `init` - 初始化配置和数据库
   - `menu` - 交互式菜单 (简单版 + TUI 规划)
   - `data query` - 查询历史K线数据
-  - `data export` - 导出数据为 CSV/Parquet
+  - `data export` - 导出数据为 CSV/Parquet，未知 `--format` 会失败关闭
   - `strategy run` - 运行策略回测
   - `strategy list/show` - 策略管理
   - `task list/start/stop/status` - 实验性 Foundation P0 预置任务模板入口

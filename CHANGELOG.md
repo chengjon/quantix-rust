@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-02
+
+### Fixed
+- **data export 格式验证失败关闭** (`src/cli/handlers/data_handler.rs`, `tests/data_export_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix data export --format <未知格式>` 现在会在打印导出信息、读取 ClickHouse 或创建输出目录之前返回显式 `Unsupported`
+  - 错误包含 `data export format 不支持` 和支持格式 `csv, parquet`，不再因为无数据而成功退出，也不再先输出导出占位信息
+
 ## 2026-06-01
 
 ### Added
