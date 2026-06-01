@@ -209,6 +209,17 @@ pub enum FundamentalCommands {
         days: u32,
     },
 
+    /// 查看资金流向
+    CapitalFlow {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 天数
+        #[arg(short, long, default_value = "5")]
+        days: u32,
+    },
+
     /// 查看分红信息
     Dividend {
         /// 股票代码

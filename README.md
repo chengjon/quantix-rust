@@ -122,6 +122,9 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 多源支持：Tavily、SerpAPI、博查搜索、Brave、SearXNG
   - `NewsAggregator` - 多源 fallback 聚合
   - `NewsCache` - 本地缓存存储
+- **基本面 CLI 边界**已同步到当前实现：
+  - `fundamental show` / `valuation` / `earnings` / `institution` / `dragon-tiger` 是当前主要可用入口
+  - `fundamental capital-flow` 与 `fundamental dividend` 已暴露命令壳，但真实资金流向/分红数据源未接线前会返回显式 `Unsupported`
 - **P0.2 执行请求生命周期增强**已完成：
   - `strategy request show` - 查看请求详情
   - `strategy request list --stats` - 统计汇总视图

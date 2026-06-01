@@ -238,6 +238,7 @@
 <li class='lv2'><a href='#cmd-fundamental-earnings'>fundamental earnings</a></li>
 <li class='lv2'><a href='#cmd-fundamental-institution'>fundamental institution</a></li>
 <li class='lv2'><a href='#cmd-fundamental-dragon-tiger'>fundamental dragon-tiger</a></li>
+<li class='lv2'><a href='#cmd-fundamental-capital-flow'>fundamental capital-flow</a></li>
 <li class='lv2'><a href='#cmd-fundamental-dividend'>fundamental dividend</a></li>
 <li><a href='#cmd-sentiment'>sentiment</a></li>
 <li class='lv2'><a href='#cmd-sentiment-show'>sentiment show</a></li>
@@ -253,8 +254,8 @@
 <li><a href='#cmd-status'>status</a></li>
 </ul></aside><main class='main'>
 <section class='hero' id='overview'><h2>Quantix CLI 命令手册</h2><p>这份手册用于手工测试与命令查阅，覆盖当前项目可见的全部 CLI 命令层级。重点对齐面包括 <code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理、<code>task</code> 实验性边界，以及推荐优先使用的 <code>execution qmt</code> 入口。</p><p>兼容性原则：<code>execution qmt</code> 是当前推荐业务入口，<code>execution bridge</code> 保留为向后兼容路径；<code>analyze screener</code> 当前公开 <code>preset-list</code> 与 <code>run</code> 两条命令路径。另有少数能力已进入功能树规划但尚未暴露为当前二进制命令，本手册会在对应分组里明确标注。</p>
-<div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>133</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
-<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>import from-excel</code> 仍无 CLI 入口；<code>fundamental dividend</code> 在真实分红数据源接线前会返回显式 Unsupported；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
+<div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>134</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
+<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>fundamental dividend</code> 在真实基本面数据源接线前会返回显式 Unsupported；<code>import from-excel</code> 仍无 CLI 入口；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
 <section class='section card' id='test-summary'><div class='kicker'>测试汇总</div><h3>手工测试结果总表</h3><div class='meta'>用途：测完后统一沉淀结论，区分通过、外部依赖失败与 CLI 缺陷。</div><div class='testbox'><h4>总表模板</h4><pre>测试日期:
 测试二进制: ./target/debug/quantix
 测试环境:
@@ -5824,7 +5825,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <pre class='shell'>quantix fundamental show --code 600519
 quantix fundamental valuation --code 600519</pre>
 <h4>功能说明</h4>
-<p>当前可用主线集中在 <code>show</code>、<code>valuation</code>、<code>earnings</code>、<code>institution</code>、<code>dragon-tiger</code>。其中 <code>dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>；<code>capital-flow</code> 虽已进入功能树规划，但当前二进制尚无 CLI 子命令。</p>
+<p>当前可用主线集中在 <code>show</code>、<code>valuation</code>、<code>earnings</code>、<code>institution</code>、<code>dragon-tiger</code>。其中 <code>capital-flow</code> 与 <code>dividend</code> 已有命令壳，但真实资金流向/分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-fundamental-show'><code>quantix fundamental show</code></a>：显示基本面数据</li>
@@ -5832,10 +5833,11 @@ quantix fundamental valuation --code 600519</pre>
 <li><a href='#cmd-fundamental-earnings'><code>quantix fundamental earnings</code></a>：查看财报数据</li>
 <li><a href='#cmd-fundamental-institution'><code>quantix fundamental institution</code></a>：查看机构持仓</li>
 <li><a href='#cmd-fundamental-dragon-tiger'><code>quantix fundamental dragon-tiger</code></a>：查看龙虎榜</li>
+<li><a href='#cmd-fundamental-capital-flow'><code>quantix fundamental capital-flow</code></a>：查看资金流向</li>
 <li><a href='#cmd-fundamental-dividend'><code>quantix fundamental dividend</code></a>：查看分红信息</li>
 </ul>
-<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix fundamental capital-flow</code> 目前还没有 CLI 入口；<code>quantix fundamental dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>。</div>
-<div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>6 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix fundamental capital-flow</code> 与 <code>quantix fundamental dividend</code> 已有命令壳，但真实资金流向/分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>。</div>
+<div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>7 个下级命令</span><span class='chip'>1 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-fundamental-show'>
 <div class='kicker'>2 级命令</div>
@@ -5948,6 +5950,29 @@ quantix fundamental valuation --code 600519</pre>
 <p>命令会根据是否传入 <code>--code</code> 选择“查询单票近 N 天龙虎榜”或“查询今日龙虎榜总表”，然后展示上榜原因、价格涨跌幅、买卖金额、净买入，以及前 5 买入/卖出营业部。它依赖外部数据源，且可能合法返回“暂无数据”，因此手工验收时要把“上游返回空结果”与“请求失败”分开判断。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-fundamental-capital-flow'>
+<div class='kicker'>2 级命令</div>
+<h3>quantix fundamental capital-flow</h3>
+<div class='meta'>命令路径：<code>quantix fundamental capital-flow</code></div>
+<p>查看资金流向</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix fundamental capital-flow [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-d, --days</code></td><td>DAYS</td><td>天数 [default: 5]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix fundamental capital-flow --code 600519 --days 5</pre>
+<h4>功能说明</h4>
+<p>当前会展示股票代码与天数，然后提示资金流向数据源尚未接入，并返回显式 Unsupported。<code>--days</code> 目前只参与提示与错误上下文，不会触发真实资金流向抓取；命令最后还会提示用户改用 <code>fundamental valuation</code>、<code>fundamental earnings</code>、<code>fundamental institution</code> 这三个已实现入口查看其他基本面信息。</p>
+</div></div>
+<div class='chips'><span class='chip todo'>开发中</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-fundamental-dividend'>
 <div class='kicker'>2 级命令</div>
