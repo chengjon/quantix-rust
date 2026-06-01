@@ -149,6 +149,12 @@ impl AlgoParams {
         if self.end_time <= self.start_time {
             return Err("End time must be after start time".to_string());
         }
+        if self.slice_count == Some(0) {
+            return Err("Slice count must be positive".to_string());
+        }
+        if self.interval_seconds == Some(0) {
+            return Err("Interval seconds must be positive".to_string());
+        }
         if self.side != "buy" && self.side != "sell" {
             return Err("Side must be 'buy' or 'sell'".to_string());
         }
@@ -158,6 +164,33 @@ impl AlgoParams {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AlgoParams;
+
+    #[test]
+    fn validate_rejects_zero_slice_count() {
+        let params = AlgoParams::twap("600519.SH".to_string(), "buy".to_string(), 1000, 10)
+            .with_slice_count(0);
+
+        assert_eq!(
+            params.validate(),
+            Err("Slice count must be positive".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_rejects_zero_interval_seconds() {
+        let params =
+            AlgoParams::twap("600519.SH".to_string(), "buy".to_string(), 1000, 10).with_interval(0);
+
+        assert_eq!(
+            params.validate(),
+            Err("Interval seconds must be positive".to_string())
+        );
     }
 }
 

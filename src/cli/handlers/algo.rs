@@ -437,6 +437,7 @@ async fn run_algo_plan(
         params = params.with_interval(i);
     }
     params = params.no_randomize(); // 预览时不随机化
+    params.validate().map_err(QuantixError::Other)?;
 
     // 生成切片计划
     let plan = match algo_type_enum {
