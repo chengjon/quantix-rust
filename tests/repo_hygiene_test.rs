@@ -2543,7 +2543,7 @@ fn generated_cli_manual_documents_fundamental_capital_flow_as_fail_closed() {
 }
 
 #[test]
-fn generated_cli_manual_documents_import_from_excel_as_fail_closed() {
+fn generated_cli_manual_documents_import_from_excel_as_parser_backed() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
 
@@ -2553,9 +2553,17 @@ fn generated_cli_manual_documents_import_from_excel_as_fail_closed() {
     );
     assert!(
         cli_manual.contains(
-            "<code>quantix import from-excel</code> 已有命令壳，但真实 Excel parser 尚未接线，执行时会返回显式 <code>Unsupported</code>"
+            "<code>quantix import from-excel</code> 会读取首个或指定 worksheet 的 watchlist 代码/名称行，并输出解析结果"
         ),
-        "expected CLI_COMMAND_MANUAL.html to document import from-excel as fail-closed"
+        "expected CLI_COMMAND_MANUAL.html to document import from-excel as parser-backed"
+    );
+    assert!(
+        !cli_manual.contains("真实 Excel parser 尚未接线"),
+        "CLI_COMMAND_MANUAL.html still describes import from-excel as parser-unwired"
+    );
+    assert!(
+        !cli_manual.contains("执行时会返回显式 <code>Unsupported</code>；如果需要实际处理 Excel"),
+        "CLI_COMMAND_MANUAL.html still describes import from-excel as fail-closed"
     );
     assert!(
         !cli_manual.contains("<code>quantix import from-excel</code> 仍无 CLI 入口"),

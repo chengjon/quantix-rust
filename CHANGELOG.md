@@ -7,10 +7,16 @@ All notable changes to this project are documented here.
 
 ## 2026-06-01
 
+### Added
+- **import from-excel Excel watchlist parser** (`Cargo.toml`, `Cargo.lock`, `src/import/excel_parser.rs`, `src/import/types.rs`, `src/import/mod.rs`, `src/cli/handlers/import.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix import from-excel --file <FILE> [--sheet <SHEET>]` 现在通过 `calamine` 读取 Excel workbook，并解析首个或指定 worksheet 中的股票代码/名称行
+  - CLI 输出与 `from-csv` 保持一致，显示解析数量、总行数、跳过行数和逐条代码/名称/置信度；复杂 Excel schema、公式语义和持久化导入闭环仍不属于当前能力
+
 ### Fixed
 - **import from-excel 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/import.rs`, `src/cli/tests/import.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
-  - `quantix import from-excel` 现在作为显式 CLI 子命令暴露，并在真实 Excel parser 接线前返回 `QuantixError::Unsupported`
-  - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增解析测试、handler 回归测试和手册卫生测试
+- 该阶段先将 `quantix import from-excel` 暴露为显式 CLI 子命令，并以 fail-closed 行为记录当时的能力边界
+- CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增命令解析、handler 回归和手册卫生测试
+- 同日后续变更已接入 watchlist 级 Excel parser；当前可用边界以本日期 `Added` 条目和 `FUNCTION_TREE.md` 为准
 - **fundamental capital-flow 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/fundamental.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix fundamental capital-flow` 现在作为显式 CLI 子命令暴露，并在真实资金流向数据源接线前返回 `QuantixError::Unsupported`
   - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增回归测试和手册卫生测试
