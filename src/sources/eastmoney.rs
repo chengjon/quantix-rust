@@ -1,8 +1,7 @@
 /// 东方财富 (East Money) 数据源
 ///
 /// 提供实时行情、财务数据等数据采集能力
-use crate::core::Result;
-use chrono::Utc;
+use crate::core::{QuantixError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -162,16 +161,15 @@ impl EastMoneySource {
 
     /// 解析资金流向
     fn parse_money_flow(&self, text: &str) -> Result<MoneyFlowData> {
-        // 简化实现
-        Ok(MoneyFlowData {
-            code: String::new(),
-            date: Utc::now().date_naive(),
-            main_in: 0.0,
-            main_out: 0.0,
-            retail_in: 0.0,
-            retail_out: 0.0,
-            main_net: 0.0,
-        })
+        let response_hint = if text.trim().is_empty() {
+            "收到空响应"
+        } else {
+            "收到未映射响应"
+        };
+
+        Err(QuantixError::Unsupported(format!(
+            "EastMoney 资金流向字段映射尚未接入真实实现；{response_hint}，拒绝返回占位全 0 数据"
+        )))
     }
 
     /// 获取财务数据
@@ -300,6 +298,7 @@ impl Board {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::QuantixError;
 
     #[test]
     fn test_eastmoney_creation() {
@@ -311,5 +310,20 @@ mod tests {
     fn test_board_codes() {
         assert_eq!(Board::HS300.as_str(), "hs300");
         assert_eq!(Board::SZ50.as_str(), "sz50");
+    }
+
+    #[test]
+    fn parse_money_flow_rejects_unmapped_response_instead_of_fake_zero_success() {
+        let source = EastMoneySource::new();
+
+        let error = source
+            .parse_money_flow(r#"{"data":{"klines":[]}}"#)
+            .expect_err("unmapped money-flow responses must fail closed");
+
+        assert!(matches!(
+            error,
+            QuantixError::Unsupported(message)
+                if message.contains("资金流向") && message.contains("字段映射")
+        ));
     }
 }

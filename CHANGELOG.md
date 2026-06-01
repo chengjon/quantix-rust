@@ -13,6 +13,9 @@ All notable changes to this project are documented here.
   - CLI 输出与 `from-csv` 保持一致，显示解析数量、总行数、跳过行数和逐条代码/名称/置信度；复杂 Excel schema、公式语义和持久化导入闭环仍不属于当前能力
 
 ### Fixed
+- **EastMoney 资金流向隐藏占位数据失败关闭** (`src/sources/eastmoney.rs`, `FUNCTION_TREE.md`)
+  - `EastMoneySource::parse_money_flow` 不再为未映射响应返回空代码、当日日期和全 0 金额的 `MoneyFlowData`
+  - 在真实资金流向字段映射接线前，该路径会返回显式 `QuantixError::Unsupported`，与 `fundamental capital-flow` CLI 的 fail-closed 边界保持一致
 - **import from-excel 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/import.rs`, `src/cli/tests/import.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
 - 该阶段先将 `quantix import from-excel` 暴露为显式 CLI 子命令，并以 fail-closed 行为记录当时的能力边界
 - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增命令解析、handler 回归和手册卫生测试
