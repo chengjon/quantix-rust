@@ -16,7 +16,7 @@ pub mod types;
 pub use code_resolver::CodeResolver;
 pub use csv_parser::CsvParser;
 pub use excel_parser::ExcelParser;
-pub use image_extractor::ImageExtractor;
+pub use image_extractor::{ImageExtractor, ImageVisionProvider};
 pub use text_parser::TextParser;
 pub use types::{
     CodeResolveResult, ImportItem, ImportResult, ImportSource, MatchMethod, is_code_like,
