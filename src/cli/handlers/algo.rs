@@ -446,10 +446,14 @@ async fn run_algo_plan(
         _ => return Err(QuantixError::Other("不支持的算法类型".to_string())),
     };
 
-    if output == "json" {
-        output_plan_json(&plan, &code, &side, &algo_type)?;
-    } else {
-        output_plan_table(&plan, &code, &side, &algo_type)?;
+    match output.to_lowercase().as_str() {
+        "json" => output_plan_json(&plan, &code, &side, &algo_type)?,
+        "table" => output_plan_table(&plan, &code, &side, &algo_type)?,
+        _ => {
+            return Err(QuantixError::Other(format!(
+                "不支持的输出格式: {output}，仅支持 table 或 json"
+            )));
+        }
     }
 
     Ok(())
