@@ -119,7 +119,8 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `ai config --test` 是配置状态检查，运行时标题为“检查 LLM 配置状态”，不会发起真实 API 连通性请求
 - **新闻搜索模块**已完成基础实现 (Phase 3)：
   - `NewsProvider` trait - 新闻提供者接口
-  - 多源支持：Tavily、SerpAPI、博查搜索、Brave、SearXNG
+  - 已接线 provider：Tavily、SerpAPI、博查搜索；Brave、SearXNG 仍是已设计/待实现
+  - `news search` / `code` / `trend` 在未配置任一已接线 provider 时会返回显式 `Unsupported`；`news providers` 仅查看配置状态
   - `NewsAggregator` - 多源 fallback 聚合
   - `NewsCache` - 本地缓存存储
 - **基本面 CLI 边界**已同步到当前实现：
