@@ -46,6 +46,83 @@ impl ImageFormat {
 pub struct ImageExtractor {
     resolver: CodeResolver,
     client: reqwest::Client,
+    provider: ImageVisionProvider,
+}
+
+/// Vision API provider
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageVisionProvider {
+    Deepseek,
+    Openai,
+}
+
+#[derive(Debug, Clone)]
+struct ImageVisionRuntimeConfig {
+    api_key: String,
+    base_url: String,
+    model: String,
+}
+
+impl ImageVisionProvider {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.to_lowercase().as_str() {
+            "deepseek" => Ok(Self::Deepseek),
+            "openai" => Ok(Self::Openai),
+            _ => Err(crate::core::QuantixError::Other(format!(
+                "不支持的 Vision provider: {value}，支持: deepseek, openai"
+            ))),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Deepseek => "deepseek",
+            Self::Openai => "openai",
+        }
+    }
+
+    fn runtime_config_from_env(self) -> Result<ImageVisionRuntimeConfig> {
+        match self {
+            Self::Deepseek => {
+                let api_key = std::env::var("DEEPSEEK_API_KEY").map_err(|_| {
+                    crate::core::QuantixError::Unsupported(format!(
+                        "Vision provider 尚未配置: {}；请配置 DEEPSEEK_API_KEY 后再执行 import from-image --model {}",
+                        self.as_str(),
+                        self.as_str()
+                    ))
+                })?;
+                let base_url = std::env::var("DEEPSEEK_BASE_URL")
+                    .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
+                let model = std::env::var("DEEPSEEK_VISION_MODEL")
+                    .unwrap_or_else(|_| "deepseek-chat".to_string());
+
+                Ok(ImageVisionRuntimeConfig {
+                    api_key,
+                    base_url,
+                    model,
+                })
+            }
+            Self::Openai => {
+                let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| {
+                    crate::core::QuantixError::Unsupported(format!(
+                        "Vision provider 尚未配置: {}；请配置 OPENAI_API_KEY 后再执行 import from-image --model {}",
+                        self.as_str(),
+                        self.as_str()
+                    ))
+                })?;
+                let base_url = std::env::var("OPENAI_BASE_URL")
+                    .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+                let model = std::env::var("OPENAI_VISION_MODEL")
+                    .unwrap_or_else(|_| "gpt-4o-mini".to_string());
+
+                Ok(ImageVisionRuntimeConfig {
+                    api_key,
+                    base_url,
+                    model,
+                })
+            }
+        }
+    }
 }
 
 /// LLM 返回的股票项
@@ -85,9 +162,14 @@ const VISION_PROMPT: &str = r#"你是一个专业的股票代码识别助手。�
 
 impl ImageExtractor {
     pub fn new() -> Self {
+        Self::with_provider(ImageVisionProvider::Deepseek)
+    }
+
+    pub fn with_provider(provider: ImageVisionProvider) -> Self {
         Self {
             resolver: CodeResolver::new(),
             client: reqwest::Client::new(),
+            provider,
         }
     }
 
@@ -126,28 +208,14 @@ impl ImageExtractor {
         format: &ImageFormat,
     ) -> Result<ImportResult> {
         // 尝试使用 LLM Vision API
-        match self.call_vision_api(base64_data, format).await {
-            Ok(items) => Ok(ImportResult {
-                items,
-                total_input_lines: 1,
-                parsed_count: 0,
-                skipped_count: 0,
-                errors: vec![],
-            }),
-            Err(e) => {
-                // LLM 失败时，返回错误信息
-                Ok(ImportResult {
-                    items: vec![],
-                    total_input_lines: 1,
-                    parsed_count: 0,
-                    skipped_count: 0,
-                    errors: vec![format!(
-                        "图片识别失败: {}。请检查 DEEPSEEK_API_KEY 配置。",
-                        e
-                    )],
-                })
-            }
-        }
+        let items = self.call_vision_api(base64_data, format).await?;
+        Ok(ImportResult {
+            items,
+            total_input_lines: 1,
+            parsed_count: 0,
+            skipped_count: 0,
+            errors: vec![],
+        })
     }
 
     /// 调用 Vision API
@@ -156,25 +224,13 @@ impl ImageExtractor {
         base64_data: &str,
         format: &ImageFormat,
     ) -> Result<Vec<ImportItem>> {
-        let api_key = std::env::var("DEEPSEEK_API_KEY")
-            .or_else(|_| std::env::var("OPENAI_API_KEY"))
-            .map_err(|_| {
-                crate::core::QuantixError::Other(
-                    "未设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY".to_string(),
-                )
-            })?;
-
-        let base_url = std::env::var("DEEPSEEK_BASE_URL")
-            .unwrap_or_else(|_| "https://api.deepseek.com".to_string());
-
-        let model =
-            std::env::var("DEEPSEEK_VISION_MODEL").unwrap_or_else(|_| "deepseek-chat".to_string());
+        let runtime_config = self.provider.runtime_config_from_env()?;
 
         let image_url = format!("data:{};base64,{}", format.mime_type(), base64_data);
 
         // 构建请求
         let payload = serde_json::json!({
-            "model": model,
+            "model": runtime_config.model,
             "messages": [{
                 "role": "user",
                 "content": [
@@ -186,12 +242,18 @@ impl ImageExtractor {
             "temperature": 0.1
         });
 
-        let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+        let url = format!(
+            "{}/chat/completions",
+            runtime_config.base_url.trim_end_matches('/')
+        );
 
         let response = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", runtime_config.api_key),
+            )
             .header("Content-Type", "application/json")
             .json(&payload)
             .send()

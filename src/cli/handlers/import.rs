@@ -574,13 +574,14 @@ fn build_import_market_manifest_source_command(
 }
 
 async fn run_import_from_image(file: &str, model: &str) -> Result<()> {
+    let provider = crate::import::ImageVisionProvider::parse(model)?;
+    let extractor = crate::import::ImageExtractor::with_provider(provider);
+    let result = extractor.extract_from_file(file).await?;
+
     println!("📷 图片股票识别");
     println!("   文件: {}", file);
     println!("   模型: {}", model);
     println!();
-
-    let extractor = crate::import::ImageExtractor::new();
-    let result = extractor.extract_from_file(file).await?;
 
     if result.items.is_empty() {
         if !result.errors.is_empty() {

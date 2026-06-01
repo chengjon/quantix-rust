@@ -2729,6 +2729,33 @@ fn generated_cli_manual_documents_notify_check_and_test_missing_config_fail_clos
 }
 
 #[test]
+fn generated_cli_manual_documents_import_from_image_vision_provider_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("按 <code>--model deepseek|openai</code> 选择对应 Vision provider"),
+        "expected CLI_COMMAND_MANUAL.html to document import from-image model provider selection"
+    );
+    assert!(
+        cli_manual.contains("Vision provider 尚未配置"),
+        "expected CLI_COMMAND_MANUAL.html to include the missing Vision provider boundary"
+    );
+    assert!(
+        cli_manual.contains("<code>OPENAI_BASE_URL</code> 和 <code>OPENAI_VISION_MODEL</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document OpenAI Vision request configuration"
+    );
+    assert!(
+        cli_manual.contains("不会在 stdout 打印图片识别占位错误后成功退出"),
+        "expected CLI_COMMAND_MANUAL.html to reject stdout-only image recognition failures"
+    );
+    assert!(
+        !cli_manual.contains("CLI 上的 <code>--model</code> 目前更接近参数占位"),
+        "CLI_COMMAND_MANUAL.html still describes import from-image --model as a placeholder"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

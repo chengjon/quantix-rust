@@ -13,6 +13,9 @@ All notable changes to this project are documented here.
   - CLI 输出与 `from-csv` 保持一致，显示解析数量、总行数、跳过行数和逐条代码/名称/置信度；复杂 Excel schema、公式语义和持久化导入闭环仍不属于当前能力
 
 ### Fixed
+- **import from-image Vision provider 失败关闭** (`src/import/image_extractor.rs`, `src/import/mod.rs`, `src/cli/handlers/import.rs`, `tests/import_image_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix import from-image --model deepseek|openai` 现在会按所选 Vision provider 读取对应 API key/base URL/model 环境变量，缺少所选 provider 的 API key 时返回 `Unsupported`，错误包含 `Vision provider 尚未配置`
+  - `--model openai` 不再静默复用 DeepSeek 的 base URL/model 配置；Vision API 请求错误和响应解析错误也不再被包装成 stdout 错误后成功退出
 - **algo plan 参数验证失败关闭** (`src/cli/handlers/algo.rs`, `src/execution/algo/context.rs`, `tests/algo_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix algo plan` 现在会在输出切片预览前复用 `AlgoParams::validate`，拒绝 `side` 非 `buy`/`sell` 等无效参数，不再生成带非法方向的 JSON/table 预览
   - `AlgoParams::validate` 补充 `slice_count=0` 和 `interval_seconds=0` 校验，避免 TWAP/VWAP create/plan 进入除零或零间隔切片计划
