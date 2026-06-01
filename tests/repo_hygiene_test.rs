@@ -2688,6 +2688,29 @@ fn generated_cli_manual_documents_news_missing_provider_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_notify_check_missing_config_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("notify channel 尚未配置"),
+        "expected CLI_COMMAND_MANUAL.html to include the notify channel missing-config boundary"
+    );
+    assert!(
+        cli_manual.contains("配置不足时返回显式 <code>Unsupported</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document notify check as fail-closed"
+    );
+    assert!(
+        cli_manual.contains("不会在 stdout 打印占位配置提示后成功退出"),
+        "expected CLI_COMMAND_MANUAL.html to reject stdout-only missing-config prompts"
+    );
+    assert!(
+        !cli_manual.contains("配置不足时直接打印所需变量名"),
+        "CLI_COMMAND_MANUAL.html still describes notify check missing config as a successful stdout prompt"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

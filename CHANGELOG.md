@@ -20,6 +20,9 @@ All notable changes to this project are documented here.
 - **AI 未配置/未接线 provider 失败关闭** (`src/cli/handlers/ai.rs`, `tests/ai_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
   - `quantix ai analyze` / `decide` / `ask` / `market` 现在只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；未配置任一已接线 provider 时会返回 `Unsupported`，错误包含 `AI provider 尚未配置`，不再成功输出“未配置 LLM”提示
   - 如果环境里只配置 Gemini/Anthropic 等未接线 provider，也会返回 `Unsupported`，不再成功退出或静默回退到 Ollama；`ai config` 继续作为配置状态查看入口
+- **notify check 缺渠道配置失败关闭** (`src/cli/handlers/notify.rs`, `tests/notify_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix notify check --channel <外部渠道>` 现在会在必需环境变量缺失时返回 `Unsupported`，错误包含 `notify channel 尚未配置` 和所需变量名，不再把“环境变量未配置”作为 stdout 提示后成功退出
+  - `quantix notify list` 继续作为静态渠道名称状态视图；`notify send` / `notify test` 的渠道投递边界保持原状，后续按单独节点继续收敛
 - **sentiment 空 provider 输出模板失败关闭** (`src/cli/handlers/sentiment.rs`, `tests/sentiment_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)
   - `quantix sentiment show` / `history` / `mentions` 现在会在真实 `SentimentProvider` 接线前返回 `Unsupported`，不再成功输出中性情绪、空历史或空提及模板
 - **news 未配置 provider 失败关闭** (`src/cli/handlers/news.rs`, `tests/news_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`)

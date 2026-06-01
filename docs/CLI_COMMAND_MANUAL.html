@@ -5538,7 +5538,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix notify check --channel feishu</pre>
 <h4>功能说明</h4>
-<p>命令会先按目标渠道检查环境变量是否齐全，配置不足时直接打印所需变量名；配置齐全后，则只启用该单一渠道发送一条 <code>Info</code> 级“连通性测试”。要注意的是，这条测试同样受 <code>NOTIFICATION_MIN_LEVEL</code> 约束，默认最小级别若高于 <code>info</code>，可能出现“测试通知发送成功”但实际未投递的情况；其中 <code>desktop</code> 与 <code>log</code> 被视为天然已配置，<code>webhook</code> 依赖 <code>WEBHOOK_URL</code>。</p>
+<p>命令会先按目标渠道检查环境变量是否齐全，配置不足时返回显式 <code>Unsupported</code>，错误包含 <code>notify channel 尚未配置</code> 和所需变量名，不会在 stdout 打印占位配置提示后成功退出；配置齐全后，则只启用该单一渠道发送一条 <code>Info</code> 级“连通性测试”。要注意的是，这条测试同样受 <code>NOTIFICATION_MIN_LEVEL</code> 约束，默认最小级别若高于 <code>info</code>，可能出现“测试通知发送成功”但实际未投递的情况；其中 <code>desktop</code> 与 <code>log</code> 被视为天然已配置，<code>webhook</code> 依赖 <code>WEBHOOK_URL</code>。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
