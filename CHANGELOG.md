@@ -16,6 +16,7 @@ All notable changes to this project are documented here.
 - **algo plan 参数验证失败关闭** (`src/cli/handlers/algo.rs`, `src/execution/algo/context.rs`, `tests/algo_cli_validation_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix algo plan` 现在会在输出切片预览前复用 `AlgoParams::validate`，拒绝 `side` 非 `buy`/`sell` 等无效参数，不再生成带非法方向的 JSON/table 预览
   - `AlgoParams::validate` 补充 `slice_count=0` 和 `interval_seconds=0` 校验，避免 TWAP/VWAP create/plan 进入除零或零间隔切片计划
+  - `--output` 现在只接受 `table` 或 `json`，未知格式会失败关闭，不再静默回退到 table 预览
 - **EastMoney 资金流向隐藏占位数据失败关闭** (`src/sources/eastmoney.rs`, `FUNCTION_TREE.md`)
   - `EastMoneySource::parse_money_flow` 不再为未映射响应返回空代码、当日日期和全 0 金额的 `MoneyFlowData`
   - 在真实资金流向字段映射接线前，该路径会返回显式 `QuantixError::Unsupported`，与 `fundamental capital-flow` CLI 的 fail-closed 边界保持一致
