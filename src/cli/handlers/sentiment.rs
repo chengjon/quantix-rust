@@ -1,9 +1,6 @@
-use super::fundamental::truncate_str;
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
-use crate::market::sentiment::SentimentAggregator;
-use crate::market::sentiment::types::SentimentTrend;
+use crate::core::{QuantixError, Result};
 
 // ============================================================
 // 舆情分析命令
@@ -19,127 +16,19 @@ pub async fn run_sentiment_command(cmd: SentimentCommands) -> Result<()> {
 }
 
 async fn run_sentiment_show(code: &str) -> Result<()> {
-    println!("📊 舆情分析");
-    println!("   代码: {}", code);
-    println!();
-
-    let aggregator = SentimentAggregator::new(vec![]);
-    let data = aggregator.get_sentiment(code).await?;
-
-    let level = data.sentiment_level;
-    println!("{} 情绪等级: {}", level.emoji(), level.label());
-    println!("📈 情绪指数: {:.2}", data.overall_score);
-    println!("📊 趋势方向: {}", format_sentiment_trend(data.trend));
-    println!();
-
-    if data.source_scores.is_empty() {
-        println!("💡 暂无舆情数据源，请配置 SentimentProvider");
-        println!("   可用提供商: Adanos, EastMoney Guba, Sina Finance");
-    } else {
-        println!("📋 各来源得分:");
-        println!("{:<15} {:<10} {:<10}", "来源", "得分", "样本数");
-        println!("{}", "-".repeat(35));
-        for score in &data.source_scores {
-            println!(
-                "{:<15} {:<10.2} {:<10}",
-                score.source, score.score, score.sample_count
-            );
-        }
-    }
-
-    Ok(())
+    Err(sentiment_provider_unwired_error("show", code))
 }
 
-fn format_sentiment_trend(trend: SentimentTrend) -> &'static str {
-    match trend {
-        SentimentTrend::Unavailable => "暂无趋势数据",
-        SentimentTrend::RisingFast => "↑ 快速上升",
-        SentimentTrend::Rising => "↑ 上升",
-        SentimentTrend::Stable => "→ 平稳",
-        SentimentTrend::Falling => "↓ 下降",
-        SentimentTrend::FallingFast => "↓ 快速下降",
-    }
+async fn run_sentiment_history(code: &str, _days: u32) -> Result<()> {
+    Err(sentiment_provider_unwired_error("history", code))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unavailable_sentiment_trend_is_not_rendered_as_stable() {
-        assert_eq!(
-            format_sentiment_trend(SentimentTrend::Unavailable),
-            "暂无趋势数据"
-        );
-        assert_eq!(format_sentiment_trend(SentimentTrend::Stable), "→ 平稳");
-    }
+async fn run_sentiment_mentions(code: &str, _max: usize) -> Result<()> {
+    Err(sentiment_provider_unwired_error("mentions", code))
 }
 
-async fn run_sentiment_history(code: &str, days: u32) -> Result<()> {
-    println!("📊 舆情历史趋势");
-    println!("   代码: {}", code);
-    println!("   天数: {}", days);
-    println!();
-
-    let aggregator = SentimentAggregator::new(vec![]);
-    let history = aggregator.get_history(code, days).await?;
-
-    if history.is_empty() {
-        println!("📅 历史数据: (暂无数据)");
-        println!();
-        println!("💡 历史舆情需要配置 SentimentProvider 后获取");
-    } else {
-        println!("📅 历史数据:");
-        println!("{:<20} {:<10} {:<10}", "时间", "得分", "样本数");
-        println!("{}", "-".repeat(40));
-        for point in &history {
-            let ts = point.timestamp.format("%Y-%m-%d %H:%M");
-            println!(
-                "{:<20} {:<10.2} {:<10}",
-                ts, point.score, point.sample_count
-            );
-        }
-    }
-
-    Ok(())
-}
-
-async fn run_sentiment_mentions(code: &str, max: usize) -> Result<()> {
-    println!("💬 社交媒体提及");
-    println!("   代码: {}", code);
-    println!("   最大数量: {}", max);
-    println!();
-
-    let aggregator = SentimentAggregator::new(vec![]);
-    let mentions = aggregator.get_mentions(code, max).await?;
-
-    if mentions.is_empty() {
-        println!("📱 最近提及: (暂无数据)");
-        println!();
-        println!("💡 社交媒体数据需要配置 SentimentProvider 后获取");
-    } else {
-        println!("📱 最近提及:");
-        for m in &mentions {
-            let time = m
-                .published_at
-                .map(|t| t.format("%m-%d %H:%M").to_string())
-                .unwrap_or("-".to_string());
-            let sentiment_str = m
-                .sentiment
-                .map(|s| format!("{:.1}", s))
-                .unwrap_or("-".to_string());
-            println!(
-                "   {} [{}] {} ( sentiment: {} )",
-                time,
-                m.platform,
-                truncate_str(&m.content, 40),
-                sentiment_str
-            );
-            if let Some(author) = &m.author {
-                println!("      作者: {}", author);
-            }
-        }
-    }
-
-    Ok(())
+fn sentiment_provider_unwired_error(command: &str, code: &str) -> QuantixError {
+    QuantixError::Unsupported(format!(
+        "sentiment provider 尚未接线，sentiment {command} 当前不可生成真实舆情数据；code={code}"
+    ))
 }

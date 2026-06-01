@@ -2610,6 +2610,35 @@ fn generated_cli_manual_documents_ai_unwired_provider_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_sentiment_provider_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains(
+            "sentiment show/history/mentions</code> 当前返回显式 <code>Unsupported</code>"
+        ),
+        "expected CLI_COMMAND_MANUAL.html to document sentiment provider fail-closed behavior"
+    );
+    assert!(
+        cli_manual.contains("sentiment provider 尚未接线"),
+        "expected CLI_COMMAND_MANUAL.html to include the sentiment provider boundary error text"
+    );
+    assert!(
+        !cli_manual.contains("输出模板验收"),
+        "CLI_COMMAND_MANUAL.html still describes sentiment as placeholder output verification"
+    );
+    assert!(
+        !cli_manual.contains("空 provider 列表创建"),
+        "CLI_COMMAND_MANUAL.html still documents an empty-provider sentiment aggregator path"
+    );
+    assert!(
+        !cli_manual.contains("默认聚合结果和空来源提示"),
+        "CLI_COMMAND_MANUAL.html still describes sentiment show as a successful empty aggregate"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_strategy_signal_list_filters_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
