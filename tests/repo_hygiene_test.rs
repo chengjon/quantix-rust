@@ -2490,10 +2490,19 @@ fn generated_cli_manual_documents_data_export_parquet_as_wired() {
             .contains("<code>csv</code> 和 <code>parquet</code> 分支都会调用导出器写出实际文件"),
         "expected CLI_COMMAND_MANUAL.html to document CSV/Parquet data export as wired"
     );
+    assert!(
+        cli_manual.contains("错误包含 <code>data export format 不支持</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document data export unknown format fail-closed boundary"
+    );
+    assert!(
+        cli_manual.contains("未知 <code>--format</code> 应在读取数据前失败关闭且不输出导出提示"),
+        "expected CLI_COMMAND_MANUAL.html to document data export validates format before data reads"
+    );
     for stale in [
         "当前只有 <code>csv</code> 分支真正落盘",
         "Parquet 导出暂未实现",
         "把 Parquet 占位实现误判为已完成能力",
+        "未知格式会继续读取 ClickHouse",
     ] {
         assert!(
             !cli_manual.contains(stale),

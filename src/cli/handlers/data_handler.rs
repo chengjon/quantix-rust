@@ -319,6 +319,8 @@ pub(crate) async fn test_data_source(config_dir: &str, name: DataSourceKind) -> 
 
 /// 导出数据
 pub(crate) async fn export_data(code: String, format: String, output: String) -> Result<()> {
+    validate_data_export_format(&format)?;
+
     println!("📤 导出数据");
     println!("  代码: {}", code);
     println!("  格式: {}", format);
@@ -376,9 +378,7 @@ pub(crate) async fn export_data(code: String, format: String, output: String) ->
             progress.inc(1);
             progress.finish_with_message("Parquet 导出完成");
         }
-        _ => {
-            return Err(QuantixError::Other(format!("不支持的格式: {}", format)));
-        }
+        _ => return unsupported_data_export_format(&format),
     }
 
     println!("✅ 数据已导出到: {}", output_path.display());
@@ -422,8 +422,21 @@ async fn export_klines_to_file<P: AsRef<Path>>(
             exporter.export_klines(klines, output_path).await?;
             Ok(())
         }
-        _ => Err(QuantixError::Other(format!("不支持的格式: {}", format))),
+        _ => unsupported_data_export_format(format),
     }
+}
+
+fn validate_data_export_format(format: &str) -> Result<()> {
+    match format {
+        "csv" | "parquet" => Ok(()),
+        _ => unsupported_data_export_format(format),
+    }
+}
+
+fn unsupported_data_export_format(format: &str) -> Result<()> {
+    Err(QuantixError::Unsupported(format!(
+        "data export format 不支持: {format}；支持: csv, parquet"
+    )))
 }
 
 fn load_app_config(config_dir: &str) -> Result<AppConfig> {
