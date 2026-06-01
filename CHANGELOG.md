@@ -11,6 +11,9 @@ All notable changes to this project are documented here.
 - **data export 格式验证失败关闭** (`src/cli/handlers/data_handler.rs`, `tests/data_export_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix data export --format <未知格式>` 现在会在打印导出信息、读取 ClickHouse 或创建输出目录之前返回显式 `Unsupported`
   - 错误包含 `data export format 不支持` 和支持格式 `csv, parquet`，不再因为无数据而成功退出，也不再先输出导出占位信息
+- **notify send 渠道验证失败关闭** (`src/cli/handlers/notify.rs`, `tests/notify_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix notify send --channel <未知渠道>` 现在会在打印发送进度或创建 `NotificationService` 前返回显式 `Unsupported`，错误包含 `notify channel 不支持` 和支持渠道列表
+  - `quantix notify send --channel <外部渠道>` 会在缺少必需环境变量时返回 `Unsupported`，错误包含 `notify channel 尚未配置` 和所需变量名，不再先输出发送进度或失败占位内容
 
 ## 2026-06-01
 
