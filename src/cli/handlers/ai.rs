@@ -59,7 +59,26 @@ fn configured_unwired_ai_providers(config: &LlmConfig) -> String {
     }
 }
 
+fn ensure_ai_provider_configured(config: &LlmConfig) -> Result<()> {
+    if config.has_any_provider() {
+        Ok(())
+    } else {
+        Err(ai_provider_unconfigured_error())
+    }
+}
+
+fn ai_provider_unconfigured_error() -> QuantixError {
+    QuantixError::Unsupported(
+        "AI provider 尚未配置；请配置 DEEPSEEK_API_KEY、OPENAI_API_KEY 或 OLLAMA_API_BASE/OLLAMA_HOST 后再执行 ai analyze/decide/ask/market；可用 ai config 查看状态"
+            .to_string(),
+    )
+}
+
 async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> Result<()> {
+    let config = LlmConfig::from_env();
+    ensure_ai_provider_configured(&config)?;
+    let adapter = build_supported_ai_adapter(&config)?;
+
     println!("🔍 AI 股票分析");
     println!("   代码: {}", code);
     if let Some(ref m) = model {
@@ -70,21 +89,6 @@ async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> R
     }
     println!("{}", ai_analyze_context_warning(with_news));
     println!();
-
-    let config = LlmConfig::from_env();
-
-    if !config.has_any_provider() {
-        println!("❌ 未配置任何 LLM 提供商");
-        println!();
-        println!("请配置以下环境变量之一:");
-        println!("  DEEPSEEK_API_KEY=your_key");
-        println!("  OPENAI_API_KEY=your_key");
-        println!("  GEMINI_API_KEY=your_key");
-        println!("  ANTHROPIC_API_KEY=your_key");
-        return Ok(());
-    }
-
-    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -118,21 +122,16 @@ async fn run_ai_analyze(code: &str, model: Option<String>, with_news: bool) -> R
 }
 
 async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<()> {
+    let config = LlmConfig::from_env();
+    ensure_ai_provider_configured(&config)?;
+    let adapter = build_supported_ai_adapter(&config)?;
+
     println!("💡 AI 交易决策");
     println!("   代码: {}", code);
     println!("   持仓: {}", position.unwrap_or(0));
     println!("   风险: {}", risk);
     println!("{}", ai_decide_context_warning());
     println!();
-
-    let config = LlmConfig::from_env();
-
-    if !config.has_any_provider() {
-        println!("❌ 未配置任何 LLM 提供商");
-        return Ok(());
-    }
-
-    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -161,6 +160,10 @@ async fn run_ai_decide(code: &str, position: Option<i64>, risk: &str) -> Result<
 }
 
 async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -> Result<()> {
+    let config = LlmConfig::from_env();
+    ensure_ai_provider_configured(&config)?;
+    let adapter = build_supported_ai_adapter(&config)?;
+
     println!("💬 AI 问答");
     println!("   问题: {}", question);
     if let Some(c) = code {
@@ -168,15 +171,6 @@ async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -
     }
     println!("{}", ai_ask_context_warning(code, model.as_deref()));
     println!();
-
-    let config = LlmConfig::from_env();
-
-    if !config.has_any_provider() {
-        println!("❌ 未配置任何 LLM 提供商");
-        return Ok(());
-    }
-
-    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 
@@ -199,21 +193,16 @@ async fn run_ai_ask(question: &str, code: Option<&str>, model: Option<String>) -
 }
 
 async fn run_ai_market(date: Option<&str>) -> Result<()> {
+    let config = LlmConfig::from_env();
+    ensure_ai_provider_configured(&config)?;
+    let adapter = build_supported_ai_adapter(&config)?;
+
     println!("📈 AI 市场复盘");
     if let Some(d) = date {
         println!("   日期: {}", d);
     }
     println!("{}", ai_market_context_warning());
     println!();
-
-    let config = LlmConfig::from_env();
-
-    if !config.has_any_provider() {
-        println!("❌ 未配置任何 LLM 提供商");
-        return Ok(());
-    }
-
-    let adapter = build_supported_ai_adapter(&config)?;
 
     let engine = DecisionEngine::new(adapter);
 

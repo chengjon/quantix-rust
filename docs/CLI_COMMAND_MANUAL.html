@@ -5559,7 +5559,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai config --show</pre>
 <h4>功能说明</h4>
-<p>该命令组会从环境变量读取 LLM 配置，并按当前已配置 provider 优先级选择适配器。需要注意的是，除 <code>ask</code> 外，其余分析类命令仍有明显占位成分：<code>analyze</code>/<code>decide</code> 使用模拟分析上下文，<code>market</code> 走固定提示词而非实时市场抓取，因此更适合验证 CLI 到模型的接线，而不是作为严肃投研结论。</p>
+<p>该命令组会从环境变量读取 LLM 配置，并按当前已配置 provider 优先级选择适配器。<code>ai analyze/decide/ask/market</code> 在未配置 DeepSeek/OpenAI/Ollama provider 时会返回显式 <code>Unsupported</code>，错误包含 <code>AI provider 尚未配置</code>；只配置 Gemini/Anthropic 等未接线 provider 时也会失败关闭而不是静默回退；<code>ai config</code> 仍用于查看配置状态。需要注意的是，除 <code>ask</code> 外，其余分析类命令仍有明显占位成分：<code>analyze</code>/<code>decide</code> 使用模拟分析上下文，<code>market</code> 走固定提示词而非实时市场抓取，因此更适合验证 CLI 到模型的接线，而不是作为严肃投研结论。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-ai-analyze'><code>quantix ai analyze</code></a>：AI 分析股票</li>
@@ -5590,7 +5590,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix ai analyze --code 600519 --model deepseek --with-news</pre>
 <h4>功能说明</h4>
-<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。运行时会明确打印“当前使用模拟价格/指标上下文”；当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，runtime 只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；如果环境里只配置 Gemini/Anthropic 等未接线 provider，会失败关闭而不是静默回退。</p>
+<p>命令会检查 LLM provider 是否已配置，然后调用分析引擎输出一段自然语言结论。未配置 DeepSeek/OpenAI/Ollama provider 时会返回显式 <code>Unsupported</code>，不会先输出分析标题或“未配置 LLM”提示模板。运行时会明确打印“当前使用模拟价格/指标上下文”；当前传给模型的价格数据与技术指标仍是模拟文本，<code>--with-news</code> 只会在终端回显“包含新闻”，并不会真正把新闻数据注入分析上下文；<code>--model</code> 目前也不会强制切换底层 provider，runtime 只会选择已接线的 DeepSeek、OpenAI 或 Ollama adapter；如果环境里只配置 Gemini/Anthropic 等未接线 provider，会失败关闭而不是静默回退。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
