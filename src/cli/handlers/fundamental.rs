@@ -25,6 +25,9 @@ pub async fn run_fundamental_command(cmd: FundamentalCommands) -> Result<()> {
         FundamentalCommands::DragonTiger { code, days } => {
             run_fundamental_dragon_tiger(code.as_deref(), days).await
         }
+        FundamentalCommands::CapitalFlow { code, days } => {
+            run_fundamental_capital_flow(&code, days).await
+        }
         FundamentalCommands::Dividend { code, years } => {
             run_fundamental_dividend(&code, years).await
         }
@@ -448,6 +451,24 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
     Ok(())
 }
 
+async fn run_fundamental_capital_flow(code: &str, days: u32) -> Result<()> {
+    println!("💸 资金流向");
+    println!("   代码: {}", code);
+    println!("   天数: {}", days);
+    println!();
+
+    println!("⚠️ 资金流向数据源尚未接入，命令将返回 Unsupported");
+    println!();
+    println!("💡 您可以先使用以下命令查看其他基本面数据:");
+    println!("   - quantix fundamental valuation {}   # 估值指标", code);
+    println!("   - quantix fundamental earnings {}    # 财报数据", code);
+    println!("   - quantix fundamental institution {} # 机构持仓", code);
+
+    Err(QuantixError::Unsupported(format!(
+        "fundamental capital-flow 尚未接入真实资金流向数据源；code={code}, days={days}"
+    )))
+}
+
 async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
     println!("💰 分红信息");
     println!("   代码: {}", code);
@@ -498,6 +519,20 @@ mod tests {
             QuantixError::Unsupported(message)
                 if message.contains("fundamental dividend")
                     && message.contains("尚未接入真实分红数据源")
+        ));
+    }
+
+    #[tokio::test]
+    async fn fundamental_capital_flow_returns_unsupported_until_provider_is_wired() {
+        let error = run_fundamental_capital_flow("600519", 5)
+            .await
+            .expect_err("capital-flow must fail closed until real capital-flow data is wired");
+
+        assert!(matches!(
+            error,
+            QuantixError::Unsupported(message)
+                if message.contains("fundamental capital-flow")
+                    && message.contains("尚未接入真实资金流向数据源")
         ));
     }
 }

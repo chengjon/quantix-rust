@@ -2509,13 +2509,36 @@ fn generated_cli_manual_documents_fundamental_dividend_as_fail_closed() {
 
     assert!(
         cli_manual.contains(
-            "<code>dividend</code> 已有命令壳，但真实分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>"
+            "<code>capital-flow</code> 与 <code>dividend</code> 已有命令壳，但真实资金流向/分红数据源尚未接线，执行时会返回显式 <code>Unsupported</code>"
         ),
         "expected CLI_COMMAND_MANUAL.html to document fundamental dividend as fail-closed"
     );
     assert!(
         !cli_manual.contains("<code>dividend</code> 仍是占位输出"),
         "CLI_COMMAND_MANUAL.html still describes fundamental dividend as placeholder output"
+    );
+}
+
+#[test]
+fn generated_cli_manual_documents_fundamental_capital_flow_as_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("<code>capital-flow</code> 与 <code>dividend</code> 已有命令壳"),
+        "expected CLI_COMMAND_MANUAL.html to document fundamental capital-flow as a command shell"
+    );
+    assert!(
+        cli_manual.contains("quantix fundamental capital-flow [OPTIONS] --code &lt;CODE&gt;"),
+        "expected CLI_COMMAND_MANUAL.html to include the fundamental capital-flow leaf command"
+    );
+    assert!(
+        cli_manual.contains("资金流向数据源尚未接入，并返回显式 Unsupported"),
+        "expected CLI_COMMAND_MANUAL.html to document fundamental capital-flow as fail-closed"
+    );
+    assert!(
+        !cli_manual.contains("<code>quantix fundamental capital-flow</code> 目前还没有 CLI 入口"),
+        "CLI_COMMAND_MANUAL.html still describes fundamental capital-flow as missing a CLI entry"
     );
 }
 

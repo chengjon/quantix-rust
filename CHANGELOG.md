@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-01
 
 ### Fixed
+- **fundamental capital-flow 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/fundamental.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix fundamental capital-flow` 现在作为显式 CLI 子命令暴露，并在真实资金流向数据源接线前返回 `QuantixError::Unsupported`
+  - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增回归测试和手册卫生测试
 - **strategy signal list 过滤参数接线** (`src/cli/handlers/strategy_handler.rs`, `src/cli/handlers/strategy_handler/requests/signals.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix strategy signal list` 现在会实际使用已解析的 `--strategy-instance`、`--strategy`、`--code` 和 `--limit`，与原有 `--approval-status` / `--signal-status` 一起过滤已落库 signal
   - CLI HTML 手册、README 与 FUNCTION_TREE 同步删除“参数尚未传入 handler”的陈旧边界说明，并新增回归测试和手册卫生测试
