@@ -2702,6 +2702,10 @@ fn generated_cli_manual_documents_notify_check_and_test_missing_config_fail_clos
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
 
     assert!(
+        cli_manual.contains("notify channel 不支持"),
+        "expected CLI_COMMAND_MANUAL.html to include the notify channel unsupported boundary"
+    );
+    assert!(
         cli_manual.contains("notify channel 尚未配置"),
         "expected CLI_COMMAND_MANUAL.html to include the notify channel missing-config boundary"
     );
@@ -2720,6 +2724,12 @@ fn generated_cli_manual_documents_notify_check_and_test_missing_config_fail_clos
     assert!(
         cli_manual.contains("指定单一渠道时会先解析目标渠道并检查必需环境变量"),
         "expected CLI_COMMAND_MANUAL.html to document notify test single-channel config validation"
+    );
+    assert!(
+        cli_manual.contains(
+            "指定 <code>--channel</code> 时会在任何发送进度 stdout 之前验证渠道名和必需环境变量"
+        ),
+        "expected CLI_COMMAND_MANUAL.html to document notify send pre-output channel validation"
     );
     assert!(
         cli_manual.contains("不会在 stdout 打印测试成功占位内容后成功退出"),

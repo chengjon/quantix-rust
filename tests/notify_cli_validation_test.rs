@@ -73,3 +73,69 @@ fn notify_test_fails_closed_when_requested_channel_env_missing() {
         "expected missing telegram env guidance in stderr, stderr={stderr}"
     );
 }
+
+#[test]
+fn notify_send_rejects_unknown_channel_before_progress_output() {
+    let (stdout, stderr, success) = run_quantix_without_notify_provider(&[
+        "notify",
+        "send",
+        "--title",
+        "风控告警",
+        "--message",
+        "测试消息",
+        "--level",
+        "warning",
+        "--channel",
+        "matrix",
+    ]);
+
+    assert!(
+        !success,
+        "expected notify send to fail for unsupported channel, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no notify send progress output before channel validation failure, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("notify channel 不支持") && stderr.contains("matrix"),
+        "expected unsupported notify channel boundary in stderr, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("telegram") && stderr.contains("webhook"),
+        "expected supported channel guidance in stderr, stderr={stderr}"
+    );
+}
+
+#[test]
+fn notify_send_fails_closed_when_requested_channel_env_missing() {
+    let (stdout, stderr, success) = run_quantix_without_notify_provider(&[
+        "notify",
+        "send",
+        "--title",
+        "风控告警",
+        "--message",
+        "测试消息",
+        "--level",
+        "warning",
+        "--channel",
+        "telegram",
+    ]);
+
+    assert!(
+        !success,
+        "expected notify send to fail without requested channel config, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no notify send progress output before config failure, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("notify channel 尚未配置"),
+        "expected notify channel config boundary in stderr, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("TELEGRAM_BOT_TOKEN") && stderr.contains("TELEGRAM_CHAT_ID"),
+        "expected missing telegram env guidance in stderr, stderr={stderr}"
+    );
+}

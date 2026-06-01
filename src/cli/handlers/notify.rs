@@ -3,6 +3,9 @@ use super::*;
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::monitoring::{NotificationChannel, NotificationConfig};
 
+const NOTIFY_SUPPORTED_CHANNELS: &str =
+    "telegram, wechat_work, feishu, discord, slack, dingtalk, pushplus, desktop, webhook, log";
+
 /// 处理通知命令
 pub async fn run_notify_command(cmd: NotifyCommands) -> Result<()> {
     match cmd {
@@ -62,9 +65,7 @@ async fn run_notify_send(
     level: String,
     channel: Option<String>,
 ) -> Result<()> {
-    use crate::monitoring::{
-        AlertLevel, Notification, NotificationChannel, NotificationConfig, NotificationService,
-    };
+    use crate::monitoring::{AlertLevel, Notification, NotificationConfig, NotificationService};
 
     let alert_level = match level.to_lowercase().as_str() {
         "info" => AlertLevel::Info,
@@ -79,6 +80,20 @@ async fn run_notify_send(
         }
     };
 
+    let target_channel = channel.as_deref().map(parse_notify_channel).transpose()?;
+
+    let mut config = NotificationConfig::from_env();
+
+    if let (Some(ch), Some(target_channel)) = (channel.as_deref(), target_channel.as_ref()) {
+        if !is_notify_channel_configured(target_channel, &config) {
+            return Err(notify_channel_missing_config_error(
+                "notify send",
+                ch,
+                target_channel,
+            ));
+        }
+    }
+
     println!("📤 发送通知...");
     println!("   标题: {}", title);
     println!("   级别: {:?}", alert_level);
@@ -86,25 +101,7 @@ async fn run_notify_send(
         println!("   渠道: {}", ch);
     }
 
-    let mut config = NotificationConfig::from_env();
-
-    // 如果指定了渠道，只启用该渠道
-    if let Some(ch) = channel {
-        let target_channel = match ch.to_lowercase().as_str() {
-            "telegram" => NotificationChannel::Telegram,
-            "wechat_work" | "wechat" | "企业微信" => NotificationChannel::WechatWork,
-            "feishu" | "飞书" => NotificationChannel::Feishu,
-            "discord" => NotificationChannel::Discord,
-            "slack" => NotificationChannel::Slack,
-            "dingtalk" | "钉钉" => NotificationChannel::Dingtalk,
-            "pushplus" => NotificationChannel::Pushplus,
-            "desktop" => NotificationChannel::Desktop,
-            "webhook" => NotificationChannel::Webhook,
-            "log" => NotificationChannel::Log,
-            _ => {
-                return Err(QuantixError::Other(format!("不支持的渠道: {}", ch)));
-            }
-        };
+    if let Some(target_channel) = target_channel {
         config.enabled_channels = vec![target_channel];
     }
 
@@ -212,7 +209,9 @@ fn parse_notify_channel(channel: &str) -> Result<NotificationChannel> {
         "desktop" => Ok(NotificationChannel::Desktop),
         "webhook" => Ok(NotificationChannel::Webhook),
         "log" => Ok(NotificationChannel::Log),
-        _ => Err(QuantixError::Other(format!("不支持的渠道: {}", channel))),
+        _ => Err(QuantixError::Unsupported(format!(
+            "notify channel 不支持: {channel}；支持: {NOTIFY_SUPPORTED_CHANNELS}"
+        ))),
     }
 }
 
