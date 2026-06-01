@@ -284,6 +284,17 @@ pub enum ImportCommands {
         file: String,
     },
 
+    /// 从 Excel 文件导入股票列表（真实解析器未接线，当前失败关闭）
+    FromExcel {
+        /// Excel 文件路径
+        #[arg(short, long)]
+        file: String,
+
+        /// 可选 sheet 名称
+        #[arg(long)]
+        sheet: Option<String>,
+    },
+
     /// 从剪贴板文本导入
     FromClipboard,
 

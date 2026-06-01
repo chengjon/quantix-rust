@@ -2543,6 +2543,27 @@ fn generated_cli_manual_documents_fundamental_capital_flow_as_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_import_from_excel_as_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    assert!(
+        cli_manual.contains("quantix import from-excel [OPTIONS] --file &lt;FILE&gt;"),
+        "expected CLI_COMMAND_MANUAL.html to include the import from-excel leaf command"
+    );
+    assert!(
+        cli_manual.contains(
+            "<code>quantix import from-excel</code> 已有命令壳，但真实 Excel parser 尚未接线，执行时会返回显式 <code>Unsupported</code>"
+        ),
+        "expected CLI_COMMAND_MANUAL.html to document import from-excel as fail-closed"
+    );
+    assert!(
+        !cli_manual.contains("<code>quantix import from-excel</code> 仍无 CLI 入口"),
+        "CLI_COMMAND_MANUAL.html still describes import from-excel as missing a CLI entry"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_ai_config_test_as_non_connectivity_check() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

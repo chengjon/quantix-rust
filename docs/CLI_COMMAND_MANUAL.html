@@ -247,6 +247,7 @@
 <li><a href='#cmd-import'>import</a></li>
 <li class='lv2'><a href='#cmd-import-from-image'>import from-image</a></li>
 <li class='lv2'><a href='#cmd-import-from-csv'>import from-csv</a></li>
+<li class='lv2'><a href='#cmd-import-from-excel'>import from-excel</a></li>
 <li class='lv2'><a href='#cmd-import-from-clipboard'>import from-clipboard</a></li>
 <li class='lv2'><a href='#cmd-import-from-text'>import from-text</a></li>
 <li class='lv2'><a href='#cmd-import-resolve'>import resolve</a></li>
@@ -254,8 +255,8 @@
 <li><a href='#cmd-status'>status</a></li>
 </ul></aside><main class='main'>
 <section class='hero' id='overview'><h2>Quantix CLI 命令手册</h2><p>这份手册用于手工测试与命令查阅，覆盖当前项目可见的全部 CLI 命令层级。重点对齐面包括 <code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理、<code>task</code> 实验性边界，以及推荐优先使用的 <code>execution qmt</code> 入口。</p><p>兼容性原则：<code>execution qmt</code> 是当前推荐业务入口，<code>execution bridge</code> 保留为向后兼容路径；<code>analyze screener</code> 当前公开 <code>preset-list</code> 与 <code>run</code> 两条命令路径。另有少数能力已进入功能树规划但尚未暴露为当前二进制命令，本手册会在对应分组里明确标注。</p>
-<div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>134</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
-<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>fundamental dividend</code> 在真实基本面数据源接线前会返回显式 Unsupported；<code>import from-excel</code> 仍无 CLI 入口；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
+<div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>135</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
+<div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>fundamental dividend</code> 在真实基本面数据源接线前会返回显式 Unsupported；<code>import from-excel</code> 已暴露命令壳，但真实 Excel parser 未接线前会返回显式 Unsupported；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
 <section class='section card' id='test-summary'><div class='kicker'>测试汇总</div><h3>手工测试结果总表</h3><div class='meta'>用途：测完后统一沉淀结论，区分通过、外部依赖失败与 CLI 缺陷。</div><div class='testbox'><h4>总表模板</h4><pre>测试日期:
 测试二进制: ./target/debug/quantix
 测试环境:
@@ -6109,18 +6110,19 @@ quantix fundamental valuation --code 600519</pre>
 <pre class='shell'>quantix import from-csv --file watchlist.csv
 quantix import resolve --input PAYH</pre>
 <h4>功能说明</h4>
-<p>当前已开放图片、CSV、剪贴板、纯文本、代码/名称解析和市场数据 manifest 解析六条入口。功能树中提到的 <code>from-excel</code> 仍未暴露到当前二进制，因此本手册只收录实际可见的 CLI 子命令。</p>
+<p>当前已开放图片、CSV、Excel 命令壳、剪贴板、纯文本、代码/名称解析和市场数据 manifest 解析七条入口。<code>from-excel</code> 已暴露到当前二进制，但真实 Excel parser 尚未接线，执行时会返回显式 <code>Unsupported</code>。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-import-from-image'><code>quantix import from-image</code></a>：从图片识别股票代码 (需要 LLM Vision API)</li>
 <li><a href='#cmd-import-from-csv'><code>quantix import from-csv</code></a>：从 CSV 文件导入股票列表</li>
+<li><a href='#cmd-import-from-excel'><code>quantix import from-excel</code></a>：从 Excel 文件导入股票列表（真实解析器未接线，当前失败关闭）</li>
 <li><a href='#cmd-import-from-clipboard'><code>quantix import from-clipboard</code></a>：从剪贴板文本导入</li>
 <li><a href='#cmd-import-from-text'><code>quantix import from-text</code></a>：从文本解析股票代码/名称</li>
 <li><a href='#cmd-import-resolve'><code>quantix import resolve</code></a>：解析股票名称/代码</li>
 <li><a href='#cmd-import-market-manifest'><code>quantix import market-manifest</code></a>：解析 miniQMT 发布的市场数据 manifest（仅 dry-run）</li>
 </ul>
-<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix import from-excel</code> 仍无 CLI 入口；如果需要处理 Excel，请先转成 CSV 再走 <code>from-csv</code>。<code>import market-manifest</code> 当前默认 <code>dry-run-only</code>，不执行数据库写入。</div>
-<div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>6 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='notice' style='margin-top:14px'><b>当前边界</b><br><code>quantix import from-excel</code> 已有命令壳，但真实 Excel parser 尚未接线，执行时会返回显式 <code>Unsupported</code>；如果需要实际处理 Excel，请先转成 CSV 再走 <code>from-csv</code>。<code>import market-manifest</code> 当前默认 <code>dry-run-only</code>，不执行数据库写入。</div>
+<div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>7 个下级命令</span><span class='chip'>1 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-import-from-image'>
 <div class='kicker'>2 级命令</div>
@@ -6166,6 +6168,30 @@ quantix import resolve --input PAYH</pre>
 <p>命令会读取本地 CSV 文本并自动识别分隔符（逗号 / 制表符 / 空白）以及常见表头，然后尝试逐行解析股票代码或名称。成功时会输出解析数量、总行数、跳过行数和逐条结果；无法识别的行会累计到错误列表里，且最终会按股票代码去重。</p>
 </div></div>
 <div class='chips'><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-import-from-excel'>
+<div class='kicker'>2 级命令</div>
+<h3>quantix import from-excel</h3>
+<div class='meta'>命令路径：<code>quantix import from-excel</code></div>
+<p>从 Excel 文件导入股票列表（真实解析器未接线，当前失败关闭）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix import from-excel [OPTIONS] --file &lt;FILE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-f, --file</code></td><td>FILE</td><td>Excel 文件路径</td></tr>
+<tr><td><code>--sheet</code></td><td>SHEET</td><td>可选 sheet 名称</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix import from-excel --file watchlist.xlsx
+quantix import from-excel --file watchlist.xlsx --sheet positions</pre>
+<h4>功能说明</h4>
+<p>该命令当前只暴露 CLI 参数边界，并不会解析 Excel 文件。执行时会打印文件和可选 sheet 信息，然后返回显式 <code>Unsupported</code>。真实 Excel parser 接线前，不应把该入口写成可用导入闭环；需要实际导入时请先将 Excel 转成 CSV，再使用 <code>quantix import from-csv</code>。</p>
+</div></div>
+<div class='chips'><span class='chip todo'>未开放 / 开发中</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-import-from-clipboard'>
 <div class='kicker'>2 级命令</div>
@@ -6298,4 +6324,4 @@ quantix status --health</pre>
 </div></div>
 <div class='chips'><span class='chip must'>必测</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
-<footer>文档依据：<code>src/cli/commands/*.rs</code> 的命令结构、对应 handler 的当前行为边界，以及 <code>target/debug/quantix --help</code> 递归结果。若 CLI 结构变化，应重新同步本文件。当前推荐路径以 <code>execution qmt</code>、<code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理为优先。最后同步：2026-05-22。</footer></main></div></body></html>
+<footer>文档依据：<code>src/cli/commands/*.rs</code> 的命令结构、对应 handler 的当前行为边界，以及 <code>target/debug/quantix --help</code> 递归结果。若 CLI 结构变化，应重新同步本文件。当前推荐路径以 <code>execution qmt</code>、<code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理为优先。最后同步：2026-06-01。</footer></main></div></body></html>

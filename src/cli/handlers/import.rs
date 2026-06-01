@@ -48,6 +48,9 @@ pub async fn run_import_command(cmd: ImportCommands) -> Result<()> {
     match cmd {
         ImportCommands::FromImage { file, model } => run_import_from_image(&file, &model).await,
         ImportCommands::FromCsv { file } => run_import_from_csv(&file).await,
+        ImportCommands::FromExcel { file, sheet } => {
+            run_import_from_excel(&file, sheet.as_deref()).await
+        }
         ImportCommands::FromClipboard => run_import_from_clipboard().await,
         ImportCommands::FromText { text } => run_import_from_text(&text).await,
         ImportCommands::Resolve { input } => run_import_resolve(&input).await,
@@ -643,6 +646,22 @@ async fn run_import_from_csv(file: &str) -> Result<()> {
     Ok(())
 }
 
+async fn run_import_from_excel(file: &str, sheet: Option<&str>) -> Result<()> {
+    println!("📊 Excel 导入");
+    println!("   文件: {}", file);
+    if let Some(sheet) = sheet {
+        println!("   Sheet: {}", sheet);
+    }
+    println!();
+    println!("⚠️  Excel parser 尚未接入，命令将返回 Unsupported");
+
+    Err(QuantixError::Unsupported(format!(
+        "import from-excel 尚未接入真实 Excel parser；file={}, sheet={}",
+        file,
+        sheet.unwrap_or("<default>")
+    )))
+}
+
 async fn run_import_from_clipboard() -> Result<()> {
     println!("📋 剪贴板导入");
     println!();
@@ -787,4 +806,21 @@ fn get_clipboard_content() -> Result<String> {
     }
 
     Err(QuantixError::Other("无法读取剪贴板内容，请确保已安装 xclip/xsel (Linux)、pbpaste (macOS) 或 PowerShell (Windows)".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn import_from_excel_returns_unsupported_until_parser_is_wired() {
+        let err = run_import_from_excel("/tmp/watchlist.xlsx", Some("positions"))
+            .await
+            .expect_err("from-excel should fail closed until the Excel parser is wired");
+
+        assert!(matches!(err, QuantixError::Unsupported(message)
+                if message.contains("import from-excel")
+                    && message.contains("/tmp/watchlist.xlsx")
+                    && message.contains("positions")));
+    }
 }

@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-01
 
 ### Fixed
+- **import from-excel 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/import.rs`, `src/cli/tests/import.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix import from-excel` 现在作为显式 CLI 子命令暴露，并在真实 Excel parser 接线前返回 `QuantixError::Unsupported`
+  - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增解析测试、handler 回归测试和手册卫生测试
 - **fundamental capital-flow 失败关闭命令壳** (`src/cli/commands/info.rs`, `src/cli/handlers/fundamental.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix fundamental capital-flow` 现在作为显式 CLI 子命令暴露，并在真实资金流向数据源接线前返回 `QuantixError::Unsupported`
   - CLI HTML 手册、README 与 FUNCTION_TREE 同步从“无 CLI 入口”改为“命令壳已暴露但 fail-closed”，并新增回归测试和手册卫生测试

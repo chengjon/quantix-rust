@@ -74,3 +74,25 @@ fn parses_import_market_manifest_command() {
         other => panic!("unexpected command: {:?}", other),
     }
 }
+
+#[test]
+fn parses_import_from_excel_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "import",
+        "from-excel",
+        "--file",
+        "/tmp/watchlist.xlsx",
+        "--sheet",
+        "positions",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Import(ImportCommands::FromExcel { file, sheet }) => {
+            assert_eq!(file, "/tmp/watchlist.xlsx");
+            assert_eq!(sheet.as_deref(), Some("positions"));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
