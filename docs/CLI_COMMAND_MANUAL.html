@@ -5470,7 +5470,7 @@ quantix notify send --title "风控告警" --message "日内亏损接近阈值" 
 <h4>使用示例</h4>
 <pre class='shell'>quantix notify test --channel wechat_work --message "Quantix 通知自检"</pre>
 <h4>功能说明</h4>
-<p>命令会打印传入的 <code>channel</code> 字符串，并以 <code>AlertLevel::Info</code> 构造一条测试通知，再按 <code>NotificationConfig::from_env()</code> 当前启用的渠道尝试发送。需要注意，当前 <code>--channel</code> 不会像 <code>notify send</code> 那样真正缩窄发送渠道，它更接近“日志提示字段”；同时若未把 <code>NOTIFICATION_MIN_LEVEL</code> 调低到 <code>info</code>，这条测试通知也可能被最低级别门限直接跳过，但 CLI 仍会显示成功。</p>
+<p><code>--channel all</code> 保留按 <code>NotificationConfig::from_env()</code> 聚合发送的行为；指定单一渠道时会先解析目标渠道并检查必需环境变量，配置不足时返回显式 <code>Unsupported</code>，错误包含 <code>notify channel 尚未配置</code> 和所需变量名，不会在 stdout 打印测试成功占位内容后成功退出。配置齐全后，单一渠道会把发送范围收窄到该渠道，并以 <code>AlertLevel::Info</code> 构造一条测试通知。需要注意，若未把 <code>NOTIFICATION_MIN_LEVEL</code> 调低到 <code>info</code>，这条测试通知仍可能被最低级别门限直接跳过，但 CLI 会显示成功。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

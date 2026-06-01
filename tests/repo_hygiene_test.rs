@@ -2688,7 +2688,7 @@ fn generated_cli_manual_documents_news_missing_provider_fail_closed() {
 }
 
 #[test]
-fn generated_cli_manual_documents_notify_check_missing_config_fail_closed() {
+fn generated_cli_manual_documents_notify_check_and_test_missing_config_fail_closed() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
 
@@ -2705,8 +2705,26 @@ fn generated_cli_manual_documents_notify_check_missing_config_fail_closed() {
         "expected CLI_COMMAND_MANUAL.html to reject stdout-only missing-config prompts"
     );
     assert!(
+        cli_manual.contains("<code>--channel all</code> 保留按 <code>NotificationConfig::from_env()</code> 聚合发送的行为"),
+        "expected CLI_COMMAND_MANUAL.html to preserve notify test --channel all aggregate behavior"
+    );
+    assert!(
+        cli_manual.contains("指定单一渠道时会先解析目标渠道并检查必需环境变量"),
+        "expected CLI_COMMAND_MANUAL.html to document notify test single-channel config validation"
+    );
+    assert!(
+        cli_manual.contains("不会在 stdout 打印测试成功占位内容后成功退出"),
+        "expected CLI_COMMAND_MANUAL.html to reject notify test placeholder success output"
+    );
+    assert!(
         !cli_manual.contains("配置不足时直接打印所需变量名"),
         "CLI_COMMAND_MANUAL.html still describes notify check missing config as a successful stdout prompt"
+    );
+    assert!(
+        !cli_manual.contains(
+            "当前 <code>--channel</code> 不会像 <code>notify send</code> 那样真正缩窄发送渠道"
+        ),
+        "CLI_COMMAND_MANUAL.html still describes notify test channel as display-only"
     );
 }
 
