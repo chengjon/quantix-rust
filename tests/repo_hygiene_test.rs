@@ -2761,6 +2761,18 @@ fn generated_cli_manual_documents_import_from_image_vision_provider_fail_closed(
         "expected CLI_COMMAND_MANUAL.html to include the missing Vision provider boundary"
     );
     assert!(
+        cli_manual.contains("image format 不支持"),
+        "expected CLI_COMMAND_MANUAL.html to include the unsupported image format boundary"
+    );
+    assert!(
+        cli_manual.contains("png, jpg, jpeg, gif, webp"),
+        "expected CLI_COMMAND_MANUAL.html to document supported image formats"
+    );
+    assert!(
+        cli_manual.contains("Vision provider 配置校验或请求前返回显式 <code>Unsupported</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document image format validation before Vision provider use"
+    );
+    assert!(
         cli_manual.contains("<code>OPENAI_BASE_URL</code> 和 <code>OPENAI_VISION_MODEL</code>"),
         "expected CLI_COMMAND_MANUAL.html to document OpenAI Vision request configuration"
     );

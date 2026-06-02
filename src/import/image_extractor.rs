@@ -12,6 +12,8 @@ use crate::core::Result;
 use super::code_resolver::CodeResolver;
 use super::types::{ImportItem, ImportResult, ImportSource};
 
+const SUPPORTED_IMAGE_FORMATS: &str = "png, jpg, jpeg, gif, webp";
+
 /// 图片格式
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageFormat {
@@ -187,7 +189,9 @@ impl ImageExtractor {
             .unwrap_or("png");
 
         let format = ImageFormat::from_extension(ext).ok_or_else(|| {
-            crate::core::QuantixError::Other(format!("不支持的图片格式: {}", ext))
+            crate::core::QuantixError::Unsupported(format!(
+                "image format 不支持: {ext}；支持: {SUPPORTED_IMAGE_FORMATS}"
+            ))
         })?;
 
         // 文件大小检查 (5MB)
