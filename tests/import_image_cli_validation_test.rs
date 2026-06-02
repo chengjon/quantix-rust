@@ -24,14 +24,61 @@ fn run_quantix_without_vision_provider(args: &[&str]) -> (String, String, bool) 
     )
 }
 
-fn write_tiny_png_fixture(name: &str) -> std::path::PathBuf {
+fn write_tiny_image_fixture(name: &str, extension: &str) -> std::path::PathBuf {
     let path = std::env::temp_dir().join(format!(
-        "quantix-import-image-cli-{name}-{}-{}.png",
+        "quantix-import-image-cli-{name}-{}-{}.{}",
         std::process::id(),
-        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default(),
+        extension
     ));
     std::fs::write(&path, [0_u8]).expect("failed to write image fixture");
     path
+}
+
+fn write_tiny_png_fixture(name: &str) -> std::path::PathBuf {
+    write_tiny_image_fixture(name, "png")
+}
+
+#[test]
+fn import_from_image_fails_closed_for_unsupported_image_format() {
+    let image = write_tiny_image_fixture("unsupported-format", "bmp");
+    let image_path = image.to_string_lossy().to_string();
+
+    let (stdout, stderr, success) = run_quantix_without_vision_provider(&[
+        "import",
+        "from-image",
+        "--file",
+        &image_path,
+        "--model",
+        "deepseek",
+    ]);
+
+    let _ = std::fs::remove_file(image);
+
+    assert!(
+        !success,
+        "expected import from-image to reject unsupported image format, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no image-recognition output before image format validation failure, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for image format boundary, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("image format 不支持"),
+        "expected stable unsupported image format boundary text, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("bmp") && stderr.contains("png, jpg, jpeg, gif, webp"),
+        "expected rejected extension and supported image formats in stderr, stderr={stderr}"
+    );
+    assert!(
+        !stderr.contains("Vision provider 尚未配置"),
+        "expected image format validation to fail before Vision provider config validation, stderr={stderr}"
+    );
 }
 
 #[test]

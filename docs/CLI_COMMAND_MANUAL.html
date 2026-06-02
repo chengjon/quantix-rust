@@ -6143,7 +6143,7 @@ quantix import resolve --input PAYH</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix import from-image --file watchlist.png --model deepseek</pre>
 <h4>功能说明</h4>
-<p>命令会读取图片文件，校验扩展名与大小后，将图片转成 base64，并按 <code>--model deepseek|openai</code> 选择对应 Vision provider 通过 OpenAI-compatible <code>/chat/completions</code> 接口做识别，随后输出识别到的代码、名称、置信度和来源。当前支持 <code>png/jpg/jpeg/gif/webp</code>，文件大小限制 5MB；<code>deepseek</code> 需要 <code>DEEPSEEK_API_KEY</code>，可用 <code>DEEPSEEK_BASE_URL</code> 和 <code>DEEPSEEK_VISION_MODEL</code> 覆盖默认请求配置；<code>openai</code> 需要 <code>OPENAI_API_KEY</code>，可用 <code>OPENAI_BASE_URL</code> 和 <code>OPENAI_VISION_MODEL</code> 覆盖默认请求配置。缺少所选 provider 的 API key 时返回显式 <code>Unsupported</code>，错误包含 <code>Vision provider 尚未配置</code>，不会在 stdout 打印图片识别占位错误后成功退出。</p>
+<p>命令会读取图片文件，校验扩展名与大小后，将图片转成 base64，并按 <code>--model deepseek|openai</code> 选择对应 Vision provider 通过 OpenAI-compatible <code>/chat/completions</code> 接口做识别，随后输出识别到的代码、名称、置信度和来源。当前支持 <code>png, jpg, jpeg, gif, webp</code>，文件大小限制 5MB；不支持的扩展名会在 Vision provider 配置校验或请求前返回显式 <code>Unsupported</code>，错误包含 <code>image format 不支持</code>、被拒绝扩展名和支持格式清单；<code>deepseek</code> 需要 <code>DEEPSEEK_API_KEY</code>，可用 <code>DEEPSEEK_BASE_URL</code> 和 <code>DEEPSEEK_VISION_MODEL</code> 覆盖默认请求配置；<code>openai</code> 需要 <code>OPENAI_API_KEY</code>，可用 <code>OPENAI_BASE_URL</code> 和 <code>OPENAI_VISION_MODEL</code> 覆盖默认请求配置。缺少所选 provider 的 API key 时返回显式 <code>Unsupported</code>，错误包含 <code>Vision provider 尚未配置</code>，不会在 stdout 打印图片识别占位错误后成功退出。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
