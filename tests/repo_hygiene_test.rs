@@ -2505,6 +2505,29 @@ fn generated_cli_manual_documents_market_sort_by_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_screener_sort_by_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for expected in [
+        "quantix analyze screener run",
+        "未知排序字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>不支持的 sort_by</code>",
+        "支持列表 <code>code, score</code>",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document screener sort_by fail-closed boundary: {expected}"
+        );
+    }
+
+    assert!(
+        !cli_manual.contains("未知排序字段会静默回退"),
+        "CLI_COMMAND_MANUAL.html still describes sort_by as silently falling back"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_data_export_parquet_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

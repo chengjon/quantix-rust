@@ -227,7 +227,7 @@ fn build_screener_run_request(
         "code" => ScreenSortBy::Code,
         "score" => ScreenSortBy::Score,
         other => {
-            return Err(QuantixError::Other(format!(
+            return Err(QuantixError::Unsupported(format!(
                 "不支持的 sort_by: {}，仅支持 code 或 score",
                 other
             )));

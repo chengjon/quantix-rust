@@ -100,6 +100,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
 - `screener` preset 解析和运行时边界已补齐异常输入防线：空参数段、重复参数、零窗口/周期、非有限阈值和 RSI lookback 溢出都会返回显式错误，而不是静默覆盖、回绕或 panic。
+- `screener run --sort-by` 仅支持 `code` 或 `score`；未知字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`，错误包含 `不支持的 sort_by`。
 - GitNexus MCP 日常使用建议已沉淀为 `docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md`，用于配合 `FUNCTION_TREE.md`、GitNexus impact/detect gate 和 Graphiti 记忆流程进行日常开发。
 - Windows Bridge v1 已完成首版设计与实现集成：
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
@@ -985,6 +986,8 @@ quantix analyze screener run \
 ```
 
 Preset 参数必须是完整的 `key=value` 片段；尾随逗号、连续逗号、重复 key、零周期/窗口、`NaN`/`inf` 阈值和 lookback 溢出都会被解析层或运行时边界拒绝。
+
+`--sort-by` 仅支持 `code` 或 `score`。未知排序字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`，错误包含 `不支持的 sort_by`、被拒绝字段和支持列表 `code, score`。
 
 ### 市场分析 CLI
 

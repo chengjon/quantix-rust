@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
+- **screener sort_by 验证失败关闭** (`src/cli/handlers/screener_handler.rs`, `src/cli/handlers/tests/screener.rs`, `tests/screener_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix analyze screener run --sort-by <未知字段>` 现在会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`
+  - 错误包含 `不支持的 sort_by`、被拒绝字段和支持列表 `code, score`，既有 `code`/`score` 排序语义保持不变
 - **market 板块 sort_by 验证失败关闭** (`src/cli/handlers/market_handler.rs`, `tests/market_cli_runtime_validation_output_test.rs`, `tests/market_cli_runtime_validation_output_more_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix market sector|concept --sort-by <未知字段>` 现在会在读取 ClickHouse 或输出板块表格前返回显式 `Unsupported`
   - 错误包含 `不支持的 sort_by`、被拒绝字段和支持列表 `change, change_pct`，`change` 与 `change_pct` 的既有涨跌幅排序语义保持不变
