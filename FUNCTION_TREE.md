@@ -829,8 +829,8 @@ quantix
 │
 ├── market                  # 市场分析
 │   ├── foundation          # 市场基础数据摘要
-│   ├── sector              # 行业板块（sort_by 当前仅支持 change/change_pct）
-│   ├── concept             # 概念板块（sort_by 当前仅支持 change/change_pct）
+│   ├── sector              # 行业板块（sort_by 当前仅支持 change/change_pct；未知字段 fail-closed）
+│   ├── concept             # 概念板块（sort_by 当前仅支持 change/change_pct；未知字段 fail-closed）
 │   ├── north               # 北向资金
 │   ├── sentiment           # 市场情绪
 │   ├── leader              # 龙头股（必须且只能指定 --sector/--concept/--all 之一）
@@ -1207,6 +1207,7 @@ Windows Bridge v1
 <!-- function-tree:generated:end -->
 
 <!-- function-tree:project-notes:start -->
+- 2026-06-02 behavior hardening: `quantix market sector|concept --sort-by <unknown>` now validates the board sort field before ClickHouse reads or board-table output. Unknown sort fields return explicit `Unsupported` with `不支持的 sort_by`, the rejected field, and the supported `change, change_pct` list; existing `change`/`change_pct` change-percent ordering is unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
 - 2026-06-02 behavior hardening: `quantix data export --format <unknown>` now validates the requested export format before printing CLI output, reading ClickHouse, or creating output directories. Unknown formats return explicit `Unsupported` with `data export format 不支持` and the supported `csv, parquet` list; CSV/Parquet wired export behavior is unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
 - 2026-06-02 behavior hardening: `quantix import from-image --file <unsupported extension>` now validates image extension support before Vision provider configuration or requests. Unsupported image formats return explicit `Unsupported` with `image format 不支持`, the rejected extension, and the supported `png, jpg, jpeg, gif, webp` list; provider selection and missing API-key fail-closed behavior are unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
 - 2026-06-02 behavior hardening: `quantix import from-image --model <unsupported provider>` now validates Vision provider support before provider configuration or requests. Unsupported providers return explicit `Unsupported` with `Vision provider 不支持`, the rejected provider, and the supported `deepseek, openai` list; supported provider selection and missing API-key fail-closed behavior are unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.

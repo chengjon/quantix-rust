@@ -312,7 +312,7 @@ pub(crate) fn parse_market_date(raw: Option<&str>) -> Result<Option<NaiveDate>> 
 pub(crate) fn parse_board_sort_by(raw: Option<&str>) -> Result<BoardSortBy> {
     match raw.unwrap_or("change_pct") {
         "change" | "change_pct" => Ok(BoardSortBy::ChangePct),
-        other => Err(QuantixError::Other(format!(
+        other => Err(QuantixError::Unsupported(format!(
             "不支持的 sort_by: {}，仅支持 change 或 change_pct",
             other
         ))),

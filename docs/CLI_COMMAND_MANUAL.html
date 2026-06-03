@@ -3303,7 +3303,7 @@ quantix market strength-stocks --metric profit --top 15</pre>
 <pre class='shell'>quantix market sector --top 15
 quantix market sector --date 2026-05-04 --sort-by change</pre>
 <h4>功能说明</h4>
-<p>读取 ClickHouse <code>sector_daily</code> 中的行业板块排名。省略 <code>--date</code> 时会自动回落到该表里的最新交易日，<code>--top</code> 默认 10，<code>--sort-by</code> 只接受 <code>change</code> 或 <code>change_pct</code>（两者都按涨跌幅排序）。无数据时输出 <code>📭 没有可展示的板块数据</code>。</p>
+<p>读取 ClickHouse <code>sector_daily</code> 中的行业板块排名。省略 <code>--date</code> 时会自动回落到该表里的最新交易日，<code>--top</code> 默认 10，<code>--sort-by</code> 只接受 <code>change</code> 或 <code>change_pct</code>（两者都按涨跌幅排序）。未知排序字段会在读取 ClickHouse 或输出板块表格前返回显式 <code>Unsupported</code>，错误包含 <code>不支持的 sort_by</code>、被拒绝字段和支持列表 <code>change, change_pct</code>。无数据时输出 <code>📭 没有可展示的板块数据</code>。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -3328,7 +3328,7 @@ quantix market sector --date 2026-05-04 --sort-by change</pre>
 <pre class='shell'>quantix market concept --top 20
 quantix market concept --date 2026-05-04 --sort-by change_pct</pre>
 <h4>功能说明</h4>
-<p>与 <code>market sector</code> 相同，但面向概念板块。数据同样来自 ClickHouse，默认取最新交易日、默认返回 10 条、默认按涨跌幅排序；若表中没有匹配数据，也会统一显示 <code>📭 没有可展示的板块数据</code>。</p>
+<p>与 <code>market sector</code> 相同，但面向概念板块。数据同样来自 ClickHouse，默认取最新交易日、默认返回 10 条、默认按涨跌幅排序；<code>--sort-by</code> 同样只接受 <code>change</code> 或 <code>change_pct</code>，未知排序字段会在读取 ClickHouse 或输出板块表格前返回显式 <code>Unsupported</code>，错误包含 <code>不支持的 sort_by</code>；若表中没有匹配数据，也会统一显示 <code>📭 没有可展示的板块数据</code>。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

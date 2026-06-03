@@ -26,6 +26,10 @@ fn market_concept_rejects_unsupported_sort_by_at_binary_entry() {
         "expected sort_by guidance in stderr, stderr={stderr}"
     );
     assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for market sort_by boundary, stderr={stderr}"
+    );
+    assert!(
         !stdout.contains("涨跌幅"),
         "expected no normal board output on invalid sort_by, stdout={stdout}"
     );

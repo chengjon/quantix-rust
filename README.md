@@ -351,7 +351,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - **P0 约束**
   - 仅覆盖日度快照和只读查询
   - `leader` 只支持 `--sector`、`--concept`、`--all` 三选一
-  - `sort-by` 仅保留极小集合，当前支持涨跌幅排序
+  - `market sector|concept --sort-by` 仅支持 `change` 或 `change_pct`（均按涨跌幅排序）；未知字段会在读取 ClickHouse 或输出板块表格前返回显式 `Unsupported`，错误包含 `不支持的 sort_by`
   - `foundation` / `strength` 依赖已同步的申万一级行业 SQLite 引用表
   - 历史/详情/实时功能延后到后续 Phase
 
