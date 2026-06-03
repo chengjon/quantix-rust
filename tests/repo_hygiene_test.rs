@@ -2602,6 +2602,56 @@ fn docs_document_account_split_target_type_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_algo_create_type_fail_closed_boundary() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let changelog =
+        fs::read_to_string(repo_root().join("CHANGELOG.md")).expect("expected CHANGELOG.md");
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md");
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for (label, contents) in [
+        ("README.md", readme.as_str()),
+        ("CHANGELOG.md", changelog.as_str()),
+        ("FUNCTION_TREE.md", function_tree.as_str()),
+    ] {
+        for expected in [
+            "algo create --algo-type",
+            "Unsupported",
+            "不支持的算法类型",
+            "twap, vwap",
+        ] {
+            assert!(
+                contents.contains(expected),
+                "expected {label} to document algo create algo-type fail-closed boundary: {expected}"
+            );
+        }
+    }
+
+    for expected in [
+        "quantix algo create",
+        "<code>--algo-type</code> 仅支持 <code>twap</code> 或 <code>vwap</code>",
+        "未知算法类型会在初始化算法上下文前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>不支持的算法类型</code>",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document algo create algo-type fail-closed boundary: {expected}"
+        );
+    }
+
+    assert!(
+        cli_manual.contains("quantix algo start --algo-id &lt;ALGO_ID&gt;"),
+        "expected algo start docs to remain keyed by algo-id"
+    );
+    assert!(
+        !cli_manual.contains("quantix algo start --algo-id &lt;ALGO_ID&gt; --algo-type"),
+        "algo start docs should not imply --algo-type is accepted"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_data_export_parquet_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

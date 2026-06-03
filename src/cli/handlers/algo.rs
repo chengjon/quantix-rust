@@ -111,7 +111,7 @@ async fn run_algo_create(
         "twap" => AlgoType::TWAP,
         "vwap" => AlgoType::VWAP,
         _ => {
-            return Err(QuantixError::Other(format!(
+            return Err(QuantixError::Unsupported(format!(
                 "不支持的算法类型: {}",
                 algo_type
             )));
