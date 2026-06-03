@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
+- **account register account-type 验证失败关闭** (`src/cli/handlers/account.rs`, `tests/account_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `docs/USER_MANUAL.md`, `FUNCTION_TREE.md`)
+  - `quantix account register --account-type <未知类型>` 现在会在写入本地账户注册表前返回显式 `Unsupported`
+  - 错误包含 `无效的账户类型`、被拒绝字段和支持列表 `paper, mock_live, qmt_live`，既有 `live` 兼容别名语义保持不变
 - **screener sort_by 验证失败关闭** (`src/cli/handlers/screener_handler.rs`, `src/cli/handlers/tests/screener.rs`, `tests/screener_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix analyze screener run --sort-by <未知字段>` 现在会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`
   - 错误包含 `不支持的 sort_by`、被拒绝字段和支持列表 `code, score`，既有 `code`/`score` 排序语义保持不变
