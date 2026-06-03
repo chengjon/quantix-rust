@@ -561,7 +561,7 @@ async fn run_account_split(
         "single" => SplitTarget::Single(target_id),
         "group" => SplitTarget::Group(target_id),
         _ => {
-            return Err(QuantixError::Other(format!(
+            return Err(QuantixError::Unsupported(format!(
                 "无效的目标类型: {}，支持: single, group",
                 target_type
             )));

@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
+- **account split target-type 验证失败关闭** (`src/cli/handlers/account.rs`, `tests/account_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `docs/USER_MANUAL.md`, `FUNCTION_TREE.md`)
+  - `quantix account split --target-type <未知类型>` 现在会在输出订单拆分预览前返回显式 `Unsupported`
+  - 错误包含 `无效的目标类型`、被拒绝字段和支持列表 `single, group`，既有 `single`/`group` 拆单预览语义保持不变
 - **account register account-type 验证失败关闭** (`src/cli/handlers/account.rs`, `tests/account_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `docs/USER_MANUAL.md`, `FUNCTION_TREE.md`)
   - `quantix account register --account-type <未知类型>` 现在会在写入本地账户注册表前返回显式 `Unsupported`
   - 错误包含 `无效的账户类型`、被拒绝字段和支持列表 `paper, mock_live, qmt_live`，既有 `live` 兼容别名语义保持不变

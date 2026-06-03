@@ -5419,7 +5419,7 @@ quantix account split --code 600519 --side buy --quantity 600 --target-type grou
 <h4>使用示例</h4>
 <pre class='shell'>quantix account split --code 600519 --side buy --quantity 600 --target-type group --target-id growth --price 1688.00</pre>
 <h4>功能说明</h4>
-<p>命令只做拆单预览，不会真正下单。<code>single</code> 路径会校验目标账户存在、已启用且初始资金大于 0；<code>group</code> 路径则只会纳入“已启用且初始资金大于 0”的成员账户参与分配。当前 <code>--side</code> 仅用于回显，<code>--price</code> 只影响预览输出里的价格展示，不会触发额外的资金、风控或可交易性校验。</p>
+<p>命令只做拆单预览，不会真正下单。<code>--target-type</code> 仅支持 <code>single</code> 或 <code>group</code>；未知目标类型会在输出 <code>订单拆分预览</code> 前返回显式 <code>Unsupported</code>，错误包含 <code>无效的目标类型</code>、被拒绝字段和支持列表 <code>single, group</code>。<code>single</code> 路径会校验目标账户存在、已启用且初始资金大于 0；<code>group</code> 路径则只会纳入“已启用且初始资金大于 0”的成员账户参与分配。当前 <code>--side</code> 仅用于回显，<code>--price</code> 只影响预览输出里的价格展示，不会触发额外的资金、风控或可交易性校验。</p>
 </div></div>
 <div class='chips'><span class='chip'>叶子命令</span><span class='chip'>7 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
