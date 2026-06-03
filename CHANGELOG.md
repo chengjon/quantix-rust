@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
+- **market 板块 sort_by 验证失败关闭** (`src/cli/handlers/market_handler.rs`, `tests/market_cli_runtime_validation_output_test.rs`, `tests/market_cli_runtime_validation_output_more_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix market sector|concept --sort-by <未知字段>` 现在会在读取 ClickHouse 或输出板块表格前返回显式 `Unsupported`
+  - 错误包含 `不支持的 sort_by`、被拒绝字段和支持列表 `change, change_pct`，`change` 与 `change_pct` 的既有涨跌幅排序语义保持不变
 - **data export 格式验证失败关闭** (`src/cli/handlers/data_handler.rs`, `tests/data_export_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix data export --format <未知格式>` 现在会在打印导出信息、读取 ClickHouse 或创建输出目录之前返回显式 `Unsupported`
   - 错误包含 `data export format 不支持` 和支持格式 `csv, parquet`，不再因为无数据而成功退出，也不再先输出导出占位信息
