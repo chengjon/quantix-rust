@@ -5371,7 +5371,7 @@ quantix account split --code 600519 --side buy --quantity 600 --target-type grou
 <h4>使用示例</h4>
 <pre class='shell'>quantix account group set-strategy --group-id growth --strategy primary_first --primary-account paper-main</pre>
 <h4>功能说明</h4>
-<p>命令会更新账户组的分配策略，供 <code>account split</code> 之后计算拆单结果时使用。当前 <code>equal</code>、<code>proportional</code> 和 <code>primary_first</code> 是明确语义路径，其中 <code>primary_first</code> 必须同时传 <code>--primary-account</code>；<code>weighted</code> 虽然接受输入，但实现里会提示“需要额外配置权重”并退回平均分配。</p>
+<p>命令会更新账户组的分配策略，供 <code>account split</code> 之后计算拆单结果时使用。<code>--strategy</code> 仅支持 <code>equal</code>, <code>proportional</code>, <code>weighted</code>, <code>primary_first</code>；未知策略会在写入账户组注册表前返回显式 <code>Unsupported</code>，错误包含 <code>无效的分配策略</code>。当前 <code>equal</code>、<code>proportional</code> 和 <code>primary_first</code> 是明确语义路径，其中 <code>primary_first</code> 必须同时传 <code>--primary-account</code>；<code>weighted</code> 虽然接受输入，但实现里会提示“需要额外配置权重”并退回平均分配。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>

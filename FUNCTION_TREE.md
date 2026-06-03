@@ -922,7 +922,7 @@ quantix
 │       ├── remove          # 删除账户组
 │       ├── add-account     # 添加账户到组
 │       ├── remove-account  # 从组移除账户
-│       └── set-strategy    # 设置分配策略（weighted 当前退化为 equal；primary_first 需 --primary-account）
+│       └── set-strategy    # account group set-strategy --strategy 设置分配策略（--strategy 仅 equal, proportional, weighted, primary_first；未知策略写注册表前返回 Unsupported，错误含“无效的分配策略”；weighted 当前退化为 equal；primary_first 需 --primary-account）
 │
 ├── algo                    # 算法交易（当前仅 TWAP/VWAP，且任务为单进程内存态）
 │   ├── create              # 创建算法任务（当前仅支持 TWAP/VWAP）

@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
+- **account group set-strategy 策略验证失败关闭** (`src/cli/handlers/account.rs`, `tests/account_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+  - `quantix account group set-strategy --strategy <未知策略>` 现在会在写入账户组注册表前返回显式 `Unsupported`
+  - 错误包含 `无效的分配策略`、被拒绝字段和支持列表 `equal, proportional, weighted, primary_first`，既有分配策略语义保持不变
 - **algo create algo-type 验证失败关闭** (`src/cli/handlers/algo.rs`, `tests/algo_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix algo create --algo-type <未知类型>` 现在会在初始化算法上下文前返回显式 `Unsupported`
   - 错误包含 `不支持的算法类型` 和支持列表 `twap, vwap`，既有 TWAP/VWAP 创建语义保持不变

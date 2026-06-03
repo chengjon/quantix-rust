@@ -2652,6 +2652,47 @@ fn generated_cli_manual_documents_algo_create_type_fail_closed_boundary() {
 }
 
 #[test]
+fn generated_cli_manual_documents_account_group_set_strategy_fail_closed_boundary() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let changelog =
+        fs::read_to_string(repo_root().join("CHANGELOG.md")).expect("expected CHANGELOG.md");
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md");
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for (label, contents) in [
+        ("README.md", readme.as_str()),
+        ("CHANGELOG.md", changelog.as_str()),
+        ("FUNCTION_TREE.md", function_tree.as_str()),
+    ] {
+        for expected in [
+            "account group set-strategy --strategy",
+            "Unsupported",
+            "无效的分配策略",
+            "equal, proportional, weighted, primary_first",
+        ] {
+            assert!(
+                contents.contains(expected),
+                "expected {label} to document account group set-strategy fail-closed boundary: {expected}"
+            );
+        }
+    }
+
+    for expected in [
+        "quantix account group set-strategy",
+        "<code>--strategy</code> 仅支持 <code>equal</code>, <code>proportional</code>, <code>weighted</code>, <code>primary_first</code>",
+        "未知策略会在写入账户组注册表前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>无效的分配策略</code>",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document account group set-strategy fail-closed boundary: {expected}"
+        );
+    }
+}
+
+#[test]
 fn generated_cli_manual_documents_data_export_parquet_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

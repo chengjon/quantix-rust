@@ -149,6 +149,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 完整 CLI 命令支持 (`quantix account *`)
   - `account register --account-type` 对未知账户类型 fail-closed：写入 `~/.quantix/accounts/registry.json` 前返回显式 `Unsupported`，支持列表固定为 `paper, mock_live, qmt_live`（兼容 `live` 别名）
   - `account split --target-type` 对未知目标类型 fail-closed：输出 `订单拆分预览` 前返回显式 `Unsupported`，支持列表固定为 `single, group`
+  - `account group set-strategy --strategy` 对未知分配策略 fail-closed：写入账户组注册表前返回显式 `Unsupported`，错误包含 `无效的分配策略`，支持列表固定为 `equal, proportional, weighted, primary_first`
 - **算法交易执行器**已完成基础实现：
   - TWAP (时间加权平均价格) 执行器
   - VWAP (成交量加权平均价格) 执行器

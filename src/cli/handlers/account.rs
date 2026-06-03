@@ -680,7 +680,7 @@ fn parse_allocation_strategy(
                 primary_account_id: primary,
             })
         }
-        _ => Err(QuantixError::Other(format!(
+        _ => Err(QuantixError::Unsupported(format!(
             "无效的分配策略: {}，支持: equal, proportional, weighted, primary_first",
             strategy
         ))),

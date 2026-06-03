@@ -107,3 +107,72 @@ fn account_split_rejects_unsupported_target_type_before_split_output() {
         "expected Unsupported error kind for invalid target type, stderr={stderr}"
     );
 }
+
+#[test]
+fn account_group_set_strategy_rejects_unsupported_strategy_before_registry_write() {
+    let temp_home = tempfile::tempdir().expect("should create isolated HOME for account tests");
+    let (create_stdout, create_stderr, create_success) = run_quantix_with_home(
+        &[
+            "account",
+            "group",
+            "create",
+            "--id",
+            "growth",
+            "--name",
+            "Growth",
+            "--strategy",
+            "equal",
+        ],
+        temp_home.path(),
+    );
+    assert!(
+        create_success,
+        "expected account group fixture creation to succeed, stdout={create_stdout}, stderr={create_stderr}"
+    );
+
+    let registry_path = temp_home
+        .path()
+        .join(".quantix")
+        .join("accounts")
+        .join("registry.json");
+    let before_registry = std::fs::read_to_string(&registry_path)
+        .expect("expected account group fixture registry to exist");
+
+    let (stdout, stderr, success) = run_quantix_with_home(
+        &[
+            "account",
+            "group",
+            "set-strategy",
+            "--group-id",
+            "growth",
+            "--strategy",
+            "random",
+        ],
+        temp_home.path(),
+    );
+
+    assert!(
+        !success,
+        "expected account group set-strategy to fail for invalid strategy, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no success output for invalid group strategy, stdout={stdout}"
+    );
+    assert!(
+        stderr
+            .contains("无效的分配策略: random，支持: equal, proportional, weighted, primary_first"),
+        "expected strategy guidance in stderr, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for invalid group strategy, stderr={stderr}"
+    );
+
+    let after_registry = std::fs::read_to_string(&registry_path)
+        .expect("expected account group fixture registry to remain readable");
+    assert_eq!(
+        after_registry, before_registry,
+        "expected invalid group strategy not to rewrite registry"
+    );
+}
