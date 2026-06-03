@@ -70,8 +70,8 @@ impl ImageVisionProvider {
         match value.to_lowercase().as_str() {
             "deepseek" => Ok(Self::Deepseek),
             "openai" => Ok(Self::Openai),
-            _ => Err(crate::core::QuantixError::Other(format!(
-                "不支持的 Vision provider: {value}，支持: deepseek, openai"
+            _ => Err(crate::core::QuantixError::Unsupported(format!(
+                "Vision provider 不支持: {value}；支持: deepseek, openai"
             ))),
         }
     }

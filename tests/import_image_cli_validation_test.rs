@@ -82,6 +82,48 @@ fn import_from_image_fails_closed_for_unsupported_image_format() {
 }
 
 #[test]
+fn import_from_image_fails_closed_for_unsupported_model() {
+    let image = write_tiny_png_fixture("unsupported-model");
+    let image_path = image.to_string_lossy().to_string();
+
+    let (stdout, stderr, success) = run_quantix_without_vision_provider(&[
+        "import",
+        "from-image",
+        "--file",
+        &image_path,
+        "--model",
+        "gemini",
+    ]);
+
+    let _ = std::fs::remove_file(image);
+
+    assert!(
+        !success,
+        "expected import from-image to reject unsupported Vision provider, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no image-recognition output before Vision provider model validation failure, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for Vision provider boundary, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("Vision provider 不支持"),
+        "expected stable unsupported Vision provider boundary text, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("gemini") && stderr.contains("deepseek, openai"),
+        "expected rejected Vision provider and supported providers in stderr, stderr={stderr}"
+    );
+    assert!(
+        !stderr.contains("image format 不支持") && !stderr.contains("Vision provider 尚未配置"),
+        "expected Vision provider model validation to fail before image format fallback or provider config validation, stderr={stderr}"
+    );
+}
+
+#[test]
 fn import_from_image_fails_closed_when_deepseek_key_missing() {
     let image = write_tiny_png_fixture("deepseek-missing-key");
     let image_path = image.to_string_lossy().to_string();
