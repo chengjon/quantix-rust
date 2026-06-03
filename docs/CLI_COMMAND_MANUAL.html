@@ -1741,7 +1741,7 @@ quantix analyze screener run --watchlist --group 核心持仓 --preset rsi_lte:p
 <pre class='shell'>quantix analyze screener run --codes 600519,000858 --preset close_above_ma:period=20
 quantix analyze screener run --watchlist --group 核心持仓 --preset rsi_lte:period=14,value=30 --sort-by score</pre>
 <h4>功能说明</h4>
-<p>真正执行筛选的入口。调用时必须且只能在 <code>--codes</code> 与 <code>--watchlist</code> 之间二选一，<code>--group</code> 只能配合 <code>--watchlist</code> 使用，且至少要提供一个 <code>--preset</code>。当前只支持 <code>code</code> 与 <code>score</code> 两种排序键，默认按 <code>code</code>；数据面依赖 ClickHouse 日线 <code>1d</code> K 线。</p>
+<p>真正执行筛选的入口。调用时必须且只能在 <code>--codes</code> 与 <code>--watchlist</code> 之间二选一，<code>--group</code> 只能配合 <code>--watchlist</code> 使用，且至少要提供一个 <code>--preset</code>。当前只支持 <code>code</code> 与 <code>score</code> 两种排序键，默认按 <code>code</code>；未知排序字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 <code>Unsupported</code>，错误包含 <code>不支持的 sort_by</code>、被拒绝字段和支持列表 <code>code, score</code>。数据面依赖 ClickHouse 日线 <code>1d</code> K 线。</p>
 </div></div>
 <div class='chips'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>7 个选项</span></div><div class='testbox'><h4>测试记录</h4><p><b>预期结果</b>：参数合法时输出 <code>代码 / 命中 / 评分 / 详情</code> 表格；若无命中则明确显示 <code>📭 没有可展示的筛选结果</code>。</p><p><b>常见失败原因</b>：同时传入或遗漏 <code>--codes</code> / <code>--watchlist</code>、未提供 <code>--preset</code>、把 <code>--group</code> 用在代码列表模式、排序键不是 <code>code</code> 或 <code>score</code>、ClickHouse 无法提供日线数据。</p><pre>命令:
 股票池来源:

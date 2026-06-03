@@ -1013,6 +1013,7 @@ quantix analyze screener run (--codes <CSV> | --watchlist [--group <NAME>]) --pr
 - 不支持全市场扫描
 - 不支持 DSL、自定义表达式、OR 逻辑
 - `preset` 必须写成 `name:key=value,key=value`
+- `--sort-by` 仅支持 `code` 或 `score`；未知字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`
 
 ##### 支持的 preset
 

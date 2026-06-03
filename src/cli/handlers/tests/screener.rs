@@ -156,3 +156,27 @@ async fn test_execute_screener_run_rejects_invalid_preset() {
     assert!(matches!(err, QuantixError::Other(_)));
     assert!(err.to_string().contains("未知的 preset"));
 }
+
+#[tokio::test]
+async fn test_execute_screener_run_rejects_unsupported_sort_by() {
+    let err = execute_screener_command_with_loader(
+        ScreenerCommands::Run {
+            codes: Some("000001".to_string()),
+            watchlist: false,
+            group: None,
+            preset: vec!["close_above_ma:period=3".to_string()],
+            limit: None,
+            sort_by: Some("volume".to_string()),
+        },
+        FakeLoader::default(),
+        WatchlistStorage::new("/tmp/unused-screener-watchlist.json"),
+    )
+    .await
+    .unwrap_err();
+
+    assert!(matches!(err, QuantixError::Unsupported(_)));
+    assert!(
+        err.to_string()
+            .contains("不支持的 sort_by: volume，仅支持 code 或 score")
+    );
+}
