@@ -4849,7 +4849,7 @@ request ID:
 <h4>使用示例</h4>
 <pre class='shell'>quantix algo create --code 600519 --side buy --quantity 10000 --algo-type twap</pre>
 <h4>功能说明</h4>
-<p>命令会校验算法类型与买卖方向，构造 TWAP/VWAP 参数，并在当前进程内初始化一个算法上下文，然后打印生成的算法 ID 及建议的后续命令。它的主要问题不是参数解析，而是状态不持久化：任务上下文只存在于本次进程的内存里，所以普通 CLI 调用结束后，这个算法 ID 基本不会在下一次命令里继续可见。</p>
+<p>命令会校验算法类型与买卖方向，构造 TWAP/VWAP 参数，并在当前进程内初始化一个算法上下文，然后打印生成的算法 ID 及建议的后续命令。<code>--algo-type</code> 仅支持 <code>twap</code> 或 <code>vwap</code>；未知算法类型会在初始化算法上下文前返回显式 <code>Unsupported</code>，错误包含 <code>不支持的算法类型</code>。它的主要问题不是参数解析，而是状态不持久化：任务上下文只存在于本次进程的内存里，所以普通 CLI 调用结束后，这个算法 ID 基本不会在下一次命令里继续可见。</p>
 </div></div>
 <div class='chips'><span class='chip partial'>部分实现</span><span class='chip'>叶子命令</span><span class='chip'>10 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
