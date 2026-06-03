@@ -130,7 +130,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `sentiment show` / `history` / `mentions` 已暴露命令壳，但默认 provider 与趋势计算尚未接线，真实舆情数据源可用前会返回显式 `Unsupported`
 - **智能导入 CLI 边界**已同步到当前实现：
   - `import from-image` / `from-csv` / `from-excel` / `from-clipboard` / `from-text` / `resolve` / `market-manifest` 是当前已接线入口
-  - `import from-image --model deepseek|openai` 会先校验图片扩展名，只支持 `png, jpg, jpeg, gif, webp`；不支持的格式会在 Vision provider 配置校验或请求前返回显式 `Unsupported`，错误包含 `image format 不支持`；缺少所选 provider 的 API key 时返回显式 `Unsupported`，错误包含 `Vision provider 尚未配置`
+  - `import from-image --model deepseek|openai` 会先校验图片扩展名，只支持 `png, jpg, jpeg, gif, webp`；不支持的格式会在 Vision provider 配置校验或请求前返回显式 `Unsupported`，错误包含 `image format 不支持`；不支持的 Vision provider 会在 provider 配置校验或请求前返回显式 `Unsupported`，错误包含 `Vision provider 不支持` 和支持列表 `deepseek, openai`；缺少所选 provider 的 API key 时返回显式 `Unsupported`，错误包含 `Vision provider 尚未配置`
   - `import from-excel` 可读取首个或指定 worksheet 中的 watchlist 代码/名称行；复杂 Excel schema 与持久化导入闭环仍不是当前能力
 - **data export CLI 边界**已同步到当前实现：
   - `data export --format` 仅支持 `csv` 和 `parquet`；未知格式会在任何 stdout 导出提示、ClickHouse 读取或输出目录创建之前返回显式 `Unsupported`，错误包含 `data export format 不支持`

@@ -2765,12 +2765,24 @@ fn generated_cli_manual_documents_import_from_image_vision_provider_fail_closed(
         "expected CLI_COMMAND_MANUAL.html to include the unsupported image format boundary"
     );
     assert!(
+        cli_manual.contains("Vision provider 不支持"),
+        "expected CLI_COMMAND_MANUAL.html to include the unsupported Vision provider boundary"
+    );
+    assert!(
         cli_manual.contains("png, jpg, jpeg, gif, webp"),
         "expected CLI_COMMAND_MANUAL.html to document supported image formats"
     );
     assert!(
+        cli_manual.contains("支持列表 <code>deepseek, openai</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document supported Vision providers"
+    );
+    assert!(
         cli_manual.contains("Vision provider 配置校验或请求前返回显式 <code>Unsupported</code>"),
         "expected CLI_COMMAND_MANUAL.html to document image format validation before Vision provider use"
+    );
+    assert!(
+        cli_manual.contains("provider 配置校验或请求前返回显式 <code>Unsupported</code>"),
+        "expected CLI_COMMAND_MANUAL.html to document unsupported Vision provider validation before provider use"
     );
     assert!(
         cli_manual.contains("<code>OPENAI_BASE_URL</code> 和 <code>OPENAI_VISION_MODEL</code>"),
@@ -2783,6 +2795,10 @@ fn generated_cli_manual_documents_import_from_image_vision_provider_fail_closed(
     assert!(
         !cli_manual.contains("CLI 上的 <code>--model</code> 目前更接近参数占位"),
         "CLI_COMMAND_MANUAL.html still describes import from-image --model as a placeholder"
+    );
+    assert!(
+        !cli_manual.contains("不支持的 Vision provider:"),
+        "CLI_COMMAND_MANUAL.html still documents the old non-Unsupported Vision provider error text"
     );
 }
 
