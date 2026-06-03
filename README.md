@@ -102,6 +102,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - `screener` preset 解析和运行时边界已补齐异常输入防线：空参数段、重复参数、零窗口/周期、非有限阈值和 RSI lookback 溢出都会返回显式错误，而不是静默覆盖、回绕或 panic。
 - `screener run --sort-by` 仅支持 `code` 或 `score`；未知字段会在读取 ClickHouse 日线数据或输出筛选表格前返回显式 `Unsupported`，错误包含 `不支持的 sort_by`。
 - `account register --account-type` 仅支持 `paper`、`mock_live`、`qmt_live`（兼容 `live` 别名）；未知账户类型会在写入本地账户注册表前返回显式 `Unsupported`，错误包含 `无效的账户类型`。
+- `account split --target-type` 仅支持 `single` 或 `group`；未知目标类型会在输出订单拆分预览前返回显式 `Unsupported`，错误包含 `无效的目标类型` 和支持列表 `single, group`。
 - GitNexus MCP 日常使用建议已沉淀为 `docs/guides/GITNEXUS_MCP_DAILY_WORKFLOW_RECOMMENDATIONS.md`，用于配合 `FUNCTION_TREE.md`、GitNexus impact/detect gate 和 Graphiti 记忆流程进行日常开发。
 - Windows Bridge v1 已完成首版设计与实现集成：
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
@@ -147,6 +148,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `AccountRouter` - 智能订单路由，按策略拆分订单
   - 完整 CLI 命令支持 (`quantix account *`)
   - `account register --account-type` 对未知账户类型 fail-closed：写入 `~/.quantix/accounts/registry.json` 前返回显式 `Unsupported`，支持列表固定为 `paper, mock_live, qmt_live`（兼容 `live` 别名）
+  - `account split --target-type` 对未知目标类型 fail-closed：输出 `订单拆分预览` 前返回显式 `Unsupported`，支持列表固定为 `single, group`
 - **算法交易执行器**已完成基础实现：
   - TWAP (时间加权平均价格) 执行器
   - VWAP (成交量加权平均价格) 执行器

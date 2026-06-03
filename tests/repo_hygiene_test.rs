@@ -2552,6 +2552,56 @@ fn generated_cli_manual_documents_account_type_fail_closed() {
 }
 
 #[test]
+fn docs_document_account_split_target_type_fail_closed() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let user_manual = fs::read_to_string(repo_root().join("docs").join("USER_MANUAL.md"))
+        .expect("expected USER_MANUAL.md");
+    let changelog =
+        fs::read_to_string(repo_root().join("CHANGELOG.md")).expect("expected CHANGELOG.md");
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md");
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for (label, contents) in [
+        ("README.md", readme.as_str()),
+        ("docs/USER_MANUAL.md", user_manual.as_str()),
+        ("CHANGELOG.md", changelog.as_str()),
+        ("FUNCTION_TREE.md", function_tree.as_str()),
+    ] {
+        for expected in [
+            "account split --target-type",
+            "Unsupported",
+            "无效的目标类型",
+            "single, group",
+        ] {
+            assert!(
+                contents.contains(expected),
+                "expected {label} to document account split target-type fail-closed boundary: {expected}"
+            );
+        }
+    }
+
+    for expected in [
+        "quantix account split",
+        "<code>--target-type</code> 仅支持 <code>single</code> 或 <code>group</code>",
+        "未知目标类型会在输出 <code>订单拆分预览</code> 前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>无效的目标类型</code>",
+        "支持列表 <code>single, group</code>",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document account split target-type fail-closed boundary: {expected}"
+        );
+    }
+
+    assert!(
+        !cli_manual.contains("未知目标类型会静默回退"),
+        "CLI_COMMAND_MANUAL.html still describes target type as silently falling back"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_data_export_parquet_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

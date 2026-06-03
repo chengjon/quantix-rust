@@ -172,6 +172,8 @@ quantix account list --account-type paper
 
 `account register --account-type` 仅支持 `paper`、`mock_live`、`qmt_live`（兼容 `live` 别名）。未知账户类型会在写入本地账户注册表前返回显式 `Unsupported`，错误包含 `无效的账户类型`、被拒绝字段和支持列表。
 
+`account split --target-type` 仅支持 `single`、`group`。未知目标类型会在输出订单拆分预览前返回显式 `Unsupported`，错误包含 `无效的目标类型`、被拒绝字段和支持列表 `single, group`。
+
 ### 检查数据库连接
 
 ```bash
