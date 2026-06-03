@@ -8,9 +8,10 @@ All notable changes to this project are documented here.
 ## 2026-06-02
 
 ### Fixed
-- **algo create algo-type 验证失败关闭** (`src/cli/handlers/algo.rs`, `tests/algo_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
+- **algo create/plan algo-type 验证失败关闭** (`src/cli/handlers/algo.rs`, `tests/algo_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `FUNCTION_TREE.md`)
   - `quantix algo create --algo-type <未知类型>` 现在会在初始化算法上下文前返回显式 `Unsupported`
-  - 错误包含 `不支持的算法类型` 和支持列表 `twap, vwap`，既有 TWAP/VWAP 创建语义保持不变
+  - `quantix algo plan --algo-type <未知类型>` 现在会在输出切片预览前返回显式 `Unsupported`
+  - 错误包含 `不支持的算法类型` 和支持列表 `twap, vwap`，既有 TWAP/VWAP 创建与预览语义保持不变
 - **account split target-type 验证失败关闭** (`src/cli/handlers/account.rs`, `tests/account_cli_validation_test.rs`, `docs/CLI_COMMAND_MANUAL.html`, `tests/repo_hygiene_test.rs`, `README.md`, `docs/USER_MANUAL.md`, `FUNCTION_TREE.md`)
   - `quantix account split --target-type <未知类型>` 现在会在输出订单拆分预览前返回显式 `Unsupported`
   - 错误包含 `无效的目标类型`、被拒绝字段和支持列表 `single, group`，既有 `single`/`group` 拆单预览语义保持不变
