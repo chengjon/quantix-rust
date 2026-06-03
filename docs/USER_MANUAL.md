@@ -160,6 +160,18 @@ quantix init -c ../config
 quantix status
 ```
 
+### 账户配置快速开始
+
+```bash
+# 注册本地 paper 账户配置
+quantix account register --id paper-main --account-type paper --capital 1000000
+
+# 查看本地账户注册表
+quantix account list --account-type paper
+```
+
+`account register --account-type` 仅支持 `paper`、`mock_live`、`qmt_live`（兼容 `live` 别名）。未知账户类型会在写入本地账户注册表前返回显式 `Unsupported`，错误包含 `无效的账户类型`、被拒绝字段和支持列表。
+
 ### 检查数据库连接
 
 ```bash

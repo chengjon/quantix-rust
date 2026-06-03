@@ -234,7 +234,7 @@ fn parse_account_type_input(input: &str) -> Result<AccountType> {
         "paper" => Ok(AccountType::Paper),
         "mock_live" => Ok(AccountType::MockLive),
         "qmt_live" | "live" => Ok(AccountType::Live),
-        _ => Err(QuantixError::Other(format!(
+        _ => Err(QuantixError::Unsupported(format!(
             "无效的账户类型: {}，支持: paper, mock_live, qmt_live（兼容 live 别名）",
             input
         ))),
@@ -628,6 +628,7 @@ async fn load_or_create_registry(store: &JsonAccountRegistryStore) -> Result<Acc
 mod tests {
     use super::parse_account_type_input;
     use crate::account::AccountType;
+    use crate::core::QuantixError;
 
     #[test]
     fn parse_account_type_prefers_qmt_live_wording_but_keeps_live_alias() {
@@ -648,9 +649,13 @@ mod tests {
 
     #[test]
     fn parse_account_type_error_mentions_qmt_live_boundary() {
-        let err = parse_account_type_input("invalid").unwrap_err().to_string();
-        assert!(err.contains("paper, mock_live, qmt_live"));
-        assert!(err.contains("live"));
+        let err = parse_account_type_input("invalid").unwrap_err();
+
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+        let message = err.to_string();
+        assert!(message.contains("无效的账户类型: invalid"));
+        assert!(message.contains("paper, mock_live, qmt_live"));
+        assert!(message.contains("live"));
     }
 }
 

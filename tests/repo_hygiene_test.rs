@@ -2528,6 +2528,30 @@ fn generated_cli_manual_documents_screener_sort_by_fail_closed() {
 }
 
 #[test]
+fn generated_cli_manual_documents_account_type_fail_closed() {
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for expected in [
+        "quantix account register",
+        "无效 <code>--account-type</code> 会在写入账户注册表前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>无效的账户类型</code>",
+        "支持列表 <code>paper, mock_live, qmt_live</code>",
+        "兼容 <code>live</code> 别名",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document account type fail-closed boundary: {expected}"
+        );
+    }
+
+    assert!(
+        !cli_manual.contains("无效账户类型会静默回退"),
+        "CLI_COMMAND_MANUAL.html still describes account type as silently falling back"
+    );
+}
+
+#[test]
 fn generated_cli_manual_documents_data_export_parquet_as_wired() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");

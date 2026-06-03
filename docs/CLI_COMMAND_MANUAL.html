@@ -5067,7 +5067,7 @@ quantix account split --code 600519 --side buy --quantity 600 --target-type grou
 <h4>使用示例</h4>
 <pre class='shell'>quantix account register --id paper-main --account-type paper --capital 1000000</pre>
 <h4>功能说明</h4>
-<p>命令会把账户配置写入本地账户注册表，默认持久化到 <code>~/.quantix/accounts/registry.json</code>。它会校验账户 ID 不得重复、初始资金必须大于 0，并把 <code>paper</code>、<code>mock_live</code>、<code>qmt_live</code>（兼容 <code>live</code> 别名）解析成内部账户类型；这里只注册配置，不会连券商或下真实订单。</p>
+<p>命令会把账户配置写入本地账户注册表，默认持久化到 <code>~/.quantix/accounts/registry.json</code>。它会校验账户 ID 不得重复、初始资金必须大于 0，并把 <code>paper</code>、<code>mock_live</code>、<code>qmt_live</code>（兼容 <code>live</code> 别名）解析成内部账户类型；无效 <code>--account-type</code> 会在写入账户注册表前返回显式 <code>Unsupported</code>，错误包含 <code>无效的账户类型</code>、被拒绝字段和支持列表 <code>paper, mock_live, qmt_live</code>。这里只注册配置，不会连券商或下真实订单。</p>
 </div></div>
 <div class='chips'><span class='chip'>叶子命令</span><span class='chip'>5 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
