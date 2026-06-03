@@ -3,6 +3,9 @@
 > 审核对象：`docs/guides/DIRTY_WORKTREE_CLEANUP_GUIDE.md`（845 行）
 >
 > 审核日期：2026-05-27
+>
+> 状态源说明：本文是指南审查与规则沉淀记录，不作为功能状态注册表。
+> 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](../../FUNCTION_TREE.md) 的状态注册表为准。
 
 ---
 
@@ -298,3 +301,168 @@ cargo test
 5. **消除技术栈耦合**——命令附录中 Rust 特定命令改为通用占位。
 
 整体质量较高，上述修正是打磨性质的。
+
+---
+
+## 六、本次执行后的补充规则沉淀（2026-06-03）
+
+> 背景：本轮在清理脏线后继续完成 PR #190、#191、#192 三个小切片，并多次执行 post-merge `gitnexus analyze`、worktree/branch 清理和 Graphiti closeout。以下经验应回填到正式指南 `docs/guides/DIRTY_WORKTREE_CLEANUP_GUIDE.md`，作为 Final Cleanup、Residual Disposition 和后续开发切片的补充规则。
+
+### 6.1 明确区分“脏线清理完成”和“后续开发切片”
+
+脏线清理结束的判定不应只是“当前没有未提交业务文件”，还应包含：
+
+```text
+- 根 worktree 已回到目标主线分支；
+- `git status --short --branch` 干净；
+- 本轮保留项已有明确 disposition；
+- 后续开发任务已转入隔离 worktree 或独立分支；
+- post-merge 工具刷新和记忆写入已经完成或明确记录 backfill。
+```
+
+本次 #190–#192 的经验说明：脏线清理完成后继续开发时，不应在刚清干净的 root worktree 上累积新改动。每个后续任务都应按独立小切片执行：
+
+```text
+new worktree -> TDD red/green -> docs/hygiene guard -> local gates -> PR -> CI -> merge -> post-merge cleanup
+```
+
+这条规则能防止“清理脏线”工作重新变成新的混合脏线来源。
+
+### 6.2 `.mcp.json` 与 `var/` 需要单独 disposition，不能混入普通残余处置
+
+本轮形成的稳定约束是：
+
+```text
+.mcp.json
+  默认视为本地 MCP/agent 配置。
+  若用户确认加入 ignore，则只提交 ignore 规则，不提交文件内容。
+
+var/
+  默认视为本地运行时、恢复、缓存或证据残留目录。
+  除非用户明确要求处理具体路径，否则保持不动。
+```
+
+建议正式指南在 Residual Untracked Disposition 中增加“special local residuals”小节，明确：
+
+- `.mcp.json`、`.env`、本地凭据类文件优先 `ignore/keep local`，不要进入功能 PR。
+- `var/` 这类运行时目录必须先做 owner/path disposition；没有明确 owner 或清理授权时保持不动。
+- 最终汇报必须显式说明这些保留项是否被触碰。本轮收口时使用了 `touches_mcp_json=false`、`touches_var=false` 这类检查，效果清晰。
+
+### 6.3 GitNexus analyze 噪声应作为已知工具刷新，不得用宽泛 reset 处理
+
+本轮每次 merge 后运行 `gitnexus analyze` 都可能改写以下工具说明文件：
+
+```text
+AGENTS.md
+CLAUDE.md
+.claude/skills/gitnexus/gitnexus-cli/SKILL.md
+.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md
+.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md
+```
+
+这些变化通常是 GitNexus instruction block / skill 文档刷新噪声，不属于业务改动。正式指南应增加 post-merge 检查模板：
+
+```text
+1. `git status --short --branch`
+2. 若只出现 GitNexus instruction/skill 噪声，先查看 diff 摘要确认来源。
+3. 只恢复已确认的噪声文件：
+   `git restore AGENTS.md CLAUDE.md .claude/skills/gitnexus/...`
+4. 不使用 `git reset --hard` 或宽泛 checkout。
+5. 再次确认 `git status --short --branch` 干净。
+```
+
+关键点是“先确认 diff，再精确恢复”。即使这些文件多次出现，也不能因为熟悉而跳过确认。
+
+### 6.4 post-merge cleanup 应包含工具状态和记忆状态，不只是 Git 分支清理
+
+本轮较可靠的 post-merge checklist 是：
+
+```text
+- PR merged / merge commit captured
+- root worktree `git pull --ff-only`
+- feature worktree removed
+- local feature branch deleted
+- remote feature branch deleted or confirmed deleted
+- `gitnexus analyze` completed
+- GitNexus metadata points to current HEAD
+- GitNexus-generated instruction noise restored if present
+- `.mcp.json` / `var/` / external paths confirmed untouched
+- Graphiti closeout memory written
+- Graphiti ingest status verified as completed
+- final `git status --short --branch` clean
+```
+
+建议正式指南把这组检查放到 Final Cleanup，而不是散在 PR / merge 和 Recovery sections 之间。原因是：PR 合并成功并不代表工作结束；索引刷新、工具噪声恢复、语义记忆写入和 root worktree 干净确认都属于同一个收口动作。
+
+### 6.5 外部路径必须先确认 repo identity，不能直接合入当前项目
+
+本轮出现过误把 `/opt/claude/GitNexus/openspec/changes/2026-06-02-p0-p1-p2-review/review.md` 当作本项目 quantix 任务输入的情况，随后用户明确撤回该合并指令。
+
+正式指南应增加一条外部路径规则：
+
+```text
+如果用户给出的文件路径不在当前 repository root 下：
+  1. 先确认该路径所属 repo；
+  2. 判断它是外部参考、跨项目输入，还是当前项目应纳入的 artifact；
+  3. 未确认前不得 copy/move/merge 到当前 repo；
+  4. 如果用户撤回或纠正，应在后续 summary 中明确“已忽略该外部路径”。
+```
+
+这能避免跨项目 review、OpenSpec change 或临时 evidence 被误归档到错误仓库。
+
+### 6.6 长运行工具句柄丢失时，用状态交叉验证，不要假设结果
+
+本轮 `gitnexus analyze` 曾在长运行过程中跨上下文恢复，原 session handle 已失效。可靠做法不是声明成功，而是重新验证：
+
+```text
+- `ps -ef` 确认没有仍在运行的 analyze 进程；
+- `git status --short --branch` 查看是否留下文件变更；
+- `.gitnexus/meta.json` 或 GitNexus tool 状态确认 indexed commit 是否等于 HEAD；
+- 若留下工具噪声，按 6.3 精确恢复；
+- 再做最终 clean status。
+```
+
+正式指南中应把这类“resume after long-running tool”放入 Common Failure Modes。否则清理任务跨 compact/resume 后，容易误把未完成工具步骤当成完成状态。
+
+### 6.7 CI 外部状态不要伪装成代码问题
+
+本轮 CI 曾受仓库 visibility / billing / public 状态影响，用户调整仓库状态后才继续推进。指南应补充：
+
+```text
+CI blocked by external account/repository setting != code failure.
+```
+
+处理原则：
+
+- 先记录 CI 的真实阻塞原因和时间点。
+- 不为外部 CI 状态随意改代码、改测试或扩大 diff。
+- 外部状态解除后，重新触发或等待 CI，再继续 merge。
+- closeout summary 中区分“本地 gate passed”和“remote CI passed/blocked”。
+
+### 6.8 Graphiti / 记忆写入也是收口证据，但不是状态权威
+
+本轮 closeout memory 的做法是：PR 合并、GitNexus analyze、worktree/branch 清理、root clean 都完成后，再写 Graphiti，并轮询 ingest 到 `completed`。
+
+正式指南可以增加：
+
+```text
+Graphiti memory is closure evidence, not task status authority.
+```
+
+建议规则：
+
+- 只有在事实收敛后写入：merge commit、CI 结果、清理结果、保留项 disposition。
+- 写入后必须记录 episode UUID 并验证 ingest status。
+- 如果 Graphiti 不可用，写本地 backfill 摘要并标注 `Graphiti backfill required`。
+- 不用 Graphiti 代替 `git status`、CI 状态或 GitNexus detect/analyze 结果。
+
+### 6.9 建议追加到正式指南的最小补丁清单
+
+正式 `DIRTY_WORKTREE_CLEANUP_GUIDE.md` 建议最少增加这些内容：
+
+1. 在 Residual Untracked Disposition 中加入 `.mcp.json` / `var/` special-case policy。
+2. 在 Final Cleanup 中加入 post-merge GitNexus analyze / instruction-noise restore / clean status checklist。
+3. 在 Common Failure Modes 中加入“long-running tool session lost after resume”的交叉验证办法。
+4. 在 Scope / Applicability 中加入“external path must confirm repo identity”规则。
+5. 在 CI / PR 流程中加入“external CI blocker is not code failure”的处理原则。
+6. 在 Closure Summary 模板中加入 Graphiti closeout / backfill 字段。
