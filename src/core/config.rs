@@ -51,6 +51,7 @@ pub struct PostgresConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DataSourceConfig {
     pub tdx: Option<TdxConfig>,
+    pub tdx_api: Option<TdxApiConfig>,
     pub akshare: Option<AkShareConfig>,
 }
 
@@ -59,6 +60,31 @@ pub struct TdxConfig {
     pub hosts: Vec<String>,
     pub port: u16,
     pub timeout: u64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TdxApiConfig {
+    #[serde(default = "default_tdx_api_url")]
+    pub base_url: String,
+    #[serde(default = "default_tdx_api_timeout")]
+    pub timeout_secs: u64,
+    #[serde(default = "default_tdx_api_retries")]
+    pub max_retries: u32,
+}
+
+fn default_tdx_api_url() -> String {
+    std::env::var("TDX_API_URL").unwrap_or_else(|_| "http://tdx-api:8080".to_string())
+}
+
+fn default_tdx_api_timeout() -> u64 {
+    std::env::var("TDX_API_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30)
+}
+
+fn default_tdx_api_retries() -> u32 {
+    3
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -252,6 +252,11 @@ pub(crate) fn add_data_source(
                 overlay.default.name = Some("akshare".to_string());
             }
         }
+        DataSourceKind::TdxApi => {
+            return Err(QuantixError::Other(
+                "tdx-api 数据源通过环境变量 TDX_API_URL 配置，无需 add".to_string(),
+            ));
+        }
     }
 
     write_data_source_overlay(config_dir, &overlay)?;
@@ -268,6 +273,7 @@ pub(crate) fn set_default_data_source(config_dir: &str, name: DataSourceKind) ->
 
     let configured = match name {
         DataSourceKind::Tdx => app_config.data_sources.tdx.is_some(),
+        DataSourceKind::TdxApi => std::env::var("TDX_API_URL").is_ok() || true,
         DataSourceKind::Akshare => app_config.data_sources.akshare.is_some(),
     };
 
@@ -313,6 +319,12 @@ pub(crate) async fn test_data_source(config_dir: &str, name: DataSourceKind) -> 
                     .ok_or_else(|| QuantixError::Other("akshare 数据源尚未配置".to_string()))?,
             )
             .await
+        }
+        DataSourceKind::TdxApi => {
+            let client = crate::sources::tdx_api::TdxApiClient::from_env()?;
+            client.health().await?;
+            println!("✅ tdx-api 连接正常");
+            Ok(())
         }
     }
 }
