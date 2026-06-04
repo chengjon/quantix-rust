@@ -1,21 +1,24 @@
 use super::*;
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 use crate::sources::tdx_api::{KlineType, TdxApiClient};
 
 fn client() -> Result<TdxApiClient> {
     TdxApiClient::from_env()
 }
 
-fn parse_kline_type(s: &str) -> KlineType {
+fn parse_kline_type(s: &str) -> Result<KlineType> {
     match s {
-        "minute1" => KlineType::Min1,
-        "minute5" => KlineType::Min5,
-        "minute15" => KlineType::Min15,
-        "minute30" => KlineType::Min30,
-        "hour" => KlineType::Hour,
-        "week" => KlineType::Week,
-        "month" => KlineType::Month,
-        _ => KlineType::Day,
+        "minute1" => Ok(KlineType::Min1),
+        "minute5" => Ok(KlineType::Min5),
+        "minute15" => Ok(KlineType::Min15),
+        "minute30" => Ok(KlineType::Min30),
+        "hour" => Ok(KlineType::Hour),
+        "week" => Ok(KlineType::Week),
+        "month" => Ok(KlineType::Month),
+        "day" => Ok(KlineType::Day),
+        _ => Err(QuantixError::DataParse(format!(
+            "不支持的 tdx-api K线周期: {s}"
+        ))),
     }
 }
 
@@ -34,7 +37,7 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
         }
         TdxApiCommands::Kline { code, r#type, limit } => {
             let c = client()?;
-            let kt = parse_kline_type(&r#type);
+            let kt = parse_kline_type(&r#type)?;
             let resp = c.get_kline_raw(&code, kt, limit).await?;
             println!("K线 {} 共 {} 条:", r#type, resp.count);
             for item in resp.list.iter().rev().take(20) {
@@ -48,7 +51,7 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
         }
         TdxApiCommands::KlineThs { code, r#type } => {
             let c = client()?;
-            let kt = parse_kline_type(&r#type);
+            let kt = parse_kline_type(&r#type)?;
             let klines = c.get_kline_all_ths(&code, kt).await?;
             println!("THS 前复权 {} 共 {} 条:", r#type, klines.len());
             for k in klines.iter().rev().take(20) {
@@ -136,4 +139,19 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_kline_type_rejects_unknown_period() {
+        let err = parse_kline_type("quarter").unwrap_err();
+
+        assert!(
+            err.to_string().contains("不支持的 tdx-api K线周期"),
+            "unexpected error: {err}"
+        );
+    }
 }
