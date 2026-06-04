@@ -108,6 +108,39 @@ fn notify_send_rejects_unknown_channel_before_progress_output() {
 }
 
 #[test]
+fn notify_send_rejects_unsupported_level_before_progress_output() {
+    let (stdout, stderr, success) = run_quantix_without_notify_provider(&[
+        "notify",
+        "send",
+        "--title",
+        "风控告警",
+        "--message",
+        "测试消息",
+        "--level",
+        "debug",
+        "--channel",
+        "log",
+    ]);
+
+    assert!(
+        !success,
+        "expected notify send to fail for unsupported level, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no notify send progress output before level validation failure, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("无效的通知级别: debug，支持: info, warning, error, critical"),
+        "expected notify level validation guidance in stderr, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for unsupported notify level, stderr={stderr}"
+    );
+}
+
+#[test]
 fn notify_send_fails_closed_when_requested_channel_env_missing() {
     let (stdout, stderr, success) = run_quantix_without_notify_provider(&[
         "notify",

@@ -73,7 +73,7 @@ async fn run_notify_send(
         "error" => AlertLevel::Error,
         "critical" => AlertLevel::Critical,
         _ => {
-            return Err(QuantixError::Other(format!(
+            return Err(QuantixError::Unsupported(format!(
                 "无效的通知级别: {}，支持: info, warning, error, critical",
                 level
             )));

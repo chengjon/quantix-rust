@@ -395,6 +395,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - 推荐通过 `quantix monitor config set --notify true` 显式开启
 - `QUANTIX_MONITOR_NOTIFY=1` 仍保留为兼容兜底开关
 - 通知渠道复用 `quantix notify` 环境变量约定，最小可用路径是 `NOTIFICATION_LOG_PATH`
+- `quantix notify send --level` 仅支持 `info, warning, error, critical`，未知级别会在任何发送进度 stdout 前返回显式 `Unsupported`，错误包含 `无效的通知级别`
 - `quantix notify check/test/send --channel <外部渠道>` 在未知渠道或缺少必需环境变量时返回显式 `Unsupported`，错误包含 `notify channel 不支持` 或 `notify channel 尚未配置`，不会先输出检查/发送进度；`notify test --channel all` 仍按环境聚合渠道发送，`notify list` 仍只是渠道名称状态视图
   - 系统通知延后到后续 Phase
 

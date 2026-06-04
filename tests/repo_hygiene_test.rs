@@ -2969,6 +2969,47 @@ fn generated_cli_manual_documents_notify_check_and_test_missing_config_fail_clos
 }
 
 #[test]
+fn generated_cli_manual_documents_notify_send_level_fail_closed() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("expected README.md");
+    let changelog =
+        fs::read_to_string(repo_root().join("CHANGELOG.md")).expect("expected CHANGELOG.md");
+    let function_tree = fs::read_to_string(repo_root().join("FUNCTION_TREE.md"))
+        .expect("expected FUNCTION_TREE.md");
+    let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
+        .expect("expected CLI_COMMAND_MANUAL.html to exist");
+
+    for (label, contents) in [
+        ("README.md", readme.as_str()),
+        ("CHANGELOG.md", changelog.as_str()),
+        ("FUNCTION_TREE.md", function_tree.as_str()),
+    ] {
+        for expected in [
+            "notify send --level",
+            "Unsupported",
+            "无效的通知级别",
+            "info, warning, error, critical",
+        ] {
+            assert!(
+                contents.contains(expected),
+                "expected {label} to document notify send level fail-closed boundary: {expected}"
+            );
+        }
+    }
+
+    for expected in [
+        "quantix notify send",
+        "<code>--level</code> 仅支持 <code>info</code>, <code>warning</code>, <code>error</code>, <code>critical</code>",
+        "未知级别会在任何发送进度 stdout 之前返回显式 <code>Unsupported</code>",
+        "错误包含 <code>无效的通知级别</code>",
+    ] {
+        assert!(
+            cli_manual.contains(expected),
+            "expected CLI_COMMAND_MANUAL.html to document notify send level fail-closed boundary: {expected}"
+        );
+    }
+}
+
+#[test]
 fn generated_cli_manual_documents_import_from_image_vision_provider_fail_closed() {
     let cli_manual = fs::read_to_string(repo_root().join("docs").join("CLI_COMMAND_MANUAL.html"))
         .expect("expected CLI_COMMAND_MANUAL.html to exist");
