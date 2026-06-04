@@ -3,14 +3,13 @@ pub(crate) use super::command_types::{
     DataSourceKind, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
     ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FactorOutputFormat,
     FundamentalCommands, ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
-    TdxApiCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
     StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrengthStockMetric, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    StrengthStockMetric, TaskCommands, TdxApiCommands, TradeCommands, WatchlistCommands,
+    WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::core::Result;
 
@@ -156,6 +155,7 @@ pub(crate) use self::stop_handler::{
 };
 use self::stop_output::print_stop_command_output;
 pub(crate) use self::strategy_handler::*;
+pub(crate) use self::tdx_api_handler::run_tdx_api_command;
 pub(crate) use self::trade_handler::TradeCommandOutput;
 pub use self::trade_handler::run_trade_command;
 #[cfg(test)]
@@ -169,7 +169,6 @@ pub use self::watchlist_handler::run_watchlist_command;
 pub(crate) use self::watchlist_handler::{
     create_watchlist_storage, format_tags, load_watchlist_store_for_read,
 };
-pub(crate) use self::tdx_api_handler::run_tdx_api_command;
 
 /// 策略命令
 pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {

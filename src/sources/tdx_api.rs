@@ -47,8 +47,8 @@ impl Default for TdxApiConfig {
 
 impl TdxApiConfig {
     pub fn from_env() -> Self {
-        let base_url = std::env::var("TDX_API_URL")
-            .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
+        let base_url =
+            std::env::var("TDX_API_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
         let timeout_secs = std::env::var("TDX_API_TIMEOUT_SECS")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -506,10 +506,9 @@ impl TdxApiClient {
                         }
                         return Err(last_err.unwrap()); // no retry on 4xx
                     }
-                    let api_resp: ApiResponse<T> = resp
-                        .json()
-                        .await
-                        .map_err(|e| QuantixError::DataParse(format!("tdx-api 响应解析失败: {e}")))?;
+                    let api_resp: ApiResponse<T> = resp.json().await.map_err(|e| {
+                        QuantixError::DataParse(format!("tdx-api 响应解析失败: {e}"))
+                    })?;
                     if api_resp.code != 0 {
                         return Err(QuantixError::DataSource(format!(
                             "tdx-api 业务错误 [{}]: {}",
@@ -526,9 +525,7 @@ impl TdxApiClient {
                 }
             }
         }
-        Err(last_err.unwrap_or_else(|| {
-            QuantixError::Timeout("tdx-api 重试耗尽".to_string())
-        }))
+        Err(last_err.unwrap_or_else(|| QuantixError::Timeout("tdx-api 重试耗尽".to_string())))
     }
 
     // -----------------------------------------------------------------------
@@ -541,10 +538,8 @@ impl TdxApiClient {
     }
 
     /// tdx-api Price (int64, 厘) → Decimal (元)
-    fn price_to_decimal(raw: i64, field: &str) -> Result<Decimal> {
-        Decimal::from_f64_retain(raw as f64 / 1000.0).ok_or_else(|| {
-            QuantixError::DataParse(format!("tdx-api 价格转换失败 {field}={raw}"))
-        })
+    fn price_to_decimal(raw: i64, _field: &str) -> Result<Decimal> {
+        Ok(Decimal::new(raw, 3))
     }
 
     // -----------------------------------------------------------------------
@@ -553,7 +548,12 @@ impl TdxApiClient {
 
     /// code → tdx-api symbol (sh600000 / sz000001 / bj430047)
     fn to_symbol(code: &str) -> String {
-        if code.contains('.') {
+        let code = code.trim();
+        if code.starts_with("sh")
+            || code.starts_with("sz")
+            || code.starts_with("bj")
+            || code.contains('.')
+        {
             return code.to_string();
         }
         let prefix = if code.starts_with('6') || code.starts_with("510") || code.starts_with("51") {
@@ -587,9 +587,10 @@ impl TdxApiClient {
     pub async fn get_quote(&self, code: &str) -> Result<StockQuote> {
         let symbol = Self::to_symbol(code);
         let quotes: Vec<QuoteItem> = self.get(&format!("/api/quote?code={symbol}")).await?;
-        let q = quotes.into_iter().next().ok_or_else(|| {
-            QuantixError::DataSource(format!("tdx-api 行情无数据: {code}"))
-        })?;
+        let q = quotes
+            .into_iter()
+            .next()
+            .ok_or_else(|| QuantixError::DataSource(format!("tdx-api 行情无数据: {code}")))?;
         let price = Self::price_to_f64(q.k.close);
         let preclose = Self::price_to_f64(q.k.last);
         Ok(StockQuote::from_tdx(
@@ -666,9 +667,7 @@ impl TdxApiClient {
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Kline>> {
-        let resp = self
-            .get_kline_raw(code, KlineType::Day, None)
-            .await?;
+        let resp = self.get_kline_raw(code, KlineType::Day, None).await?;
         Self::kline_resp_to_klines(resp, code, start, end, AdjustType::None)
     }
 
@@ -704,7 +703,8 @@ impl TdxApiClient {
             .filter_map(|item| {
                 // Parse date from "2025-01-15T00:00:00+08:00" or "2025-01-15"
                 let date_str = item.time.split('T').next()?;
-                NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
+                NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    .ok()
                     .and_then(|d| {
                         if d >= start && d <= end {
                             Some((d, item))
@@ -734,11 +734,7 @@ impl TdxApiClient {
     // -----------------------------------------------------------------------
 
     /// 获取分时数据
-    pub async fn get_minute(
-        &self,
-        code: &str,
-        date: Option<&str>,
-    ) -> Result<MinuteResp> {
+    pub async fn get_minute(&self, code: &str, date: Option<&str>) -> Result<MinuteResp> {
         let symbol = Self::to_symbol(code);
         let mut path = format!("/api/minute?code={symbol}");
         if let Some(d) = date {
@@ -748,11 +744,7 @@ impl TdxApiClient {
     }
 
     /// 获取逐笔成交
-    pub async fn get_trades(
-        &self,
-        code: &str,
-        date: Option<&str>,
-    ) -> Result<TradeResp> {
+    pub async fn get_trades(&self, code: &str, date: Option<&str>) -> Result<TradeResp> {
         let symbol = Self::to_symbol(code);
         let mut path = format!("/api/trade?code={symbol}");
         if let Some(d) = date {
@@ -788,7 +780,10 @@ impl TdxApiClient {
         let resp: CodesResponse = self.get(&path).await?;
 
         let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-        cache.codes = Some(Cached::new(resp.clone(), Duration::from_secs(CACHE_TTL_SECS)));
+        cache.codes = Some(Cached::new(
+            resp.clone(),
+            Duration::from_secs(CACHE_TTL_SECS),
+        ));
         Ok(resp)
     }
 
@@ -823,7 +818,10 @@ impl TdxApiClient {
             .collect();
 
         let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-        cache.workday_range = Some(Cached::new(dates.clone(), Duration::from_secs(CACHE_TTL_SECS)));
+        cache.workday_range = Some(Cached::new(
+            dates.clone(),
+            Duration::from_secs(CACHE_TTL_SECS),
+        ));
         Ok(dates)
     }
 
@@ -846,7 +844,11 @@ impl TdxApiClient {
         days: &[i32],
     ) -> Result<IncomeResponse> {
         let symbol = Self::to_symbol(code);
-        let days_str = days.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(",");
+        let days_str = days
+            .iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
         self.get(&format!(
             "/api/income?code={symbol}&start_date={start_date}&days={days_str}"
         ))
@@ -898,7 +900,10 @@ impl TdxApiClient {
         limit: Option<u32>,
     ) -> Result<Vec<Kline>> {
         let symbol = Self::to_symbol(code);
-        let mut path = format!("/api/kline-all/tdx?code={symbol}&type={}", kline_type.as_str());
+        let mut path = format!(
+            "/api/kline-all/tdx?code={symbol}&type={}",
+            kline_type.as_str()
+        );
         if let Some(n) = limit {
             path = format!("{path}&limit={n}");
         }
@@ -906,26 +911,37 @@ impl TdxApiClient {
         let start = NaiveDate::from_ymd_opt(1990, 12, 19).unwrap_or_default();
         let end = chrono::Local::now().date_naive();
         Self::kline_resp_to_klines(
-            KlineResp { count: resp.count, list: resp.list },
-            code, start, end, AdjustType::None,
+            KlineResp {
+                count: resp.count,
+                list: resp.list,
+            },
+            code,
+            start,
+            end,
+            AdjustType::None,
         )
     }
 
     /// 获取完整K线 (同花顺源, 仅 day/week/month)
-    pub async fn get_kline_all_ths(
-        &self,
-        code: &str,
-        kline_type: KlineType,
-    ) -> Result<Vec<Kline>> {
+    pub async fn get_kline_all_ths(&self, code: &str, kline_type: KlineType) -> Result<Vec<Kline>> {
         let symbol = Self::to_symbol(code);
         let resp: KlineAllResp = self
-            .get(&format!("/api/kline-all/ths?code={symbol}&type={}", kline_type.as_str()))
+            .get(&format!(
+                "/api/kline-all/ths?code={symbol}&type={}",
+                kline_type.as_str()
+            ))
             .await?;
         let start = NaiveDate::from_ymd_opt(1990, 12, 19).unwrap_or_default();
         let end = chrono::Local::now().date_naive();
         Self::kline_resp_to_klines(
-            KlineResp { count: resp.count, list: resp.list },
-            code, start, end, AdjustType::QFQ,
+            KlineResp {
+                count: resp.count,
+                list: resp.list,
+            },
+            code,
+            start,
+            end,
+            AdjustType::QFQ,
         )
     }
 
@@ -937,7 +953,10 @@ impl TdxApiClient {
         limit: Option<u32>,
     ) -> Result<Vec<Kline>> {
         let symbol = Self::to_symbol(code);
-        let mut path = format!("/api/kline-history?code={symbol}&type={}", kline_type.as_str());
+        let mut path = format!(
+            "/api/kline-history?code={symbol}&type={}",
+            kline_type.as_str()
+        );
         if let Some(n) = limit {
             path = format!("{path}&limit={n}");
         }
@@ -953,17 +972,13 @@ impl TdxApiClient {
 
     /// 创建K线拉取异步任务
     pub async fn create_pull_kline_task(&self, req: &PullKlineRequest) -> Result<String> {
-        let resp: CreateTaskResp = self
-            .post_json("/api/tasks/pull-kline", req)
-            .await?;
+        let resp: CreateTaskResp = self.post_json("/api/tasks/pull-kline", req).await?;
         Ok(resp.task_id)
     }
 
     /// 创建成交拉取异步任务
     pub async fn create_pull_trade_task(&self, req: &PullTradeRequest) -> Result<String> {
-        let resp: CreateTaskResp = self
-            .post_json("/api/tasks/pull-trade", req)
-            .await?;
+        let resp: CreateTaskResp = self.post_json("/api/tasks/pull-trade", req).await?;
         Ok(resp.task_id)
     }
 
@@ -1035,5 +1050,45 @@ impl Fetcher for TdxApiClient {
     async fn check_connection(&self) -> Result<()> {
         self.health().await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn default_config_uses_tdx_api_container_endpoint() {
+        let config = TdxApiConfig::default();
+
+        assert_eq!(config.base_url, "http://tdx-api:8080");
+        assert_eq!(config.timeout, Duration::from_secs(30));
+        assert_eq!(config.max_retries, 3);
+    }
+
+    #[test]
+    fn symbol_helpers_map_common_a_share_markets() {
+        assert_eq!(TdxApiClient::to_symbol("600000"), "sh600000");
+        assert_eq!(TdxApiClient::to_symbol("510300"), "sh510300");
+        assert_eq!(TdxApiClient::to_symbol("000001"), "sz000001");
+        assert_eq!(TdxApiClient::to_symbol("300750"), "sz300750");
+        assert_eq!(TdxApiClient::to_symbol("430047"), "bj430047");
+        assert_eq!(TdxApiClient::to_symbol("sh600000"), "sh600000");
+
+        let (code, market) = TdxApiClient::from_symbol("sz000001");
+        assert_eq!(code, "000001");
+        assert!(matches!(market, Market::SZ));
+    }
+
+    #[test]
+    fn price_helpers_convert_milli_yuan_units() {
+        assert_eq!(TdxApiClient::price_to_f64(12345), 12.345);
+        assert_eq!(
+            TdxApiClient::price_to_decimal(12345, "close")
+                .unwrap()
+                .to_string(),
+            "12.345"
+        );
     }
 }

@@ -27,15 +27,24 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
         TdxApiCommands::Health => {
             let c = client()?;
             let resp = c.health().await?;
-            println!("{}", serde_json::to_string_pretty(&resp).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&resp).unwrap_or_default()
+            );
         }
         TdxApiCommands::Quote { code } => {
             let c = client()?;
             let q = c.get_quote(&code).await?;
-            println!("{code}: 价格={:.3} 涨幅={:.2}% 成交量={:.0} 成交额={:.0}",
-                q.price, q.change_percent, q.volume, q.amount);
+            println!(
+                "{code}: 价格={:.3} 涨幅={:.2}% 成交量={:.0} 成交额={:.0}",
+                q.price, q.change_percent, q.volume, q.amount
+            );
         }
-        TdxApiCommands::Kline { code, r#type, limit } => {
+        TdxApiCommands::Kline {
+            code,
+            r#type,
+            limit,
+        } => {
             let c = client()?;
             let kt = parse_kline_type(&r#type)?;
             let resp = c.get_kline_raw(&code, kt, limit).await?;
@@ -46,7 +55,10 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 let h = item.high as f64 / 1000.0;
                 let l = item.low as f64 / 1000.0;
                 let cl = item.close as f64 / 1000.0;
-                println!("  {date} O={o:.2} H={h:.2} L={l:.2} C={cl:.2} V={}", item.volume);
+                println!(
+                    "  {date} O={o:.2} H={h:.2} L={l:.2} C={cl:.2} V={}",
+                    item.volume
+                );
             }
         }
         TdxApiCommands::KlineThs { code, r#type } => {
@@ -84,10 +96,24 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             let resp = c.get_workday(&ds, count).await?;
             println!("{}: 交易日={}", resp.date.iso, resp.is_workday);
             if !resp.next.is_empty() {
-                println!("  之后: {}", resp.next.iter().map(|d| d.iso.as_str()).collect::<Vec<_>>().join(", "));
+                println!(
+                    "  之后: {}",
+                    resp.next
+                        .iter()
+                        .map(|d| d.iso.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
             if !resp.previous.is_empty() {
-                println!("  之前: {}", resp.previous.iter().map(|d| d.iso.as_str()).collect::<Vec<_>>().join(", "));
+                println!(
+                    "  之前: {}",
+                    resp.previous
+                        .iter()
+                        .map(|d| d.iso.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
         }
         TdxApiCommands::WorkdayRange { start, end } => {
@@ -98,20 +124,34 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 println!("  {}", d);
             }
         }
-        TdxApiCommands::Income { code, start_date, days } => {
+        TdxApiCommands::Income {
+            code,
+            start_date,
+            days,
+        } => {
             let c = client()?;
             let resp = c.get_income(&code, &start_date, &days).await?;
             println!("收益计算 {} from {}:", code, start_date);
             for item in &resp.list {
-                println!("  +{}日: 涨跌额={:.3} 收益率={:.4}%", item.offset, item.rise, item.rise_rate * 100.0);
+                println!(
+                    "  +{}日: 涨跌额={:.3} 收益率={:.4}%",
+                    item.offset,
+                    item.rise,
+                    item.rise_rate * 100.0
+                );
             }
         }
         TdxApiCommands::MarketStats => {
             let c = client()?;
             let stats = c.get_market_stats().await?;
             for (name, s) in [("沪", &stats.sh), ("深", &stats.sz), ("京", &stats.bj)] {
-                println!("  {name}: 总={total} 涨={up} 跌={down} 平={flat}",
-                    total = s.total, up = s.up, down = s.down, flat = s.flat);
+                println!(
+                    "  {name}: 总={total} 涨={up} 跌={down} 平={flat}",
+                    total = s.total,
+                    up = s.up,
+                    down = s.down,
+                    flat = s.flat
+                );
             }
         }
         TdxApiCommands::Tasks => {
@@ -121,9 +161,13 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 println!("无运行中的任务");
             } else {
                 for t in &tasks {
-                    println!("  [{}] {} - {} ({})",
+                    println!(
+                        "  [{}] {} - {} ({})",
                         t.id.chars().take(8).collect::<String>(),
-                        t.task_type, t.status, t.started_at);
+                        t.task_type,
+                        t.status,
+                        t.started_at
+                    );
                 }
             }
         }
@@ -134,8 +178,12 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             println!("类型: {}", t.task_type);
             println!("状态: {}", t.status);
             println!("开始: {}", t.started_at);
-            if let Some(e) = &t.ended_at { println!("结束: {e}"); }
-            if let Some(e) = &t.error { println!("错误: {e}"); }
+            if let Some(e) = &t.ended_at {
+                println!("结束: {e}");
+            }
+            if let Some(e) = &t.error {
+                println!("错误: {e}");
+            }
         }
     }
     Ok(())
