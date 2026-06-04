@@ -18,8 +18,8 @@ pub use command_types::{
     SafetyCommands, SafetyKillSwitchCommands, ScreenerCommands, SentimentCommands, StopCommands,
     StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
     StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrengthStockMetric, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    StrengthStockMetric, TaskCommands, TdxApiCommands, TradeCommands, WatchlistCommands,
+    WatchlistGroupCommands, WatchlistTagCommands,
 };
 pub use commands::{Cli, Commands};
 

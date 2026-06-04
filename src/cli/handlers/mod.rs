@@ -3,6 +3,7 @@ pub(crate) use super::command_types::{
     DataSourceKind, ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands,
     ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FactorOutputFormat,
     FundamentalCommands, ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
+    TdxApiCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
     MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
     RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
@@ -40,6 +41,7 @@ mod shared_support;
 mod stop_handler;
 mod stop_output;
 mod strategy_handler;
+mod tdx_api_handler;
 mod trade_handler;
 mod trade_output;
 mod watchlist_handler;
@@ -167,6 +169,7 @@ pub use self::watchlist_handler::run_watchlist_command;
 pub(crate) use self::watchlist_handler::{
     create_watchlist_storage, format_tags, load_watchlist_store_for_read,
 };
+pub(crate) use self::tdx_api_handler::run_tdx_api_command;
 
 /// 策略命令
 pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {

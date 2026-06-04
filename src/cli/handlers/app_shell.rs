@@ -304,6 +304,9 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 test_data_source(&config_dir, name).await?;
             }
         },
+        DataCommands::TdxApi(subcommand) => {
+            super::tdx_api_handler::run_tdx_api_command(subcommand).await?;
+        }
         DataCommands::ImportFundamentals { input } => {
             import_market_fundamentals(input).await?;
         }
