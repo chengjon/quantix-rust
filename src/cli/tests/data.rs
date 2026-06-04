@@ -110,6 +110,52 @@ fn parses_data_source_test_command() {
 }
 
 #[test]
+fn parses_data_source_set_default_tdx_api_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "source",
+        "set-default",
+        "--name",
+        "tdx-api",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::Source(DataSourceCommands::SetDefault {
+            config_dir,
+            name,
+        })) => {
+            assert_eq!(config_dir, "config");
+            assert_eq!(name, DataSourceKind::TdxApi);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_data_tdx_api_kline_command() {
+    let cli = Cli::try_parse_from([
+        "quantix", "data", "tdx-api", "kline", "--code", "600000", "--type", "minute5", "--limit",
+        "10",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::TdxApi(TdxApiCommands::Kline {
+            code,
+            r#type,
+            limit,
+        })) => {
+            assert_eq!(code, "600000");
+            assert_eq!(r#type, "minute5");
+            assert_eq!(limit, Some(10));
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_data_import_fundamentals_command() {
     let cli = Cli::try_parse_from([
         "quantix",

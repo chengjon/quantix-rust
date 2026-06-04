@@ -1,5 +1,5 @@
 use super::*;
-use crate::core::config::{AkShareConfig, AppConfig, TdxConfig};
+use crate::core::config::{AkShareConfig, AppConfig, TdxApiConfig, TdxConfig};
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::data::models::Kline;
 use crate::fundamental::dragon_tiger::DragonTigerFetcher;
@@ -31,6 +31,7 @@ struct DataSourceDefault {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct PersistedDataSources {
     tdx: Option<PersistedTdxConfig>,
+    tdx_api: Option<PersistedTdxApiConfig>,
     akshare: Option<PersistedAkShareConfig>,
 }
 
@@ -39,6 +40,16 @@ struct PersistedTdxConfig {
     hosts: Vec<String>,
     port: u16,
     timeout: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedTdxApiConfig {
+    #[serde(default = "default_tdx_api_base_url")]
+    base_url: String,
+    #[serde(default = "default_tdx_api_timeout_secs")]
+    timeout_secs: u64,
+    #[serde(default = "default_tdx_api_max_retries")]
+    max_retries: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,6 +173,23 @@ pub(crate) fn list_data_sources(config_dir: &str) -> Result<()> {
         tdx_summary
     );
 
+    let tdx_api_summary = format_tdx_api_source_summary(&app_config);
+    println!(
+        "{:<10} {:<8} {:<10} {}",
+        "tdx_api",
+        if default_source.as_deref() == Some("tdx_api") {
+            "yes"
+        } else {
+            "no"
+        },
+        if tdx_api_configured(&app_config) {
+            "yes"
+        } else {
+            "no"
+        },
+        tdx_api_summary
+    );
+
     let akshare_summary = app_config
         .data_sources
         .akshare
@@ -273,7 +301,7 @@ pub(crate) fn set_default_data_source(config_dir: &str, name: DataSourceKind) ->
 
     let configured = match name {
         DataSourceKind::Tdx => app_config.data_sources.tdx.is_some(),
-        DataSourceKind::TdxApi => std::env::var("TDX_API_URL").is_ok() || true,
+        DataSourceKind::TdxApi => tdx_api_configured(&app_config),
         DataSourceKind::Akshare => app_config.data_sources.akshare.is_some(),
     };
 
@@ -497,6 +525,8 @@ fn resolve_default_source(overlay: &DataSourceOverlay, app_config: &AppConfig) -
     overlay.default.name.clone().or_else(|| {
         if app_config.data_sources.tdx.is_some() {
             Some("tdx".to_string())
+        } else if tdx_api_configured(app_config) {
+            Some("tdx_api".to_string())
         } else if app_config.data_sources.akshare.is_some() {
             Some("akshare".to_string())
         } else {
@@ -514,11 +544,69 @@ fn format_tdx_summary(config: &TdxConfig) -> String {
     )
 }
 
+fn tdx_api_configured(app_config: &AppConfig) -> bool {
+    app_config
+        .data_sources
+        .tdx_api
+        .as_ref()
+        .map(|config| !config.base_url.trim().is_empty())
+        .unwrap_or(false)
+        || tdx_api_env_url().is_some()
+}
+
+fn tdx_api_env_url() -> Option<String> {
+    std::env::var("TDX_API_URL")
+        .ok()
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty())
+}
+
+fn format_tdx_api_source_summary(app_config: &AppConfig) -> String {
+    if let Some(config) = app_config.data_sources.tdx_api.as_ref() {
+        format_tdx_api_summary(config)
+    } else if let Some(base_url) = tdx_api_env_url() {
+        format!(
+            "base_url={} timeout={}s max_retries={}",
+            base_url,
+            tdx_api_env_timeout_secs(),
+            default_tdx_api_max_retries()
+        )
+    } else {
+        "-".to_string()
+    }
+}
+
+fn format_tdx_api_summary(config: &TdxApiConfig) -> String {
+    format!(
+        "base_url={} timeout={}s max_retries={}",
+        config.base_url, config.timeout_secs, config.max_retries
+    )
+}
+
 fn format_akshare_summary(config: &AkShareConfig) -> String {
     format!(
         "base_url={} rate_limit={}",
         config.base_url, config.rate_limit
     )
+}
+
+fn default_tdx_api_base_url() -> String {
+    "http://tdx-api:8080".to_string()
+}
+
+fn default_tdx_api_timeout_secs() -> u64 {
+    30
+}
+
+fn default_tdx_api_max_retries() -> u32 {
+    3
+}
+
+fn tdx_api_env_timeout_secs() -> u64 {
+    std::env::var("TDX_API_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or_else(default_tdx_api_timeout_secs)
 }
 
 #[cfg(test)]
@@ -527,7 +615,44 @@ mod tests {
     use crate::data::models::{AdjustType, Kline};
     use chrono::NaiveDate;
     use rust_decimal_macros::dec;
+    use std::ffi::OsString;
+    use std::sync::{Mutex, OnceLock};
     use tempfile::tempdir;
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    struct EnvVarGuard {
+        name: &'static str,
+        previous: Option<OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn remove(name: &'static str) -> Self {
+            let previous = std::env::var_os(name);
+            unsafe {
+                std::env::remove_var(name);
+            }
+            Self { name, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => unsafe {
+                    std::env::set_var(self.name, value);
+                },
+                None => unsafe {
+                    std::env::remove_var(self.name);
+                },
+            }
+        }
+    }
 
     #[test]
     fn load_market_fundamental_records_parses_json_array() {
@@ -551,6 +676,47 @@ mod tests {
         assert_eq!(records[0].latest_report_profit, Some(862.1));
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn set_default_tdx_api_requires_config_or_env() {
+        let _guard = env_lock();
+        let _tdx_api_url = EnvVarGuard::remove("TDX_API_URL");
+        let dir = tempdir().unwrap();
+
+        let err = set_default_data_source(dir.path().to_str().unwrap(), DataSourceKind::TdxApi)
+            .unwrap_err();
+
+        assert!(
+            err.to_string().contains("tdx_api 尚未配置"),
+            "unexpected error: {err}"
+        );
+        assert!(!overlay_path(dir.path().to_str().unwrap()).exists());
+    }
+
+    #[test]
+    fn set_default_tdx_api_preserves_file_config() {
+        let _guard = env_lock();
+        let _tdx_api_url = EnvVarGuard::remove("TDX_API_URL");
+        let dir = tempdir().unwrap();
+        let config_path = overlay_path(dir.path().to_str().unwrap());
+        fs::write(
+            &config_path,
+            r#"[data_sources.tdx_api]
+base_url = "http://127.0.0.1:8080"
+timeout_secs = 7
+max_retries = 2
+"#,
+        )
+        .unwrap();
+
+        set_default_data_source(dir.path().to_str().unwrap(), DataSourceKind::TdxApi).unwrap();
+
+        let written = fs::read_to_string(config_path).unwrap();
+        assert!(written.contains("[data_sources.tdx_api]"));
+        assert!(written.contains("base_url = \"http://127.0.0.1:8080\""));
+        assert!(written.contains("timeout_secs = 7"));
+        assert!(written.contains("max_retries = 2"));
     }
 
     #[tokio::test]

@@ -22,9 +22,10 @@ pub use kline_aggregator::{KlineAggregator, KlineData, KlinePeriod, KlineWindow}
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use tdx::{StockQuote, TdxSource};
 pub use tdx_api::{
-    CodeEntry, CodesResponse, IncomeItem, IncomeOhlcv, IncomeResponse, KlineType as TdxApiKlineType,
-    MarketStatItem, MarketStatsResponse, PullKlineRequest, PullTradeRequest, SearchResult,
-    TaskInfo, TdxApiConfig, TdxApiClient, WorkdayDate, WorkdayRangeResponse, WorkdayResponse,
+    CodeEntry, CodesResponse, IncomeItem, IncomeOhlcv, IncomeResponse,
+    KlineType as TdxApiKlineType, MarketStatItem, MarketStatsResponse, PullKlineRequest,
+    PullTradeRequest, SearchResult, TaskInfo, TdxApiClient, TdxApiConfig, WorkdayDate,
+    WorkdayRangeResponse, WorkdayResponse,
 };
 pub use tdx_file::{
     FuquanCalculator, FuquanFactor, FuquanType, TdxDataImporter, TdxDayData, TdxDayFile,
