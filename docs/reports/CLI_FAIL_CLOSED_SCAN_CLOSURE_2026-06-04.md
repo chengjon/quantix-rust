@@ -9,6 +9,12 @@ Record the phase-level closure state for the CLI fail-closed hardening line so t
 
 The source board is `docs/reports/CLI_FAIL_CLOSED_CANDIDATE_SCAN_2026-06-03.md`.
 
+## Final State
+
+This phase is sealed as complete after PR #201 (`fix: close cli fail-closed scan candidates`) merged into `master` at `7154bec90ae6197cf44ef943e54f104fe57addc6`.
+
+The board-level completion signal is this document: the nine-row candidate table is closed, the implementation branch/worktree for the closure slice was removed, and there is no active follow-on implementation item in this line.
+
 ## Closure Board
 
 | Priority | Command | Closure Status | Evidence |
@@ -38,3 +44,7 @@ Because all remaining P2 rows were LOW risk parser fallback changes, they were b
 This phase stops when the nine-row candidate table is merged and verified. The original 40 function-level scan hits remain scan input, not an automatic implementation backlog for this phase.
 
 Any future fail-closed work must start with a new triage pass and a new bounded board.
+
+## Future Restart Gate
+
+Restarting this line requires a new explicit triage artifact before implementation starts. That artifact must define a bounded candidate table, mark false positives separately from real gaps, pick a priority order, and state its own stop rule.

@@ -3,6 +3,8 @@
 > Scope: candidate scan only. No production behavior was changed in this slice.
 >
 > Repository state during scan: `master` was clean except for the in-progress documentation update to `docs/guides/DIRTY_WORKTREE_CLEANUP_GUIDE_REVIEW.md`.
+>
+> Closure status: closed by `docs/reports/CLI_FAIL_CLOSED_SCAN_CLOSURE_2026-06-04.md`; the CLI fail-closed implementation line is paused under that report's stop rule.
 
 ## Purpose
 
