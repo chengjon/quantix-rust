@@ -12,7 +12,7 @@ All commands work via `npx` — no global install required.
 ### analyze — Build or refresh the index
 
 ```bash
-npx gitnexus analyze
+gitnexus analyze
 ```
 
 Run from the project root. This parses all source files, builds the knowledge graph, writes it to `.gitnexus/`, and generates CLAUDE.md / AGENTS.md context files.
@@ -24,11 +24,11 @@ Run from the project root. This parses all source files, builds the knowledge gr
 
 **When to run:** First time in a project, after major code changes, or when `gitnexus://repo/{name}/context` reports the index is stale. In Claude Code, a PostToolUse hook runs `analyze` automatically after `git commit` and `git merge`, preserving embeddings if previously generated.
 
-Use plain `npx gitnexus analyze` when you want the fastest refresh and exact symbol, file, or keyword search is enough.
+Use plain `gitnexus analyze` when you want the fastest refresh and exact symbol, file, or keyword search is enough.
 
 Graph tools, BM25/FTS search, impact analysis, and context lookups still work without embeddings.
 
-Use `npx gitnexus analyze --embeddings` when natural-language, concept, or fuzzy code search matters.
+Use `gitnexus analyze --embeddings` when natural-language, concept, or fuzzy code search matters.
 
 This enables hybrid retrieval (`BM25 + semantic + RRF`) but takes longer and requires an embedding provider such as Ollama or Hugging Face.
 
