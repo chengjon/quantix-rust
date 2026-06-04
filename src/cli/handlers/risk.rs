@@ -451,7 +451,7 @@ fn parse_live_import_by_path(
     {
         Some("csv") => crate::risk::parse_live_import_csv(contents),
         Some("json") => crate::risk::parse_live_import_json(contents),
-        other => Err(QuantixError::Other(format!(
+        other => Err(QuantixError::Unsupported(format!(
             "risk import 暂不支持的文件扩展: {}",
             other.unwrap_or("<none>")
         ))),

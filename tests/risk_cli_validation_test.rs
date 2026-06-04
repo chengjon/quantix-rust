@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn run_quantix(args: &[&str]) -> (String, String, bool) {
     let output = Command::new(env!("CARGO_BIN_EXE_quantix"))
@@ -32,5 +33,49 @@ fn risk_status_rejects_unsupported_source_as_unsupported() {
     assert!(
         stderr.contains("Unsupported"),
         "expected Unsupported error kind for unsupported source, stderr={stderr}"
+    );
+}
+
+#[test]
+fn risk_import_live_trades_rejects_unsupported_extension_as_unsupported() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_nanos();
+    let input_path = std::env::temp_dir().join(format!(
+        "quantix-risk-live-trades-{}-{unique}.txt",
+        std::process::id()
+    ));
+    std::fs::write(&input_path, "not,a,supported,live,trade,file\n")
+        .expect("should write unsupported extension fixture");
+    let input_arg = input_path.to_string_lossy().into_owned();
+
+    let (stdout, stderr, success) = run_quantix(&[
+        "risk",
+        "import",
+        "live-trades",
+        "--account",
+        "live-001",
+        "--input",
+        input_arg.as_str(),
+    ]);
+
+    let _ = std::fs::remove_file(&input_path);
+
+    assert!(
+        !success,
+        "expected risk import live-trades to fail for unsupported input extension, stdout={stdout}, stderr={stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "expected no risk import output for unsupported input extension, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("risk import 暂不支持的文件扩展: txt"),
+        "expected extension guidance in stderr, stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("Unsupported"),
+        "expected Unsupported error kind for unsupported input extension, stderr={stderr}"
     );
 }
