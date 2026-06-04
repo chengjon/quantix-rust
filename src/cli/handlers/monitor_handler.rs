@@ -382,7 +382,7 @@ pub(crate) fn parse_monitor_event_type(value: &str) -> Result<MonitorEventType> 
         "stop-loss" => Ok(MonitorEventType::StopLoss),
         "stop-profit" => Ok(MonitorEventType::StopProfit),
         "trailing-stop" => Ok(MonitorEventType::TrailingStop),
-        other => Err(QuantixError::Other(format!(
+        other => Err(QuantixError::Unsupported(format!(
             "monitor event list 不支持的事件类型: {}",
             other
         ))),

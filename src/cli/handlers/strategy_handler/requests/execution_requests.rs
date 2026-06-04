@@ -648,7 +648,7 @@ pub(crate) async fn execute_strategy_request_list_with_store(
 
 pub(crate) fn parse_execution_request_status(value: &str) -> Result<ExecutionRequestStatus> {
     ExecutionRequestStatus::from_str(value)
-        .ok_or_else(|| QuantixError::Other(format!("未知 request_status: {value}")))
+        .ok_or_else(|| QuantixError::Unsupported(format!("未知 request_status: {value}")))
 }
 
 pub(crate) fn merge_execution_request_payload(

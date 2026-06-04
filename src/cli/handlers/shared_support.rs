@@ -82,7 +82,7 @@ pub(crate) fn patch_value(value: Option<f64>, clear: bool) -> Option<Option<f64>
 
 pub(crate) fn parse_stop_history_event_type(value: &str) -> Result<StopHistoryEventType> {
     StopHistoryEventType::from_str(value)
-        .ok_or_else(|| QuantixError::Other(format!("未知 stop history event_type: {value}")))
+        .ok_or_else(|| QuantixError::Unsupported(format!("未知 stop history event_type: {value}")))
 }
 
 pub(crate) fn parse_stop_history_date(value: &str) -> Result<NaiveDate> {
