@@ -152,7 +152,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - **算法交易执行器**已完成基础实现：
   - TWAP (时间加权平均价格) 执行器
   - VWAP (成交量加权平均价格) 执行器
-  - `algo create --algo-type` 仅支持 `twap, vwap`；未知算法类型会在初始化算法上下文前返回显式 `Unsupported`，错误包含 `不支持的算法类型`
+  - `algo create --algo-type` / `algo plan --algo-type` 仅支持 `twap, vwap`；未知算法类型会在初始化算法上下文或输出切片预览前返回显式 `Unsupported`，错误包含 `不支持的算法类型`
   - `algo create` / `algo plan` 会对方向、切片数、切片间隔和 `plan --output` 格式等参数 fail-closed；POV / Iceberg 仍未接线
 - **Graphiti MCP 集成**已完成：
   - 语义记忆层用于设计决策、代码审查、调试、交接和文档

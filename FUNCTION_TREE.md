@@ -932,7 +932,7 @@ quantix
 │   ├── cancel              # 取消算法任务（当前仅支持 TWAP/VWAP 内存态任务）
 │   ├── status              # 查看算法状态（当前仅支持 TWAP/VWAP 内存态任务）
 │   ├── list                # 列出活跃算法（仅当前进程内存态任务）
-│   └── plan                # 预览切片计划（当前仅支持 TWAP/VWAP，参数或输出格式无效时失败关闭）
+│   └── plan                # algo plan --algo-type 预览切片计划（当前仅支持 TWAP/VWAP；未知算法类型会在输出切片预览前返回 Unsupported，错误含“不支持的算法类型”；参数或输出格式无效时失败关闭）
 │
 ├── ai                      # AI决策分析
 │   ├── analyze             # AI 分析股票（使用模拟分析上下文；无已接线 provider 时 Unsupported）
@@ -1207,7 +1207,7 @@ Windows Bridge v1
 <!-- function-tree:generated:end -->
 
 <!-- function-tree:project-notes:start -->
-- 2026-06-02 behavior hardening: `quantix algo create --algo-type <unknown>` now validates the algorithm type before initializing an algo context. Unknown algorithm types return explicit `Unsupported` with `不支持的算法类型` and the supported `twap, vwap` list; existing TWAP/VWAP create semantics are unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary. `algo start` remains keyed by `--algo-id` and does not accept `--algo-type`.
+- 2026-06-02 behavior hardening: `quantix algo create --algo-type <unknown>` validates the algorithm type before initializing an algo context, and `quantix algo plan --algo-type <unknown>` validates before emitting a slice preview. Unknown algorithm types return explicit `Unsupported` with `不支持的算法类型` and the supported `twap, vwap` list; existing TWAP/VWAP create and plan semantics are unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary. `algo start` remains keyed by `--algo-id` and does not accept `--algo-type`.
 - 2026-06-02 behavior hardening: `quantix account split --target-type <unknown>` now validates split target type before emitting the split preview. Unknown target types return explicit `Unsupported` with `无效的目标类型`, the rejected field, and the supported `single, group` list; existing `single`/`group` preview semantics are unchanged. README, USER_MANUAL, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
 - 2026-06-02 behavior hardening: `quantix account register --account-type <unknown>` now validates account type before writing the local account registry. Unknown account types return explicit `Unsupported` with `无效的账户类型`, the rejected field, and the supported `paper, mock_live, qmt_live` list; the existing `live` compatibility alias is unchanged. README, USER_MANUAL, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
 - 2026-06-02 behavior hardening: `quantix analyze screener run --sort-by <unknown>` now validates the screener sort field before ClickHouse daily-kline reads or screener-table output. Unknown sort fields return explicit `Unsupported` with `不支持的 sort_by`, the rejected field, and the supported `code, score` list; existing `code`/`score` ordering semantics are unchanged. README, CHANGELOG, CLI_COMMAND_MANUAL, and repo hygiene checks record the boundary.
