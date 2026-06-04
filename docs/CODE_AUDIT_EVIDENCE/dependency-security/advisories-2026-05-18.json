@@ -1,0 +1,598 @@
+{
+  "generated_at": "2026-05-18T03:08:56.421Z",
+  "source": {
+    "repo": "chengjon/quantix-rust",
+    "github_actions_run_id": 26007862679,
+    "github_actions_run_url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679",
+    "github_actions_job_name": "Security Audit",
+    "github_actions_job_id": 76442610183,
+    "github_actions_job_url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610183",
+    "command": "cargo audit",
+    "log_source": "gh run view 26007862679 --repo chengjon/quantix-rust --job <Security Audit job id> --log"
+  },
+  "boundary": {
+    "quality_gate_recovery_commit": "3676cb4ac0df09649e9eb57aa9c4fb8d65ea1073",
+    "security_workstream_head": "f06f977133212faf7ed0f096091b7ff35eb9431b",
+    "security_workstream_branch": "security/dependency-audit-20260518",
+    "rule": "Evidence-only artifact. No Cargo.toml, Cargo.lock, dependency upgrade, cargo audit ignore, or CI policy relaxation is included."
+  },
+  "ci_run": {
+    "title": "ci: restore clean checkout gates",
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-05-18T00:55:30Z",
+    "updated_at": "2026-05-18T01:05:21Z",
+    "jobs": [
+      {
+        "name": "Lint",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610181"
+      },
+      {
+        "name": "Security Audit",
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610183"
+      },
+      {
+        "name": "Test",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610185"
+      },
+      {
+        "name": "Documentation",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610199"
+      },
+      {
+        "name": "Coverage",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610281"
+      },
+      {
+        "name": "Build",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610334"
+      },
+      {
+        "name": "Dependency Outdated",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610346"
+      },
+      {
+        "name": "Benchmark",
+        "status": "completed",
+        "conclusion": "skipped",
+        "url": "https://github.com/chengjon/quantix-rust/actions/runs/26007862679/job/76442610376"
+      }
+    ]
+  },
+  "summary": {
+    "total": 18,
+    "vulnerabilities": 8,
+    "warnings": 10,
+    "default_reachable": 15,
+    "all_features_only": 3,
+    "lockfile_only_or_unresolved": 0
+  },
+  "advisories": [
+    {
+      "advisory_id": "RUSTSEC-2025-0003",
+      "crate": "fast-float",
+      "version": "0.2.0",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Segmentation fault due to lack of bound check",
+      "date": "2025-01-13",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2025-0003",
+      "solution": "No fixed upgrade is available!",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-compute@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-lazy@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-compute@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-lazy@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0421",
+      "crate": "idna",
+      "version": "0.3.0",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "`idna` accepts Punycode labels that do not produce any non-ASCII when decoded",
+      "date": "2024-12-09",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0421",
+      "solution": "Upgrade to >=1.0.0",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "idna@0.3.0 <- cookie_store@0.20.0 <- reqwest@0.11.27 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "idna@0.3.0 <- cookie_store@0.20.0 <- reqwest@0.11.27 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2026-0041",
+      "crate": "lz4_flex",
+      "version": "0.11.5",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Decompressing invalid data can leak information from uninitialized memory or reused output buffer",
+      "date": "2026-03-17",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0041",
+      "solution": "Upgrade to >=0.11.6, <0.12.0 OR >=0.12.1",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "lz4_flex@0.11.5 <- clickhouse@0.12.2 <- quantix-cli@0.1.0",
+        "lz4_flex@0.11.5 <- parquet@53.4.1 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "lz4_flex@0.11.5 <- clickhouse@0.12.2 <- quantix-cli@0.1.0",
+        "lz4_flex@0.11.5 <- parquet@53.4.1 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2021-0041",
+      "crate": "parse_duration",
+      "version": "2.1.1",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Denial of service through parsing payloads with too big exponent",
+      "date": "2021-03-18",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2021-0041",
+      "solution": "No fixed upgrade is available!",
+      "reachability": "all-features-only",
+      "default_dependency_paths": [],
+      "all_features_dependency_paths": [
+        "parse_duration@2.1.1 <- taos-ws@0.5.12 <- quantix-cli@0.1.0",
+        "parse_duration@2.1.1 <- taos-query@0.5.12 <- taos-ws@0.5.12 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0437",
+      "crate": "protobuf",
+      "version": "2.28.0",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Crash due to uncontrolled recursion in protobuf crate",
+      "date": "2024-12-12",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0437",
+      "solution": "Upgrade to >=3.7.2",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "protobuf@2.28.0 <- prometheus@0.13.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "protobuf@2.28.0 <- prometheus@0.13.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2023-0071",
+      "crate": "rsa",
+      "version": "0.9.10",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Marvin Attack: potential key recovery through timing sidechannels",
+      "date": "2023-11-22",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2023-0071",
+      "solution": "No fixed upgrade is available!",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "rsa@0.9.10 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rsa@0.9.10 <- sqlx-mysql@0.7.4 <- sqlx-macros-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "rsa@0.9.10 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rsa@0.9.10 <- sqlx-mysql@0.7.4 <- sqlx-macros-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0363",
+      "crate": "sqlx",
+      "version": "0.7.4",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Binary Protocol Misinterpretation caused by Truncating or Overflowing Casts",
+      "date": "2024-08-15",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0363",
+      "solution": "Upgrade to >=0.8.1",
+      "reachability": "default",
+      "default_dependency_paths": [
+        "sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2023-0065",
+      "crate": "tungstenite",
+      "version": "0.18.0",
+      "class": "vulnerability",
+      "warning": null,
+      "title": "Tungstenite allows remote attackers to cause a denial of service",
+      "date": "2023-09-25",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2023-0065",
+      "solution": "Upgrade to >=0.20.1",
+      "reachability": "all-features-only",
+      "default_dependency_paths": [],
+      "all_features_dependency_paths": [
+        "tungstenite@0.18.0 <- tokio-tungstenite@0.18.0 <- taos-ws@0.5.12 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2021-0141",
+      "crate": "dotenv",
+      "version": "0.15.0",
+      "class": "warning",
+      "warning": "unmaintained",
+      "title": "dotenv is Unmaintained",
+      "date": "2021-12-24",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2021-0141",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "dotenv@0.15.0 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "dotenv@0.15.0 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2025-0119",
+      "crate": "number_prefix",
+      "version": "0.4.0",
+      "class": "warning",
+      "warning": "unmaintained",
+      "title": "number_prefix crate is unmaintained",
+      "date": "2025-11-17",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2025-0119",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "number_prefix@0.4.0 <- indicatif@0.17.11 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "number_prefix@0.4.0 <- indicatif@0.17.11 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0436",
+      "crate": "paste",
+      "version": "1.0.15",
+      "class": "warning",
+      "warning": "unmaintained",
+      "title": "paste - no longer maintained",
+      "date": "2024-10-07",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0436",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "paste@1.0.15 <- parquet@53.4.1 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- simba@0.8.1 <- nalgebra@0.32.6 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-sqlite@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-macros-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "paste@1.0.15 <- parquet@53.4.1 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- ratatui@0.25.0 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- taos-query@0.5.12 <- taos-ws@0.5.12 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- simba@0.8.1 <- nalgebra@0.32.6 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "paste@1.0.15 <- sqlx-core@0.7.4 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2025-0134",
+      "crate": "rustls-pemfile",
+      "version": "1.0.4",
+      "class": "warning",
+      "warning": "unmaintained",
+      "title": "rustls-pemfile is unmaintained",
+      "date": "2025-11-28",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2025-0134",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "rustls-pemfile@1.0.4 <- reqwest@0.11.27 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "rustls-pemfile@1.0.4 <- reqwest@0.11.27 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0320",
+      "crate": "yaml-rust",
+      "version": "0.4.5",
+      "class": "warning",
+      "warning": "unmaintained",
+      "title": "yaml-rust is unmaintained.",
+      "date": "2024-03-20",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0320",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "yaml-rust@0.4.5 <- config@0.13.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "yaml-rust@0.4.5 <- config@0.13.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2024-0379",
+      "crate": "fast-float",
+      "version": "0.2.0",
+      "class": "warning",
+      "warning": "unsound",
+      "title": "Multiple soundness issues",
+      "date": "2024-10-31",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2024-0379",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-compute@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-lazy@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-compute@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-io@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "fast-float@0.2.0 <- polars-arrow@0.43.1 <- polars-lazy@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2026-0002",
+      "crate": "lru",
+      "version": "0.12.5",
+      "class": "warning",
+      "warning": "unsound",
+      "title": "`IterMut` violates Stacked Borrows by invalidating internal pointer",
+      "date": "2026-01-07",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0002",
+      "solution": null,
+      "reachability": "all-features-only",
+      "default_dependency_paths": [],
+      "all_features_dependency_paths": [
+        "lru@0.12.5 <- ratatui@0.25.0 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2026-0097",
+      "crate": "rand",
+      "version": "0.8.5",
+      "class": "warning",
+      "warning": "unsound",
+      "title": "Rand is unsound with a custom logger using `rand::rng()`",
+      "date": "2026-04-09",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0097",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "rand@0.8.5 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- rust_decimal@1.40.0 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- nalgebra@0.32.6 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-ops@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "rand@0.8.5 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- rust_decimal@1.40.0 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- nalgebra@0.32.6 <- statrs@0.17.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-core@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-core@0.43.1 <- polars-ops@0.43.1 <- quantix-cli@0.1.0",
+        "rand@0.8.5 <- polars-ops@0.43.1 <- polars@0.43.1 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": "RUSTSEC-2026-0097",
+      "crate": "rand",
+      "version": "0.9.2",
+      "class": "warning",
+      "warning": "unsound",
+      "title": "Rand is unsound with a custom logger using `rand::rng()`",
+      "date": "2026-04-09",
+      "url": "https://rustsec.org/advisories/RUSTSEC-2026-0097",
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-sqlite@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- taos-query@0.5.12 <- taos-ws@0.5.12 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-macros@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-mysql@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0",
+        "rand@0.9.2 <- postgres-protocol@0.6.10 <- postgres-types@0.2.12 <- rust_decimal@1.40.0 <- sqlx-core@0.7.4 <- sqlx-postgres@0.7.4 <- sqlx@0.7.4 <- quantix-cli@0.1.0"
+      ]
+    },
+    {
+      "advisory_id": null,
+      "crate": "lz4_flex",
+      "version": "0.11.5",
+      "class": "warning",
+      "warning": "yanked",
+      "title": null,
+      "date": null,
+      "url": null,
+      "solution": null,
+      "reachability": "default",
+      "default_dependency_paths": [
+        "lz4_flex@0.11.5 <- clickhouse@0.12.2 <- quantix-cli@0.1.0",
+        "lz4_flex@0.11.5 <- parquet@53.4.1 <- quantix-cli@0.1.0"
+      ],
+      "all_features_dependency_paths": [
+        "lz4_flex@0.11.5 <- clickhouse@0.12.2 <- quantix-cli@0.1.0",
+        "lz4_flex@0.11.5 <- parquet@53.4.1 <- quantix-cli@0.1.0"
+      ]
+    }
+  ],
+  "owner_groups": [
+    {
+      "key": "sqlx",
+      "title": "Migrate or contain SQLx/MySQL security advisories",
+      "type": "HITL",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2024-0363",
+        "RUSTSEC-2023-0071",
+        "RUSTSEC-2026-0097"
+      ],
+      "what": "Decide whether the MySQL feature remains part of the supported runtime surface, then either migrate SQLx to a fixed series or remove/gate vulnerable feature paths with explicit documentation.",
+      "criteria": [
+        "The SQLx advisory and rsa transitive path are either removed from cargo audit output or explicitly accepted with owner and revisit trigger.",
+        "Any SQLx feature change is reflected in CLI/runtime documentation and tests that exercise database-backed paths.",
+        "cargo audit, cargo check --all-targets, and relevant database tests are recorded after the change."
+      ]
+    },
+    {
+      "key": "reqwest",
+      "title": "Upgrade HTTP client stack for idna and rustls-pemfile advisories",
+      "type": "AFK",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2024-0421",
+        "RUSTSEC-2025-0134"
+      ],
+      "what": "Evaluate a reqwest/cookie-store upgrade that removes the idna 0.3 and rustls-pemfile 1.0 paths without changing market/news provider behavior.",
+      "criteria": [
+        "idna 0.3.0 and rustls-pemfile 1.0.4 no longer appear in the resolved dependency graph or have documented acceptance.",
+        "HTTP-dependent market/news smoke or unit tests still pass.",
+        "cargo audit delta is recorded before and after the migration."
+      ]
+    },
+    {
+      "key": "lz4-clickhouse-parquet",
+      "title": "Remove yanked vulnerable lz4_flex via ClickHouse and Parquet paths",
+      "type": "AFK",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2026-0041",
+        "NO-ID:lz4_flex:yanked"
+      ],
+      "what": "Try the narrowest lockfile/dependency update that moves lz4_flex from 0.11.5 to a fixed non-yanked release while preserving ClickHouse and parquet IO behavior.",
+      "criteria": [
+        "cargo audit no longer reports lz4_flex RUSTSEC-2026-0041 or yanked status.",
+        "ClickHouse and parquet-related tests still pass or any missing coverage is called out.",
+        "The lockfile diff is limited to the dependency chain required for lz4_flex unless evidence justifies a wider update."
+      ]
+    },
+    {
+      "key": "polars",
+      "title": "Assess Polars upgrade path for fast-float advisories",
+      "type": "HITL",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2025-0003",
+        "RUSTSEC-2024-0379"
+      ],
+      "what": "Evaluate whether a Polars upgrade or risk acceptance is the right response to fast-float advisories that currently have no fixed direct crate upgrade.",
+      "criteria": [
+        "A Polars migration candidate is tested against factor/data pipeline gates, or a risk acceptance record explains why migration is deferred.",
+        "fast-float reachability through polars-arrow/polars-io is documented in the advisory register.",
+        "No broad Polars version change is merged without factor score and parquet export regression evidence."
+      ]
+    },
+    {
+      "key": "taos-ws",
+      "title": "Decide TAOS optional feature security posture",
+      "type": "HITL",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2021-0041",
+        "RUSTSEC-2023-0065"
+      ],
+      "what": "Decide whether optional TAOS support remains enabled under all-features, then upgrade, gate, remove, or risk-accept the parse_duration and tungstenite paths.",
+      "criteria": [
+        "parse_duration and tungstenite 0.18 reachability is classified as all-features-only or removed.",
+        "The TAOS feature boundary is documented if retained or changed.",
+        "cargo audit behavior is documented for default and all-features builds."
+      ]
+    },
+    {
+      "key": "prometheus",
+      "title": "Upgrade or contain Prometheus protobuf advisory",
+      "type": "AFK",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2024-0437"
+      ],
+      "what": "Evaluate a Prometheus dependency upgrade or metrics-path containment that removes protobuf 2.28.0 from the resolved graph.",
+      "criteria": [
+        "protobuf 2.28.0 no longer appears in cargo audit output or has documented acceptance.",
+        "Monitoring/metrics tests or compile gates verify the metrics surface after migration.",
+        "Any public metrics behavior change is documented."
+      ]
+    },
+    {
+      "key": "utility-deps",
+      "title": "Clean direct and UI/config utility dependency warnings",
+      "type": "AFK",
+      "blockedBy": "Evidence baseline only",
+      "advisories": [
+        "RUSTSEC-2021-0141",
+        "RUSTSEC-2025-0119",
+        "RUSTSEC-2024-0320",
+        "RUSTSEC-2026-0002",
+        "RUSTSEC-2026-0097"
+      ],
+      "what": "Handle direct and utility warning paths such as dotenv, indicatif/number_prefix, config/yaml-rust, optional ratatui/lru, and direct rand usage without touching unrelated security migrations.",
+      "criteria": [
+        "Each warning is either removed from audit output or has an explicit documented acceptance row.",
+        "Optional UI-only advisories are classified separately from default runtime advisories.",
+        "Changes remain scoped to utility dependencies and their direct tests."
+      ]
+    }
+  ]
+}
