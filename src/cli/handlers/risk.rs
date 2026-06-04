@@ -435,7 +435,7 @@ fn parse_risk_source(raw: Option<&str>) -> Result<crate::risk::RiskAccountSource
     match raw {
         None => Ok(crate::risk::RiskAccountSource::Paper),
         Some(value) => crate::risk::RiskAccountSource::from_str(value)
-            .ok_or_else(|| QuantixError::Other(format!("risk --source 不支持的值: {value}"))),
+            .ok_or_else(|| QuantixError::Unsupported(format!("risk --source 不支持的值: {value}"))),
     }
 }
 
