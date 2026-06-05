@@ -255,9 +255,15 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 .list
                 .iter()
                 .map(|t| {
+                    let ts_ms = chrono::NaiveDateTime::parse_from_str(&t.time, "%Y-%m-%dT%H:%M:%S")
+                        .or_else(|_| {
+                            chrono::NaiveDateTime::parse_from_str(&t.time, "%Y-%m-%dT%H:%M:%S%.f")
+                        })
+                        .map(|dt| dt.and_utc().timestamp_millis())
+                        .unwrap_or(0);
                     let price = t.price as f64 / 1000.0;
                     let amount = price * t.volume as f64 * 100.0;
-                    (0i64, price, t.volume, amount, t.status)
+                    (ts_ms, price, t.volume, amount, t.status)
                 })
                 .collect();
 
