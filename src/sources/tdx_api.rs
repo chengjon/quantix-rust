@@ -33,6 +33,8 @@ where
 
 const DEFAULT_BASE_URL: &str = "http://tdx-api:8080";
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_HEALTH_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_MAX_BATCH_QUOTE_SIZE: usize = 50;
 const MAX_RETRIES: u32 = 3;
 const RETRY_BASE_DELAY_MS: u64 = 500;
 const CACHE_TTL_SECS: u64 = 3600; // 1 hour for codes / workday
@@ -43,6 +45,9 @@ pub struct TdxApiConfig {
     pub base_url: String,
     pub timeout: Duration,
     pub max_retries: u32,
+    pub enabled: bool,
+    pub max_batch_quote_size: usize,
+    pub health_timeout: Duration,
 }
 
 impl Default for TdxApiConfig {
@@ -51,6 +56,9 @@ impl Default for TdxApiConfig {
             base_url: DEFAULT_BASE_URL.to_string(),
             timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
             max_retries: MAX_RETRIES,
+            enabled: true,
+            max_batch_quote_size: DEFAULT_MAX_BATCH_QUOTE_SIZE,
+            health_timeout: Duration::from_secs(DEFAULT_HEALTH_TIMEOUT_SECS),
         }
     }
 }
@@ -63,10 +71,36 @@ impl TdxApiConfig {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(DEFAULT_TIMEOUT_SECS);
+        let enabled = std::env::var("TDX_API_ENABLED")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(true);
+        let max_batch_quote_size = std::env::var("TDX_API_MAX_BATCH_QUOTE_SIZE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_MAX_BATCH_QUOTE_SIZE);
+        let health_timeout_secs = std::env::var("TDX_API_HEALTH_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_HEALTH_TIMEOUT_SECS);
         Self {
             base_url,
             timeout: Duration::from_secs(timeout_secs),
             max_retries: MAX_RETRIES,
+            enabled,
+            max_batch_quote_size,
+            health_timeout: Duration::from_secs(health_timeout_secs),
+        }
+    }
+
+    pub fn from_app_config(cfg: &crate::core::config::TdxApiConfig) -> Self {
+        Self {
+            base_url: cfg.base_url.clone(),
+            timeout: Duration::from_secs(cfg.timeout_secs),
+            max_retries: cfg.max_retries,
+            enabled: cfg.enabled,
+            max_batch_quote_size: cfg.max_batch_quote_size,
+            health_timeout: Duration::from_secs(cfg.health_timeout_secs),
         }
     }
 }
@@ -81,6 +115,27 @@ struct ApiResponse<T> {
     code: i32,
     message: String,
     data: Option<T>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct TdxApiHealthStatus {
+    pub status: Option<String>,
+    pub code: Option<i64>,
+    pub message: Option<String>,
+}
+
+impl TdxApiHealthStatus {
+    pub fn is_healthy(&self) -> bool {
+        self.status.as_deref() == Some("healthy") || self.code == Some(0)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct TdxApiServerStatus {
+    pub status: String,
+    pub connected: bool,
+    pub version: Option<String>,
+    pub uptime: Option<String>,
 }
 
 /// K线响应 (PascalCase — Go 无 json tag)
@@ -167,7 +222,11 @@ pub struct MinuteResp {
     pub date: String,
     #[serde(rename = "Count")]
     pub count: i32,
-    #[serde(rename = "List", default, deserialize_with = "deserialize_null_default")]
+    #[serde(
+        rename = "List",
+        default,
+        deserialize_with = "deserialize_null_default"
+    )]
     pub list: Vec<MinuteItem>,
 }
 
@@ -440,11 +499,13 @@ impl TdxApiClient {
 
     /// 从应用配置文件创建
     pub fn from_app_config(cfg: &crate::core::config::TdxApiConfig) -> Result<Self> {
-        Self::new(TdxApiConfig {
-            base_url: cfg.base_url.clone(),
-            timeout: Duration::from_secs(cfg.timeout_secs),
-            max_retries: cfg.max_retries,
-        })
+        let runtime = TdxApiConfig::from_app_config(cfg);
+        if !runtime.enabled {
+            return Err(QuantixError::Unsupported(
+                "tdx-api source is disabled".to_string(),
+            ));
+        }
+        Self::new(runtime)
     }
 
     // -----------------------------------------------------------------------
@@ -626,6 +687,13 @@ impl TdxApiClient {
         if codes.is_empty() {
             return Ok(Vec::new());
         }
+        if codes.len() > self.config.max_batch_quote_size {
+            return Err(QuantixError::DataSource(format!(
+                "tdx-api batch quote requested {} codes, exceeding max_batch_quote_size {}",
+                codes.len(),
+                self.config.max_batch_quote_size
+            )));
+        }
         let symbols: Vec<String> = codes.iter().map(|c| Self::to_symbol(c)).collect();
         #[derive(Debug, Clone, Serialize)]
         struct BatchReq {
@@ -655,13 +723,14 @@ impl TdxApiClient {
             .collect()
     }
 
-    /// 兼容 CollectScheduler 的批量采集，分批 50 只调用 batch_quote
+    /// 兼容 CollectScheduler 的批量采集，按配置上限分批调用 batch_quote
     pub async fn collect_all_quotes(&self, codes: &[String]) -> Result<Vec<StockQuote>> {
         if codes.is_empty() {
             return Ok(Vec::new());
         }
         let mut all = Vec::new();
-        for chunk in codes.chunks(50) {
+        let batch_size = self.config.max_batch_quote_size.max(1);
+        for chunk in codes.chunks(batch_size) {
             let refs: Vec<&str> = chunk.iter().map(|s| s.as_str()).collect();
             match self.batch_quote(&refs).await {
                 Ok(q) => all.extend(q),
@@ -669,7 +738,7 @@ impl TdxApiClient {
                     tracing::warn!("tdx-api 批量行情采集失败: {e}, 跳过");
                 }
             }
-            if chunk.len() == 50 {
+            if chunk.len() == batch_size {
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
         }
@@ -1036,9 +1105,53 @@ impl TdxApiClient {
     /// 健康检查 (不走通用 envelope，直接返回原始 JSON)
     pub async fn health(&self) -> Result<serde_json::Value> {
         let url = format!("{}/api/health", self.config.base_url);
-        let resp = self.client.get(&url).send().await.map_err(QuantixError::Http)?;
-        resp.json().await
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(QuantixError::Http)?;
+        resp.json()
+            .await
             .map_err(|e| QuantixError::DataParse(format!("tdx-api health 解析失败: {e}")))
+    }
+
+    pub async fn health_status(&self) -> Result<TdxApiHealthStatus> {
+        let url = format!("{}/api/health", self.config.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .timeout(self.config.health_timeout)
+            .send()
+            .await
+            .map_err(QuantixError::Http)?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(QuantixError::DataSource(format!(
+                "tdx-api health HTTP {}: {}",
+                status, body
+            )));
+        }
+
+        let health: TdxApiHealthStatus = resp
+            .json()
+            .await
+            .map_err(|e| QuantixError::DataParse(format!("tdx-api health 解析失败: {e}")))?;
+
+        if !health.is_healthy() {
+            return Err(QuantixError::DataSource(format!(
+                "tdx-api health unhealthy: {:?}",
+                health
+            )));
+        }
+
+        Ok(health)
+    }
+
+    pub async fn server_status(&self) -> Result<TdxApiServerStatus> {
+        self.get("/api/server-status").await
     }
 
     /// 清除缓存
@@ -1083,7 +1196,13 @@ impl Fetcher for TdxApiClient {
     }
 
     async fn check_connection(&self) -> Result<()> {
-        self.health().await?;
+        self.health_status().await?;
+        let status = self.server_status().await?;
+        if !status.connected {
+            return Err(QuantixError::DataSource(
+                "tdx-api server is running but not connected to TDX upstream".to_string(),
+            ));
+        }
         Ok(())
     }
 }
@@ -1091,7 +1210,10 @@ impl Fetcher for TdxApiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::time::Duration;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn default_config_uses_tdx_api_container_endpoint() {
@@ -1099,7 +1221,110 @@ mod tests {
 
         assert_eq!(config.base_url, "http://tdx-api:8080");
         assert_eq!(config.timeout, Duration::from_secs(30));
+        assert_eq!(config.health_timeout, Duration::from_secs(5));
         assert_eq!(config.max_retries, 3);
+        assert_eq!(config.max_batch_quote_size, 50);
+        assert!(config.enabled);
+    }
+
+    #[test]
+    fn runtime_config_from_app_config_maps_extended_fields() {
+        let app_config = crate::core::config::TdxApiConfig {
+            base_url: "http://127.0.0.1:8089".to_string(),
+            timeout_secs: 11,
+            max_retries: 2,
+            enabled: false,
+            max_batch_quote_size: 25,
+            health_timeout_secs: 3,
+        };
+
+        let runtime = TdxApiConfig::from_app_config(&app_config);
+
+        assert_eq!(runtime.base_url, "http://127.0.0.1:8089");
+        assert_eq!(runtime.timeout, Duration::from_secs(11));
+        assert_eq!(runtime.health_timeout, Duration::from_secs(3));
+        assert_eq!(runtime.max_retries, 2);
+        assert_eq!(runtime.max_batch_quote_size, 25);
+        assert!(!runtime.enabled);
+    }
+
+    #[tokio::test]
+    async fn health_status_accepts_observed_status_shape() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/health"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "status": "healthy",
+                "time": "2026-06-05T00:00:00Z"
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TdxApiClient::new(TdxApiConfig {
+            base_url: server.uri(),
+            timeout: Duration::from_secs(1),
+            max_retries: 0,
+            enabled: true,
+            max_batch_quote_size: 50,
+            health_timeout: Duration::from_secs(1),
+        })
+        .unwrap();
+
+        let health = client.health_status().await.unwrap();
+        assert!(health.is_healthy());
+    }
+
+    #[tokio::test]
+    async fn server_status_reads_connected_flag() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/server-status"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "status": "running",
+                    "connected": true,
+                    "version": "1.0.0",
+                    "uptime": "unknown"
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TdxApiClient::new(TdxApiConfig {
+            base_url: server.uri(),
+            timeout: Duration::from_secs(1),
+            max_retries: 0,
+            enabled: true,
+            max_batch_quote_size: 50,
+            health_timeout: Duration::from_secs(1),
+        })
+        .unwrap();
+
+        let status = client.server_status().await.unwrap();
+        assert!(status.connected);
+        assert_eq!(status.status, "running");
+        assert_eq!(status.version.as_deref(), Some("1.0.0"));
+    }
+
+    #[tokio::test]
+    async fn batch_quote_rejects_requests_over_configured_limit() {
+        let client = TdxApiClient::new(TdxApiConfig {
+            base_url: "http://127.0.0.1:1".to_string(),
+            timeout: Duration::from_secs(1),
+            max_retries: 0,
+            enabled: true,
+            max_batch_quote_size: 1,
+            health_timeout: Duration::from_secs(1),
+        })
+        .unwrap();
+
+        let err = client.batch_quote(&["000001", "600519"]).await.unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("tdx-api batch quote"));
+        assert!(msg.contains("2"));
+        assert!(msg.contains("1"));
     }
 
     #[test]

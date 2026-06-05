@@ -162,6 +162,21 @@ pub enum TdxApiCommands {
         id: String,
     },
 
+    /// 导入 THS 前复权 K 线到 ClickHouse
+    ImportKlines {
+        /// 股票代码 (如 600519)
+        #[arg(short, long)]
+        code: String,
+
+        /// K线周期: day, week, month
+        #[arg(short, long, default_value = "day")]
+        r#type: String,
+
+        /// 覆盖导入（忽略已有数据直接插入）
+        #[arg(long)]
+        force: bool,
+    },
+
     /// 从 tdx-api 同步交易日历到本地 config/holidays.json
     SyncCalendar {
         /// 年份 (默认今年)

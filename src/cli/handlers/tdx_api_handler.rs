@@ -26,10 +26,14 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
     match cmd {
         TdxApiCommands::Health => {
             let c = client()?;
-            let resp = c.health().await?;
+            let health = c.health_status().await?;
+            let server = c.server_status().await?;
             println!(
-                "{}",
-                serde_json::to_string_pretty(&resp).unwrap_or_default()
+                "tdx-api: healthy={} status={} connected={} version={}",
+                health.is_healthy(),
+                server.status,
+                server.connected,
+                server.version.as_deref().unwrap_or("unknown")
             );
         }
         TdxApiCommands::Quote { code } => {
@@ -189,12 +193,18 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             use crate::core::trading_calendar::TradingCalendar;
             use std::path::Path;
 
-            let y = year.unwrap_or_else(|| chrono::Datelike::year(&chrono::Local::now().date_naive()));
+            let y =
+                year.unwrap_or_else(|| chrono::Datelike::year(&chrono::Local::now().date_naive()));
             let c = client()?;
 
             // API 每次最多返回 100 条，按季度分批获取
             let mut trading_days = Vec::new();
-            for (ms, me) in [("0101","0331"),("0401","0630"),("0701","0930"),("1001","1231")] {
+            for (ms, me) in [
+                ("0101", "0331"),
+                ("0401", "0630"),
+                ("0701", "0930"),
+                ("1001", "1231"),
+            ] {
                 let s = format!("{y}{ms}");
                 let e = format!("{y}{me}");
                 if let Ok(mut batch) = c.get_workday_range(&s, &e).await {
@@ -237,11 +247,65 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 "workdays_on_weekend": workdays_arr
             });
 
-            std::fs::write(config_path, serde_json::to_string_pretty(&config).unwrap_or_default())
-                .map_err(|e| QuantixError::Other(format!("写入日历失败: {e}")))?;
+            std::fs::write(
+                config_path,
+                serde_json::to_string_pretty(&config).unwrap_or_default(),
+            )
+            .map_err(|e| QuantixError::Other(format!("写入日历失败: {e}")))?;
 
             println!("已同步 {} 年交易日历 → config/holidays.json", y);
-            println!("  节假日: {} 天, 调休日: {} 天", holidays_arr.len(), workdays_arr.len());
+            println!(
+                "  节假日: {} 天, 调休日: {} 天",
+                holidays_arr.len(),
+                workdays_arr.len()
+            );
+        }
+        TdxApiCommands::ImportKlines {
+            code,
+            r#type,
+            force,
+        } => {
+            use crate::db::ClickHouseClient;
+
+            let c = client()?;
+            let kt = parse_kline_type(&r#type)?;
+
+            println!("正在获取 {} THS 前复权 {} K 线...", code, r#type);
+            let klines = c.get_kline_all_ths(&code, kt).await?;
+            println!("获取到 {} 条 K 线数据", klines.len());
+
+            if klines.is_empty() {
+                println!("无数据可导入");
+                return Ok(());
+            }
+
+            // 显示数据范围
+            if let (Some(first), Some(last)) = (klines.first(), klines.last()) {
+                println!("  范围: {} ~ {}", first.date, last.date);
+            }
+
+            let ch = ClickHouseClient::with_default_config().await?;
+            ch.check_connection().await?;
+
+            if !force {
+                // 检查已有数据量
+                let existing = ch
+                    .get_kline_data(&code, &r#type, None, None, Some(1))
+                    .await?;
+                if !existing.is_empty() {
+                    println!("已有 {} {} K线数据，使用 --force 覆盖导入", code, r#type);
+                    return Ok(());
+                }
+            }
+
+            ch.insert_kline_data_batch_with_source(&klines, &r#type, "THS_QFQ")
+                .await?;
+
+            println!(
+                "已导入 {} 条 THS 前复权 {} K 线到 ClickHouse",
+                klines.len(),
+                r#type
+            );
         }
     }
     Ok(())

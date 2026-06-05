@@ -485,7 +485,9 @@ impl TradingCalendar {
         self.workdays_on_weekend.insert(year, workdays_on_weekend);
         tracing::info!(
             "已同步 {} 年日历: {} 个节假日, {} 个调休日",
-            year, h_count, w_count
+            year,
+            h_count,
+            w_count
         );
     }
 

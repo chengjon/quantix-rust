@@ -70,6 +70,12 @@ pub struct TdxApiConfig {
     pub timeout_secs: u64,
     #[serde(default = "default_tdx_api_retries")]
     pub max_retries: u32,
+    #[serde(default = "default_tdx_api_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_tdx_api_max_batch_quote_size")]
+    pub max_batch_quote_size: usize,
+    #[serde(default = "default_tdx_api_health_timeout")]
+    pub health_timeout_secs: u64,
 }
 
 fn default_tdx_api_url() -> String {
@@ -85,6 +91,27 @@ fn default_tdx_api_timeout() -> u64 {
 
 fn default_tdx_api_retries() -> u32 {
     3
+}
+
+fn default_tdx_api_enabled() -> bool {
+    std::env::var("TDX_API_ENABLED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(true)
+}
+
+fn default_tdx_api_max_batch_quote_size() -> usize {
+    std::env::var("TDX_API_MAX_BATCH_QUOTE_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(50)
+}
+
+fn default_tdx_api_health_timeout() -> u64 {
+    std::env::var("TDX_API_HEALTH_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(5)
 }
 
 #[derive(Debug, Deserialize, Clone)]

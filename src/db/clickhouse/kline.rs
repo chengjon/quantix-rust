@@ -98,6 +98,17 @@ impl ClickHouseClient {
         klines: &[crate::data::models::Kline],
         period: &str,
     ) -> Result<()> {
+        self.insert_kline_data_batch_with_source(klines, period, "TDX")
+            .await
+    }
+
+    /// 批量插入 K线数据 (指定数据源)
+    pub async fn insert_kline_data_batch_with_source(
+        &self,
+        klines: &[crate::data::models::Kline],
+        period: &str,
+        source: &str,
+    ) -> Result<()> {
         if klines.is_empty() {
             return Ok(());
         }
@@ -128,7 +139,7 @@ impl ClickHouseClient {
                     volume: kline.volume as f64,
                     amount: kline.amount.unwrap_or_default().to_f64().unwrap_or(0.0),
                     trade_count: 0,
-                    source: "TDX".to_string(),
+                    source: source.to_string(),
                 };
                 insert
                     .write(&row)
