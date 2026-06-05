@@ -655,9 +655,26 @@ impl TdxApiClient {
             .collect()
     }
 
-    // -----------------------------------------------------------------------
-    // Public API: Kline
-    // -----------------------------------------------------------------------
+    /// 兼容 CollectScheduler 的批量采集，分批 50 只调用 batch_quote
+    pub async fn collect_all_quotes(&self, codes: &[String]) -> Result<Vec<StockQuote>> {
+        if codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut all = Vec::new();
+        for chunk in codes.chunks(50) {
+            let refs: Vec<&str> = chunk.iter().map(|s| s.as_str()).collect();
+            match self.batch_quote(&refs).await {
+                Ok(q) => all.extend(q),
+                Err(e) => {
+                    tracing::warn!("tdx-api 批量行情采集失败: {e}, 跳过");
+                }
+            }
+            if chunk.len() == 50 {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+        }
+        Ok(all)
+    }
 
     /// 获取 K 线数据 (原始协议格式，价格单位: 厘)
     pub async fn get_kline_raw(
