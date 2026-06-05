@@ -61,7 +61,7 @@ Quantix already has partial `tdx-api` support:
 - `TdxApiClient` already exposes REST methods for quote, batch quote, k-line,
   minute, trades, code search, code lists, workday, market stats, index k-line,
   k-line history, full k-line, pull tasks, task inspection, cancellation, and
-  health.
+  health. It does not yet expose `/api/server-status`.
 - `src/cli/handlers/tdx_api_handler.rs` exposes CLI-level TDX API commands.
 - `src/bridge/client.rs` has bridge methods for TDX quotes and k-line.
 - `tests/bridge_tdx_source_test.rs` validates quote and k-line model mapping.
@@ -70,6 +70,11 @@ Quantix already has partial `tdx-api` support:
 
 This means the implementation should consolidate and productize the existing
 client instead of creating a new parallel data-source stack.
+
+The bridge layer and direct `tdx-api` REST path are separate integration paths.
+`src/bridge/client.rs` targets the bridge HTTP protocol under
+`/api/v1/data/tdx/...` with bridge authentication. This design targets direct
+`tdx-api` REST endpoints such as `/api/quote` and `/api/kline`.
 
 ## Goals
 
@@ -120,6 +125,18 @@ client behavior, not MCP tool availability.
 Use or extend the existing `TdxApiConfig` shape rather than adding a new config
 family.
 
+There are currently two `TdxApiConfig` definitions:
+
+- `src/core/config.rs::TdxApiConfig` is the serde/app-config source of truth.
+  Persistent config fields and environment variable mapping should be added
+  here.
+- `src/sources/tdx_api.rs::TdxApiConfig` is the runtime client config. It
+  should remain a derived runtime type with `Duration` values and validated
+  client settings.
+
+`TdxApiClient::from_app_config` is the bridge between those two shapes. New
+fields must be mapped there instead of introducing a third config layer.
+
 Required config fields:
 
 - `base_url`
@@ -136,6 +153,15 @@ Recommended operational fields:
 Configuration should support environment variables and app config, reusing the
 existing `from_env` / `from_app_config` path where possible.
 
+Field ownership:
+
+- `base_url`, `timeout_secs`, `max_retries`, `enabled`, and
+  `max_batch_quote_size` belong in `src/core/config.rs::TdxApiConfig`.
+- Runtime `timeout: Duration` and any precomputed client values belong in
+  `src/sources/tdx_api.rs::TdxApiConfig`.
+- Source priority belongs to the source-selection configuration, not the REST
+  client config itself.
+
 ## Source Scope
 
 Initial stable source capability:
@@ -144,7 +170,7 @@ Initial stable source capability:
 | --- | --- | --- |
 | Health | `/api/health`, `/api/server-status` | Accept `status=healthy` and `code=0` success shapes |
 | Single quote | `/api/quote` | Map to existing `StockQuote` |
-| Batch quote | `/api/batch-quote` | Preserve code order where possible, cap batch size |
+| Batch quote | `/api/batch-quote` | Preserve code order where possible, add client-side batch size validation |
 | Daily k-line | `/api/kline?type=day` | Map to existing `Kline` |
 | Code search | `/api/search` | Use for symbol discovery and diagnostics |
 | Code list | `/api/codes`, `/api/stock-codes`, `/api/etf-codes` | Use for source validation and future sync work |
@@ -174,8 +200,16 @@ Health behavior should use both:
 - `/api/health` for liveness
 - `/api/server-status` for upstream TDX connection state
 
+`/api/server-status` is new Quantix client surface. Add
+`TdxApiClient::server_status()` or an equivalent typed helper rather than
+overloading the existing raw `health()` method.
+
 `server-status.connected=false` should mark the source unhealthy for runtime
 data, even if the HTTP service itself is reachable.
+
+`batch_quote()` currently forwards all codes directly. The stable source slice
+must add explicit validation against `max_batch_quote_size` before calling
+`/api/batch-quote`.
 
 ## Testing
 
@@ -191,12 +225,15 @@ Required test layers:
 - CLI parser tests for any new flags or config commands
 
 Live smoke checks should be opt-in and guarded by environment variables such as
-`QUANTIX_TDX_API_LIVE_BASE_URL`.
+`TDX_API_URL` plus an explicit opt-in flag such as `QUANTIX_TDX_API_LIVE=1`.
+`TDX_API_URL` is already used by current config code and should remain the
+runtime base URL variable.
 
 ## Rollout Plan
 
 1. Spec and implementation plan only.
-2. First code slice: stabilize config, health parsing, and live smoke command.
+2. First code slice: stabilize dual config mapping, health parsing,
+   `server_status()`, batch-size validation, and live smoke command.
 3. Second code slice: promote quote/batch quote/daily k-line to stable source
    paths.
 4. Third code slice: connect source selection and strategy fallback behavior.
@@ -205,8 +242,11 @@ Live smoke checks should be opt-in and guarded by environment variables such as
 ## Acceptance Criteria
 
 - Quantix can verify the running `tdx-api` service through a health command.
+- Quantix can inspect upstream TDX connection state through `/api/server-status`.
 - Quantix can fetch and map a single quote, batch quotes, and daily k-line data
   through `TdxApiClient`.
+- Batch quote requests enforce the configured max batch size before making the
+  HTTP request.
 - Health checks pass with the observed `status=healthy` shape.
 - Runtime data access does not require MCP.
 - Tests cover config, mapping, health, failure classification, and source
@@ -218,7 +258,7 @@ Live smoke checks should be opt-in and guarded by environment variables such as
 Before implementation planning, confirm the first code slice should be:
 
 ```text
-health/config hardening -> quote/batch/kline stable source -> source selection
+config/health/server-status hardening -> quote/batch/kline stable source -> source selection
 ```
 
 This keeps the initial implementation small enough to verify end to end while
