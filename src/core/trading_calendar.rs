@@ -456,6 +456,55 @@ impl TradingCalendar {
         Ok(())
     }
 
+    /// 从交易日列表同步日历 (可由 tdx-api 调用方注入)
+    ///
+    /// 遍历全年，推导出节假日（非交易日的平日）和调休日（交易日的周末）
+    pub fn sync_trading_days(&mut self, year: i32, trading_days: Vec<NaiveDate>) {
+        let trading_set: HashSet<NaiveDate> = trading_days.into_iter().collect();
+        let mut holidays = HashSet::new();
+        let mut workdays_on_weekend = HashSet::new();
+
+        let start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap_or_else(|| NaiveDate::MIN);
+        let end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap_or_else(|| NaiveDate::MAX);
+
+        let mut d = start;
+        while d <= end {
+            let weekend = matches!(d.weekday(), Weekday::Sat | Weekday::Sun);
+            let trading = trading_set.contains(&d);
+            if weekend && trading {
+                workdays_on_weekend.insert(d);
+            } else if !weekend && !trading {
+                holidays.insert(d);
+            }
+            d += Duration::days(1);
+        }
+
+        let h_count = holidays.len();
+        let w_count = workdays_on_weekend.len();
+        self.holidays.insert(year, holidays);
+        self.workdays_on_weekend.insert(year, workdays_on_weekend);
+        tracing::info!(
+            "已同步 {} 年日历: {} 个节假日, {} 个调休日",
+            year, h_count, w_count
+        );
+    }
+
+    /// 获取指定年份的节假日列表
+    pub fn holidays_for_year(&self, year: i32) -> Vec<NaiveDate> {
+        self.holidays
+            .get(&year)
+            .map(|s| s.iter().copied().collect())
+            .unwrap_or_default()
+    }
+
+    /// 获取指定年份的调休日列表
+    pub fn workdays_on_weekend_for_year(&self, year: i32) -> Vec<NaiveDate> {
+        self.workdays_on_weekend
+            .get(&year)
+            .map(|s| s.iter().copied().collect())
+            .unwrap_or_default()
+    }
+
     /// 获取建议的采集间隔（秒）
     /// 根据当前交易状态返回合理的采集间隔
     pub async fn get_recommended_interval(&self) -> u64 {
