@@ -342,19 +342,15 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             let mut failed = 0usize;
 
             for (i, stock_code) in codes.iter().enumerate() {
-                // 增量检查: 跳过已有数据的股票
-                if !force {
-                    if let Ok(Some(_)) = ch
-                        .get_latest_kline_date(stock_code, &r#type, "THS_QFQ")
+                // 增量检查: 获取最新日期，后续过滤只插入新数据
+                let latest_date = if !force {
+                    ch.get_latest_kline_date(stock_code, &r#type, "THS_QFQ")
                         .await
-                    {
-                        skipped += 1;
-                        if i % 500 == 0 || i == total - 1 {
-                            println!("[{}/{}] 跳过 {} (已有数据)", i + 1, total, stock_code);
-                        }
-                        continue;
-                    }
-                }
+                        .ok()
+                        .flatten()
+                } else {
+                    None
+                };
 
                 if total > 1 {
                     println!("[{}/{}] 正在获取 {} ...", i + 1, total, stock_code);
@@ -367,8 +363,21 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                             continue;
                         }
 
+                        // 过滤: 只保留最新日期之后的数据
+                        let new_klines: Vec<_> = match latest_date {
+                            Some(cutoff) => {
+                                klines.into_iter().filter(|k| k.date > cutoff).collect()
+                            }
+                            None => klines,
+                        };
+
+                        if new_klines.is_empty() {
+                            skipped += 1;
+                            continue;
+                        }
+
                         if let Err(e) = ch
-                            .insert_kline_data_batch_with_source(&klines, &r#type, "THS_QFQ")
+                            .insert_kline_data_batch_with_source(&new_klines, &r#type, "THS_QFQ")
                             .await
                         {
                             failed += 1;
@@ -376,15 +385,13 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                             continue;
                         }
 
-                        imported += klines.len();
-                        if total == 1 || klines.len() > 0 {
-                            println!(
-                                "  {} → {} 条 (累计: {})",
-                                stock_code,
-                                klines.len(),
-                                imported
-                            );
-                        }
+                        imported += new_klines.len();
+                        println!(
+                            "  {} → {} 条新增 (累计: {})",
+                            stock_code,
+                            new_klines.len(),
+                            imported
+                        );
                     }
                     Err(e) => {
                         failed += 1;
