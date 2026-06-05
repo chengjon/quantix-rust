@@ -158,6 +158,32 @@ impl ClickHouseClient {
         Ok(())
     }
 
+    /// 获取指定股票最新 K 线日期 (按 source 过滤)
+    pub async fn get_latest_kline_date(
+        &self,
+        code: &str,
+        period: &str,
+        source: &str,
+    ) -> Result<Option<chrono::NaiveDate>> {
+        let sql = format!(
+            "SELECT max(timestamp) as latest FROM kline_data \
+             WHERE code = '{code}' AND period = '{period}' AND source = '{source}'"
+        );
+        #[derive(Deserialize)]
+        struct Row {
+            latest: Option<DateTime<Utc>>,
+        }
+        let rows: Vec<Row> = self
+            .client
+            .query(&sql)
+            .fetch_all()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("查询最新日期失败: {}", e)))?;
+        Ok(rows
+            .first()
+            .and_then(|r| r.latest.map(|dt| dt.date_naive())))
+    }
+
     /// 聚合查询：从分钟线聚合为日线
     pub async fn get_daily_from_minute(
         &self,

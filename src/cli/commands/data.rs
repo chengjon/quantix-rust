@@ -164,9 +164,17 @@ pub enum TdxApiCommands {
 
     /// 导入 THS 前复权 K 线到 ClickHouse
     ImportKlines {
-        /// 股票代码 (如 600519)
-        #[arg(short, long)]
-        code: String,
+        /// 股票代码 (如 600519), 与 --all 互斥
+        #[arg(short, long, group = "target")]
+        code: Option<String>,
+
+        /// 导入全部 A 股
+        #[arg(long, group = "target")]
+        all: bool,
+
+        /// 交易所过滤 (sh/sz/bj), 仅 --all 时有效
+        #[arg(long)]
+        exchange: Option<String>,
 
         /// K线周期: day, week, month
         #[arg(short, long, default_value = "day")]

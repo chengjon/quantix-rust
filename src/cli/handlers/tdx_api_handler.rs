@@ -262,6 +262,8 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
         }
         TdxApiCommands::ImportKlines {
             code,
+            all,
+            exchange,
             r#type,
             force,
         } => {
@@ -269,42 +271,94 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
 
             let c = client()?;
             let kt = parse_kline_type(&r#type)?;
-
-            println!("正在获取 {} THS 前复权 {} K 线...", code, r#type);
-            let klines = c.get_kline_all_ths(&code, kt).await?;
-            println!("获取到 {} 条 K 线数据", klines.len());
-
-            if klines.is_empty() {
-                println!("无数据可导入");
-                return Ok(());
-            }
-
-            // 显示数据范围
-            if let (Some(first), Some(last)) = (klines.first(), klines.last()) {
-                println!("  范围: {} ~ {}", first.date, last.date);
-            }
-
             let ch = ClickHouseClient::with_default_config().await?;
             ch.check_connection().await?;
 
-            if !force {
-                // 检查已有数据量
-                let existing = ch
-                    .get_kline_data(&code, &r#type, None, None, Some(1))
-                    .await?;
-                if !existing.is_empty() {
-                    println!("已有 {} {} K线数据，使用 --force 覆盖导入", code, r#type);
-                    return Ok(());
+            let codes = if all {
+                let ex = exchange.as_deref();
+                let resp = c.get_codes(ex).await?;
+                println!(
+                    "获取到 {} 只股票代码{}",
+                    resp.codes.len(),
+                    ex.map(|e| format!(" (交易所: {e})")).unwrap_or_default()
+                );
+                resp.codes.into_iter().map(|e| e.code).collect::<Vec<_>>()
+            } else {
+                match code {
+                    Some(c) => vec![c],
+                    None => {
+                        return Err(QuantixError::Other(
+                            "请指定 --code <代码> 或 --all".to_string(),
+                        ));
+                    }
+                }
+            };
+
+            let total = codes.len();
+            let mut imported = 0usize;
+            let mut skipped = 0usize;
+            let mut failed = 0usize;
+
+            for (i, stock_code) in codes.iter().enumerate() {
+                // 增量检查: 跳过已有数据的股票
+                if !force {
+                    if let Ok(Some(_)) = ch
+                        .get_latest_kline_date(stock_code, &r#type, "THS_QFQ")
+                        .await
+                    {
+                        skipped += 1;
+                        if i % 500 == 0 || i == total - 1 {
+                            println!("[{}/{}] 跳过 {} (已有数据)", i + 1, total, stock_code);
+                        }
+                        continue;
+                    }
+                }
+
+                if total > 1 {
+                    println!("[{}/{}] 正在获取 {} ...", i + 1, total, stock_code);
+                }
+
+                match c.get_kline_all_ths(stock_code, kt).await {
+                    Ok(klines) => {
+                        if klines.is_empty() {
+                            skipped += 1;
+                            continue;
+                        }
+
+                        if let Err(e) = ch
+                            .insert_kline_data_batch_with_source(&klines, &r#type, "THS_QFQ")
+                            .await
+                        {
+                            failed += 1;
+                            eprintln!("  导入 {} 失败: {}", stock_code, e);
+                            continue;
+                        }
+
+                        imported += klines.len();
+                        if total == 1 || klines.len() > 0 {
+                            println!(
+                                "  {} → {} 条 (累计: {})",
+                                stock_code,
+                                klines.len(),
+                                imported
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        eprintln!("  获取 {} 失败: {}", stock_code, e);
+                    }
+                }
+
+                // 限流: 避免对 tdx-api 造成压力
+                if total > 1 && i < total - 1 {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 }
             }
 
-            ch.insert_kline_data_batch_with_source(&klines, &r#type, "THS_QFQ")
-                .await?;
-
             println!(
-                "已导入 {} 条 THS 前复权 {} K 线到 ClickHouse",
-                klines.len(),
-                r#type
+                "导入完成: {} 条记录, {} 只跳过, {} 只失败",
+                imported, skipped, failed
             );
         }
     }
