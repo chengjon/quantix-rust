@@ -231,6 +231,39 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             let resp = c.cancel_task(&id).await?;
             println!("任务 {} 已取消: {}", id, resp);
         }
+        TdxApiCommands::ImportTicks { code, date } => {
+            use crate::core::config::AppConfig;
+            use crate::db::TDengineClient;
+
+            let c = client()?;
+            let resp = c.get_trades(&code, date.as_deref()).await?;
+            if resp.list.is_empty() {
+                println!("{} 无成交数据", code);
+                return Ok(());
+            }
+            println!("获取到 {} 条逐笔成交数据", resp.list.len());
+
+            let config =
+                AppConfig::load().map_err(|e| QuantixError::Other(format!("加载配置失败: {e}")))?;
+            let td = config.database.tdengine;
+            let token = format!("{}:{}", td.username, td.password);
+            let tde = TDengineClient::new(&format!("http://{}:{}", td.host, td.port), &token)?;
+            tde.check_connection().await?;
+            tde.create_tick_table().await?;
+
+            let ticks: Vec<(i64, f64, i32, f64, i32)> = resp
+                .list
+                .iter()
+                .map(|t| {
+                    let price = t.price as f64 / 1000.0;
+                    let amount = price * t.volume as f64 * 100.0;
+                    (0i64, price, t.volume, amount, t.status)
+                })
+                .collect();
+
+            tde.insert_ticks(&code, &ticks).await?;
+            println!("已导入 {} 条逐笔数据到 TDengine", ticks.len());
+        }
         TdxApiCommands::SyncCalendar { year } => {
             use crate::core::trading_calendar::TradingCalendar;
             use std::path::Path;

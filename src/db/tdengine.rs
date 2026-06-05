@@ -5,6 +5,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 /// 高频时序数据读取
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::{debug, info};
 
 use crate::core::error::{QuantixError, Result};
 
@@ -129,5 +130,73 @@ impl TDengineClient {
             .collect();
 
         Ok(klines)
+    }
+
+    /// 创建逐笔成交表
+    pub async fn create_tick_table(&self) -> Result<()> {
+        let sql = "CREATE STABLE IF NOT EXISTS tick_data ( \
+            ts TIMESTAMP, \
+            price DOUBLE, \
+            volume INT, \
+            amount DOUBLE, \
+            direction TINYINT \
+        ) TAGS (code BINARY(16))";
+        self.execute_sql(sql).await
+    }
+
+    /// 批量插入逐笔成交数据
+    pub async fn insert_ticks(
+        &self,
+        code: &str,
+        ticks: &[(i64, f64, i32, f64, i32)],
+    ) -> Result<()> {
+        if ticks.is_empty() {
+            return Ok(());
+        }
+        // TDengine REST SQL 批量插入
+        let values: Vec<String> = ticks
+            .iter()
+            .map(|(ts, price, vol, amt, dir)| {
+                format!("({}, {}, {}, {}, {})", ts, price, vol, amt, dir)
+            })
+            .collect();
+
+        for chunk in values.chunks(5000) {
+            let sql = format!(
+                "INSERT INTO t_{code} USING tick_data TAGS ('{code}') VALUES {}",
+                chunk.join(" ")
+            );
+            self.execute_sql(&sql).await?;
+            debug!("插入 {} 条逐笔数据: {}", chunk.len(), code);
+        }
+        Ok(())
+    }
+
+    /// 执行原始 SQL
+    pub async fn execute_sql(&self, sql: &str) -> Result<()> {
+        let url = format!("{}/rest/sql/{}", self.base_url, self.token);
+        let response = self
+            .client
+            .post(&url)
+            .json(&serde_json::json!({ "sql": sql }))
+            .send()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+
+        let resp: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| QuantixError::DataParse(e.to_string()))?;
+
+        let status = resp["status"].as_str().unwrap_or("err");
+        if status != "succ" {
+            let desc = resp["desc"].as_str().unwrap_or("unknown error");
+            // 忽略 "Table already exists" 等非致命错误
+            if desc.contains("already exists") || desc.contains("Invalid table name") {
+                return Ok(());
+            }
+            return Err(QuantixError::DatabaseQuery(format!("TDengine: {}", desc)));
+        }
+        Ok(())
     }
 }

@@ -199,6 +199,17 @@ pub enum TdxApiCommands {
         id: String,
     },
 
+    /// 导入逐笔成交数据到 TDengine
+    ImportTicks {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 日期 (YYYYMMDD), 默认今天
+        #[arg(short, long)]
+        date: Option<String>,
+    },
+
     /// 导入 THS 前复权 K 线到 ClickHouse
     ImportKlines {
         /// 股票代码 (如 600519), 与 --all 互斥
