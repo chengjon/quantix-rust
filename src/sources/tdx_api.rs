@@ -11,11 +11,21 @@ use rust_decimal::Decimal;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
+use urlencoding::encode as url_encode;
 
 use crate::core::{QuantixError, Result};
 use crate::data::fetcher::Fetcher;
 use crate::data::models::{AdjustType, Kline, Market, StockInfo};
 use crate::sources::tdx::StockQuote;
+
+/// serde helper: JSON `null` → `T::default()` (用于 Go 端返回 null 而非空数组的字段)
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> std::result::Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + serde::Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(|opt| opt.unwrap_or_default())
+}
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -77,7 +87,9 @@ struct ApiResponse<T> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct KlineResp {
+    #[serde(default)]
     pub count: i64,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     pub list: Vec<KlineItem>,
 }
 
@@ -133,7 +145,9 @@ struct PriceLevel {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct TradeResp {
+    #[serde(default)]
     count: i64,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
     list: Vec<TradeItem>,
 }
 
@@ -153,7 +167,7 @@ pub struct MinuteResp {
     pub date: String,
     #[serde(rename = "Count")]
     pub count: i32,
-    #[serde(rename = "List")]
+    #[serde(rename = "List", default, deserialize_with = "deserialize_null_default")]
     pub list: Vec<MinuteItem>,
 }
 
@@ -759,7 +773,8 @@ impl TdxApiClient {
 
     /// 搜索股票代码/名称
     pub async fn search_codes(&self, keyword: &str) -> Result<Vec<SearchResult>> {
-        self.get(&format!("/api/search?keyword={keyword}")).await
+        let encoded = url_encode(keyword);
+        self.get(&format!("/api/search?keyword={encoded}")).await
     }
 
     /// 获取全部股票代码列表 (带缓存)
@@ -1001,9 +1016,12 @@ impl TdxApiClient {
     // Health
     // -----------------------------------------------------------------------
 
-    /// 健康检查
+    /// 健康检查 (不走通用 envelope，直接返回原始 JSON)
     pub async fn health(&self) -> Result<serde_json::Value> {
-        self.get("/api/health").await
+        let url = format!("{}/api/health", self.config.base_url);
+        let resp = self.client.get(&url).send().await.map_err(QuantixError::Http)?;
+        resp.json().await
+            .map_err(|e| QuantixError::DataParse(format!("tdx-api health 解析失败: {e}")))
     }
 
     /// 清除缓存
