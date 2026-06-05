@@ -19,6 +19,7 @@ services:
       - POSTGRES_PASSWORD=quantix123
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_DB=quantix
+      - TDX_API_URL=http://tdx-api:8080
     volumes:
       - ./config:/app/config:ro
       - quantix-logs:/app/logs
@@ -28,6 +29,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      tdx-api:
+        condition: service_healthy
     networks:
       - quantix-network
     healthcheck:
@@ -36,6 +39,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # tdx-api - A股行情数据服务
+  tdx-api:
+    build:
+      context: /opt/claude/tdx-api
+      dockerfile: Dockerfile
+    container_name: quantix-tdx-api
+    restart: unless-stopped
+    ports:
+      - "8089:8080"
+    volumes:
+      - tdx-api-data:/app/data
+    networks:
+      - quantix-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # PostgreSQL 数据库
   postgres:
@@ -191,6 +214,8 @@ volumes:
     name: quantix-logs
   quantix-data:
     name: quantix-data
+  tdx-api-data:
+    name: quantix-tdx-api-data
 
   # 数据库数据
   postgres-data:
