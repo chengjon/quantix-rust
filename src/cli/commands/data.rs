@@ -161,6 +161,13 @@ pub enum TdxApiCommands {
         #[arg(short, long)]
         id: String,
     },
+
+    /// 从 tdx-api 同步交易日历到本地 config/holidays.json
+    SyncCalendar {
+        /// 年份 (默认今年)
+        #[arg(short, long)]
+        year: Option<i32>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

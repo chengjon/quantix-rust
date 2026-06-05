@@ -185,6 +185,64 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 println!("错误: {e}");
             }
         }
+        TdxApiCommands::SyncCalendar { year } => {
+            use crate::core::trading_calendar::TradingCalendar;
+            use std::path::Path;
+
+            let y = year.unwrap_or_else(|| chrono::Datelike::year(&chrono::Local::now().date_naive()));
+            let c = client()?;
+
+            // API 每次最多返回 100 条，按季度分批获取
+            let mut trading_days = Vec::new();
+            for (ms, me) in [("0101","0331"),("0401","0630"),("0701","0930"),("1001","1231")] {
+                let s = format!("{y}{ms}");
+                let e = format!("{y}{me}");
+                if let Ok(mut batch) = c.get_workday_range(&s, &e).await {
+                    trading_days.append(&mut batch);
+                }
+            }
+
+            let mut cal = TradingCalendar::default();
+            cal.sync_trading_days(y, trading_days);
+
+            // 持久化到 config/holidays.json
+            let config_path = Path::new("config/holidays.json");
+            if let Some(parent) = config_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+
+            // 读取已有配置或创建新配置
+            let mut config: serde_json::Value = if config_path.exists() {
+                serde_json::from_str(&std::fs::read_to_string(config_path).unwrap_or_default())
+                    .unwrap_or_else(|_| serde_json::json!({}))
+            } else {
+                serde_json::json!({})
+            };
+
+            let holidays_arr: Vec<String> = cal
+                .holidays_for_year(y)
+                .iter()
+                .map(|d| d.format("%Y-%m-%d").to_string())
+                .collect();
+            let workdays_arr: Vec<String> = cal
+                .workdays_on_weekend_for_year(y)
+                .iter()
+                .map(|d| d.format("%Y-%m-%d").to_string())
+                .collect();
+
+            let year_key = y.to_string();
+            config["years"][&year_key] = serde_json::json!({
+                "holidays": holidays_arr,
+                "early_close": [],
+                "workdays_on_weekend": workdays_arr
+            });
+
+            std::fs::write(config_path, serde_json::to_string_pretty(&config).unwrap_or_default())
+                .map_err(|e| QuantixError::Other(format!("写入日历失败: {e}")))?;
+
+            println!("已同步 {} 年交易日历 → config/holidays.json", y);
+            println!("  节假日: {} 天, 调休日: {} 天", holidays_arr.len(), workdays_arr.len());
+        }
     }
     Ok(())
 }
