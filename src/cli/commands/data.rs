@@ -162,6 +162,43 @@ pub enum TdxApiCommands {
         id: String,
     },
 
+    /// 创建 K 线拉取异步任务
+    PullKline {
+        /// 股票代码 (逗号分隔, 如 600519,000001)
+        #[arg(short, long, value_delimiter = ',')]
+        codes: Vec<String>,
+
+        /// 起始日期 (YYYYMMDD)
+        #[arg(long)]
+        start_date: Option<String>,
+
+        /// 限制条数
+        #[arg(long)]
+        limit: Option<i32>,
+    },
+
+    /// 创建成交拉取异步任务
+    PullTrade {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 起始年份
+        #[arg(long)]
+        start_year: Option<i32>,
+
+        /// 结束年份
+        #[arg(long)]
+        end_year: Option<i32>,
+    },
+
+    /// 取消异步任务
+    CancelTask {
+        /// 任务 ID
+        #[arg(short, long)]
+        id: String,
+    },
+
     /// 导入 THS 前复权 K 线到 ClickHouse
     ImportKlines {
         /// 股票代码 (如 600519), 与 --all 互斥

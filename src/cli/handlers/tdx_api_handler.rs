@@ -189,6 +189,48 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 println!("错误: {e}");
             }
         }
+        TdxApiCommands::PullKline {
+            codes,
+            start_date,
+            limit,
+        } => {
+            use crate::sources::tdx_api::PullKlineRequest;
+
+            let c = client()?;
+            let req = PullKlineRequest {
+                codes,
+                tables: Vec::new(),
+                dir: String::new(),
+                limit,
+                start_date: start_date.unwrap_or_default(),
+            };
+            let task_id = c.create_pull_kline_task(&req).await?;
+            println!("K线拉取任务已创建: {}", task_id);
+            println!("使用 tdx-api task-info --id {} 查看进度", task_id);
+        }
+        TdxApiCommands::PullTrade {
+            code,
+            start_year,
+            end_year,
+        } => {
+            use crate::sources::tdx_api::PullTradeRequest;
+
+            let c = client()?;
+            let req = PullTradeRequest {
+                code,
+                dir: String::new(),
+                start_year,
+                end_year,
+            };
+            let task_id = c.create_pull_trade_task(&req).await?;
+            println!("成交拉取任务已创建: {}", task_id);
+            println!("使用 tdx-api task-info --id {} 查看进度", task_id);
+        }
+        TdxApiCommands::CancelTask { id } => {
+            let c = client()?;
+            let resp = c.cancel_task(&id).await?;
+            println!("任务 {} 已取消: {}", id, resp);
+        }
         TdxApiCommands::SyncCalendar { year } => {
             use crate::core::trading_calendar::TradingCalendar;
             use std::path::Path;
