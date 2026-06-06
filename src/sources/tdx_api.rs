@@ -199,21 +199,21 @@ struct PriceLevel {
 /// 逐笔成交响应 (PascalCase)
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-struct TradeResp {
+pub struct TradeResp {
     #[serde(default)]
-    count: i64,
+    pub count: i64,
     #[serde(default, deserialize_with = "deserialize_null_default")]
-    list: Vec<TradeItem>,
+    pub list: Vec<TradeItem>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-struct TradeItem {
-    time: String,
-    price: i64,
-    volume: i32,
-    status: i32,
-    number: i32,
+pub struct TradeItem {
+    pub time: String,
+    pub price: i64,
+    pub volume: i32,
+    pub status: i32,
+    pub number: i32,
 }
 
 /// 分时数据响应

@@ -243,9 +243,12 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             }
             println!("获取到 {} 条逐笔成交数据", resp.list.len());
 
-            let config =
-                AppConfig::load().map_err(|e| QuantixError::Other(format!("加载配置失败: {e}")))?;
-            let td = config.database.tdengine;
+            let config = AppConfig::load("config")
+                .map_err(|e| QuantixError::Other(format!("加载配置失败: {e}")))?;
+            let td = config
+                .database
+                .tdengine
+                .ok_or_else(|| QuantixError::Config("缺少 TDengine 配置".to_string()))?;
             let token = format!("{}:{}", td.username, td.password);
             let tde = TDengineClient::new(&format!("http://{}:{}", td.host, td.port), &token)?;
             tde.check_connection().await?;
