@@ -19,7 +19,7 @@ else
   echo "[INFO] local env already exists: $LOCAL_PATH"
 fi
 
-if rg -n 'replace-me' "$LOCAL_PATH" >/dev/null 2>&1; then
+if grep -n 'replace-me' "$LOCAL_PATH" >/dev/null 2>&1; then
   echo "[WARN] placeholder values still present in $LOCAL_PATH" >&2
   echo "[NEXT] edit $LOCAL_PATH and replace all 'replace-me' values before rerunning market acceptance" >&2
   exit 2

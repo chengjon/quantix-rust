@@ -249,12 +249,13 @@ All must pass before merge.
 
 ## Known Tech Debt
 
-> Identified during codebase audit (2026-03-28). Prioritize during refactoring sprints.
+> Last updated 2026-06-06.
 
-| Priority | Issue | Location | Action |
+| Priority | Issue | Location | Status |
 |----------|-------|----------|--------|
-| CRITICAL | `handlers.rs` at 11K+ lines (threshold: 1200) | `src/cli/handlers.rs` | Split into `src/cli/handlers/*.rs` module directory |
-| CRITICAL | `cli/mod.rs` at 2K+ lines (threshold: 800) | `src/cli/mod.rs` | Extract command enum definitions to separate files |
-| HIGH | 715 `.unwrap()` calls in production code | Multiple files | Replace with `?` / `map_err` |
+| ~~CRITICAL~~ | `handlers.rs` at 11K+ lines | `src/cli/handlers.rs` | ✅ Split into `src/cli/handlers/*.rs` module directory |
+| ~~CRITICAL~~ | `cli/mod.rs` at 2K+ lines | `src/cli/mod.rs` | ✅ Extracted to `src/cli/commands/*.rs` (now 27 lines) |
+| ~~HIGH~~ | 715 `.unwrap()` calls | Multiple files | ✅ Replaced with `?` / `map_err` (now 0) |
+| ~~WARN~~ | 12+ TODO comments | Multiple files | ✅ All resolved (0 remaining) |
 | HIGH | `println!` in library modules | `monitoring/`, `anomaly/` | Replace with `tracing` macros |
-| WARN | 12+ TODO comments without tracking | Multiple files | Add issue numbers or remove |
+| HIGH | 146 clippy warnings (unused imports) | Multiple handler files | Clean up unused imports |
