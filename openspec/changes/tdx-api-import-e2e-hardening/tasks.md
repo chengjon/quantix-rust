@@ -2,22 +2,30 @@
 
 ## 0. Baseline And Scope
 
-- [ ] 0.1 Confirm the active commit and record it in the E2E evidence report.
-- [ ] 0.2 Confirm `docs/reports/TDX_API_FOLLOWUP_VALUE_ANALYSIS_2026-06-06.md` is the value basis for this change.
-- [ ] 0.3 Confirm the E2E environment owns non-production tdx-api, ClickHouse, and TDengine targets or explicitly marks the run as BLOCKED.
-- [ ] 0.4 Record the selected E2E scope:
+- [x] 0.1 Confirm the active commit and record it in the E2E evidence report.
+  - Status 2026-06-06: recorded `f169e6a docs: add tdx-api import e2e openspec` in `docs/reports/evidence/tdx-api-import-e2e-20260606/preflight-blocked.md`.
+- [x] 0.2 Confirm `docs/reports/TDX_API_FOLLOWUP_VALUE_ANALYSIS_2026-06-06.md` is the value basis for this change.
+  - Status 2026-06-06: confirmed and referenced in the preflight evidence.
+- [x] 0.3 Confirm the E2E environment owns non-production tdx-api, ClickHouse, and TDengine targets or explicitly marks the run as BLOCKED.
+  - Status 2026-06-06: marked BLOCKED because the current TDengine config path points to unavailable `localhost:6041`.
+- [x] 0.4 Record the selected E2E scope:
   - tdx-api base URL.
   - ClickHouse host/database/table target.
   - TDengine host/database/table target.
   - K-line import market bound, such as `--exchange sh`, if full-market `--all` is too large for the gate.
   - Tick import `code` and `date`.
+  - Status 2026-06-06: partial scope recorded in `docs/reports/evidence/tdx-api-import-e2e-20260606/preflight-blocked.md`; tick `code/date` intentionally not selected while TDengine is blocked.
 
 ## 1. Dependency Preflight
 
-- [ ] 1.1 Run `quantix data tdx-api health` against the selected `TDX_API_URL` and capture exit code plus response summary.
-- [ ] 1.2 Verify ClickHouse connectivity through the same configuration path used by `quantix data tdx-api import-klines`.
-- [ ] 1.3 Verify TDengine connectivity through the same configuration path used by `quantix data tdx-api import-ticks`.
-- [ ] 1.4 If any dependency is unavailable, stop the E2E gate and record BLOCKED with the missing dependency, command, endpoint, and error. Do not mark the gate passed.
+- [x] 1.1 Run `quantix data tdx-api health` against the selected `TDX_API_URL` and capture exit code plus response summary.
+  - Status 2026-06-06: default URL timed out; `TDX_API_URL=http://192.168.123.104:8089` passed with `healthy=true status=running connected=true version=1.0.0`.
+- [x] 1.2 Verify ClickHouse connectivity through the same configuration path used by `quantix data tdx-api import-klines`.
+  - Status 2026-06-06: `.env` ClickHouse URL `http://192.168.123.104:8123/ping` returned HTTP 200 `Ok.`.
+- [x] 1.3 Verify TDengine connectivity through the same configuration path used by `quantix data tdx-api import-ticks`.
+  - Status 2026-06-06: checked and failed; current config path points to `localhost:6041`, which is not reachable from this shell.
+- [x] 1.4 If any dependency is unavailable, stop the E2E gate and record BLOCKED with the missing dependency, command, endpoint, and error. Do not mark the gate passed.
+  - Status 2026-06-06: stopped before import writes; BLOCKED evidence saved at `docs/reports/evidence/tdx-api-import-e2e-20260606/preflight-blocked.md`.
 
 ## 2. ClickHouse K-line Import E2E
 
