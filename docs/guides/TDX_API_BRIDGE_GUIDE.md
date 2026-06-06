@@ -2,6 +2,9 @@
 
 > quantix-rust 通过 HTTP 桥接 tdx-api Docker 服务，获取通达信行情数据。
 
+> 功能状态说明：本指南只说明 tdx-api Bridge 的使用方式，不作为功能状态注册表。
+> 当前能力、状态、证据和边界以 `FUNCTION_TREE.md` 的状态注册表为准。
+
 ## 架构概览
 
 ```

@@ -74,6 +74,7 @@ struct YearHolidays {
 }
 
 /// A股交易日历管理器
+#[derive(Default)]
 pub struct TradingCalendar {
     /// 每年的节假日缓存，key为年份，value为节假日日期集合
     holidays: HashMap<i32, HashSet<NaiveDate>>,
@@ -343,7 +344,7 @@ impl TradingCalendar {
         if !self.is_trading_day(date).await {
             let mut next_date = date + Duration::days(1);
             while !self.is_trading_day(next_date).await {
-                next_date = next_date + Duration::days(1);
+                next_date += Duration::days(1);
             }
             return Local
                 .with_ymd_and_hms(
@@ -370,7 +371,7 @@ impl TradingCalendar {
             // 已收盘，返回明天的开盘时间
             let mut next_date = date + Duration::days(1);
             while !self.is_trading_day(next_date).await {
-                next_date = next_date + Duration::days(1);
+                next_date += Duration::days(1);
             }
             Local
                 .with_ymd_and_hms(
@@ -386,7 +387,6 @@ impl TradingCalendar {
             // 交易时段内，返回下一个交易时段的开始时间
             let morning_start = NaiveTime::from_hms_opt(9, 30, 0).unwrap();
             let morning_end = NaiveTime::from_hms_opt(11, 30, 0).unwrap();
-            let afternoon_start = NaiveTime::from_hms_opt(13, 0, 0).unwrap();
 
             if current_time >= morning_start && current_time < morning_end {
                 // 上午交易时段，返回下午开盘
@@ -397,7 +397,7 @@ impl TradingCalendar {
                 // 下午交易时段，返回明天的开盘
                 let mut next_date = date + Duration::days(1);
                 while !self.is_trading_day(next_date).await {
-                    next_date = next_date + Duration::days(1);
+                    next_date += Duration::days(1);
                 }
                 Local
                     .with_ymd_and_hms(
@@ -525,16 +525,6 @@ impl TradingCalendar {
                     1800
                 }
             }
-        }
-    }
-}
-
-impl Default for TradingCalendar {
-    fn default() -> Self {
-        Self {
-            holidays: HashMap::new(),
-            workdays_on_weekend: HashMap::new(),
-            config_path: None,
         }
     }
 }

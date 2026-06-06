@@ -1,11 +1,7 @@
 use super::*;
 use crate::core::config::{AkShareConfig, AppConfig, TdxApiConfig, TdxConfig};
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
-use crate::fundamental::dragon_tiger::DragonTigerFetcher;
-use crate::fundamental::earnings::EarningsFetcher;
-use crate::fundamental::institution::InstitutionFetcher;
-use crate::fundamental::valuation::ValuationFetcher;
 use crate::io::{DataExporter, ExportConfig, ExportFormat};
 use crate::sync::{DataSync, MarketFundamentalSyncRecord};
 use chrono::NaiveDate;
