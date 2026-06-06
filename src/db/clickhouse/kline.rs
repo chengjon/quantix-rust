@@ -169,7 +169,7 @@ impl ClickHouseClient {
             "SELECT max(timestamp) as latest FROM kline_data \
              WHERE code = '{code}' AND period = '{period}' AND source = '{source}'"
         );
-        #[derive(Deserialize)]
+        #[derive(Deserialize, clickhouse::Row)]
         struct Row {
             latest: Option<DateTime<Utc>>,
         }

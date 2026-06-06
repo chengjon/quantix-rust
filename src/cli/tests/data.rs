@@ -156,6 +156,89 @@ fn parses_data_tdx_api_kline_command() {
 }
 
 #[test]
+fn parses_data_tdx_api_import_klines_code_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "tdx-api",
+        "import-klines",
+        "--code",
+        "600000",
+        "--type",
+        "week",
+        "--force",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::TdxApi(TdxApiCommands::ImportKlines {
+            code,
+            all,
+            exchange,
+            r#type,
+            force,
+        })) => {
+            assert_eq!(code.as_deref(), Some("600000"));
+            assert!(!all);
+            assert_eq!(exchange, None);
+            assert_eq!(r#type, "week");
+            assert!(force);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_data_tdx_api_import_klines_all_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "tdx-api",
+        "import-klines",
+        "--all",
+        "--exchange",
+        "sh",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::TdxApi(TdxApiCommands::ImportKlines {
+            code,
+            all,
+            exchange,
+            r#type,
+            force,
+        })) => {
+            assert_eq!(code, None);
+            assert!(all);
+            assert_eq!(exchange.as_deref(), Some("sh"));
+            assert_eq!(r#type, "day");
+            assert!(!force);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn rejects_data_tdx_api_import_klines_conflicting_targets() {
+    let err = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "tdx-api",
+        "import-klines",
+        "--code",
+        "600000",
+        "--all",
+    ])
+    .unwrap_err();
+
+    assert!(
+        err.to_string().contains("cannot be used with"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn parses_data_import_fundamentals_command() {
     let cli = Cli::try_parse_from([
         "quantix",
