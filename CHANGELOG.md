@@ -5,6 +5,36 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-06
+
+### Added
+- **tdx-api REST 数据源桥接** (`src/sources/tdx_api.rs`, `src/cli/commands/data.rs`, `src/cli/handlers/tdx_api_handler.rs`, `src/db/tdengine.rs`, `src/db/clickhouse/kline.rs`, `docker-compose.yml`, `scripts/daily-update.sh`)
+  - 新增 `TdxApiClient` REST 客户端，支持通过 `TDX_API_URL` 环境变量连接 tdx-api Docker 服务
+  - 新增 18 个 CLI 子命令（`quantix data tdx-api <subcommand>`）：
+    - `health` - 测试连通性
+    - `quote` - 实时行情查询
+    - `kline` - K 线数据获取
+    - `kline-ths` - 同花顺前复权 K 线全量获取
+    - `minute` - 分时数据获取
+    - `search` - 搜索股票代码/名称
+    - `workday` / `workday-range` - 交易日查询
+    - `income` - N日收益计算
+    - `market-stats` - 市场涨跌统计
+    - `tasks` / `task-info` - 异步任务列表与详情
+    - `pull-kline` / `pull-trade` / `cancel-task` - 异步任务管理
+    - `import-ticks` - 逐笔成交数据导入 TDengine
+    - `import-klines` - THS 前复权 K 线导入 ClickHouse（支持 `--all` 批量、`--exchange` 过滤、`--force` 覆盖、增量跳过）
+    - `sync-calendar` - 交易日历同步到 `config/holidays.json`
+  - ClickHouse `insert_kline_data_batch_with_source()` 支持自定义 source 参数（THS_QFQ/TDX）
+  - ClickHouse `get_latest_kline_date()` 支持增量导入检查
+  - TDengine 扩展：`create_tick_table()` / `insert_ticks()` / `execute_sql()` 逐笔成交超级表
+  - Docker Compose 新增 tdx-api 服务定义，quantix 服务增加 `TDX_API_URL` 环境变量
+  - 新增 `scripts/daily-update.sh` 每日定时同步脚本（交易日历 + 日线增量导入）
+
+### Tests
+- **CLI 解析测试** (`src/cli/tests/data.rs`)
+  - 新增 `import-klines` 命令解析测试（--code/--all/--force/--exchange/--type 参数组合）
+
 ## 2026-06-02
 
 ### Fixed
