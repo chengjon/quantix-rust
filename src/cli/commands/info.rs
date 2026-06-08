@@ -265,6 +265,7 @@ pub enum SentimentCommands {
 }
 
 #[derive(Subcommand, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ImportCommands {
     /// 从图片识别股票代码 (需要 LLM Vision API)
     FromImage {

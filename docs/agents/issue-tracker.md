@@ -6,13 +6,7 @@ Matt Pocock skills should use GitHub Issues for project work items in this repos
 
 Use `chengjon/quantix-rust` for new code-audit, remediation, and architecture-review issues unless the maintainer explicitly routes a task elsewhere.
 
-Repository remotes observed during setup:
-
-| Remote | URL | Use |
-|---|---|---|
-| `origin` | `git@github.com:chengjon/quantix-rust.git` | Default issue tracker for this repository |
-| `quantix` | `git@github.com:chengjon/quantix.git` | Historical or alternate tracker; do not use for new issues unless requested |
-| `mystocks` | `git@github.com:chengjon/mystocks.git` | Historical or alternate tracker; do not use for new issues unless requested |
+Default remote: `origin` → `git@github.com:chengjon/quantix-rust.git`
 
 ## Creation Rules
 

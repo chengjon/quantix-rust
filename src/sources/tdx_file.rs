@@ -55,8 +55,8 @@ mod bytes_helper {
     #[inline]
     pub fn to_naive_date(x: u32) -> Option<NaiveDate> {
         let year = (x / 10000) as i32;
-        let month = ((x % 10000) / 100) as u32;
-        let day = (x % 100) as u32;
+        let month = (x % 10000) / 100;
+        let day = x % 100;
         NaiveDate::from_ymd_opt(year, month, day)
     }
 }
@@ -380,7 +380,7 @@ impl FuquanCalculator {
 
         let mut current_xdxr = gbbq_iter.peek().copied();
 
-        for (i, day) in days.iter().enumerate() {
+        for day in days.iter() {
             let close = day.close as f64;
 
             // 检查是否有除权事件

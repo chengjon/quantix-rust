@@ -5,17 +5,13 @@ use crate::risk::{
     RiskAccountSnapshot, RiskLockStateSource, RiskLogEvent, RiskLogEventType, RiskRule,
     RiskService, RiskStatus, sync_industry_reference_data_at,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use std::path::Path;
 
 mod output;
 
 use crate::core::{CliRuntime, QuantixError, Result};
-use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
-    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
-};
+use crate::trade::{JsonPaperTradeStore, PaperTradeAccount, PaperTradeStore};
 
 pub async fn run_risk_command(cmd: RiskCommands) -> Result<()> {
     let runtime = CliRuntime::load();
@@ -480,6 +476,7 @@ fn build_risk_account_snapshot(account: &PaperTradeAccount) -> RiskAccountSnapsh
     )
 }
 
+#[allow(dead_code)]
 fn build_position_rows(
     total_assets: rust_decimal::Decimal,
     positions: &[(String, rust_decimal::Decimal)],

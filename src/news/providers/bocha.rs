@@ -26,12 +26,14 @@ struct BochaResponse {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct BochaData {
     list: Option<Vec<BochaNewsItem>>,
     total: Option<i32>,
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct BochaNewsItem {
     title: Option<String>,
     url: Option<String>,

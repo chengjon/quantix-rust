@@ -740,6 +740,7 @@ max_retries = 2
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 async fn test_tdx_data_source(config: &TdxConfig) -> Result<()> {
     println!("🧪 测试 tdx 数据源");
     println!("  hosts: {}", config.hosts.join(","));

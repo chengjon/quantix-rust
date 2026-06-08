@@ -58,12 +58,12 @@ pub fn ensure_symbol_date_sorted(frame: &DataFrame) -> Result<()> {
                 .map_err(|e| QuantixError::DataParse(format!("factor date read failed: {}", e)))?
                 .to_string(),
         );
-        if let Some(prev) = &previous {
-            if current < *prev {
-                return Err(QuantixError::DataParse(
-                    "factor dataset must be sorted by symbol,date ascending".to_string(),
-                ));
-            }
+        if let Some(prev) = &previous
+            && current < *prev
+        {
+            return Err(QuantixError::DataParse(
+                "factor dataset must be sorted by symbol,date ascending".to_string(),
+            ));
         }
         previous = Some(current);
     }

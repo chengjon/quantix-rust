@@ -234,19 +234,9 @@ pub struct SourceCount {
 }
 
 /// 情感分布
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SentimentDistribution {
     pub positive: usize,
     pub neutral: usize,
     pub negative: usize,
-}
-
-impl Default for SentimentDistribution {
-    fn default() -> Self {
-        Self {
-            positive: 0,
-            neutral: 0,
-            negative: 0,
-        }
-    }
 }

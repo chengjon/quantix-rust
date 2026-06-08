@@ -250,7 +250,11 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                 .tdengine
                 .ok_or_else(|| QuantixError::Config("缺少 TDengine 配置".to_string()))?;
             let token = format!("{}:{}", td.username, td.password);
-            let tde = TDengineClient::new(&format!("http://{}:{}", td.host, td.port), &token)?;
+            let tde = TDengineClient::new_with_database(
+                &format!("http://{}:{}", td.host, td.port),
+                &token,
+                &td.database,
+            )?;
             tde.check_connection().await?;
             tde.create_tick_table().await?;
 

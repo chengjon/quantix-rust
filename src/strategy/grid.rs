@@ -264,7 +264,6 @@ impl Strategy for GridStrategy {
 mod tests {
     use super::*;
     use crate::strategy::test_utils::create_test_kline;
-    use rust_decimal::prelude::*;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -272,7 +271,7 @@ mod tests {
         let config = GridConfig::default();
         assert_eq!(config.grid_count, 10);
         assert_eq!(config.atr_period, 14);
-        assert_eq!(config.dynamic_adjustment, true);
+        assert!(config.dynamic_adjustment);
     }
 
     #[tokio::test]

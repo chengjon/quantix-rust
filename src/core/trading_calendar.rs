@@ -464,8 +464,8 @@ impl TradingCalendar {
         let mut holidays = HashSet::new();
         let mut workdays_on_weekend = HashSet::new();
 
-        let start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap_or_else(|| NaiveDate::MIN);
-        let end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap_or_else(|| NaiveDate::MAX);
+        let start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap_or(NaiveDate::MIN);
+        let end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap_or(NaiveDate::MAX);
 
         let mut d = start;
         while d <= end {

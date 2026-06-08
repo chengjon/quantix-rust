@@ -340,6 +340,7 @@ fn parses_risk_rejects_missing_value_or_type() {
     assert!(err.to_string().contains("--type"));
 }
 
+#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn run_risk_rule_set_dispatches_to_handler() {
     let _lock = env_lock();
@@ -376,6 +377,7 @@ async fn run_risk_rule_set_dispatches_to_handler() {
     assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(20)));
 }
 
+#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn run_risk_rule_set_volatility_limit_dispatches_to_handler() {
     let _lock = env_lock();
@@ -412,6 +414,7 @@ async fn run_risk_rule_set_volatility_limit_dispatches_to_handler() {
     assert_eq!(state.rules[0].value, RuleValue::Percentage(dec!(4)));
 }
 
+#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn run_risk_rule_set_industry_blocklist_dispatches_to_handler() {
     let _lock = env_lock();
@@ -451,6 +454,7 @@ async fn run_risk_rule_set_industry_blocklist_dispatches_to_handler() {
     );
 }
 
+#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn run_risk_import_rebuild_and_live_import_status_dispatch_to_handlers() {
     let _lock = env_lock();
@@ -522,6 +526,7 @@ async fn run_risk_import_rebuild_and_live_import_status_dispatch_to_handlers() {
     assert_eq!(mirror.positions.len(), 1);
 }
 
+#[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn run_risk_live_import_status_rejects_invalid_daily_loss_rule_value_type() {
     let _lock = env_lock();

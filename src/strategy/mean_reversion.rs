@@ -172,8 +172,7 @@ impl Strategy for MeanReversionStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{create_test_kline, create_test_ohlcv};
-    use rust_decimal::prelude::*;
+    use crate::strategy::test_utils::create_test_kline;
     use rust_decimal_macros::dec;
 
     #[test]

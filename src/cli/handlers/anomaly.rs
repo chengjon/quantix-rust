@@ -1,6 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 
 use super::*;
 

@@ -1,11 +1,4 @@
-use super::{
-    account::*, ai::*, algo::*, analyze_handler::*, anomaly::*, app_shell::*, backtest_handler::*,
-    data_handler::*, execution_handler::*, factor::*, fundamental::*, import::*, market_handler::*,
-    market_output::*, monitor_handler::*, monitor_output::*, news::*, notify::*,
-    performance_handler::*, risk::*, safety::*, screener_handler::*, sentiment::*,
-    shared_support::*, stop_handler::*, stop_output::*, strategy_handler::*, trade_handler::*,
-    trade_output::*, watchlist_handler::*,
-};
+use super::*;
 use crate::bridge::client::BridgeHttpClient;
 use crate::cli::command_types::*;
 use crate::core::config::{

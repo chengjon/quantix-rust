@@ -98,6 +98,7 @@ async fn duplicate_import_skips_identical_rows_and_counts_them() {
         occurred_at: None,
     };
 
+    #[allow(clippy::cloned_ref_to_slice_refs)]
     let first = store
         .import_records("live-001", "batch-a.csv", &[record.clone()], fixed_ts())
         .await

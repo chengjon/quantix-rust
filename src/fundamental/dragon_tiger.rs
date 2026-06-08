@@ -1,9 +1,8 @@
 //! 龙虎榜数据获取
 
-use super::types::{BrokerActivity, DragonTigerItem};
+use super::types::DragonTigerItem;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 
 /// EastMoney 龙虎榜 API 响应
@@ -45,6 +44,7 @@ struct DragonTigerItemRaw {
     sell_amount: Option<serde_json::Value>,
     /// 净买入
     #[serde(rename = "NetBuy")]
+    #[allow(dead_code)]
     net_buy: Option<serde_json::Value>,
 }
 

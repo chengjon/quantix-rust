@@ -1,3 +1,5 @@
+#![allow(clippy::await_holding_lock)]
+
 use quantix_cli::bridge::client::BridgeHttpClient;
 use quantix_cli::bridge::error::BridgeError;
 use quantix_cli::bridge::models::{

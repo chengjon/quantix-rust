@@ -3,7 +3,6 @@
 use super::types::InstitutionHolding;
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 
 /// EastMoney 机构持仓 API 响应
@@ -31,6 +30,7 @@ struct HoldingItem {
     /// 变动比例(%)
     change_ratio: Option<serde_json::Value>,
     /// 报告期
+    #[allow(dead_code)]
     end_date: Option<String>,
     /// 机构类型
     holder_type: Option<serde_json::Value>,
@@ -135,7 +135,7 @@ impl InstitutionFetcher {
                         .and_then(|v| to_decimal(v / 10000.0)),
                     float_ratio: value_to_f64(&item.hold_ratio).and_then(to_decimal),
                     change_direction: change_direction(change_pct),
-                    change_shares: change_pct.and_then(|c| to_decimal(c)),
+                    change_shares: change_pct.and_then(to_decimal),
                     report_date,
                 }
             })

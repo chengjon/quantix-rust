@@ -590,13 +590,12 @@ impl ReconciliationService {
             if let Some(task_identity) = qmt_live
                 .get_mut("task_identity")
                 .and_then(|value| value.as_object_mut())
+                && let Some(external_order_id) = &result.external_order_id
             {
-                if let Some(external_order_id) = &result.external_order_id {
-                    task_identity.insert(
-                        "external_order_id".to_string(),
-                        serde_json::Value::String(external_order_id.clone()),
-                    );
-                }
+                task_identity.insert(
+                    "external_order_id".to_string(),
+                    serde_json::Value::String(external_order_id.clone()),
+                );
             }
 
             qmt_live.insert(

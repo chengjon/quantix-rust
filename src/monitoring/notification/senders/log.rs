@@ -36,10 +36,10 @@ impl NotificationSender for LogSender {
         if let Some(path) = &self.log_path {
             let log_entry = format!("{}\n", log_text);
             let path = std::path::Path::new(path);
-            if let Some(parent) = path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    tokio::fs::create_dir_all(parent).await?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.as_os_str().is_empty()
+            {
+                tokio::fs::create_dir_all(parent).await?;
             }
 
             use tokio::io::AsyncWriteExt;

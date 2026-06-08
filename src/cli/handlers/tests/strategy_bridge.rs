@@ -4,6 +4,7 @@ use crate::bridge::models::{
     BridgeCapabilitiesResponse, BridgeCapabilitySection, BridgeQmtCapabilitySection,
 };
 
+#[allow(dead_code)]
 async fn test_execute_execution_bridge_qmt_live_rejects_preview_only_bridge_mode() {
     let _lock = env_lock();
     let _guard = RuntimeEnvGuard::capture();

@@ -277,7 +277,7 @@ async fn mock_live_order_state_round_trips_through_store() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(saved.cancel_requested, true);
+    assert!(saved.cancel_requested);
     assert_eq!(saved.unknown_retries, 2);
 }
 

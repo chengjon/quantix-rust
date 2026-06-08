@@ -131,7 +131,7 @@ impl Strategy for MACrossStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{PriceTrend, create_test_kline};
+    use crate::strategy::test_utils::create_test_kline;
     use rust_decimal_macros::dec;
 
     #[tokio::test]

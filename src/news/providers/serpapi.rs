@@ -25,6 +25,7 @@ struct SerpApiResponse {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct SerpApiNewsItem {
     title: Option<String>,
     link: Option<String>,

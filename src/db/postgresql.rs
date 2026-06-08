@@ -83,8 +83,8 @@ impl PostgresClient {
 
         let rows = sqlx::query_as::<_, KlineDaily>(query)
             .bind(code)
-            .bind(&start_date)
-            .bind(&end_date)
+            .bind(start_date)
+            .bind(end_date)
             .bind(limit as i64)
             .fetch_all(&self.pool)
             .await

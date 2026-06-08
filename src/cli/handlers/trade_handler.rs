@@ -1,18 +1,13 @@
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::risk::RiskService;
 use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
-    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
+    CashSnapshot, PaperTradeAccount, PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOverview,
+    TradePosition, TradePositionCurrentRow, TradeRecord, TradeReportingService, TradeService,
 };
-use crate::watchlist::{
-    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
-    WatchlistStorage, WatchlistStore,
-};
-use chrono::{DateTime, NaiveDate, Utc};
+use crate::watchlist::{TdxWatchlistQuoteLookup, WatchlistQuoteLookup};
+use chrono::Utc;
 use rust_decimal::Decimal;
 
 pub async fn run_trade_command(cmd: TradeCommands) -> Result<()> {

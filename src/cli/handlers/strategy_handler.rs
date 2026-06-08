@@ -38,16 +38,11 @@ use crate::strategy::daemon::StrategyBarLoadTelemetry;
 use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use crate::strategy::{
     FallbackStrategyBarLoader, JsonStrategyConfigStore, JsonStrategyServiceConfigStore,
-    StrategyDaemonConfig, StrategyServiceConfig, StrategyServiceStatusSummary,
-    StrategySignalDaemon, StrategyUserServiceInstaller,
+    StrategyDaemonConfig, StrategySignalDaemon,
 };
-use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
-    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
-};
+use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeService};
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use rust_decimal_macros::dec;
 use std::time::Duration;
 
@@ -385,6 +380,7 @@ where
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_strategy_run_with_risk_service_and_kill_switch<L, TS, RS>(
     name: &str,
     mode: &str,

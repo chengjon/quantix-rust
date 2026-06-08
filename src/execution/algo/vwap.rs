@@ -384,10 +384,10 @@ impl AlgorithmExecutor for VwapExecutor {
 
         // 设置第一次下单时间
         let plans = self.slice_plans.read().await;
-        if let Some(slices) = plans.get(algo_id) {
-            if !slices.is_empty() {
-                context.next_order_time = Some(slices[0].scheduled_time);
-            }
+        if let Some(slices) = plans.get(algo_id)
+            && !slices.is_empty()
+        {
+            context.next_order_time = Some(slices[0].scheduled_time);
         }
 
         tracing::info!(algo_id = %algo_id, "VWAP algorithm started");
@@ -455,62 +455,62 @@ impl AlgorithmExecutor for VwapExecutor {
         let slices = plans.get(algo_id).cloned();
         drop(plans);
 
-        if let Some(slices) = slices {
+        if let Some(slices) = slices
+            && context.current_slice < slices.len() as u32
+        {
+            let slice = &slices[context.current_slice as usize];
+
+            // 创建子订单
+            let child_order = ChildOrder {
+                order_id: format!("{}-{}", algo_id, context.current_slice),
+                algo_id: algo_id.to_string(),
+                scheduled_time: slice.scheduled_time,
+                scheduled_quantity: slice.quantity,
+                scheduled_price: slice.price,
+                order_quantity: slice.quantity,
+                order_price: slice.price,
+                filled_quantity: 0,
+                avg_fill_price: Decimal::ZERO,
+                status: ChildOrderStatus::Pending,
+                created_at: Utc::now(),
+            };
+
+            // 更新状态
+            context.state.record_order();
+            context.current_slice += 1;
+
+            // 设置下一次下单时间
             if context.current_slice < slices.len() as u32 {
-                let slice = &slices[context.current_slice as usize];
-
-                // 创建子订单
-                let child_order = ChildOrder {
-                    order_id: format!("{}-{}", algo_id, context.current_slice),
-                    algo_id: algo_id.to_string(),
-                    scheduled_time: slice.scheduled_time,
-                    scheduled_quantity: slice.quantity,
-                    scheduled_price: slice.price,
-                    order_quantity: slice.quantity,
-                    order_price: slice.price,
-                    filled_quantity: 0,
-                    avg_fill_price: Decimal::ZERO,
-                    status: ChildOrderStatus::Pending,
-                    created_at: Utc::now(),
-                };
-
-                // 更新状态
-                context.state.record_order();
-                context.current_slice += 1;
-
-                // 设置下一次下单时间
-                if context.current_slice < slices.len() as u32 {
-                    context.next_order_time =
-                        Some(slices[context.current_slice as usize].scheduled_time);
-                } else {
-                    context.next_order_time = None;
-                }
-
-                // 检查是否完成
-                if context.is_complete() {
-                    context.state.status = AlgoStatus::Completed;
-                    context.state.completed_at = Some(Utc::now());
-                }
-
-                // 记录子订单
-                {
-                    let mut orders = self.child_orders.write().await;
-                    orders
-                        .entry(algo_id.to_string())
-                        .or_insert_with(Vec::new)
-                        .push(child_order.clone());
-                }
-
-                tracing::debug!(
-                    algo_id = %algo_id,
-                    slice = context.current_slice,
-                    quantity = slice.quantity,
-                    volume_weight = ?slice.volume_weight,
-                    "VWAP slice scheduled"
-                );
-
-                return Ok(Some(child_order));
+                context.next_order_time =
+                    Some(slices[context.current_slice as usize].scheduled_time);
+            } else {
+                context.next_order_time = None;
             }
+
+            // 检查是否完成
+            if context.is_complete() {
+                context.state.status = AlgoStatus::Completed;
+                context.state.completed_at = Some(Utc::now());
+            }
+
+            // 记录子订单
+            {
+                let mut orders = self.child_orders.write().await;
+                orders
+                    .entry(algo_id.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(child_order.clone());
+            }
+
+            tracing::debug!(
+                algo_id = %algo_id,
+                slice = context.current_slice,
+                quantity = slice.quantity,
+                volume_weight = ?slice.volume_weight,
+                "VWAP slice scheduled"
+            );
+
+            return Ok(Some(child_order));
         }
 
         Ok(None)

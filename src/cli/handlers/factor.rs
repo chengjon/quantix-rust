@@ -1,19 +1,18 @@
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use crate::core::{QuantixError, Result};
+use chrono::NaiveDate;
 
 pub async fn run_factor_command(cmd: FactorCommands) -> Result<()> {
     match cmd {
         FactorCommands::List { category, verbose } => {
             let catalog = crate::factor::builtin_factor_catalog();
             for meta in catalog.list() {
-                if let Some(category_filter) = &category {
-                    if format!("{:?}", meta.category).to_lowercase()
+                if let Some(category_filter) = &category
+                    && format!("{:?}", meta.category).to_lowercase()
                         != category_filter.to_lowercase()
-                    {
-                        continue;
-                    }
+                {
+                    continue;
                 }
 
                 if verbose {

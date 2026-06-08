@@ -73,6 +73,7 @@ use self::data_handler::{
     add_data_source, export_data, import_market_fundamentals, list_data_sources, query_kline_data,
     set_default_data_source, test_data_source,
 };
+#[allow(unused_imports)]
 pub(crate) use self::execution_handler::*;
 pub use self::factor::run_factor_command;
 pub use self::fundamental::run_fundamental_command;
@@ -155,7 +156,6 @@ pub(crate) use self::stop_handler::{
 };
 use self::stop_output::print_stop_command_output;
 pub(crate) use self::strategy_handler::*;
-pub(crate) use self::tdx_api_handler::run_tdx_api_command;
 pub(crate) use self::trade_handler::TradeCommandOutput;
 pub use self::trade_handler::run_trade_command;
 #[cfg(test)]

@@ -1,6 +1,5 @@
 use super::strategy_helpers::{fixed_ts, sample_run};
 use super::*;
-use rust_decimal_macros::dec;
 
 #[tokio::test]
 async fn test_execute_strategy_signal_list_approve_reject_and_request_list() {

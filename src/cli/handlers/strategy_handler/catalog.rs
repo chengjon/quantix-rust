@@ -134,6 +134,7 @@ pub(crate) async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::items_after_test_module)]
 #[cfg(test)]
 mod tests {
     use super::routes_through_execution_handler;

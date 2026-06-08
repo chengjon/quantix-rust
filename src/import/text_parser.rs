@@ -155,7 +155,7 @@ mod tests {
     fn test_parse_code_name_pair() {
         let parser = TextParser::with_defaults();
         let result = parser.parse("000001 平安银行", ImportSource::Text);
-        assert!(result.items.len() >= 1);
+        assert!(!result.items.is_empty());
         assert_eq!(result.items[0].code.as_deref(), Some("000001"));
     }
 }

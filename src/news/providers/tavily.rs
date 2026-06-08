@@ -40,12 +40,14 @@ struct TavilyRequest {
 
 /// Tavily API 响应
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct TavilyResponse {
     results: Vec<TavilyResult>,
     answer: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct TavilyResult {
     title: String,
     url: String,
@@ -58,7 +60,7 @@ struct TavilyResult {
 impl TavilyProvider {
     /// 创建新的 Tavily 提供商
     pub fn new(config: NewsProviderConfig) -> Result<Self> {
-        let api_key = config
+        config
             .api_key
             .clone()
             .ok_or_else(|| QuantixError::Config("Tavily API key is required".to_string()))?;

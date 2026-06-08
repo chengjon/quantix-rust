@@ -59,7 +59,7 @@ pub fn next_trading_time(dt: NaiveDateTime) -> NaiveDateTime {
 
     loop {
         // 尝试向后推移到下一个可能的交易时间
-        current = current + chrono::Duration::minutes(1);
+        current += chrono::Duration::minutes(1);
 
         // weekday(): Mon=0, Sun=6
         let weekday = current.weekday().num_days_from_monday();
@@ -70,7 +70,6 @@ pub fn next_trading_time(dt: NaiveDateTime) -> NaiveDateTime {
             // 检查交易时段
             for session in TradingSession::all_sessions() {
                 let start = session.start_time();
-                let end = session.end_time();
                 if time == start {
                     return current;
                 }

@@ -27,6 +27,7 @@ pub struct Cli {
 }
 
 #[derive(clap::Subcommand, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// 初始化配置和数据库
     Init {

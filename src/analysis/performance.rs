@@ -244,7 +244,7 @@ impl PerformanceCalculator {
             let exp = power.to_u32().unwrap_or(1);
             let mut annual = Decimal::ONE;
             for _ in 0..exp {
-                annual = annual * one_plus_return;
+                annual *= one_plus_return;
             }
             annual - Decimal::ONE
         } else {

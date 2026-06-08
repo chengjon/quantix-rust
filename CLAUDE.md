@@ -257,5 +257,19 @@ All must pass before merge.
 | ~~CRITICAL~~ | `cli/mod.rs` at 2K+ lines | `src/cli/mod.rs` | ✅ Extracted to `src/cli/commands/*.rs` (now 27 lines) |
 | ~~HIGH~~ | 715 `.unwrap()` calls | Multiple files | ✅ Replaced with `?` / `map_err` (now 0) |
 | ~~WARN~~ | 12+ TODO comments | Multiple files | ✅ All resolved (0 remaining) |
-| HIGH | `println!` in library modules | `monitoring/`, `anomaly/` | Replace with `tracing` macros |
-| HIGH | 146 clippy warnings (unused imports) | Multiple handler files | Clean up unused imports |
+| ~~HIGH~~ | `println!` in library modules | `monitoring/`, `anomaly/` | ✅ Already 0 in library code |
+| ~~HIGH~~ | 595 clippy warnings (workspace) | Multiple files | ✅ Reduced to 70 (88%); 9 lib-only remaining (design-level) |
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `chengjon/quantix-rust`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses `type:*` (bug/enhancement) and `status:*` (needs-triage/needs-info/ready-for-agent/ready-for-human/wontfix) prefixed labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout using existing governance docs (FUNCTION_TREE.md, audit reports) as domain context. See `docs/agents/domain.md`.

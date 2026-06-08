@@ -11,7 +11,7 @@ use crate::anomaly::config::AnomalyConfig;
 use crate::anomaly::features::{FeatureExtractor, OHLCVCandle, OHLCVSeries};
 use crate::anomaly::filter::{StockFilter, StockInfo};
 use crate::anomaly::forest::{AnomalyScore, IsolationForest};
-use rayon::prelude::*;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write as _;

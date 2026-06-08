@@ -310,7 +310,6 @@ mod tests {
         // Suspended: same close for 5 bars
         let suspended_closes = vec![10.0, 10.0, 10.0, 10.0, 10.0, 10.0];
         let normal_closes = vec![10.0, 10.5, 11.0, 10.8, 11.2, 11.5];
-        let volumes = vec![100000.0; 6];
 
         assert!(filter.is_suspended(&suspended_closes));
         assert!(!filter.is_suspended(&normal_closes));

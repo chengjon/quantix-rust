@@ -1,3 +1,5 @@
+#![allow(clippy::await_holding_lock)]
+
 use quantix_cli::cli::{
     WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
     handlers::run_watchlist_command,

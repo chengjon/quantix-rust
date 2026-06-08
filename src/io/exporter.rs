@@ -315,7 +315,6 @@ mod tests {
     use super::*;
     use crate::data::models::AdjustType;
     use chrono::NaiveDate;
-    use rust_decimal_macros::dec;
     use std::fs;
     use tempfile::tempdir;
 
@@ -346,7 +345,7 @@ mod tests {
     fn test_export_config_default() {
         let config = ExportConfig::default();
         assert_eq!(config.format, ExportFormat::CSV);
-        assert_eq!(config.include_header, true);
+        assert!(config.include_header);
         assert_eq!(config.batch_size, 1000);
     }
 

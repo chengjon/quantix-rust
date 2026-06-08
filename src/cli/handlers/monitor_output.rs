@@ -2,16 +2,10 @@ use super::stop_output::format_triggered_stop_message;
 use super::*;
 
 use crate::monitor::{
-    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
-    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
-    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
-    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
-    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
+    MonitorEventRow, MonitorEventType, MonitorRunMode, MonitorServiceStatusSummary,
+    MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
 };
-use crate::stop::{
-    SqliteStopRuleStore, StopHistoryEvent, StopHistoryEventType, StopRule, StopRuleStore,
-    StopRuleUpdate, StopService, StopStatusRow, StopTriggerKind, TriggeredStop,
-};
+use crate::stop::TriggeredStop;
 
 pub(super) fn print_monitor_command_output(output: &MonitorCommandOutput) {
     match output {

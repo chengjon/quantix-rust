@@ -39,4 +39,4 @@ If the labels do not exist on GitHub yet, ask the maintainer before creating or 
 
 ## Current Tracker State
 
-As of 2026-05-15, the configured `type:*` and `status:*` labels were not present in `chengjon/quantix`. Code-audit issues #1-#9 were published without applying labels; their issue bodies record the suggested category and state.
+As of 2026-06-07, all configured `type:*` and `status:*` labels are present in `chengjon/quantix-rust`. Apply labels normally when triaging.
