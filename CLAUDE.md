@@ -249,7 +249,7 @@ All must pass before merge.
 
 ## Known Tech Debt
 
-> Last updated 2026-06-06.
+> Last updated 2026-06-08.
 
 | Priority | Issue | Location | Status |
 |----------|-------|----------|--------|
@@ -258,7 +258,7 @@ All must pass before merge.
 | ~~HIGH~~ | 715 `.unwrap()` calls | Multiple files | ✅ Replaced with `?` / `map_err` (now 0) |
 | ~~WARN~~ | 12+ TODO comments | Multiple files | ✅ All resolved (0 remaining) |
 | ~~HIGH~~ | `println!` in library modules | `monitoring/`, `anomaly/` | ✅ Already 0 in library code |
-| ~~HIGH~~ | 595 clippy warnings (workspace) | Multiple files | ✅ Reduced to 70 (88%); 9 lib-only remaining (design-level) |
+| ~~HIGH~~ | 595 clippy warnings (workspace) | Multiple files | ✅ All resolved (0 warnings) |
 
 ## Agent skills
 
