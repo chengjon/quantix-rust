@@ -113,13 +113,16 @@ impl TDengineClient {
             )));
         }
 
-        let klines = resp
+        let klines: Vec<MinuteKline> = resp
             .data
             .into_iter()
-            .map(|row| {
-                let ts = chrono::DateTime::from_timestamp(row.ts, 0)
-                    .unwrap_or_else(|| chrono::DateTime::from_timestamp_millis(row.ts).unwrap());
-                MinuteKline {
+            .map(|row| -> Result<MinuteKline> {
+                let ts = DateTime::from_timestamp(row.ts, 0)
+                    .or_else(|| DateTime::from_timestamp_millis(row.ts))
+                    .ok_or_else(|| {
+                        QuantixError::DataParse(format!("无效 TDengine 时间戳: {}", row.ts))
+                    })?;
+                Ok(MinuteKline {
                     ts,
                     code: row.code,
                     open: row.open.unwrap_or(0.0),
@@ -127,9 +130,9 @@ impl TDengineClient {
                     low: row.low.unwrap_or(0.0),
                     close: row.close.unwrap_or(0.0),
                     volume: row.volume.unwrap_or(0),
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(klines)
     }

@@ -23,6 +23,22 @@ pub struct OpenAICompatAdapter {
 }
 
 impl OpenAICompatAdapter {
+    fn build_client(timeout_secs: u64) -> Client {
+        match Client::builder()
+            .timeout(Duration::from_secs(timeout_secs))
+            .build()
+        {
+            Ok(client) => client,
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    "falling back to default HTTP client after OpenAI-compatible client build failed"
+                );
+                Client::new()
+            }
+        }
+    }
+
     /// Create a new adapter for DeepSeek
     pub fn deepseek(config: &LlmConfig) -> Self {
         let provider_config = config.get_provider("deepseek");
@@ -33,10 +49,7 @@ impl OpenAICompatAdapter {
                 .and_then(|c| c.base_url.clone())
                 .unwrap_or_else(|| "https://api.deepseek.com/v1".to_string()),
             default_model: "deepseek-chat".to_string(),
-            client: Client::builder()
-                .timeout(Duration::from_secs(config.timeout_secs))
-                .build()
-                .unwrap(),
+            client: Self::build_client(config.timeout_secs),
         }
     }
 
@@ -50,10 +63,7 @@ impl OpenAICompatAdapter {
                 .and_then(|c| c.base_url.clone())
                 .unwrap_or_else(|| "https://api.openai.com/v1".to_string()),
             default_model: "gpt-4o".to_string(),
-            client: Client::builder()
-                .timeout(Duration::from_secs(config.timeout_secs))
-                .build()
-                .unwrap(),
+            client: Self::build_client(config.timeout_secs),
         }
     }
 
@@ -67,10 +77,7 @@ impl OpenAICompatAdapter {
                 .and_then(|c| c.base_url.clone())
                 .unwrap_or_else(|| "http://localhost:11434/v1".to_string()),
             default_model: "llama3".to_string(),
-            client: Client::builder()
-                .timeout(Duration::from_secs(config.timeout_secs))
-                .build()
-                .unwrap(),
+            client: Self::build_client(config.timeout_secs),
         }
     }
 
@@ -87,10 +94,7 @@ impl OpenAICompatAdapter {
             api_key,
             base_url,
             default_model,
-            client: Client::builder()
-                .timeout(Duration::from_secs(timeout_secs))
-                .build()
-                .unwrap(),
+            client: Self::build_client(timeout_secs),
         }
     }
 

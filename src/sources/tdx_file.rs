@@ -13,6 +13,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+fn fallback_date() -> NaiveDate {
+    NaiveDate::from_ymd_opt(1970, 1, 1).expect("fallback date must be valid")
+}
+
 // ============================================================================
 // 字节解析辅助函数
 // ============================================================================
@@ -132,9 +136,7 @@ impl TdxDayRecord {
     pub fn to_kline(&self, adjust_type: AdjustType) -> Kline {
         Kline {
             code: self.code_string(),
-            date: self
-                .naive_date()
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+            date: self.naive_date().unwrap_or_else(fallback_date),
             open: Decimal::from_f32(self.open)
                 .map(|d| d.round_dp(2))
                 .unwrap_or(Decimal::ZERO),
@@ -408,9 +410,7 @@ impl FuquanCalculator {
             preclose = close;
 
             factors.push(FuquanFactor {
-                date: day
-                    .naive_date()
-                    .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+                date: day.naive_date().unwrap_or_else(fallback_date),
                 factor,
                 preclose: close,
                 close,
@@ -499,9 +499,7 @@ impl TdxDayData {
 
         Self {
             code: record.code_string(),
-            date: record
-                .naive_date()
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+            date: record.naive_date().unwrap_or_else(fallback_date),
             open: Decimal::from_f32(record.open)
                 .map(|d| d.round_dp(2))
                 .unwrap_or(Decimal::ZERO),

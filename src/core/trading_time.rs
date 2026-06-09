@@ -11,17 +11,22 @@ pub enum TradingSession {
 }
 
 impl TradingSession {
+    fn time(hour: u32, minute: u32, second: u32) -> NaiveTime {
+        NaiveTime::from_hms_opt(hour, minute, second)
+            .expect("trading session time constants must be valid")
+    }
+
     pub fn start_time(&self) -> NaiveTime {
         match self {
-            TradingSession::Morning => NaiveTime::from_hms_opt(9, 30, 0).unwrap(),
-            TradingSession::Afternoon => NaiveTime::from_hms_opt(13, 0, 0).unwrap(),
+            TradingSession::Morning => Self::time(9, 30, 0),
+            TradingSession::Afternoon => Self::time(13, 0, 0),
         }
     }
 
     pub fn end_time(&self) -> NaiveTime {
         match self {
-            TradingSession::Morning => NaiveTime::from_hms_opt(11, 30, 0).unwrap(),
-            TradingSession::Afternoon => NaiveTime::from_hms_opt(15, 0, 0).unwrap(),
+            TradingSession::Morning => Self::time(11, 30, 0),
+            TradingSession::Afternoon => Self::time(15, 0, 0),
         }
     }
 

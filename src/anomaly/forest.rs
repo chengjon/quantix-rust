@@ -109,7 +109,9 @@ impl TreeNode {
         }
 
         // Randomly select a feature
-        let split_feature = valid_features.choose(rng).copied().unwrap();
+        let Some(split_feature) = valid_features.choose(rng).copied() else {
+            return TreeNode::new_leaf(current_height as f64 + avg_path_length(data.len() as f64));
+        };
 
         // Find min and max for the selected feature
         let min_val = data
@@ -166,20 +168,23 @@ impl TreeNode {
             return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
         }
 
-        let feature = self.split_feature.unwrap();
-        let value = self.split_value.unwrap();
-
-        if sample[feature] < value {
+        let feature = self
+            .split_feature
+            .expect("internal tree node must have split feature");
+        let value = self
+            .split_value
+            .expect("internal tree node must have split value");
+        let next = if sample[feature] < value {
             self.left
                 .as_ref()
-                .unwrap()
-                .path_length(sample, current_height + 1)
+                .expect("internal tree node must have left child")
         } else {
             self.right
                 .as_ref()
-                .unwrap()
-                .path_length(sample, current_height + 1)
-        }
+                .expect("internal tree node must have right child")
+        };
+
+        next.path_length(sample, current_height + 1)
     }
 }
 

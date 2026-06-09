@@ -75,7 +75,7 @@ impl TaskScheduler {
     /// 添加任务
     pub async fn add_task(&self, task: ScheduledTask) -> Result<(), String> {
         // 验证 cron 表达式
-        let _cron = CronExpression::new(&task.cron_expr)
+        let cron = CronExpression::new(&task.cron_expr)
             .map_err(|e| format!("无效的 cron 表达式: {}", e))?;
 
         info!("添加任务: {} ({})", task.name, task.cron_expr);
@@ -96,8 +96,6 @@ impl TaskScheduler {
 
         // 如果调度器正在运行，立即添加到调度器
         if *self.running.read().await {
-            // 重新获取 cron 用于调度
-            let cron = CronExpression::new(&tasks[&task_name].cron_expr).unwrap();
             self.schedule_task(&task_name, &cron).await?;
         }
 

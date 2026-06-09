@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::core::{QuantixError, Result};
 use crate::data::models::{AdjustType, Kline};
@@ -70,7 +70,21 @@ impl<P> FallbackStrategyBarLoader<P> {
     }
 
     pub fn last_source(&self) -> Option<StrategyBarLoadSource> {
-        self.last_source.lock().unwrap().clone()
+        self.last_source_guard().clone()
+    }
+
+    fn last_source_guard(&self) -> MutexGuard<'_, Option<StrategyBarLoadSource>> {
+        match self.last_source.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                tracing::warn!("strategy fallback loader source state mutex was poisoned");
+                poisoned.into_inner()
+            }
+        }
+    }
+
+    fn set_last_source(&self, source: StrategyBarLoadSource) {
+        *self.last_source_guard() = Some(source);
     }
 
     fn load_from_tdx(&self, code: &str, limit: usize) -> Result<Option<Vec<Kline>>> {
@@ -96,7 +110,7 @@ where
     async fn load_daily_bars(&self, code: &str, limit: usize) -> Result<Vec<Kline>> {
         match self.primary.load_daily_bars(code, limit).await {
             Ok(rows) if !rows.is_empty() => {
-                *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                self.set_last_source(StrategyBarLoadSource {
                     source_id: self.primary_source_id.to_string(),
                     fallback_used: false,
                 });
@@ -104,7 +118,7 @@ where
             }
             Ok(_) => match self.load_from_tdx(code, limit)? {
                 Some(rows) => {
-                    *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                    self.set_last_source(StrategyBarLoadSource {
                         source_id: "tdx-day-file".to_string(),
                         fallback_used: true,
                     });
@@ -114,7 +128,7 @@ where
             },
             Err(primary_error) => match self.load_from_tdx(code, limit) {
                 Ok(Some(rows)) => {
-                    *self.last_source.lock().unwrap() = Some(StrategyBarLoadSource {
+                    self.set_last_source(StrategyBarLoadSource {
                         source_id: "tdx-day-file".to_string(),
                         fallback_used: true,
                     });

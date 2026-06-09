@@ -4,7 +4,7 @@
 use crate::core::Result;
 use crate::data::models::Kline;
 use arrow::array::RecordBatch;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -21,6 +21,7 @@ const CSV_KLINE_HEADER: [&str; 9] = [
     "amount",
     "adjust_type",
 ];
+const UNIX_EPOCH_DAYS_FROM_CE: i32 = 719_163;
 
 /// 导出格式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,8 +278,7 @@ fn parquet_kline_schema() -> arrow::datatypes::Schema {
 }
 
 fn date_to_parquet_day(date: NaiveDate) -> i32 {
-    date.signed_duration_since(NaiveDate::from_ymd_opt(1970, 1, 1).unwrap())
-        .num_days() as i32
+    date.num_days_from_ce() - UNIX_EPOCH_DAYS_FROM_CE
 }
 
 fn decimal_to_f64_or_zero(value: Decimal) -> f64 {

@@ -494,7 +494,10 @@ pub fn calculate_total_return(equity_curve: &[Decimal]) -> Decimal {
         return Decimal::ZERO;
     }
     let initial = equity_curve[0];
-    let final_value = equity_curve.last().unwrap();
+    let final_value = match equity_curve.last() {
+        Some(value) => value,
+        None => return Decimal::ZERO,
+    };
     if initial > Decimal::ZERO {
         (final_value - initial) / initial
     } else {

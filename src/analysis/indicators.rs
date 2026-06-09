@@ -309,12 +309,18 @@ pub fn williams_r(
 
         let highest = *window_high
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("decimal comparison must be defined")
+            })
+            .expect("Williams %R high window must be non-empty");
         let lowest = *window_low
             .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .min_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("decimal comparison must be defined")
+            })
+            .expect("Williams %R low window must be non-empty");
 
         let wr_val = if highest != lowest {
             (highest - close[i]) / (highest - lowest) * Decimal::from(-100)

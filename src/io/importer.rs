@@ -312,8 +312,9 @@ fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
 }
 
 fn date_from_parquet_day(days: i32) -> Result<NaiveDate> {
-    NaiveDate::from_ymd_opt(1970, 1, 1)
-        .unwrap()
+    let epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))?;
+    epoch
         .checked_add_signed(chrono::Duration::days(days as i64))
         .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))
 }

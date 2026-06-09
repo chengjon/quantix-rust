@@ -221,9 +221,9 @@ impl Strategy for GridStrategy {
             self.config.atr_period,
         );
 
-        let current_atr = match atr_values.last().unwrap() {
-            Some(v) => v,
-            None => return Ok(Signal::Hold),
+        let current_atr = match atr_values.last() {
+            Some(Some(v)) => v,
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         // 首次初始化或动态调整网格

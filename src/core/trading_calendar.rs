@@ -222,42 +222,12 @@ impl TradingCalendar {
         }
 
         // 2. 检查是否在交易时段内
-        let auction_start = NaiveTime::from_hms_opt(
-            Self::AUCTION_START.0,
-            Self::AUCTION_START.1,
-            Self::AUCTION_START.2,
-        )
-        .unwrap();
-        let auction_end = NaiveTime::from_hms_opt(
-            Self::AUCTION_END.0,
-            Self::AUCTION_END.1,
-            Self::AUCTION_END.2,
-        )
-        .unwrap();
-        let morning_start = NaiveTime::from_hms_opt(
-            Self::MORNING_START.0,
-            Self::MORNING_START.1,
-            Self::MORNING_START.2,
-        )
-        .unwrap();
-        let morning_end = NaiveTime::from_hms_opt(
-            Self::MORNING_END.0,
-            Self::MORNING_END.1,
-            Self::MORNING_END.2,
-        )
-        .unwrap();
-        let afternoon_start = NaiveTime::from_hms_opt(
-            Self::AFTERNOON_START.0,
-            Self::AFTERNOON_START.1,
-            Self::AFTERNOON_START.2,
-        )
-        .unwrap();
-        let afternoon_end = NaiveTime::from_hms_opt(
-            Self::AFTERNOON_END.0,
-            Self::AFTERNOON_END.1,
-            Self::AFTERNOON_END.2,
-        )
-        .unwrap();
+        let auction_start = Self::session_time(Self::AUCTION_START);
+        let auction_end = Self::session_time(Self::AUCTION_END);
+        let morning_start = Self::session_time(Self::MORNING_START);
+        let morning_end = Self::session_time(Self::MORNING_END);
+        let afternoon_start = Self::session_time(Self::AFTERNOON_START);
+        let afternoon_end = Self::session_time(Self::AFTERNOON_END);
 
         (current_time >= auction_start && current_time <= auction_end)
             || (current_time >= morning_start && current_time <= morning_end)
@@ -274,42 +244,12 @@ impl TradingCalendar {
         let current_session = if !is_trading_day {
             TradingSession::Closed
         } else {
-            let auction_start = NaiveTime::from_hms_opt(
-                Self::AUCTION_START.0,
-                Self::AUCTION_START.1,
-                Self::AUCTION_START.2,
-            )
-            .unwrap();
-            let auction_end = NaiveTime::from_hms_opt(
-                Self::AUCTION_END.0,
-                Self::AUCTION_END.1,
-                Self::AUCTION_END.2,
-            )
-            .unwrap();
-            let morning_start = NaiveTime::from_hms_opt(
-                Self::MORNING_START.0,
-                Self::MORNING_START.1,
-                Self::MORNING_START.2,
-            )
-            .unwrap();
-            let morning_end = NaiveTime::from_hms_opt(
-                Self::MORNING_END.0,
-                Self::MORNING_END.1,
-                Self::MORNING_END.2,
-            )
-            .unwrap();
-            let afternoon_start = NaiveTime::from_hms_opt(
-                Self::AFTERNOON_START.0,
-                Self::AFTERNOON_START.1,
-                Self::AFTERNOON_START.2,
-            )
-            .unwrap();
-            let afternoon_end = NaiveTime::from_hms_opt(
-                Self::AFTERNOON_END.0,
-                Self::AFTERNOON_END.1,
-                Self::AFTERNOON_END.2,
-            )
-            .unwrap();
+            let auction_start = Self::session_time(Self::AUCTION_START);
+            let auction_end = Self::session_time(Self::AUCTION_END);
+            let morning_start = Self::session_time(Self::MORNING_START);
+            let morning_end = Self::session_time(Self::MORNING_END);
+            let afternoon_start = Self::session_time(Self::AFTERNOON_START);
+            let afternoon_end = Self::session_time(Self::AFTERNOON_END);
 
             if current_time >= auction_start && current_time <= auction_end {
                 TradingSession::Auction
@@ -346,71 +286,59 @@ impl TradingCalendar {
             while !self.is_trading_day(next_date).await {
                 next_date += Duration::days(1);
             }
-            return Local
-                .with_ymd_and_hms(
-                    next_date.year(),
-                    next_date.month(),
-                    next_date.day(),
-                    9,
-                    15,
-                    0,
-                )
-                .unwrap();
+            return Self::local_session_datetime(next_date, Self::AUCTION_START);
         }
 
         // 今天是交易日，判断当前时间
-        let auction_start = NaiveTime::from_hms_opt(9, 15, 0).unwrap();
-        let afternoon_end = NaiveTime::from_hms_opt(15, 0, 0).unwrap();
+        let auction_start = Self::session_time(Self::AUCTION_START);
+        let afternoon_end = Self::session_time(Self::AFTERNOON_END);
 
         if current_time < auction_start {
             // 还没到开盘，返回今天的开盘时间
-            Local
-                .with_ymd_and_hms(date.year(), date.month(), date.day(), 9, 15, 0)
-                .unwrap()
+            Self::local_session_datetime(date, Self::AUCTION_START)
         } else if current_time > afternoon_end {
             // 已收盘，返回明天的开盘时间
             let mut next_date = date + Duration::days(1);
             while !self.is_trading_day(next_date).await {
                 next_date += Duration::days(1);
             }
-            Local
-                .with_ymd_and_hms(
-                    next_date.year(),
-                    next_date.month(),
-                    next_date.day(),
-                    9,
-                    15,
-                    0,
-                )
-                .unwrap()
+            Self::local_session_datetime(next_date, Self::AUCTION_START)
         } else {
             // 交易时段内，返回下一个交易时段的开始时间
-            let morning_start = NaiveTime::from_hms_opt(9, 30, 0).unwrap();
-            let morning_end = NaiveTime::from_hms_opt(11, 30, 0).unwrap();
+            let morning_start = Self::session_time(Self::MORNING_START);
+            let morning_end = Self::session_time(Self::MORNING_END);
 
             if current_time >= morning_start && current_time < morning_end {
                 // 上午交易时段，返回下午开盘
-                Local
-                    .with_ymd_and_hms(date.year(), date.month(), date.day(), 13, 0, 0)
-                    .unwrap()
+                Self::local_session_datetime(date, Self::AFTERNOON_START)
             } else {
                 // 下午交易时段，返回明天的开盘
                 let mut next_date = date + Duration::days(1);
                 while !self.is_trading_day(next_date).await {
                     next_date += Duration::days(1);
                 }
-                Local
-                    .with_ymd_and_hms(
-                        next_date.year(),
-                        next_date.month(),
-                        next_date.day(),
-                        9,
-                        15,
-                        0,
-                    )
-                    .unwrap()
+                Self::local_session_datetime(next_date, Self::AUCTION_START)
             }
         }
+    }
+
+    fn session_time((hour, minute, second): (u32, u32, u32)) -> NaiveTime {
+        NaiveTime::from_hms_opt(hour, minute, second)
+            .expect("trading session time constants must be valid")
+    }
+
+    fn local_datetime(date: NaiveDate, time: NaiveTime) -> chrono::DateTime<Local> {
+        Local
+            .from_local_datetime(&date.and_time(time))
+            .earliest()
+            .expect("trading session local datetime must be valid")
+    }
+
+    fn local_session_datetime(
+        date: NaiveDate,
+        session_time: (u32, u32, u32),
+    ) -> chrono::DateTime<Local> {
+        Self::local_datetime(date, Self::session_time(session_time))
     }
 
     /// 判断是否为周末（周六或周日）

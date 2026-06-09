@@ -122,9 +122,9 @@ impl Strategy for MomentumStrategy {
             self.config.signal_period,
         );
 
-        let current_macd = match macd_values.last().unwrap() {
-            Some(m) => m.macd / rust_decimal::Decimal::from(100), // 转换为合适的范围
-            None => return Ok(Signal::Hold),
+        let current_macd = match macd_values.last() {
+            Some(Some(m)) => m.macd / rust_decimal::Decimal::from(100), // 转换为合适的范围
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         self.macd_history.push(current_macd);
