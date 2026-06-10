@@ -172,10 +172,6 @@ struct QuoteItem {
     k: PriceInfo,
     total_hand: i64,
     amount: f64,
-    inside_dish: i64,
-    outer_disc: i64,
-    buy_level: Vec<PriceLevel>,
-    sell_level: Vec<PriceLevel>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,14 +182,6 @@ struct PriceInfo {
     high: i64,
     low: i64,
     close: i64,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct PriceLevel {
-    buy: bool,
-    price: i64,
-    number: i32,
 }
 
 /// 逐笔成交响应 (PascalCase)
@@ -333,14 +321,6 @@ pub struct MarketStatItem {
 struct KlineAllResp {
     count: i64,
     list: Vec<KlineItem>,
-    meta: Option<KlineAllMeta>,
-}
-
-#[derive(Debug, Deserialize)]
-struct KlineAllMeta {
-    source: String,
-    #[serde(rename = "type")]
-    kline_type: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -416,19 +396,10 @@ impl<T> Cached<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct TdxApiCache {
     codes: Option<Cached<CodesResponse>>,
     workday_range: Option<Cached<Vec<NaiveDate>>>,
-}
-
-impl Default for TdxApiCache {
-    fn default() -> Self {
-        Self {
-            codes: None,
-            workday_range: None,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -522,22 +493,6 @@ impl TdxApiClient {
         .await
     }
 
-    async fn get_with_query<T: DeserializeOwned, Q: Serialize + Clone>(
-        &self,
-        path: &str,
-        query: &Q,
-    ) -> Result<T> {
-        let url = format!("{}{}", self.config.base_url, path);
-        let query = query.clone();
-        self.request_with_retry(|| {
-            let client = &self.client;
-            let url = url.clone();
-            let query = query.clone();
-            async move { client.get(&url).query(&query).send().await }
-        })
-        .await
-    }
-
     async fn post_json<T: DeserializeOwned, B: Serialize + Clone>(
         &self,
         path: &str,
@@ -572,14 +527,13 @@ impl TdxApiClient {
                     let status = resp.status();
                     if !status.is_success() {
                         let body = resp.text().await.unwrap_or_default();
-                        last_err = Some(QuantixError::DataSource(format!(
-                            "tdx-api HTTP {}: {}",
-                            status, body
-                        )));
+                        let err =
+                            QuantixError::DataSource(format!("tdx-api HTTP {}: {}", status, body));
                         if status.is_server_error() {
+                            last_err = Some(err);
                             continue; // retry on 5xx
                         }
-                        return Err(last_err.unwrap()); // no retry on 4xx
+                        return Err(err); // no retry on 4xx
                     }
                     let api_resp: ApiResponse<T> = resp.json().await.map_err(|e| {
                         QuantixError::DataParse(format!("tdx-api 响应解析失败: {e}"))
@@ -642,6 +596,7 @@ impl TdxApiClient {
     }
 
     /// symbol → (code, Market)
+    #[cfg(test)]
     fn from_symbol(symbol: &str) -> (&str, Market) {
         if let Some(code) = symbol.strip_prefix("sh") {
             (code, Market::SH)
@@ -867,10 +822,10 @@ impl TdxApiClient {
     pub async fn get_codes(&self, exchange: Option<&str>) -> Result<CodesResponse> {
         {
             let cache = self.cache.read().unwrap_or_else(|e| e.into_inner());
-            if let Some(ref cached) = cache.codes {
-                if cached.is_valid() {
-                    return Ok(cached.data.clone());
-                }
+            if let Some(ref cached) = cache.codes
+                && cached.is_valid()
+            {
+                return Ok(cached.data.clone());
             }
         }
 
@@ -902,10 +857,10 @@ impl TdxApiClient {
     pub async fn get_workday_range(&self, start: &str, end: &str) -> Result<Vec<NaiveDate>> {
         {
             let cache = self.cache.read().unwrap_or_else(|e| e.into_inner());
-            if let Some(ref cached) = cache.workday_range {
-                if cached.is_valid() {
-                    return Ok(cached.data.clone());
-                }
+            if let Some(ref cached) = cache.workday_range
+                && cached.is_valid()
+            {
+                return Ok(cached.data.clone());
             }
         }
 

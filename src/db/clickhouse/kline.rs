@@ -124,9 +124,7 @@ impl ClickHouseClient {
                 .with_option("wait_for_async_insert", "1");
 
             for kline in chunk {
-                let timestamp = kline
-                    .date
-                    .and_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+                let timestamp = kline.date.and_time(chrono::NaiveTime::MIN);
                 let row = KlineDataCH {
                     timestamp: DateTime::<Utc>::from_naive_utc_and_offset(timestamp, Utc),
                     code: kline.code.clone(),

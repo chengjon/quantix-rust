@@ -101,6 +101,7 @@ pub(crate) async fn execute_strategy_request_show(request_id: &str, verbose: boo
     Ok(())
 }
 
+#[allow(dead_code)]
 pub(crate) fn format_strategy_request_detail(
     request: &ExecutionRequestRecord,
     verbose: bool,
@@ -349,7 +350,7 @@ pub(crate) fn format_strategy_request_row_with_related_order(
         .unwrap_or_default();
 
     format!(
-        "{} signal={} target={}/{} status={}{}{}{}{} created_at={}",
+        "{} signal={} target={}/{} status={}{}{}{}{}{} created_at={}",
         row.request_id,
         row.signal_id,
         row.target_mode,
@@ -358,7 +359,8 @@ pub(crate) fn format_strategy_request_row_with_related_order(
         semantics,
         diag,
         guidance,
-        format!("{result}{qmt_suffix}"),
+        result,
+        qmt_suffix,
         row.created_at.format("%Y-%m-%dT%H:%M:%SZ")
     )
 }

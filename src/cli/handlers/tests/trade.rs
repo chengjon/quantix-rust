@@ -1,22 +1,14 @@
 use super::strategy_helpers::{FakeLoader, fixed_ts, make_kline};
 use super::*;
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::risk::ResolvedIndustry;
 use crate::risk::service::RiskIndustryResolver;
 use crate::risk::{ClassificationStandard, IndustryClassificationLevel, IndustrySourceTier};
-use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
-    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
-};
-use crate::watchlist::{
-    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
-    WatchlistStorage, WatchlistStore,
-};
+use crate::trade::{PaperTradeState, PaperTradeStore, TradeService};
+use crate::watchlist::WatchlistQuoteLookup;
 use async_trait::async_trait;
 use rust_decimal_macros::dec;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 #[derive(Clone, Default)]
 pub(super) struct FakePaperTradeStore {

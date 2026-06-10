@@ -157,9 +157,9 @@ impl DataImporter {
                     if self.config.skip_invalid {
                         skipped += 1;
                     } else {
-                        return Err(crate::core::QuantixError::Other(format!(
-                            "无效的 JSON 行数据"
-                        )));
+                        return Err(crate::core::QuantixError::Other(
+                            "无效的 JSON 行数据".to_string(),
+                        ));
                     }
                 }
             }
@@ -172,7 +172,7 @@ impl DataImporter {
     async fn import_parquet(&self, path: &Path) -> Result<(Vec<Kline>, usize, usize)> {
         use arrow::array::*;
         use arrow::datatypes::*;
-        use arrow::record_batch::RecordBatchReader;
+
         use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
         let file = File::open(path).map_err(|e| {
@@ -191,12 +191,14 @@ impl DataImporter {
         let mut klines = Vec::new();
 
         loop {
-            let batch_result = reader.next_batch().map_err(|e| {
-                crate::core::QuantixError::Other(format!("读取 Parquet batch 失败: {}", e))
-            })?;
-
-            let batch = match batch_result {
-                Some(b) => b,
+            let batch = match reader.next() {
+                Some(Ok(b)) => b,
+                Some(Err(e)) => {
+                    return Err(crate::core::QuantixError::Other(format!(
+                        "读取 Parquet batch 失败: {}",
+                        e
+                    )));
+                }
                 None => break,
             };
 
@@ -310,8 +312,9 @@ fn parse_required_decimal(value: &str, field_name: &str) -> Result<Decimal> {
 }
 
 fn date_from_parquet_day(days: i32) -> Result<NaiveDate> {
-    NaiveDate::from_ymd_opt(1970, 1, 1)
-        .unwrap()
+    let epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))?;
+    epoch
         .checked_add_signed(chrono::Duration::days(days as i64))
         .ok_or_else(|| crate::core::QuantixError::Other("日期转换失败".to_string()))
 }
@@ -337,8 +340,10 @@ struct CsvKlineRow {
     close: String,
     volume: String,
     #[serde(default)]
+    #[allow(dead_code)]
     amount: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     adjust_type: Option<String>,
 }
 
@@ -355,15 +360,16 @@ struct JsonKlineRow {
     close: String,
     volume: i64,
     #[serde(default)]
+    #[allow(dead_code)]
     amount: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     adjust_type: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal_macros::dec;
     use std::fs;
     use tempfile::tempdir;
 
@@ -371,7 +377,7 @@ mod tests {
     fn test_import_config_default() {
         let config = ImportConfig::default();
         assert_eq!(config.format, ImportFormat::CSV);
-        assert_eq!(config.skip_invalid, true);
+        assert!(config.skip_invalid);
     }
 
     #[test]

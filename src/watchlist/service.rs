@@ -141,7 +141,10 @@ impl WatchlistService {
             return Err(QuantixError::Other(format!("股票不存在: {}", code)));
         }
 
-        let target_codes = store.groups.get_mut(target_group).unwrap();
+        let target_codes = store
+            .groups
+            .get_mut(target_group)
+            .ok_or_else(|| QuantixError::Other(format!("分组不存在: {}", target_group)))?;
         if !target_codes.iter().any(|item| item == code) {
             target_codes.push(code.to_string());
         }

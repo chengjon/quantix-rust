@@ -45,12 +45,9 @@ fn test_rsi() {
     ];
     let result = rsi(&data, 6);
 
-    // RSI 应该在 0-100 之间
-    for i in 6..data.len() {
-        if let Some(val) = result[i] {
-            assert!(val >= Decimal::ZERO);
-            assert!(val <= Decimal::from(100));
-        }
+    for val in result.iter().skip(6).flatten() {
+        assert!(*val >= Decimal::ZERO);
+        assert!(*val <= Decimal::from(100));
     }
 }
 
@@ -66,7 +63,7 @@ fn rsi_returns_none_for_unrepresentable_period_window() {
 
 #[test]
 fn test_macd() {
-    let data: Vec<Decimal> = (1..=50).map(|x| Decimal::from(x)).collect();
+    let data: Vec<Decimal> = (1..=50).map(Decimal::from).collect();
     let result = macd(&data, 12, 26, 9);
 
     // 后期应该有值
@@ -77,7 +74,7 @@ fn test_macd() {
 #[test]
 fn test_kdj() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
-    let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
+    let low: Vec<Decimal> = (10..30).map(Decimal::from).collect();
     let close: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(1)).collect();
 
     let result = kdj(&high, &low, &close, 9, 3, 3);
@@ -103,7 +100,7 @@ fn kdj_returns_none_for_zero_n() {
 
 #[test]
 fn test_bollinger_bands() {
-    let data: Vec<Decimal> = (1..=30).map(|x| Decimal::from(x)).collect();
+    let data: Vec<Decimal> = (1..=30).map(Decimal::from).collect();
     let result = bollinger_bands(&data, 20, 2);
 
     // 后期应该有值
@@ -117,7 +114,7 @@ fn test_bollinger_bands() {
 #[test]
 fn test_atr() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
-    let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
+    let low: Vec<Decimal> = (10..30).map(Decimal::from).collect();
     let close: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(1)).collect();
 
     let result = atr(&high, &low, &close, 14);
@@ -183,7 +180,7 @@ fn obv_saturates_when_cumulative_volume_exceeds_i64_bounds() {
 #[test]
 fn test_cci() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
-    let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
+    let low: Vec<Decimal> = (10..30).map(Decimal::from).collect();
     let close: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(1)).collect();
 
     let result = cci(&high, &low, &close, 14);
@@ -206,7 +203,7 @@ fn cci_returns_none_for_zero_period() {
 #[test]
 fn test_williams_r() {
     let high: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(2)).collect();
-    let low: Vec<Decimal> = (10..30).map(|x| Decimal::from(x)).collect();
+    let low: Vec<Decimal> = (10..30).map(Decimal::from).collect();
     let close: Vec<Decimal> = (10..30).map(|x| Decimal::from(x) + dec!(1)).collect();
 
     let result = williams_r(&high, &low, &close, 9);

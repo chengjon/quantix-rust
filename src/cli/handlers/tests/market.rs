@@ -1,8 +1,8 @@
 use super::*;
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::market::SectorCoverageRow;
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

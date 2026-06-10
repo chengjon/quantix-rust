@@ -19,6 +19,7 @@ struct CacheEntry {
 pub struct NewsCache {
     cache: RwLock<HashMap<String, CacheEntry>>,
     max_size: usize,
+    #[allow(dead_code)]
     default_ttl: Duration,
 }
 

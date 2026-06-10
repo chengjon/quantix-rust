@@ -10,6 +10,7 @@ use quantix_cli::strategy::momentum::MomentumStrategy;
 
 // 价格趋势枚举（本地副本，避免依赖 test_utils）
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 enum PriceTrend {
     Up,
     Down,
@@ -223,7 +224,7 @@ mod integration_tests {
         assert!(!result.trades.is_empty());
 
         // 验证策略产生交易
-        assert!(result.trades.len() > 0, "MA Cross 策略应该产生交易");
+        assert!(!result.trades.is_empty(), "MA Cross 策略应该产生交易");
 
         println!("MA Cross 回测结果:");
         println!("  总收益率: {}%", result.report.total_return * dec!(100));
@@ -345,8 +346,7 @@ mod integration_tests {
             let series = generate_price_series_local(100.0, 100, trend);
             let klines: Vec<Kline> = series
                 .iter()
-                .enumerate()
-                .map(|(i, kline)| {
+                .map(|kline| {
                     let mut k = kline.clone();
                     k.code = "000001".to_string();
                     k

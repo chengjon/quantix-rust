@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::monitoring::{NotificationChannel, NotificationConfig};
 
 const NOTIFY_SUPPORTED_CHANNELS: &str =
@@ -84,14 +84,14 @@ async fn run_notify_send(
 
     let mut config = NotificationConfig::from_env();
 
-    if let (Some(ch), Some(target_channel)) = (channel.as_deref(), target_channel.as_ref()) {
-        if !is_notify_channel_configured(target_channel, &config) {
-            return Err(notify_channel_missing_config_error(
-                "notify send",
-                ch,
-                target_channel,
-            ));
-        }
+    if let (Some(ch), Some(target_channel)) = (channel.as_deref(), target_channel.as_ref())
+        && !is_notify_channel_configured(target_channel, &config)
+    {
+        return Err(notify_channel_missing_config_error(
+            "notify send",
+            ch,
+            target_channel,
+        ));
     }
 
     println!("📤 发送通知...");

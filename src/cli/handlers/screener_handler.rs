@@ -1,17 +1,13 @@
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
 };
-use crate::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
-use crate::watchlist::{
-    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
-    WatchlistStorage, WatchlistStore,
-};
+use crate::strategy::runtime::StrategyBarLoader;
+use crate::watchlist::WatchlistStorage;
 use async_trait::async_trait;
 
 pub(crate) async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {

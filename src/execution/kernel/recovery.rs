@@ -296,7 +296,12 @@ where
                     .unwrap_or(false);
 
             if exhaustion_transition {
-                let after_state = after_state.unwrap();
+                let Some(after_state) = after_state else {
+                    return Err(QuantixError::Other(format!(
+                        "恢复耗尽状态缺失: {}",
+                        order.order_id
+                    )));
+                };
                 self.store
                     .insert_order_event(&OrderEventRecord {
                         event_id: Uuid::new_v4().to_string(),

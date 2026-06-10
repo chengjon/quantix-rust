@@ -9,7 +9,7 @@ use crate::market::{
     MarketStrengthReport, NorthFlowSnapshot, StrongSectorStockRow,
     analyze_market_strength_with_reader, load_market_analysis_foundation,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 
 pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
     let runtime = CliRuntime::load();
@@ -263,7 +263,7 @@ fn build_market_strength_stock_ranking_output(
     }
 }
 
-fn require_risk_state_path<'a>(risk_state_path: Option<&'a Path>) -> Result<&'a Path> {
+fn require_risk_state_path(risk_state_path: Option<&Path>) -> Result<&Path> {
     risk_state_path.ok_or_else(|| {
         QuantixError::Other("当前 market 命令需要运行时 risk_path 上下文".to_string())
     })

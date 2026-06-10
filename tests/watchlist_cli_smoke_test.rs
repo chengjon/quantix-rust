@@ -1,3 +1,5 @@
+#![allow(clippy::await_holding_lock)]
+
 use clap::Parser;
 use quantix_cli::Cli;
 use quantix_cli::watchlist::{WatchlistAction, WatchlistStorage};

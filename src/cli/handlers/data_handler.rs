@@ -1,11 +1,7 @@
 use super::*;
 use crate::core::config::{AkShareConfig, AppConfig, TdxApiConfig, TdxConfig};
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
-use crate::fundamental::dragon_tiger::DragonTigerFetcher;
-use crate::fundamental::earnings::EarningsFetcher;
-use crate::fundamental::institution::InstitutionFetcher;
-use crate::fundamental::valuation::ValuationFetcher;
 use crate::io::{DataExporter, ExportConfig, ExportFormat};
 use crate::sync::{DataSync, MarketFundamentalSyncRecord};
 use chrono::NaiveDate;
@@ -744,6 +740,7 @@ max_retries = 2
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 async fn test_tdx_data_source(config: &TdxConfig) -> Result<()> {
     println!("🧪 测试 tdx 数据源");
     println!("  hosts: {}", config.hosts.join(","));

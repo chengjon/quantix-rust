@@ -116,6 +116,12 @@ pub struct IndicatorRegistry {
     builtins: HashMap<&'static str, BuiltinIndicator>,
 }
 
+impl Default for IndicatorRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IndicatorRegistry {
     pub fn new() -> Self {
         let mut builtins = HashMap::new();

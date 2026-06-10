@@ -162,8 +162,10 @@ impl AccountGroup {
 /// 资金分配策略
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AllocationStrategy {
     /// 平均分配
+    #[default]
     Equal,
     /// 按资金比例分配
     Proportional,
@@ -171,12 +173,6 @@ pub enum AllocationStrategy {
     Weighted(HashMap<String, Decimal>),
     /// 主账户优先
     PrimaryFirst { primary_account_id: String },
-}
-
-impl Default for AllocationStrategy {
-    fn default() -> Self {
-        AllocationStrategy::Equal
-    }
 }
 
 /// 账户状态汇总

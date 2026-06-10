@@ -2,7 +2,7 @@ use super::*;
 use chrono::{SecondsFormat, Utc};
 use serde::Deserialize;
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 
 // ============================================================
 // 导入命令
@@ -107,6 +107,7 @@ pub async fn run_import_command(cmd: ImportCommands) -> Result<()> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_import_market_manifest(
     manifest: &str,
     dataset_version: &str,
@@ -198,6 +199,7 @@ pub fn resolve_import_market_manifest_artifact_with_options(
     Ok(resolved)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn write_import_market_manifest_report_outputs(
     resolved: &crate::miniqmt_market::ResolvedMarketArtifact,
     manifest: &str,
@@ -474,6 +476,7 @@ fn write_json_file(path: &str, content: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_import_market_manifest_source_command(
     manifest: &str,
     dataset_version: &str,
@@ -594,7 +597,7 @@ async fn run_import_from_image(file: &str, model: &str) -> Result<()> {
 
     println!("✅ 识别到 {} 只股票:", result.items.len());
     println!();
-    println!("{:<10} {:<12} {:<8} {}", "代码", "名称", "置信度", "来源");
+    println!("{:<10} {:<12} {:<8} 来源", "代码", "名称", "置信度");
     println!("{}", "-".repeat(50));
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
@@ -636,7 +639,7 @@ async fn run_import_from_csv(file: &str) -> Result<()> {
         result.parsed_count, result.total_input_lines, result.skipped_count
     );
     println!();
-    println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
+    println!("{:<10} {:<12} 置信度", "代码", "名称");
     println!("{}", "-".repeat(35));
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
@@ -675,7 +678,7 @@ async fn run_import_from_excel(file: &str, sheet: Option<&str>) -> Result<()> {
         result.parsed_count, result.total_input_lines, result.skipped_count
     );
     println!();
-    println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
+    println!("{:<10} {:<12} 置信度", "代码", "名称");
     println!("{}", "-".repeat(35));
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
@@ -712,7 +715,7 @@ async fn run_import_from_clipboard() -> Result<()> {
 
     println!("✅ 解析到 {} 只股票:", result.items.len());
     println!();
-    println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
+    println!("{:<10} {:<12} 置信度", "代码", "名称");
     println!("{}", "-".repeat(35));
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
@@ -745,7 +748,7 @@ async fn run_import_from_text(text: &str) -> Result<()> {
 
     println!("✅ 解析到 {} 只股票:", result.items.len());
     println!();
-    println!("{:<10} {:<12} {}", "代码", "名称", "置信度");
+    println!("{:<10} {:<12} 置信度", "代码", "名称");
     println!("{}", "-".repeat(35));
     for item in &result.items {
         let code = item.code.as_deref().unwrap_or("-");
@@ -793,18 +796,16 @@ fn get_clipboard_content() -> Result<String> {
         if let Ok(output) = std::process::Command::new("xclip")
             .args(["-selection", "clipboard", "-o"])
             .output()
+            && output.status.success()
         {
-            if output.status.success() {
-                return Ok(String::from_utf8_lossy(&output.stdout).to_string());
-            }
+            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
         }
         if let Ok(output) = std::process::Command::new("xsel")
             .args(["--clipboard", "--output"])
             .output()
+            && output.status.success()
         {
-            if output.status.success() {
-                return Ok(String::from_utf8_lossy(&output.stdout).to_string());
-            }
+            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
         }
     }
 

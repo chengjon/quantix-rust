@@ -122,9 +122,9 @@ impl Strategy for MomentumStrategy {
             self.config.signal_period,
         );
 
-        let current_macd = match macd_values.last().unwrap() {
-            Some(m) => m.macd / rust_decimal::Decimal::from(100), // 转换为合适的范围
-            None => return Ok(Signal::Hold),
+        let current_macd = match macd_values.last() {
+            Some(Some(m)) => m.macd / rust_decimal::Decimal::from(100), // 转换为合适的范围
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         self.macd_history.push(current_macd);
@@ -165,7 +165,6 @@ impl Strategy for MomentumStrategy {
 mod tests {
     use super::*;
     use crate::strategy::test_utils::create_test_kline;
-    use rust_decimal::prelude::*;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -203,9 +202,9 @@ mod tests {
         for i in 0..50 {
             // 先下跌再上涨
             if i < 20 {
-                price = price - 0.5;
+                price -= 0.5;
             } else {
-                price = price + 1.0;
+                price += 1.0;
             }
 
             let bar = create_test_kline(i as u32, price);

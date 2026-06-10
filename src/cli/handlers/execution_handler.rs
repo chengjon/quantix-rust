@@ -25,7 +25,7 @@ use crate::safety::{
     JsonKillSwitchStore, build_kill_switch_payload, format_execution_kill_switch_block_message,
     load_blocking_kill_switch_state,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::Utc;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use std::time::Duration;

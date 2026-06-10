@@ -93,14 +93,8 @@ impl BreakoutStrategy {
         }
 
         let window = &self.kline_history[start..end];
-        let high = window
-            .iter()
-            .map(|k| k.high)
-            .max_by(|a, b| a.partial_cmp(b).unwrap());
-        let low = window
-            .iter()
-            .map(|k| k.low)
-            .min_by(|a, b| a.partial_cmp(b).unwrap());
+        let high = window.iter().map(|k| k.high).max();
+        let low = window.iter().map(|k| k.low).min();
 
         (high, low)
     }
@@ -191,9 +185,9 @@ impl Strategy for BreakoutStrategy {
             self.kline_history.iter().map(|k| k.close).collect();
 
         let atr_values = atr(&highs, &lows, &closes, self.config.atr_period);
-        let current_atr = match atr_values.last().unwrap() {
-            Some(v) => v,
-            None => return Ok(Signal::Hold),
+        let current_atr = match atr_values.last() {
+            Some(Some(v)) => v,
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         // 如果持仓中，检查止损止盈

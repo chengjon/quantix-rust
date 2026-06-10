@@ -86,7 +86,6 @@ pub(crate) fn build_market_strength_report(
         .snapshots
         .iter()
         .cloned()
-        .into_iter()
         .map(|snapshot| (snapshot.code.clone(), snapshot))
         .collect();
 

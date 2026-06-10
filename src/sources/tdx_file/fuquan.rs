@@ -86,9 +86,7 @@ impl FuquanCalculator {
             preclose = close;
 
             factors.push(FuquanFactor {
-                date: day
-                    .naive_date()
-                    .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+                date: day.naive_date().unwrap_or_else(fallback_date),
                 factor,
                 preclose: close,
                 close,
@@ -177,9 +175,7 @@ impl TdxDayData {
 
         Self {
             code: record.code_string(),
-            date: record
-                .naive_date()
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+            date: record.naive_date().unwrap_or_else(fallback_date),
             open: Decimal::from_f32(record.open)
                 .map(|d| d.round_dp(2))
                 .unwrap_or(Decimal::ZERO),

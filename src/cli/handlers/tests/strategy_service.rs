@@ -2,6 +2,7 @@ use super::strategy_helpers::{FakeLoader, make_kline};
 use super::*;
 use rust_decimal_macros::dec;
 
+#[allow(dead_code)]
 fn test_execute_strategy_config_init_creates_default_file() {
     let dir = tempdir().unwrap();
     let store =

@@ -1,9 +1,7 @@
 use super::*;
-use crate::analysis::candle_patterns::{
-    CandleInput, MarketBias, PatternConfig, ReferencePricePolicy, recognize_sequence,
-};
-use crate::core::{CliRuntime, QuantixError, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use crate::analysis::candle_patterns::{CandleInput, ReferencePricePolicy};
+use crate::core::QuantixError;
+use chrono::NaiveDate;
 use rust_decimal_macros::dec;
 
 #[tokio::test]
@@ -154,6 +152,7 @@ fn test_resolve_tdx_day_file_path_rejects_ambiguous_market() {
     assert!(error.to_string().contains("匹配到多个"));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_day_record_bytes(
     date: u32,
     open: u32,

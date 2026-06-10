@@ -85,12 +85,9 @@ impl Strategy for MACrossStrategy {
         let curr_long_ma = long_mas[self.price_history.len() - 1];
 
         // 如果没有足够的均线数据，保持观望
-        if curr_short_ma.is_none() || curr_long_ma.is_none() {
+        let (Some(curr_short_ma), Some(curr_long_ma)) = (curr_short_ma, curr_long_ma) else {
             return Ok(Signal::Hold);
-        }
-
-        let curr_short_ma = curr_short_ma.unwrap();
-        let curr_long_ma = curr_long_ma.unwrap();
+        };
 
         // 需要上一时刻的均线数据来判断交叉
         if let (Some(prev_short), Some(prev_long)) = (self.last_short_ma, self.last_long_ma) {
@@ -131,7 +128,7 @@ impl Strategy for MACrossStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{PriceTrend, create_test_kline};
+    use crate::strategy::test_utils::create_test_kline;
     use rust_decimal_macros::dec;
 
     #[tokio::test]

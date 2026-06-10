@@ -1,8 +1,8 @@
 use super::*;
 use crate::cli::handlers::market_handler::MarketStrengthStockRankingOutput;
 use crate::market::{
-    BoardRankRow, BoardType, LeaderRow, MarketFoundationSummary, MarketOverview,
-    MarketSentimentSnapshot, MarketStrengthReport, NorthFlowSnapshot, StrongSectorStockRow,
+    BoardRankRow, LeaderRow, MarketFoundationSummary, MarketOverview, MarketSentimentSnapshot,
+    MarketStrengthReport, NorthFlowSnapshot, StrongSectorStockRow,
 };
 use rust_decimal::Decimal;
 use std::fmt::Write as _;
@@ -315,9 +315,9 @@ fn render_strong_sector_stock_rows(
 
     for (idx, row) in rows.iter().enumerate() {
         let metric = if use_market_cap {
-            row.market_cap.clone()
+            row.market_cap
         } else {
-            row.latest_report_profit.clone()
+            row.latest_report_profit
         };
         append_line!(
             &mut output,

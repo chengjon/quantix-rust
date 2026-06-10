@@ -1,11 +1,12 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 /// TDengine REST API 客户端
 ///
 /// 通过 REST API 连接原 quantix 项目的 TDengine 数据库
 /// 高频时序数据读取
 use reqwest::Client;
+use reqwest::header::CONTENT_TYPE;
 use serde::Deserialize;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::core::error::{QuantixError, Result};
 
@@ -46,34 +47,42 @@ pub struct MinuteKline {
 /// TDengine REST 客户端
 pub struct TDengineClient {
     base_url: String,
-    token: String,
+    username: String,
+    password: String,
+    database: Option<String>,
     client: Client,
 }
 
 impl TDengineClient {
     /// 创建新的 TDengine REST 客户端
     pub fn new(base_url: &str, token: &str) -> Result<Self> {
+        Self::build(base_url, token, None)
+    }
+
+    /// 创建绑定数据库的 TDengine REST 客户端
+    pub fn new_with_database(base_url: &str, token: &str, database: &str) -> Result<Self> {
+        let database = normalize_identifier(database, "database")?;
+        Self::build(base_url, token, Some(database))
+    }
+
+    fn build(base_url: &str, token: &str, database: Option<String>) -> Result<Self> {
+        let (username, password) = parse_token(token)?;
         let client = Client::builder()
             .build()
             .map_err(|e| QuantixError::DatabaseConnection(e.to_string()))?;
 
         Ok(Self {
             base_url: base_url.trim_end_matches('/').to_string(),
-            token: token.to_string(),
+            username,
+            password,
+            database,
             client,
         })
     }
 
     /// 检查连接
     pub async fn check_connection(&self) -> Result<()> {
-        let url = format!("{}/rest/login/{}", self.base_url, self.token);
-        self.client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| QuantixError::DatabaseConnection(e.to_string()))?;
-
-        Ok(())
+        self.execute_sql("show databases").await
     }
 
     /// 查询分钟线数据
@@ -90,14 +99,7 @@ impl TDengineClient {
             table, code, start, end, limit
         );
 
-        let url = format!("{}/rest/sql/{}", self.base_url, self.token);
-        let response = self
-            .client
-            .post(&url)
-            .json(&serde_json::json!({ "sql": sql }))
-            .send()
-            .await
-            .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+        let response = self.send_sql(&sql).await?;
 
         let resp: TDengineRestResponse = response
             .json()
@@ -111,13 +113,16 @@ impl TDengineClient {
             )));
         }
 
-        let klines = resp
+        let klines: Vec<MinuteKline> = resp
             .data
             .into_iter()
-            .map(|row| {
-                let ts = chrono::DateTime::from_timestamp(row.ts, 0)
-                    .unwrap_or_else(|| chrono::DateTime::from_timestamp_millis(row.ts).unwrap());
-                MinuteKline {
+            .map(|row| -> Result<MinuteKline> {
+                let ts = DateTime::from_timestamp(row.ts, 0)
+                    .or_else(|| DateTime::from_timestamp_millis(row.ts))
+                    .ok_or_else(|| {
+                        QuantixError::DataParse(format!("无效 TDengine 时间戳: {}", row.ts))
+                    })?;
+                Ok(MinuteKline {
                     ts,
                     code: row.code,
                     open: row.open.unwrap_or(0.0),
@@ -125,23 +130,26 @@ impl TDengineClient {
                     low: row.low.unwrap_or(0.0),
                     close: row.close.unwrap_or(0.0),
                     volume: row.volume.unwrap_or(0),
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(klines)
     }
 
     /// 创建逐笔成交表
     pub async fn create_tick_table(&self) -> Result<()> {
-        let sql = "CREATE STABLE IF NOT EXISTS tick_data ( \
+        let tick_data = self.qualified_name("tick_data");
+        let sql = format!(
+            "CREATE STABLE IF NOT EXISTS {tick_data} ( \
             ts TIMESTAMP, \
             price DOUBLE, \
             volume INT, \
             amount DOUBLE, \
             direction TINYINT \
-        ) TAGS (code BINARY(16))";
-        self.execute_sql(sql).await
+        ) TAGS (code BINARY(16))"
+        );
+        self.execute_sql(&sql).await
     }
 
     /// 批量插入逐笔成交数据
@@ -162,8 +170,10 @@ impl TDengineClient {
             .collect();
 
         for chunk in values.chunks(5000) {
+            let table = self.qualified_name(&format!("t_{code}"));
+            let tick_data = self.qualified_name("tick_data");
             let sql = format!(
-                "INSERT INTO t_{code} USING tick_data TAGS ('{code}') VALUES {}",
+                "INSERT INTO {table} USING {tick_data} TAGS ('{code}') VALUES {}",
                 chunk.join(" ")
             );
             self.execute_sql(&sql).await?;
@@ -174,22 +184,17 @@ impl TDengineClient {
 
     /// 执行原始 SQL
     pub async fn execute_sql(&self, sql: &str) -> Result<()> {
-        let url = format!("{}/rest/sql/{}", self.base_url, self.token);
-        let response = self
-            .client
-            .post(&url)
-            .json(&serde_json::json!({ "sql": sql }))
-            .send()
-            .await
-            .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+        let response = self.send_sql(sql).await?;
 
         let resp: serde_json::Value = response
             .json()
             .await
             .map_err(|e| QuantixError::DataParse(e.to_string()))?;
 
-        let status = resp["status"].as_str().unwrap_or("err");
-        if status != "succ" {
+        let status_ok = resp["status"].as_str() == Some("succ")
+            || resp["code"].as_i64() == Some(0)
+            || resp["code"].as_u64() == Some(0);
+        if !status_ok {
             let desc = resp["desc"].as_str().unwrap_or("unknown error");
             // 忽略 "Table already exists" 等非致命错误
             if desc.contains("already exists") || desc.contains("Invalid table name") {
@@ -199,4 +204,64 @@ impl TDengineClient {
         }
         Ok(())
     }
+
+    async fn send_sql(&self, sql: &str) -> Result<reqwest::Response> {
+        let url = format!("{}/rest/sql", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .basic_auth(&self.username, Some(&self.password))
+            .header(CONTENT_TYPE, "text/plain")
+            .body(sql.to_string())
+            .send()
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(QuantixError::DatabaseQuery(format!(
+                "TDengine HTTP {}: {}",
+                status, body
+            )));
+        }
+        Ok(response)
+    }
+
+    fn qualified_name(&self, name: &str) -> String {
+        match &self.database {
+            Some(database) if !name.contains('.') => format!("{database}.{name}"),
+            _ => name.to_string(),
+        }
+    }
+}
+
+fn parse_token(token: &str) -> Result<(String, String)> {
+    let (username, password) = token
+        .split_once(':')
+        .ok_or_else(|| QuantixError::Config("TDengine token must be user:password".to_string()))?;
+    if username.trim().is_empty() {
+        return Err(QuantixError::Config(
+            "TDengine username cannot be empty".to_string(),
+        ));
+    }
+    Ok((username.to_string(), password.to_string()))
+}
+
+fn normalize_identifier(value: &str, label: &str) -> Result<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(QuantixError::Config(format!(
+            "TDengine {label} cannot be empty"
+        )));
+    }
+    if !value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return Err(QuantixError::Config(format!(
+            "TDengine {label} must be an ASCII identifier"
+        )));
+    }
+    Ok(value.to_string())
 }

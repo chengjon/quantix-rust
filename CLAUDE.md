@@ -1,32 +1,17 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **quantix-rust** (16021 symbols, 35543 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **quantix-rust** (16332 symbols, 31941 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `gitnexus analyze` in terminal first.
-
-> If GitNexus behaves differently across machines or CI, run `gitnexus doctor --json` to inspect `native-runtime`, `language-support`, and host configuration checks.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
 - When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
 - When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## When Debugging
-
-1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
-2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/quantix-rust/process/{processName}` — trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
-
-## When Refactoring
-
-- **Renaming**: MUST use `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` first. Review the preview — graph edits are safe, text_search edits need manual review. Then run with `dry_run: false`.
-- **Extracting/Splitting**: MUST run `gitnexus_context({name: "target"})` to see all incoming/outgoing refs, then `gitnexus_impact({target: "target", direction: "upstream"})` to find all external callers before moving code.
-- After any refactor: run `gitnexus_detect_changes({scope: "all"})` to verify only expected files changed.
 
 ## Never Do
 
@@ -34,25 +19,6 @@ This project is indexed by GitNexus as **quantix-rust** (16021 symbols, 35543 re
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
 - NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Tools Quick Reference
-
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
-
-## Impact Risk Levels
-
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
 
 ## Resources
 
@@ -62,115 +28,6 @@ This project is indexed by GitNexus as **quantix-rust** (16021 symbols, 35543 re
 | `gitnexus://repo/quantix-rust/clusters` | All functional areas |
 | `gitnexus://repo/quantix-rust/processes` | All execution flows |
 | `gitnexus://repo/quantix-rust/process/{name}` | Step-by-step execution trace |
-
-## Self-Check Before Finishing
-
-Before completing any code modification task, verify:
-1. `gitnexus_impact` was run for all modified symbols
-2. No HIGH/CRITICAL risk warnings were ignored
-3. `gitnexus_detect_changes()` confirms changes match expected scope
-4. All d=1 (WILL BREAK) dependents were updated
-
-## Keeping the Index Fresh
-
-After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
-
-```bash
-gitnexus analyze
-```
-
-If you have modified the local GitNexus source code under `/opt/claude/GitNexus/gitnexus/src`, rebuild first so the CLI picks up the updated `dist` files:
-
-```bash
-cd /opt/claude/GitNexus/gitnexus
-npm run build
-gitnexus analyze
-```
-
-Use plain `gitnexus analyze` when you want the fastest refresh and exact symbol, file, or keyword search is enough.
-
-Graph tools, BM25/FTS search, impact analysis, and context lookups still work without embeddings.
-
-Use `gitnexus analyze --embeddings` when natural-language, concept, or fuzzy code search matters.
-
-This enables hybrid retrieval (`BM25 + semantic + RRF`) but takes longer and requires an embedding provider such as Ollama or Hugging Face.
-
-During `gitnexus analyze`, GitNexus automatically detects and stops local `gitnexus mcp` processes that are holding the target repo's `.gitnexus/kuzu` file open. This avoids the common KuzuDB lock conflict when you have multiple CLI or editor sessions open.
-
-Use `gitnexus doctor --json` when you need to verify whether optional grammars such as Kotlin / Swift are actually available in the current environment.
-
-If the index previously included embeddings, preserve them by adding `--embeddings`:
-
-```bash
-gitnexus analyze --embeddings
-```
-
-To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
-
-If embedding generation is enabled, these environment variables control the provider and runtime behavior:
-
-```bash
-# Raise the CLI safety limit for large repos.
-# Start with 64 on a local Ollama GPU setup; use 32 as a conservative fallback.
-GITNEXUS_EMBEDDING_NODE_LIMIT=90000
-GITNEXUS_EMBEDDING_BATCH_SIZE=64
-
-# Use a Hugging Face mirror / custom endpoint
-HF_ENDPOINT=https://hf-mirror.com
-# or
-GITNEXUS_HF_REMOTE_HOST=https://hf-mirror.com
-
-# Persist downloaded model files
-GITNEXUS_HF_CACHE_DIR=/path/to/hf-cache
-
-# Use a predownloaded local Hugging Face model only
-GITNEXUS_HF_LOCAL_MODEL_PATH=/path/to/local-models
-GITNEXUS_HF_LOCAL_ONLY=1
-
-# Use Ollama instead of Hugging Face for both indexing and query embeddings
-GITNEXUS_EMBEDDING_PROVIDER=ollama
-GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434
-GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b
-```
-
-Recommended Ollama example:
-
-```bash
-GITNEXUS_EMBEDDING_PROVIDER=ollama \
-GITNEXUS_OLLAMA_BASE_URL=http://localhost:11434 \
-GITNEXUS_OLLAMA_MODEL=qwen3-embedding:0.6b \
-GITNEXUS_EMBEDDING_NODE_LIMIT=90000 \
-GITNEXUS_EMBEDDING_BATCH_SIZE=64 \
-gitnexus analyze --embeddings
-```
-
-Use `--force` only for intentional full rebuilds or corrupted indexes.
-
-The same settings can also be stored in `~/.gitnexus/config.json`:
-
-```json
-{
-  "embeddings": {
-    "provider": "ollama",
-    "ollamaBaseUrl": "http://localhost:11434",
-    "ollamaModel": "qwen3-embedding:0.6b",
-    "nodeLimit": 90000,
-    "batchSize": 64
-  }
-}
-```
-
-Priority is: environment variables > `~/.gitnexus/config.json` > built-in defaults.
-
-You can inspect or update this without editing JSON manually:
-
-```bash
-gitnexus config embeddings show
-gitnexus config embeddings set --provider ollama --ollama-base-url http://localhost:11434 --ollama-model qwen3-embedding:0.6b --node-limit 90000 --batch-size 64
-gitnexus config embeddings clear
-```
-
-> Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
 
 ## CLI
 
@@ -249,7 +106,7 @@ All must pass before merge.
 
 ## Known Tech Debt
 
-> Last updated 2026-06-06.
+> Last updated 2026-06-08.
 
 | Priority | Issue | Location | Status |
 |----------|-------|----------|--------|
@@ -257,5 +114,19 @@ All must pass before merge.
 | ~~CRITICAL~~ | `cli/mod.rs` at 2K+ lines | `src/cli/mod.rs` | ✅ Extracted to `src/cli/commands/*.rs` (now 27 lines) |
 | ~~HIGH~~ | 715 `.unwrap()` calls | Multiple files | ✅ Replaced with `?` / `map_err` (now 0) |
 | ~~WARN~~ | 12+ TODO comments | Multiple files | ✅ All resolved (0 remaining) |
-| HIGH | `println!` in library modules | `monitoring/`, `anomaly/` | Replace with `tracing` macros |
-| HIGH | 146 clippy warnings (unused imports) | Multiple handler files | Clean up unused imports |
+| ~~HIGH~~ | `println!` in library modules | `monitoring/`, `anomaly/` | ✅ Already 0 in library code |
+| ~~HIGH~~ | 595 clippy warnings (workspace) | Multiple files | ✅ All resolved (0 warnings) |
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `chengjon/quantix-rust`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses `type:*` (bug/enhancement) and `status:*` (needs-triage/needs-info/ready-for-agent/ready-for-human/wontfix) prefixed labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout using existing governance docs (FUNCTION_TREE.md, audit reports) as domain context. See `docs/agents/domain.md`.

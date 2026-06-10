@@ -3,6 +3,7 @@ use super::*;
 use rust_decimal_macros::dec;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 async fn test_strategy_paper_risk_bridge_surfaces_volatility_limit_reason() {
     let dir = tempdir().unwrap();
     let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))

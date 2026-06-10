@@ -1,5 +1,5 @@
 use super::*;
-use chrono::NaiveDateTime;
+// NaiveDateTime removed — using DateTime::from_timestamp instead
 
 fn create_test_signal(strategy: &str, code: &str, signal: Signal, price: f64) -> SignalEvent {
     SignalEvent::new(
@@ -7,7 +7,9 @@ fn create_test_signal(strategy: &str, code: &str, signal: Signal, price: f64) ->
         code.to_string(),
         signal,
         Decimal::from_f64_retain(price).unwrap_or(Decimal::ZERO),
-        NaiveDateTime::from_timestamp_opt(1640995200, 0).unwrap(),
+        chrono::DateTime::from_timestamp(1640995200, 0)
+            .unwrap()
+            .naive_utc(),
     )
 }
 

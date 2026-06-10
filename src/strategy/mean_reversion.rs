@@ -126,9 +126,9 @@ impl Strategy for MeanReversionStrategy {
 
         // 计算 RSI
         let rsi_values = rsi(&self.close_history, self.config.rsi_period);
-        let current_rsi = match rsi_values.last().unwrap() {
-            Some(v) => *v,
-            None => return Ok(Signal::Hold),
+        let current_rsi = match rsi_values.last() {
+            Some(Some(v)) => *v,
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         // 计算布林带
@@ -137,9 +137,9 @@ impl Strategy for MeanReversionStrategy {
             self.config.bb_period,
             self.config.bb_std_dev,
         );
-        let current_bb = match bb_values.last().unwrap() {
-            Some(v) => *v,
-            None => return Ok(Signal::Hold),
+        let current_bb = match bb_values.last() {
+            Some(Some(v)) => *v,
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         // 根据指标生成信号
@@ -172,8 +172,7 @@ impl Strategy for MeanReversionStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy::test_utils::{create_test_kline, create_test_ohlcv};
-    use rust_decimal::prelude::*;
+    use crate::strategy::test_utils::create_test_kline;
     use rust_decimal_macros::dec;
 
     #[test]

@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::core::{QuantixError, Result};
+use crate::core::Result;
 use crate::monitoring::{AlertLevel, AlertType};
 
 mod senders;
@@ -386,11 +386,11 @@ impl NotificationService {
         }
 
         // 检查静默时段
-        if let Some(quiet_hours) = &self.config.quiet_hours {
-            if quiet_hours.is_quiet_now() {
-                tracing::debug!("当前处于静默时段，跳过通知");
-                return Ok(());
-            }
+        if let Some(quiet_hours) = &self.config.quiet_hours
+            && quiet_hours.is_quiet_now()
+        {
+            tracing::debug!("当前处于静默时段，跳过通知");
+            return Ok(());
         }
 
         // 发送到所有可用渠道
@@ -490,7 +490,7 @@ mod tests {
             end: "06:00".to_string(),
         };
         // 只测试格式是否正确，实际时间判断需要 mock
-        assert!(quiet.start < quiet.end || quiet.start > quiet.end);
+        assert!(quiet.start != quiet.end);
     }
 
     #[test]

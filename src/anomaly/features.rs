@@ -474,7 +474,7 @@ mod tests {
         let mut series = OHLCVSeries::new("000002", "测试股票2");
 
         // Only add 10 candles (less than min_candles = 50)
-        for i in 0..10 {
+        for _ in 0..10 {
             series.add(OHLCVCandle::new(
                 "2026-03-01 10:00",
                 100.0,

@@ -63,15 +63,9 @@ pub fn menu_items() -> &'static [TuiMenuItem] {
     MENU_ITEMS
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TuiMenuState {
     selected: usize,
-}
-
-impl Default for TuiMenuState {
-    fn default() -> Self {
-        Self { selected: 0 }
-    }
 }
 
 impl TuiMenuState {

@@ -149,14 +149,18 @@ pub fn kdj(
         let window_high = &high[start..end];
         let window_low = &low[start..end];
 
-        let highest = *window_high
+        let highest = window_high[1..]
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-        let lowest = *window_low
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .fold(window_high[0], |highest, &value| {
+                if value > highest { value } else { highest }
+            });
+        let lowest =
+            window_low[1..].iter().fold(
+                window_low[0],
+                |lowest, &value| {
+                    if value < lowest { value } else { lowest }
+                },
+            );
 
         let rsv = if highest != lowest {
             (close[i] - lowest) / (highest - lowest) * Decimal::from(100)

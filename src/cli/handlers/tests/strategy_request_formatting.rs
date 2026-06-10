@@ -2,6 +2,7 @@ use super::strategy_helpers::fixed_ts;
 use super::*;
 use rust_decimal_macros::dec;
 
+#[allow(dead_code)]
 fn test_format_strategy_approval_result_includes_target_and_status() {
     let row = crate::execution::models::ExecutionRequestRecord {
         request_id: "req-1".to_string(),

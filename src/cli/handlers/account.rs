@@ -624,6 +624,34 @@ async fn load_or_create_registry(store: &JsonAccountRegistryStore) -> Result<Acc
     load_registry(store).await
 }
 
+/// 解析分配策略
+fn parse_allocation_strategy(
+    strategy: &str,
+    primary_account: Option<String>,
+) -> Result<AllocationStrategy> {
+    match strategy.to_lowercase().as_str() {
+        "equal" => Ok(AllocationStrategy::Equal),
+        "proportional" => Ok(AllocationStrategy::Proportional),
+        "weighted" => {
+            // 权重需要额外配置，这里返回默认的 Equal
+            println!("⚠️  加权分配需要额外配置权重，暂时使用平均分配");
+            Ok(AllocationStrategy::Equal)
+        }
+        "primary_first" => {
+            let primary = primary_account.ok_or_else(|| {
+                QuantixError::Other("primary_first 策略需要指定主账户".to_string())
+            })?;
+            Ok(AllocationStrategy::PrimaryFirst {
+                primary_account_id: primary,
+            })
+        }
+        _ => Err(QuantixError::Unsupported(format!(
+            "无效的分配策略: {}，支持: equal, proportional, weighted, primary_first",
+            strategy
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse_account_type_input;
@@ -656,33 +684,5 @@ mod tests {
         assert!(message.contains("无效的账户类型: invalid"));
         assert!(message.contains("paper, mock_live, qmt_live"));
         assert!(message.contains("live"));
-    }
-}
-
-/// 解析分配策略
-fn parse_allocation_strategy(
-    strategy: &str,
-    primary_account: Option<String>,
-) -> Result<AllocationStrategy> {
-    match strategy.to_lowercase().as_str() {
-        "equal" => Ok(AllocationStrategy::Equal),
-        "proportional" => Ok(AllocationStrategy::Proportional),
-        "weighted" => {
-            // 权重需要额外配置，这里返回默认的 Equal
-            println!("⚠️  加权分配需要额外配置权重，暂时使用平均分配");
-            Ok(AllocationStrategy::Equal)
-        }
-        "primary_first" => {
-            let primary = primary_account.ok_or_else(|| {
-                QuantixError::Other("primary_first 策略需要指定主账户".to_string())
-            })?;
-            Ok(AllocationStrategy::PrimaryFirst {
-                primary_account_id: primary,
-            })
-        }
-        _ => Err(QuantixError::Unsupported(format!(
-            "无效的分配策略: {}，支持: equal, proportional, weighted, primary_first",
-            strategy
-        ))),
     }
 }

@@ -221,9 +221,9 @@ impl Strategy for GridStrategy {
             self.config.atr_period,
         );
 
-        let current_atr = match atr_values.last().unwrap() {
-            Some(v) => v,
-            None => return Ok(Signal::Hold),
+        let current_atr = match atr_values.last() {
+            Some(Some(v)) => v,
+            Some(None) | None => return Ok(Signal::Hold),
         };
 
         // 首次初始化或动态调整网格
@@ -264,7 +264,6 @@ impl Strategy for GridStrategy {
 mod tests {
     use super::*;
     use crate::strategy::test_utils::create_test_kline;
-    use rust_decimal::prelude::*;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -272,7 +271,7 @@ mod tests {
         let config = GridConfig::default();
         assert_eq!(config.grid_count, 10);
         assert_eq!(config.atr_period, 14);
-        assert_eq!(config.dynamic_adjustment, true);
+        assert!(config.dynamic_adjustment);
     }
 
     #[tokio::test]

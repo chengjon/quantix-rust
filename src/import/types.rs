@@ -107,11 +107,12 @@ pub struct ImportResult {
 pub fn is_code_like(text: &str) -> bool {
     let trimmed = text.trim();
     // A股: 6位数字
-    if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
-        let first = trimmed.chars().next().unwrap();
-        return matches!(first, '0' | '1' | '2' | '3' | '4' | '5' | '6' | '8');
-    }
-    false
+    trimmed.len() == 6
+        && trimmed.chars().all(|c| c.is_ascii_digit())
+        && matches!(
+            trimmed.chars().next(),
+            Some('0' | '1' | '2' | '3' | '4' | '5' | '6' | '8')
+        )
 }
 
 /// 标准化股票代码

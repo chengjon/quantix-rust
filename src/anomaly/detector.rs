@@ -11,7 +11,7 @@ use crate::anomaly::config::AnomalyConfig;
 use crate::anomaly::features::{FeatureExtractor, OHLCVCandle, OHLCVSeries};
 use crate::anomaly::filter::{StockFilter, StockInfo};
 use crate::anomaly::forest::{AnomalyScore, IsolationForest};
-use rayon::prelude::*;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -188,7 +188,13 @@ impl AnomalyDetector {
         let mut handles = Vec::new();
 
         for stock in stocks {
-            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            let permit = match semaphore.clone().acquire_owned().await {
+                Ok(permit) => permit,
+                Err(e) => {
+                    warn!("Failed to acquire K-line fetch permit: {}", e);
+                    continue;
+                }
+            };
             let code = stock.code.clone();
             let adjust = adjust.clone(); // Clone for each task
             let ds = self.data_source.clone(); // Clone Arc for each task

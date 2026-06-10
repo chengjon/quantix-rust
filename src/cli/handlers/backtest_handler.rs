@@ -2,13 +2,13 @@
 
 use crate::analysis::backtest::{BacktestConfig, BacktestEngine};
 use crate::cli::command_types::BacktestCommands;
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use super::*;
@@ -267,7 +267,7 @@ fn list_backtest_reports() -> Result<Vec<StoredBacktestReport>> {
         reports.push(report);
     }
 
-    reports.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    reports.sort_by_key(|report| std::cmp::Reverse(report.created_at));
     Ok(reports)
 }
 

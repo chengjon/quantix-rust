@@ -1,20 +1,7 @@
 use super::monitor_helpers::{FakeStopRuleState, FakeStopRuleStore};
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
-use crate::monitor::{
-    JsonMonitorConfigStore, JsonMonitorServiceConfigStore, MonitorAlertStore, MonitorConfig,
-    MonitorEventFilter, MonitorEventRow, MonitorEventType, MonitorIterationOutput,
-    MonitorQuoteReader, MonitorQuoteRow, MonitorRunMode, MonitorRunner, MonitorService,
-    MonitorServiceConfig, MonitorServiceStatusSummary, MonitorUserServiceInstaller,
-    MonitorWatchlistReader, MonitorWatchlistSnapshot, PriceAlert, PriceAlertKind,
-};
-use crate::watchlist::{
-    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
-    WatchlistStorage, WatchlistStore,
-};
-use async_trait::async_trait;
+use crate::core::QuantixError;
 use rust_decimal_macros::dec;
 
 fn stop_sample_time() -> chrono::DateTime<Utc> {

@@ -162,7 +162,7 @@ fn bench_performance_metrics(c: &mut Criterion) {
         let returns: Vec<Decimal> = (0..*size)
             .map(|i| {
                 // 生成 -1% 到 +1% 的收益率（更保守）
-                let pct = (i as f64 * 0.00002 - 0.01).max(-0.01).min(0.01);
+                let pct = (i as f64 * 0.00002 - 0.01).clamp(-0.01, 0.01);
                 Decimal::from_f64_retain(pct).unwrap()
             })
             .collect();
@@ -224,7 +224,7 @@ fn bench_batch_processing(c: &mut Criterion) {
 
     for size in [10000, 100000, 1000000].iter() {
         let klines = generate_test_klines(*size);
-        let temp_dir = tempfile::tempdir().unwrap();
+        let _temp_dir = tempfile::tempdir().unwrap();
         let processor = BatchProcessor::with_defaults();
 
         group.bench_with_input(

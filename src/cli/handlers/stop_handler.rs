@@ -1,21 +1,12 @@
 use super::*;
 
-use crate::core::{CliRuntime, QuantixError, Result};
+use crate::core::{QuantixError, Result};
 use crate::stop::{
-    SqliteStopRuleStore, StopHistoryEvent, StopHistoryEventType, StopRule, StopRuleStore,
-    StopRuleUpdate, StopService, StopStatusRow, StopTriggerKind, TriggeredStop,
+    StopHistoryEvent, StopRule, StopRuleStore, StopRuleUpdate, StopService, StopStatusRow,
 };
-use crate::trade::{
-    CashSnapshot, InitAccountRequest, JsonPaperTradeStore, PaperTradeAccount, PaperTradeState,
-    PaperTradeStore, TradeFeeRow, TradeHistoryRow, TradeOrderRequest, TradeOverview, TradePosition,
-    TradePositionCurrentRow, TradeQuoteStatus, TradeRecord, TradeReportingService, TradeService,
-};
-use crate::watchlist::{
-    PostgresWatchlistNameLookup, TdxWatchlistQuoteLookup, WatchlistDisplayRow,
-    WatchlistHistoryEvent, WatchlistListItem, WatchlistQuoteLookup, WatchlistService,
-    WatchlistStorage, WatchlistStore,
-};
-use chrono::{DateTime, NaiveDate, Utc};
+use crate::trade::PaperTradeStore;
+use crate::watchlist::{TdxWatchlistQuoteLookup, WatchlistQuoteLookup, WatchlistStorage};
+use chrono::Utc;
 
 pub async fn run_stop_command(cmd: StopCommands) -> Result<()> {
     let watchlist_storage = create_watchlist_storage();

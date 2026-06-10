@@ -99,6 +99,7 @@ impl QmtLiveExecutionAdapter {
     }
 
     /// Convert order side to bridge format
+    #[allow(dead_code)]
     fn side_to_bridge(side: &OrderSide) -> &'static str {
         match side {
             OrderSide::Buy => "buy",
@@ -107,6 +108,7 @@ impl QmtLiveExecutionAdapter {
     }
 
     /// Convert order type to bridge format
+    #[allow(dead_code)]
     fn order_type_to_bridge(price: &Decimal) -> &'static str {
         // If price is zero, it's a market order
         if price.is_zero() { "market" } else { "limit" }
