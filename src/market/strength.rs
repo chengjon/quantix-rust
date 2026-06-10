@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn ranking_prefers_larger_metric_values() {
-        let mut rows = vec![
+        let mut rows = [
             StrongSectorStockRow {
                 sector_name: "银行".to_string(),
                 code: "601398".to_string(),
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn board_ordering_supports_strong_and_weak_views() {
-        let mut rows = vec![
+        let mut rows = [
             BoardRankRow::new("BK001", "银行", BoardType::Sector, 1, 2.5),
             BoardRankRow::new("BK002", "有色金属", BoardType::Sector, 2, -1.8),
             BoardRankRow::new("BK003", "计算机", BoardType::Sector, 3, 4.1),

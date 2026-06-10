@@ -267,7 +267,7 @@ fn list_backtest_reports() -> Result<Vec<StoredBacktestReport>> {
         reports.push(report);
     }
 
-    reports.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    reports.sort_by_key(|report| std::cmp::Reverse(report.created_at));
     Ok(reports)
 }
 

@@ -303,7 +303,7 @@ where
     );
     let mut triggered_stops = Vec::new();
 
-    for (original_rule, result) in rules.iter().zip(results.into_iter()) {
+    for (original_rule, result) in rules.iter().zip(results) {
         if result.updated_rule != *original_rule {
             stop_store.upsert_rule(result.updated_rule.clone()).await?;
         }

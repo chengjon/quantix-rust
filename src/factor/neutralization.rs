@@ -159,18 +159,29 @@ fn solve_linear_system(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<V
         rhs.swap(pivot, best);
 
         let pivot_value = matrix[pivot][pivot];
-        for col in pivot..n {
-            matrix[pivot][col] /= pivot_value;
+        for value in matrix[pivot].iter_mut().skip(pivot).take(n - pivot) {
+            *value /= pivot_value;
         }
         rhs[pivot] /= pivot_value;
+        let pivot_tail: Vec<f64> = matrix[pivot]
+            .iter()
+            .skip(pivot)
+            .take(n - pivot)
+            .copied()
+            .collect();
 
         for row in 0..n {
             if row == pivot {
                 continue;
             }
             let factor = matrix[row][pivot];
-            for col in pivot..n {
-                matrix[row][col] -= factor * matrix[pivot][col];
+            for (value, pivot_value) in matrix[row]
+                .iter_mut()
+                .skip(pivot)
+                .take(n - pivot)
+                .zip(pivot_tail.iter().copied())
+            {
+                *value -= factor * pivot_value;
             }
             rhs[row] -= factor * rhs[pivot];
         }

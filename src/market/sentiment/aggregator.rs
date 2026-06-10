@@ -57,7 +57,7 @@ impl SentimentAggregator {
         }
 
         // 按时间排序
-        recent_mentions.sort_by(|a, b| b.published_at.cmp(&a.published_at));
+        recent_mentions.sort_by_key(|mention| std::cmp::Reverse(mention.published_at));
         recent_mentions.truncate(20);
 
         let sources: Vec<String> = self
@@ -107,7 +107,7 @@ impl SentimentAggregator {
                 }
             }
         }
-        mentions.sort_by(|a, b| b.published_at.cmp(&a.published_at));
+        mentions.sort_by_key(|mention| std::cmp::Reverse(mention.published_at));
         mentions.truncate(limit);
         Ok(mentions)
     }
@@ -122,7 +122,7 @@ impl SentimentAggregator {
                 }
             }
         }
-        all_history.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        all_history.sort_by_key(|point| std::cmp::Reverse(point.timestamp));
         Ok(all_history)
     }
 }
@@ -133,7 +133,7 @@ fn infer_trend_from_history(history: &[SentimentHistoryPoint]) -> SentimentTrend
     }
 
     let mut points = history.to_vec();
-    points.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    points.sort_by_key(|point| point.timestamp);
 
     let split_at = points.len() / 2;
     let previous = weighted_average_score(&points[..split_at]);

@@ -39,7 +39,7 @@ impl TradeReportingService {
                 net_cash_impact: net_cash_impact(record.side, record.amount, record.total_fee),
             })
             .collect();
-        rows.sort_by(|left, right| right.executed_at.cmp(&left.executed_at));
+        rows.sort_by_key(|row| std::cmp::Reverse(row.executed_at));
         rows.truncate(limit.unwrap_or(DEFAULT_TRADE_REPORT_LIMIT));
         rows
     }
@@ -64,7 +64,7 @@ impl TradeReportingService {
                 total_fee: record.total_fee,
             })
             .collect();
-        rows.sort_by(|left, right| right.executed_at.cmp(&left.executed_at));
+        rows.sort_by_key(|row| std::cmp::Reverse(row.executed_at));
         rows.truncate(limit.unwrap_or(DEFAULT_TRADE_REPORT_LIMIT));
         rows
     }

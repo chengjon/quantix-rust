@@ -52,7 +52,7 @@ impl IndicatorInstanceId {
         }
 
         let mut entries: Vec<(&String, &Value)> = params.iter().collect();
-        entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+        entries.sort_by_key(|(left, _)| *left);
 
         let mut canonical = serde_json::Map::new();
         for (key, value) in entries {
