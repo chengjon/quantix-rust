@@ -81,7 +81,7 @@ impl StopRuleStore for FakeStopRuleStore {
             })
             .cloned()
             .collect();
-        history.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        history.sort_by_key(|event| std::cmp::Reverse(event.created_at));
         if let Some(limit) = filter.limit {
             history.truncate(limit);
         }
