@@ -330,11 +330,56 @@ jobs:
           set -o pipefail
           cargo bench --all-features --no-fail-fast | tee benchmark-output.txt
 
+      - name: Convert Criterion results
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const root = path.join(process.cwd(), 'target', 'criterion');
+          const results = [];
+
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const fullPath = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                walk(fullPath);
+              } else if (entry.isFile() && fullPath.endsWith(path.join('new', 'estimates.json'))) {
+                const data = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                const mean = data.mean?.point_estimate;
+                if (typeof mean !== 'number') {
+                  continue;
+                }
+
+                const benchmarkName = path.relative(root, path.dirname(path.dirname(fullPath)));
+                results.push({
+                  name: benchmarkName.split(path.sep).join('/'),
+                  unit: 'ns',
+                  value: mean,
+                });
+              }
+            }
+          }
+
+          if (!fs.existsSync(root)) {
+            throw new Error(`Criterion output directory not found: ${root}`);
+          }
+
+          walk(root);
+          if (results.length === 0) {
+            throw new Error('No Criterion benchmark estimates were found');
+          }
+
+          results.sort((a, b) => a.name.localeCompare(b.name));
+          fs.writeFileSync('benchmark-output.json', `${JSON.stringify(results, null, 2)}\n`);
+          console.log(`Converted ${results.length} Criterion benchmark results`);
+          EOF
+
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          tool: 'cargo'
-          output-file-path: benchmark-output.txt
+          tool: 'customSmallerIsBetter'
+          output-file-path: benchmark-output.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: '150%'
