@@ -77,12 +77,43 @@ jobs:
         run: cargo install cargo-outdated
 
       - name: Check for outdated dependencies
+        continue-on-error: true
         run: |
-          cargo outdated --exit-code 1 > outdated.txt 2>&1 || true
-          cat outdated.txt
+          set +e
+          timeout 90s cargo outdated --exit-code 1 > outdated.txt 2>&1
+          status=$?
+
+          {
+            echo "cargo outdated exit status: ${status}"
+            case "${status}" in
+              0)
+                echo "All dependencies are up to date."
+                ;;
+              1)
+                echo "Outdated dependencies were found. See the artifact for the full report."
+                ;;
+              124)
+                echo "cargo outdated timed out after 90 seconds while generating the report."
+                ;;
+              143)
+                echo "cargo outdated was terminated before the report completed."
+                ;;
+              *)
+                echo "cargo outdated exited with a non-zero status while generating the report."
+                ;;
+            esac
+            echo
+            cat outdated.txt
+          } > outdated-report.txt
+
+          mv outdated-report.txt outdated.txt
+          tail -n 200 outdated.txt
+          exit 0
 
       - name: Upload outdated report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: outdated-dependencies
           path: outdated.txt
+          if-no-files-found: warn
