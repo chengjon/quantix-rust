@@ -82,7 +82,7 @@ jobs:
           cat outdated.txt
 
       - name: Upload outdated report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: outdated-dependencies
           path: outdated.txt
