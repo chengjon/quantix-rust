@@ -292,7 +292,7 @@ jobs:
         run: cargo build --release --all-features --target ${{ matrix.target }}
 
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: quantix-${{ matrix.os }}
           path: target/${{ matrix.target }}/release/quantix
@@ -301,6 +301,8 @@ jobs:
   bench:
     name: Benchmark
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'schedule'
 
     steps:
@@ -324,13 +326,15 @@ jobs:
           key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run benchmarks
-        run: cargo bench --all-features --no-fail-fast
+        run: |
+          set -o pipefail
+          cargo bench --all-features --no-fail-fast | tee benchmark-output.txt
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: 'cargo'
-          output-file-path: target/criterion/report/index.html
+          output-file-path: benchmark-output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: '150%'
