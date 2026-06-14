@@ -9,6 +9,7 @@ on:
 env:
   GH_REPO: ${{ github.repository }}
   DOCKER_REPO: ghcr.io/${{ github.repository }}
+  DOCKER_IMAGE: quantix
 
 jobs:
   cleanup:
@@ -37,28 +38,58 @@ jobs:
         run: |
           echo "Cleaning up images older than 30 days..."
 
-          # 获取所有镜像标签
-          ALL_TAGS=$(gh api \
-            /repos/${GH_REPO}/packages \
-            | jq -r '.[] | select(.name | contains("quantix")) | .id')
+          OWNER="${GH_REPO%%/*}"
+          REPO_NAME="${GH_REPO#*/}"
+          CUTOFF="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
 
-          # 删除30天前的未使用镜像
-          for pkg_id in $ALL_TAGS; do
-            echo "Checking package: $pkg_id"
+          PACKAGES_JSON="$(gh api "/users/${OWNER}/packages?package_type=container" 2>/tmp/gh-packages-error.log || true)"
+          if ! echo "$PACKAGES_JSON" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            echo "No accessible container packages for ${OWNER}; skipping cleanup."
+            cat /tmp/gh-packages-error.log || true
+            exit 0
+          fi
 
-            # 获取包的所有版本
-            VERSIONS=$(gh api \
-              "/repos/${GH_REPO}/packages/$pkg_id/versions" \
-              --jq '.[] | select(.created_at | fromdateiso8601TZ < (now - 30days)) | .id')
+          PACKAGE_NAMES="$(echo "$PACKAGES_JSON" | jq -r \
+            --arg repo "$REPO_NAME" \
+            --arg image "$DOCKER_IMAGE" \
+            '.[] | select(
+              (.name == $image) or
+              (.name == ($repo + "/" + $image)) or
+              (.name | contains($repo)) or
+              (.name | contains($image))
+            ) | .name')"
+
+          if [ -z "$PACKAGE_NAMES" ]; then
+            echo "No matching container packages found; skipping cleanup."
+            exit 0
+          fi
+
+          while IFS= read -r pkg_name; do
+            [ -n "$pkg_name" ] || continue
+            echo "Checking package: $pkg_name"
+
+            encoded_pkg="$(jq -rn --arg v "$pkg_name" '$v|@uri')"
+            VERSIONS_JSON="$(gh api "/users/${OWNER}/packages/container/${encoded_pkg}/versions" 2>/tmp/gh-versions-error.log || true)"
+            if ! echo "$VERSIONS_JSON" | jq -e 'type == "array"' >/dev/null 2>&1; then
+              echo "Could not list versions for ${pkg_name}; skipping package."
+              cat /tmp/gh-versions-error.log || true
+              continue
+            fi
+
+            VERSIONS="$(echo "$VERSIONS_JSON" | jq -r --arg cutoff "$CUTOFF" '.[] | select(.created_at < $cutoff) | .id')"
+            if [ -z "$VERSIONS" ]; then
+              echo "No versions older than 30 days for ${pkg_name}."
+              continue
+            fi
 
             for ver_id in $VERSIONS; do
               echo "Deleting version: $ver_id"
               gh api \
                 --method DELETE \
-                "/repos/${GH_REPO}/packages/$pkg_id/versions/$ver_id" \
+                "/user/packages/container/${encoded_pkg}/versions/$ver_id" \
                 || true
             done
-          done
+          done <<< "$PACKAGE_NAMES"
 
           echo "Cleanup completed"
         env:
