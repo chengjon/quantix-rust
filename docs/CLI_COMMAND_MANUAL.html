@@ -5,257 +5,434 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'>
 <title>Quantix CLI 命令手册</title>
 <style>
-:root{--bg:#f4efe6;--panel:#fffdf8;--ink:#1f2a32;--muted:#5f6b73;--line:#dccfbb;--accent:#9b3d16;--accent-soft:#f6e2d6;--code:#f6f0e7;--nav:#fffaf3;--shadow:0 12px 30px rgba(70,45,26,.08);--must-bg:#ffe8cc;--must-fg:#8a3b12;--dep-bg:#e8f1ff;--dep-fg:#1c4f91;--risk-bg:#ffe0e0;--risk-fg:#9d1f1f;--compat-bg:#ece8ff;--compat-fg:#5c3ea1;--partial-bg:#fff3d6;--partial-fg:#7c4d00;--todo-bg:#f7e6d9;--todo-fg:#7d3215;}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;color:var(--ink);background:radial-gradient(circle at top left,rgba(155,61,22,.08),transparent 26%),linear-gradient(180deg,#faf6ee 0%,var(--bg) 100%)}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}code,pre{font-family:'JetBrains Mono','SFMono-Regular',Consolas,monospace}.layout{width:min(1440px,calc(100vw - 32px));margin:0 auto;padding:24px 0 48px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px}.nav{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;background:rgba(255,250,243,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}.nav h1{font-size:22px;margin:0 0 8px}.nav p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.6}.nav ul{list-style:none;margin:0;padding:0}.nav li{margin:4px 0}.nav .lv2{padding-left:14px}.nav .lv3{padding-left:28px}.main{min-width:0}.hero,.card{background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}.hero{padding:28px;margin-bottom:20px}.hero h2{margin:0 0 12px;font-size:34px}.hero p{margin:0 0 10px;line-height:1.7;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}.metric b{display:block;font-size:24px;color:var(--accent)}.metric span{color:var(--muted);font-size:13px}.section{padding:24px 28px;margin-bottom:18px}.section h3{margin:8px 0 10px;font-size:28px}.section h4{margin:0 0 10px;font-size:18px}.kicker{color:var(--accent);text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:700}.meta{color:var(--muted);font-size:14px;margin-bottom:18px}.notice{background:var(--accent-soft);border:1px solid #e7bea9;border-radius:14px;padding:14px 16px;line-height:1.7}.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.testbox{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fffcf7}.testbox h4{margin:0 0 8px;font-size:17px}.testbox p{margin:0 0 8px;line-height:1.7;color:var(--muted)}.testbox pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:12px 14px;white-space:pre-wrap;word-break:break-word}.shell{white-space:pre-wrap;word-break:break-word;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px}.subgrid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 8px}.table th{color:var(--muted);font-weight:600}.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}.chip{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:6px 10px;font-size:12px}.chip.must{background:var(--must-bg);color:var(--must-fg)}.chip.dep{background:var(--dep-bg);color:var(--dep-fg)}.chip.risk{background:var(--risk-bg);color:var(--risk-fg)}.chip.compat{background:var(--compat-bg);color:var(--compat-fg)}.chip.partial{background:var(--partial-bg);color:var(--partial-fg)}.chip.todo{background:var(--todo-bg);color:var(--todo-fg)}.focus{border-left:5px solid var(--accent)}.children{margin:14px 0 0;padding-left:18px}.children li{margin:6px 0}.toplink{margin-top:14px;font-size:13px}.update-badge{position:fixed;top:16px;right:24px;background:rgba(255,253,248,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:8px 16px;font-size:13px;color:var(--muted);z-index:100;box-shadow:var(--shadow)}.update-badge span{color:var(--accent);font-weight:600}footer{color:var(--muted);font-size:13px;padding:8px 4px 24px}@media (max-width:1100px){.layout{grid-template-columns:1fr}.nav{position:static;max-height:none}.subgrid,.grid{grid-template-columns:1fr}}
-</style></head><body><div class='update-badge'>更新日期：<span>2026-05-22</span></div><div class='layout'>
-<aside class='nav' id='top'><h1>Quantix CLI</h1><p>按 1 级、2 级、3 级命令展开。优先以当前二进制 <code>target/debug/quantix</code> 的 <code>--help</code> 结果为准，手册已包含本轮 CLI 对齐新增命令与兼容入口。本文不是功能状态注册表；功能状态、已设计/待实现项和可用边界以根目录 <code>FUNCTION_TREE.md</code> 的状态注册表行为准。</p><ul>
-<li><a href='#overview'>手册总览</a></li>
-<li><a href='#test-summary'>测试汇总</a></li>
-<li><a href='#cmd-root'>quantix</a></li>
-<li><a href='#cmd-init'>init</a></li>
-<li><a href='#cmd-menu'>menu</a></li>
-<li><a href='#cmd-data'>data</a></li>
-<li class='lv2'><a href='#cmd-data-source'>data source</a></li>
-<li class='lv3'><a href='#cmd-data-source-list'>data source list</a></li>
-<li class='lv3'><a href='#cmd-data-source-add'>data source add</a></li>
-<li class='lv3'><a href='#cmd-data-source-set-default'>data source set-default</a></li>
-<li class='lv3'><a href='#cmd-data-source-test'>data source test</a></li>
-<li class='lv2'><a href='#cmd-data-import-fundamentals'>data import-fundamentals</a></li>
-<li class='lv2'><a href='#cmd-data-query'>data query</a></li>
-<li class='lv2'><a href='#cmd-data-export'>data export</a></li>
-<li><a href='#cmd-strategy'>strategy</a></li>
-<li class='lv2'><a href='#cmd-strategy-create'>strategy create</a></li>
-<li class='lv2'><a href='#cmd-strategy-update'>strategy update</a></li>
-<li class='lv2'><a href='#cmd-strategy-delete'>strategy delete</a></li>
-<li class='lv2'><a href='#cmd-strategy-run'>strategy run</a></li>
-<li class='lv2'><a href='#cmd-strategy-list'>strategy list</a></li>
-<li class='lv2'><a href='#cmd-strategy-show'>strategy show</a></li>
-<li class='lv2'><a href='#cmd-strategy-config'>strategy config</a></li>
-<li class='lv3'><a href='#cmd-strategy-config-init'>strategy config init</a></li>
-<li class='lv3'><a href='#cmd-strategy-config-show'>strategy config show</a></li>
-<li class='lv2'><a href='#cmd-strategy-daemon'>strategy daemon</a></li>
-<li class='lv3'><a href='#cmd-strategy-daemon-run'>strategy daemon run</a></li>
-<li class='lv2'><a href='#cmd-strategy-signal'>strategy signal</a></li>
-<li class='lv3'><a href='#cmd-strategy-signal-list'>strategy signal list</a></li>
-<li class='lv3'><a href='#cmd-strategy-signal-approve'>strategy signal approve</a></li>
-<li class='lv3'><a href='#cmd-strategy-signal-reject'>strategy signal reject</a></li>
-<li class='lv2'><a href='#cmd-strategy-request'>strategy request</a></li>
-<li class='lv3'><a href='#cmd-strategy-request-list'>strategy request list</a></li>
-<li class='lv3'><a href='#cmd-strategy-request-show'>strategy request show</a></li>
-<li class='lv3'><a href='#cmd-strategy-request-execute'>strategy request execute</a></li>
-<li class='lv3'><a href='#cmd-strategy-request-cancel'>strategy request cancel</a></li>
-<li class='lv2'><a href='#cmd-strategy-service'>strategy service</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-install'>strategy service install</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-uninstall'>strategy service uninstall</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-start'>strategy service start</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-stop'>strategy service stop</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-status'>strategy service status</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-enable'>strategy service enable</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-disable'>strategy service disable</a></li>
-<li class='lv2'><a href='#cmd-strategy-service-config'>strategy service-config</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-config-show'>strategy service-config show</a></li>
-<li class='lv3'><a href='#cmd-strategy-service-config-set'>strategy service-config set</a></li>
-<li><a href='#cmd-task'>task</a></li>
-<li class='lv2'><a href='#cmd-task-add'>task add</a></li>
-<li class='lv2'><a href='#cmd-task-list'>task list</a></li>
-<li class='lv2'><a href='#cmd-task-start'>task start</a></li>
-<li class='lv2'><a href='#cmd-task-stop'>task stop</a></li>
-<li class='lv2'><a href='#cmd-task-status'>task status</a></li>
-<li><a href='#cmd-analyze'>analyze</a></li>
-<li class='lv2'><a href='#cmd-analyze-indicators'>analyze indicators</a></li>
-<li class='lv2'><a href='#cmd-analyze-backtest'>analyze backtest</a></li>
-<li class='lv2'><a href='#cmd-analyze-candle-pattern'>analyze candle-pattern</a></li>
-<li class='lv2'><a href='#cmd-analyze-screener'>analyze screener</a></li>
-<li class='lv3'><a href='#cmd-analyze-screener-preset-list'>analyze screener preset-list</a></li>
-<li class='lv3'><a href='#cmd-analyze-screener-run'>analyze screener run</a></li>
-<li><a href='#cmd-backtest'>backtest</a></li>
-<li class='lv2'><a href='#cmd-backtest-run'>backtest run</a></li>
-<li class='lv2'><a href='#cmd-backtest-report'>backtest report</a></li>
-<li class='lv2'><a href='#cmd-backtest-list'>backtest list</a></li>
-<li class='lv2'><a href='#cmd-backtest-compare'>backtest compare</a></li>
-<li><a href='#cmd-performance'>performance</a></li>
-<li class='lv2'><a href='#cmd-performance-report'>performance report</a></li>
-<li class='lv2'><a href='#cmd-performance-list'>performance list</a></li>
-<li class='lv2'><a href='#cmd-performance-compare'>performance compare</a></li>
-<li><a href='#cmd-factor'>factor</a></li>
-<li class='lv2'><a href='#cmd-factor-list'>factor list</a></li>
-<li class='lv2'><a href='#cmd-factor-compute'>factor compute</a></li>
-<li class='lv2'><a href='#cmd-factor-score'>factor score</a></li>
-<li class='lv2'><a href='#cmd-factor-evaluate'>factor evaluate</a></li>
-<li><a href='#cmd-monitor'>monitor</a></li>
-<li class='lv2'><a href='#cmd-monitor-watchlist'>monitor watchlist</a></li>
-<li class='lv2'><a href='#cmd-monitor-alert'>monitor alert</a></li>
-<li class='lv3'><a href='#cmd-monitor-alert-add'>monitor alert add</a></li>
-<li class='lv3'><a href='#cmd-monitor-alert-list'>monitor alert list</a></li>
-<li class='lv3'><a href='#cmd-monitor-alert-remove'>monitor alert remove</a></li>
-<li class='lv2'><a href='#cmd-monitor-config'>monitor config</a></li>
-<li class='lv3'><a href='#cmd-monitor-config-show'>monitor config show</a></li>
-<li class='lv3'><a href='#cmd-monitor-config-set'>monitor config set</a></li>
-<li class='lv3'><a href='#cmd-monitor-config-clear-group'>monitor config clear-group</a></li>
-<li class='lv2'><a href='#cmd-monitor-daemon'>monitor daemon</a></li>
-<li class='lv3'><a href='#cmd-monitor-daemon-run'>monitor daemon run</a></li>
-<li class='lv2'><a href='#cmd-monitor-service'>monitor service</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-install'>monitor service install</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-uninstall'>monitor service uninstall</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-start'>monitor service start</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-stop'>monitor service stop</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-status'>monitor service status</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-enable'>monitor service enable</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-disable'>monitor service disable</a></li>
-<li class='lv2'><a href='#cmd-monitor-service-config'>monitor service-config</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-config-show'>monitor service-config show</a></li>
-<li class='lv3'><a href='#cmd-monitor-service-config-set'>monitor service-config set</a></li>
-<li class='lv2'><a href='#cmd-monitor-event'>monitor event</a></li>
-<li class='lv3'><a href='#cmd-monitor-event-list'>monitor event list</a></li>
-<li><a href='#cmd-stop'>stop</a></li>
-<li class='lv2'><a href='#cmd-stop-set'>stop set</a></li>
-<li class='lv2'><a href='#cmd-stop-update'>stop update</a></li>
-<li class='lv2'><a href='#cmd-stop-list'>stop list</a></li>
-<li class='lv2'><a href='#cmd-stop-status'>stop status</a></li>
-<li class='lv2'><a href='#cmd-stop-history'>stop history</a></li>
-<li class='lv2'><a href='#cmd-stop-remove'>stop remove</a></li>
-<li><a href='#cmd-watchlist'>watchlist</a></li>
-<li class='lv2'><a href='#cmd-watchlist-add'>watchlist add</a></li>
-<li class='lv2'><a href='#cmd-watchlist-remove'>watchlist remove</a></li>
-<li class='lv2'><a href='#cmd-watchlist-list'>watchlist list</a></li>
-<li class='lv2'><a href='#cmd-watchlist-move'>watchlist move</a></li>
-<li class='lv2'><a href='#cmd-watchlist-group'>watchlist group</a></li>
-<li class='lv3'><a href='#cmd-watchlist-group-create'>watchlist group create</a></li>
-<li class='lv3'><a href='#cmd-watchlist-group-list'>watchlist group list</a></li>
-<li class='lv2'><a href='#cmd-watchlist-tag'>watchlist tag</a></li>
-<li class='lv3'><a href='#cmd-watchlist-tag-add'>watchlist tag add</a></li>
-<li class='lv3'><a href='#cmd-watchlist-tag-remove'>watchlist tag remove</a></li>
-<li class='lv3'><a href='#cmd-watchlist-tag-list'>watchlist tag list</a></li>
-<li class='lv2'><a href='#cmd-watchlist-history'>watchlist history</a></li>
-<li><a href='#cmd-market'>market</a></li>
-<li class='lv2'><a href='#cmd-market-foundation'>market foundation</a></li>
-<li class='lv2'><a href='#cmd-market-sector'>market sector</a></li>
-<li class='lv2'><a href='#cmd-market-concept'>market concept</a></li>
-<li class='lv2'><a href='#cmd-market-north'>market north</a></li>
-<li class='lv2'><a href='#cmd-market-sentiment'>market sentiment</a></li>
-<li class='lv2'><a href='#cmd-market-leader'>market leader</a></li>
-<li class='lv2'><a href='#cmd-market-overview'>market overview</a></li>
-<li class='lv2'><a href='#cmd-market-strength'>market strength</a></li>
-<li class='lv2'><a href='#cmd-market-strength-stocks'>market strength-stocks</a></li>
-<li><a href='#cmd-trade'>trade</a></li>
-<li class='lv2'><a href='#cmd-trade-init'>trade init</a></li>
-<li class='lv2'><a href='#cmd-trade-reset'>trade reset</a></li>
-<li class='lv2'><a href='#cmd-trade-buy'>trade buy</a></li>
-<li class='lv2'><a href='#cmd-trade-sell'>trade sell</a></li>
-<li class='lv2'><a href='#cmd-trade-history'>trade history</a></li>
-<li class='lv2'><a href='#cmd-trade-fees'>trade fees</a></li>
-<li class='lv2'><a href='#cmd-trade-overview'>trade overview</a></li>
-<li class='lv2'><a href='#cmd-trade-position'>trade position</a></li>
-<li class='lv2'><a href='#cmd-trade-cash'>trade cash</a></li>
-<li><a href='#cmd-risk'>risk</a></li>
-<li class='lv2'><a href='#cmd-risk-import'>risk import</a></li>
-<li class='lv3'><a href='#cmd-risk-import-live-trades'>risk import live-trades</a></li>
-<li class='lv2'><a href='#cmd-risk-sync'>risk sync</a></li>
-<li class='lv3'><a href='#cmd-risk-sync-industry'>risk sync industry</a></li>
-<li class='lv2'><a href='#cmd-risk-rebuild'>risk rebuild</a></li>
-<li class='lv3'><a href='#cmd-risk-rebuild-live-account'>risk rebuild live-account</a></li>
-<li class='lv2'><a href='#cmd-risk-rule'>risk rule</a></li>
-<li class='lv3'><a href='#cmd-risk-rule-set'>risk rule set</a></li>
-<li class='lv3'><a href='#cmd-risk-rule-list'>risk rule list</a></li>
-<li class='lv3'><a href='#cmd-risk-rule-enable'>risk rule enable</a></li>
-<li class='lv3'><a href='#cmd-risk-rule-disable'>risk rule disable</a></li>
-<li class='lv2'><a href='#cmd-risk-log'>risk log</a></li>
-<li class='lv2'><a href='#cmd-risk-lock'>risk lock</a></li>
-<li class='lv3'><a href='#cmd-risk-lock-release'>risk lock release</a></li>
-<li class='lv2'><a href='#cmd-risk-status'>risk status</a></li>
-<li class='lv2'><a href='#cmd-risk-pnl'>risk pnl</a></li>
-<li class='lv2'><a href='#cmd-risk-position'>risk position</a></li>
-<li><a href='#cmd-execution'>execution</a></li>
-<li class='lv2'><a href='#cmd-execution-config'>execution config</a></li>
-<li class='lv3'><a href='#cmd-execution-config-init'>execution config init</a></li>
-<li class='lv3'><a href='#cmd-execution-config-show'>execution config show</a></li>
-<li class='lv2'><a href='#cmd-execution-daemon'>execution daemon</a></li>
-<li class='lv3'><a href='#cmd-execution-daemon-run'>execution daemon run</a></li>
-<li class='lv2'><a href='#cmd-execution-bridge'>execution bridge</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-status'>execution bridge status</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-preview'>execution bridge qmt-preview</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-live'>execution bridge qmt-live</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-query'>execution bridge qmt-query</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-cancel'>execution bridge qmt-cancel</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-account'>execution bridge qmt-account</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-positions'>execution bridge qmt-positions</a></li>
-<li class='lv3'><a href='#cmd-execution-bridge-qmt-asset'>execution bridge qmt-asset</a></li>
-<li class='lv2'><a href='#cmd-execution-qmt'>execution qmt</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-status'>execution qmt status</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-preview'>execution qmt preview</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-live'>execution qmt live</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-query'>execution qmt query</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-cancel'>execution qmt cancel</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-account'>execution qmt account</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-positions'>execution qmt positions</a></li>
-<li class='lv3'><a href='#cmd-execution-qmt-asset'>execution qmt asset</a></li>
-<li><a href='#cmd-anomaly'>anomaly</a></li>
-<li class='lv2'><a href='#cmd-anomaly-run'>anomaly run</a></li>
-<li><a href='#cmd-algo'>algo</a></li>
-<li class='lv2'><a href='#cmd-algo-create'>algo create</a></li>
-<li class='lv2'><a href='#cmd-algo-start'>algo start</a></li>
-<li class='lv2'><a href='#cmd-algo-pause'>algo pause</a></li>
-<li class='lv2'><a href='#cmd-algo-resume'>algo resume</a></li>
-<li class='lv2'><a href='#cmd-algo-cancel'>algo cancel</a></li>
-<li class='lv2'><a href='#cmd-algo-status'>algo status</a></li>
-<li class='lv2'><a href='#cmd-algo-list'>algo list</a></li>
-<li class='lv2'><a href='#cmd-algo-plan'>algo plan</a></li>
-<li><a href='#cmd-account'>account</a></li>
-<li class='lv2'><a href='#cmd-account-register'>account register</a></li>
-<li class='lv2'><a href='#cmd-account-list'>account list</a></li>
-<li class='lv2'><a href='#cmd-account-show'>account show</a></li>
-<li class='lv2'><a href='#cmd-account-update'>account update</a></li>
-<li class='lv2'><a href='#cmd-account-remove'>account remove</a></li>
-<li class='lv2'><a href='#cmd-account-default'>account default</a></li>
-<li class='lv2'><a href='#cmd-account-group'>account group</a></li>
-<li class='lv3'><a href='#cmd-account-group-create'>account group create</a></li>
-<li class='lv3'><a href='#cmd-account-group-list'>account group list</a></li>
-<li class='lv3'><a href='#cmd-account-group-show'>account group show</a></li>
-<li class='lv3'><a href='#cmd-account-group-remove'>account group remove</a></li>
-<li class='lv3'><a href='#cmd-account-group-add-account'>account group add-account</a></li>
-<li class='lv3'><a href='#cmd-account-group-remove-account'>account group remove-account</a></li>
-<li class='lv3'><a href='#cmd-account-group-set-strategy'>account group set-strategy</a></li>
-<li class='lv2'><a href='#cmd-account-summary'>account summary</a></li>
-<li class='lv2'><a href='#cmd-account-split'>account split</a></li>
-<li><a href='#cmd-notify'>notify</a></li>
-<li class='lv2'><a href='#cmd-notify-test'>notify test</a></li>
-<li class='lv2'><a href='#cmd-notify-send'>notify send</a></li>
-<li class='lv2'><a href='#cmd-notify-list'>notify list</a></li>
-<li class='lv2'><a href='#cmd-notify-check'>notify check</a></li>
-<li><a href='#cmd-ai'>ai</a></li>
-<li class='lv2'><a href='#cmd-ai-analyze'>ai analyze</a></li>
-<li class='lv2'><a href='#cmd-ai-decide'>ai decide</a></li>
-<li class='lv2'><a href='#cmd-ai-ask'>ai ask</a></li>
-<li class='lv2'><a href='#cmd-ai-market'>ai market</a></li>
-<li class='lv2'><a href='#cmd-ai-config'>ai config</a></li>
-<li><a href='#cmd-news'>news</a></li>
-<li class='lv2'><a href='#cmd-news-search'>news search</a></li>
-<li class='lv2'><a href='#cmd-news-code'>news code</a></li>
-<li class='lv2'><a href='#cmd-news-trend'>news trend</a></li>
-<li class='lv2'><a href='#cmd-news-providers'>news providers</a></li>
-<li><a href='#cmd-fundamental'>fundamental</a></li>
-<li class='lv2'><a href='#cmd-fundamental-show'>fundamental show</a></li>
-<li class='lv2'><a href='#cmd-fundamental-valuation'>fundamental valuation</a></li>
-<li class='lv2'><a href='#cmd-fundamental-earnings'>fundamental earnings</a></li>
-<li class='lv2'><a href='#cmd-fundamental-institution'>fundamental institution</a></li>
-<li class='lv2'><a href='#cmd-fundamental-dragon-tiger'>fundamental dragon-tiger</a></li>
-<li class='lv2'><a href='#cmd-fundamental-capital-flow'>fundamental capital-flow</a></li>
-<li class='lv2'><a href='#cmd-fundamental-dividend'>fundamental dividend</a></li>
-<li><a href='#cmd-sentiment'>sentiment</a></li>
-<li class='lv2'><a href='#cmd-sentiment-show'>sentiment show</a></li>
-<li class='lv2'><a href='#cmd-sentiment-history'>sentiment history</a></li>
-<li class='lv2'><a href='#cmd-sentiment-mentions'>sentiment mentions</a></li>
-<li><a href='#cmd-import'>import</a></li>
-<li class='lv2'><a href='#cmd-import-from-image'>import from-image</a></li>
-<li class='lv2'><a href='#cmd-import-from-csv'>import from-csv</a></li>
-<li class='lv2'><a href='#cmd-import-from-excel'>import from-excel</a></li>
-<li class='lv2'><a href='#cmd-import-from-clipboard'>import from-clipboard</a></li>
-<li class='lv2'><a href='#cmd-import-from-text'>import from-text</a></li>
-<li class='lv2'><a href='#cmd-import-resolve'>import resolve</a></li>
-<li class='lv2'><a href='#cmd-import-market-manifest'>import market-manifest</a></li>
-<li><a href='#cmd-status'>status</a></li>
-</ul></aside><main class='main'>
-<section class='hero' id='overview'><h2>Quantix CLI 命令手册</h2><p>这份手册用于手工测试与命令查阅，覆盖当前项目可见的全部 CLI 命令层级。重点对齐面包括 <code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理、<code>task</code> 实验性边界，以及推荐优先使用的 <code>execution qmt</code> 入口。</p><p>兼容性原则：<code>execution qmt</code> 是当前推荐业务入口，<code>execution bridge</code> 保留为向后兼容路径；<code>analyze screener</code> 当前公开 <code>preset-list</code> 与 <code>run</code> 两条命令路径。另有少数能力已进入功能树规划但尚未暴露为当前二进制命令，本手册会在对应分组里明确标注。</p>
-<div class='grid'><div class='metric'><b>26</b><span>1 级命令</span></div><div class='metric'><b>135</b><span>2 级命令</span></div><div class='metric'><b>81</b><span>3 级命令</span></div></div>
+:root{--bg:#f4efe6;--panel:#fffdf8;--ink:#1f2a32;--muted:#5f6b73;--line:#dccfbb;--accent:#9b3d16;--accent-soft:#f6e2d6;--code:#f6f0e7;--nav:#fffaf3;--shadow:0 12px 30px rgba(70,45,26,.08);--must-bg:#ffe8cc;--must-fg:#8a3b12;--dep-bg:#e8f1ff;--dep-fg:#1c4f91;--risk-bg:#ffe0e0;--risk-fg:#9d1f1f;--compat-bg:#ece8ff;--compat-fg:#5c3ea1;--partial-bg:#fff3d6;--partial-fg:#7c4d00;--todo-bg:#f7e6d9;--todo-fg:#7d3215;}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;color:var(--ink);background:radial-gradient(circle at top left,rgba(155,61,22,.08),transparent 26%),linear-gradient(180deg,#faf6ee 0%,var(--bg) 100%)}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}code,pre{font-family:'JetBrains Mono','SFMono-Regular',Consolas,monospace}.layout{width:min(1440px,calc(100vw - 32px));margin:0 auto;padding:24px 0 48px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px}.nav{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;background:rgba(255,250,243,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}.nav h1{font-size:22px;margin:0 0 8px}.nav p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.6}.nav ul{list-style:none;margin:0;padding:0}.nav li{margin:4px 0}.nav .lv2{padding-left:14px}.nav .lv3{padding-left:28px}.nav-section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.nav-section:first-of-type{border-top:0;padding-top:0}.nav-section-title{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}.nav-link,.nav-open{display:block;border-radius:10px;padding:6px 8px;color:var(--ink);font-size:14px;line-height:1.35}.nav-link:hover,.nav-open:hover,.nav details summary:hover{background:var(--accent-soft);text-decoration:none}.nav-command-list{display:grid;gap:5px}.nav details{margin:0}.nav details summary{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:10px;padding:6px 8px;cursor:pointer;color:var(--ink);font-size:14px;line-height:1.35}.nav details summary::marker{color:var(--accent)}.nav details summary::-webkit-details-marker{color:var(--accent)}.nav-subgroup{margin-left:12px}.nav-open{color:var(--muted);padding-left:20px}.nav-depth-2{margin-left:12px}.nav-depth-3{margin-left:24px;font-size:13px}.nav-count{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--muted);background:var(--panel);font-size:11px}.main{min-width:0}.hero,.card{background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}.hero{padding:28px;margin-bottom:20px}.hero h2{margin:0 0 12px;font-size:34px}.hero p{margin:0 0 10px;line-height:1.7;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}.metric b{display:block;font-size:24px;color:var(--accent)}.metric span{color:var(--muted);font-size:13px}.section{padding:24px 28px;margin-bottom:18px}.section h3{margin:8px 0 10px;font-size:28px}.section h4{margin:0 0 10px;font-size:18px}.kicker{color:var(--accent);text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:700}.meta{color:var(--muted);font-size:14px;margin-bottom:18px}.notice{background:var(--accent-soft);border:1px solid #e7bea9;border-radius:14px;padding:14px 16px;line-height:1.7}.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.testbox{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fffcf7}.testbox h4{margin:0 0 8px;font-size:17px}.testbox p{margin:0 0 8px;line-height:1.7;color:var(--muted)}.testbox pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:12px 14px;white-space:pre-wrap;word-break:break-word}.shell{white-space:pre-wrap;word-break:break-word;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px}.subgrid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 8px}.table th{color:var(--muted);font-weight:600}.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}.chip{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:6px 10px;font-size:12px}.chip.must{background:var(--must-bg);color:var(--must-fg)}.chip.dep{background:var(--dep-bg);color:var(--dep-fg)}.chip.risk{background:var(--risk-bg);color:var(--risk-fg)}.chip.compat{background:var(--compat-bg);color:var(--compat-fg)}.chip.partial{background:var(--partial-bg);color:var(--partial-fg)}.chip.todo{background:var(--todo-bg);color:var(--todo-fg)}.focus{border-left:5px solid var(--accent)}.children{margin:14px 0 0;padding-left:18px}.children li{margin:6px 0}.toplink{margin-top:14px;font-size:13px}.update-badge{position:fixed;top:16px;right:24px;background:rgba(255,253,248,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:8px 16px;font-size:13px;color:var(--muted);z-index:100;box-shadow:var(--shadow)}.update-badge span{color:var(--accent);font-weight:600}footer{color:var(--muted);font-size:13px;padding:8px 4px 24px}@media (max-width:1100px){.layout{grid-template-columns:1fr}.nav{position:static;max-height:none}.subgrid,.grid{grid-template-columns:1fr}}
+</style></head><body><div class='update-badge'>更新日期：<span>2026-06-15</span></div><div class='layout'>
+<aside class='nav' id='top'><h1>Quantix CLI</h1><p>按源码命令树分层折叠，一级命令默认收起，展开后可继续打开二级分组。命令集合以 <code>src/cli/commands/*.rs</code> 与当前 <code>--help</code> 为准；本文不是功能状态注册表，功能状态、已设计/待实现项和可用边界以根目录 <code>FUNCTION_TREE.md</code> 的状态注册表为准。</p><div class='nav-section'><div class='nav-section-title'>文档</div><a class='nav-link' href='#overview'>手册总览</a><a class='nav-link' href='#test-summary'>测试汇总</a><a class='nav-link' href='#cmd-root'>quantix</a></div><div class='nav-section'><div class='nav-section-title'>命令</div><div class='nav-command-list'>
+<a class='nav-link nav-depth-1' href='#cmd-init'>init</a>
+<a class='nav-link nav-depth-1' href='#cmd-menu'>menu</a>
+<details class='nav-group nav-depth-1'>
+<summary><span>data</span><span class='nav-count'>27</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-data'>查看 quantix data</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>data source</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-data-source'>查看 quantix data source</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-source-list'>data source list</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-source-add'>data source add</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-source-set-default'>data source set-default</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-source-test'>data source test</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>data tdx-api</span><span class='nav-count'>18</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-data-tdx-api'>查看 quantix data tdx-api</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-health'>data tdx-api health</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-quote'>data tdx-api quote</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-kline'>data tdx-api kline</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-kline-ths'>data tdx-api kline-ths</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-minute'>data tdx-api minute</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-search'>data tdx-api search</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-workday'>data tdx-api workday</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-workday-range'>data tdx-api workday-range</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-income'>data tdx-api income</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-market-stats'>data tdx-api market-stats</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-tasks'>data tdx-api tasks</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-task-info'>data tdx-api task-info</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-pull-kline'>data tdx-api pull-kline</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-pull-trade'>data tdx-api pull-trade</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-cancel-task'>data tdx-api cancel-task</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-import-ticks'>data tdx-api import-ticks</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-import-klines'>data tdx-api import-klines</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-tdx-api-sync-calendar'>data tdx-api sync-calendar</a>
+</details>
+<a class='nav-link nav-depth-2' href='#cmd-data-import-fundamentals'>data import-fundamentals</a>
+<a class='nav-link nav-depth-2' href='#cmd-data-query'>data query</a>
+<a class='nav-link nav-depth-2' href='#cmd-data-export'>data export</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>strategy</span><span class='nav-count'>31</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-strategy'>查看 quantix strategy</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-create'>strategy create</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-update'>strategy update</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-delete'>strategy delete</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-run'>strategy run</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-list'>strategy list</a>
+<a class='nav-link nav-depth-2' href='#cmd-strategy-show'>strategy show</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy config</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-config'>查看 quantix strategy config</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-config-init'>strategy config init</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-config-show'>strategy config show</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy daemon</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-daemon'>查看 quantix strategy daemon</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-daemon-run'>strategy daemon run</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy signal</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-signal'>查看 quantix strategy signal</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-signal-list'>strategy signal list</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-signal-approve'>strategy signal approve</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-signal-reject'>strategy signal reject</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy request</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-request'>查看 quantix strategy request</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-request-list'>strategy request list</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-request-show'>strategy request show</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-request-execute'>strategy request execute</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-request-cancel'>strategy request cancel</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy service</span><span class='nav-count'>7</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-service'>查看 quantix strategy service</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-install'>strategy service install</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-uninstall'>strategy service uninstall</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-start'>strategy service start</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-stop'>strategy service stop</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-status'>strategy service status</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-enable'>strategy service enable</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-disable'>strategy service disable</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>strategy service-config</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-strategy-service-config'>查看 quantix strategy service-config</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-config-show'>strategy service-config show</a>
+<a class='nav-link nav-depth-3' href='#cmd-strategy-service-config-set'>strategy service-config set</a>
+</details>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>task</span><span class='nav-count'>5</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-task'>查看 quantix task</a>
+<a class='nav-link nav-depth-2' href='#cmd-task-add'>task add</a>
+<a class='nav-link nav-depth-2' href='#cmd-task-list'>task list</a>
+<a class='nav-link nav-depth-2' href='#cmd-task-start'>task start</a>
+<a class='nav-link nav-depth-2' href='#cmd-task-stop'>task stop</a>
+<a class='nav-link nav-depth-2' href='#cmd-task-status'>task status</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>analyze</span><span class='nav-count'>6</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-analyze'>查看 quantix analyze</a>
+<a class='nav-link nav-depth-2' href='#cmd-analyze-indicators'>analyze indicators</a>
+<a class='nav-link nav-depth-2' href='#cmd-analyze-backtest'>analyze backtest</a>
+<a class='nav-link nav-depth-2' href='#cmd-analyze-candle-pattern'>analyze candle-pattern</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>analyze screener</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-analyze-screener'>查看 quantix analyze screener</a>
+<a class='nav-link nav-depth-3' href='#cmd-analyze-screener-preset-list'>analyze screener preset-list</a>
+<a class='nav-link nav-depth-3' href='#cmd-analyze-screener-run'>analyze screener run</a>
+</details>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>backtest</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-backtest'>查看 quantix backtest</a>
+<a class='nav-link nav-depth-2' href='#cmd-backtest-run'>backtest run</a>
+<a class='nav-link nav-depth-2' href='#cmd-backtest-report'>backtest report</a>
+<a class='nav-link nav-depth-2' href='#cmd-backtest-list'>backtest list</a>
+<a class='nav-link nav-depth-2' href='#cmd-backtest-compare'>backtest compare</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>performance</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-performance'>查看 quantix performance</a>
+<a class='nav-link nav-depth-2' href='#cmd-performance-report'>performance report</a>
+<a class='nav-link nav-depth-2' href='#cmd-performance-list'>performance list</a>
+<a class='nav-link nav-depth-2' href='#cmd-performance-compare'>performance compare</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>factor</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-factor'>查看 quantix factor</a>
+<a class='nav-link nav-depth-2' href='#cmd-factor-list'>factor list</a>
+<a class='nav-link nav-depth-2' href='#cmd-factor-compute'>factor compute</a>
+<a class='nav-link nav-depth-2' href='#cmd-factor-score'>factor score</a>
+<a class='nav-link nav-depth-2' href='#cmd-factor-evaluate'>factor evaluate</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>monitor</span><span class='nav-count'>24</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-monitor'>查看 quantix monitor</a>
+<a class='nav-link nav-depth-2' href='#cmd-monitor-watchlist'>monitor watchlist</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor alert</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-alert'>查看 quantix monitor alert</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-alert-add'>monitor alert add</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-alert-list'>monitor alert list</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-alert-remove'>monitor alert remove</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor config</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-config'>查看 quantix monitor config</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-config-show'>monitor config show</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-config-set'>monitor config set</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-config-clear-group'>monitor config clear-group</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor daemon</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-daemon'>查看 quantix monitor daemon</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-daemon-run'>monitor daemon run</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor service</span><span class='nav-count'>7</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-service'>查看 quantix monitor service</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-install'>monitor service install</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-uninstall'>monitor service uninstall</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-start'>monitor service start</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-stop'>monitor service stop</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-status'>monitor service status</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-enable'>monitor service enable</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-disable'>monitor service disable</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor service-config</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-service-config'>查看 quantix monitor service-config</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-config-show'>monitor service-config show</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-service-config-set'>monitor service-config set</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>monitor event</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-monitor-event'>查看 quantix monitor event</a>
+<a class='nav-link nav-depth-3' href='#cmd-monitor-event-list'>monitor event list</a>
+</details>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>stop</span><span class='nav-count'>6</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-stop'>查看 quantix stop</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-set'>stop set</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-update'>stop update</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-list'>stop list</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-status'>stop status</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-history'>stop history</a>
+<a class='nav-link nav-depth-2' href='#cmd-stop-remove'>stop remove</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>watchlist</span><span class='nav-count'>12</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-watchlist'>查看 quantix watchlist</a>
+<a class='nav-link nav-depth-2' href='#cmd-watchlist-add'>watchlist add</a>
+<a class='nav-link nav-depth-2' href='#cmd-watchlist-remove'>watchlist remove</a>
+<a class='nav-link nav-depth-2' href='#cmd-watchlist-list'>watchlist list</a>
+<a class='nav-link nav-depth-2' href='#cmd-watchlist-move'>watchlist move</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>watchlist group</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-watchlist-group'>查看 quantix watchlist group</a>
+<a class='nav-link nav-depth-3' href='#cmd-watchlist-group-create'>watchlist group create</a>
+<a class='nav-link nav-depth-3' href='#cmd-watchlist-group-list'>watchlist group list</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>watchlist tag</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-watchlist-tag'>查看 quantix watchlist tag</a>
+<a class='nav-link nav-depth-3' href='#cmd-watchlist-tag-add'>watchlist tag add</a>
+<a class='nav-link nav-depth-3' href='#cmd-watchlist-tag-remove'>watchlist tag remove</a>
+<a class='nav-link nav-depth-3' href='#cmd-watchlist-tag-list'>watchlist tag list</a>
+</details>
+<a class='nav-link nav-depth-2' href='#cmd-watchlist-history'>watchlist history</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>market</span><span class='nav-count'>9</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-market'>查看 quantix market</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-foundation'>market foundation</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-sector'>market sector</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-concept'>market concept</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-north'>market north</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-sentiment'>market sentiment</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-leader'>market leader</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-overview'>market overview</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-strength'>market strength</a>
+<a class='nav-link nav-depth-2' href='#cmd-market-strength-stocks'>market strength-stocks</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>trade</span><span class='nav-count'>9</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-trade'>查看 quantix trade</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-init'>trade init</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-reset'>trade reset</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-buy'>trade buy</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-sell'>trade sell</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-history'>trade history</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-fees'>trade fees</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-overview'>trade overview</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-position'>trade position</a>
+<a class='nav-link nav-depth-2' href='#cmd-trade-cash'>trade cash</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>risk</span><span class='nav-count'>17</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-risk'>查看 quantix risk</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>risk import</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-risk-import'>查看 quantix risk import</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-import-live-trades'>risk import live-trades</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>risk sync</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-risk-sync'>查看 quantix risk sync</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-sync-industry'>risk sync industry</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>risk rebuild</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-risk-rebuild'>查看 quantix risk rebuild</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-rebuild-live-account'>risk rebuild live-account</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>risk rule</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-risk-rule'>查看 quantix risk rule</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-rule-set'>risk rule set</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-rule-list'>risk rule list</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-rule-enable'>risk rule enable</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-rule-disable'>risk rule disable</a>
+</details>
+<a class='nav-link nav-depth-2' href='#cmd-risk-log'>risk log</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>risk lock</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-risk-lock'>查看 quantix risk lock</a>
+<a class='nav-link nav-depth-3' href='#cmd-risk-lock-release'>risk lock release</a>
+</details>
+<a class='nav-link nav-depth-2' href='#cmd-risk-status'>risk status</a>
+<a class='nav-link nav-depth-2' href='#cmd-risk-pnl'>risk pnl</a>
+<a class='nav-link nav-depth-2' href='#cmd-risk-position'>risk position</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>safety</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-safety'>查看 quantix safety</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>safety kill-switch</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-safety-kill-switch'>查看 quantix safety kill-switch</a>
+<a class='nav-link nav-depth-3' href='#cmd-safety-kill-switch-enable'>safety kill-switch enable</a>
+<a class='nav-link nav-depth-3' href='#cmd-safety-kill-switch-disable'>safety kill-switch disable</a>
+<a class='nav-link nav-depth-3' href='#cmd-safety-kill-switch-status'>safety kill-switch status</a>
+</details>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>execution</span><span class='nav-count'>23</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-execution'>查看 quantix execution</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>execution config</span><span class='nav-count'>2</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-execution-config'>查看 quantix execution config</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-config-init'>execution config init</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-config-show'>execution config show</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>execution daemon</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-execution-daemon'>查看 quantix execution daemon</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-daemon-run'>execution daemon run</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>execution bridge</span><span class='nav-count'>8</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-execution-bridge'>查看 quantix execution bridge</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-status'>execution bridge status</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-preview'>execution bridge qmt-preview</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-live'>execution bridge qmt-live</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-query'>execution bridge qmt-query</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-cancel'>execution bridge qmt-cancel</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-account'>execution bridge qmt-account</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-positions'>execution bridge qmt-positions</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-bridge-qmt-asset'>execution bridge qmt-asset</a>
+</details>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>execution qmt</span><span class='nav-count'>8</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-execution-qmt'>查看 quantix execution qmt</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-status'>execution qmt status</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-preview'>execution qmt preview</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-live'>execution qmt live</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-query'>execution qmt query</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-cancel'>execution qmt cancel</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-account'>execution qmt account</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-positions'>execution qmt positions</a>
+<a class='nav-link nav-depth-3' href='#cmd-execution-qmt-asset'>execution qmt asset</a>
+</details>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>anomaly</span><span class='nav-count'>1</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-anomaly'>查看 quantix anomaly</a>
+<a class='nav-link nav-depth-2' href='#cmd-anomaly-run'>anomaly run</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>algo</span><span class='nav-count'>8</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-algo'>查看 quantix algo</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-create'>algo create</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-start'>algo start</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-pause'>algo pause</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-resume'>algo resume</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-cancel'>algo cancel</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-status'>algo status</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-list'>algo list</a>
+<a class='nav-link nav-depth-2' href='#cmd-algo-plan'>algo plan</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>account</span><span class='nav-count'>16</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-account'>查看 quantix account</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-register'>account register</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-list'>account list</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-show'>account show</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-update'>account update</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-remove'>account remove</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-default'>account default</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>account group</span><span class='nav-count'>7</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-account-group'>查看 quantix account group</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-create'>account group create</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-list'>account group list</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-show'>account group show</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-remove'>account group remove</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-add-account'>account group add-account</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-remove-account'>account group remove-account</a>
+<a class='nav-link nav-depth-3' href='#cmd-account-group-set-strategy'>account group set-strategy</a>
+</details>
+<a class='nav-link nav-depth-2' href='#cmd-account-summary'>account summary</a>
+<a class='nav-link nav-depth-2' href='#cmd-account-split'>account split</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>notify</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-notify'>查看 quantix notify</a>
+<a class='nav-link nav-depth-2' href='#cmd-notify-test'>notify test</a>
+<a class='nav-link nav-depth-2' href='#cmd-notify-send'>notify send</a>
+<a class='nav-link nav-depth-2' href='#cmd-notify-list'>notify list</a>
+<a class='nav-link nav-depth-2' href='#cmd-notify-check'>notify check</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>ai</span><span class='nav-count'>5</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-ai'>查看 quantix ai</a>
+<a class='nav-link nav-depth-2' href='#cmd-ai-analyze'>ai analyze</a>
+<a class='nav-link nav-depth-2' href='#cmd-ai-decide'>ai decide</a>
+<a class='nav-link nav-depth-2' href='#cmd-ai-ask'>ai ask</a>
+<a class='nav-link nav-depth-2' href='#cmd-ai-market'>ai market</a>
+<a class='nav-link nav-depth-2' href='#cmd-ai-config'>ai config</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>news</span><span class='nav-count'>4</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-news'>查看 quantix news</a>
+<a class='nav-link nav-depth-2' href='#cmd-news-search'>news search</a>
+<a class='nav-link nav-depth-2' href='#cmd-news-code'>news code</a>
+<a class='nav-link nav-depth-2' href='#cmd-news-trend'>news trend</a>
+<a class='nav-link nav-depth-2' href='#cmd-news-providers'>news providers</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>fundamental</span><span class='nav-count'>7</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-fundamental'>查看 quantix fundamental</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-show'>fundamental show</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-valuation'>fundamental valuation</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-earnings'>fundamental earnings</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-institution'>fundamental institution</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-dragon-tiger'>fundamental dragon-tiger</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-capital-flow'>fundamental capital-flow</a>
+<a class='nav-link nav-depth-2' href='#cmd-fundamental-dividend'>fundamental dividend</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>sentiment</span><span class='nav-count'>3</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-sentiment'>查看 quantix sentiment</a>
+<a class='nav-link nav-depth-2' href='#cmd-sentiment-show'>sentiment show</a>
+<a class='nav-link nav-depth-2' href='#cmd-sentiment-history'>sentiment history</a>
+<a class='nav-link nav-depth-2' href='#cmd-sentiment-mentions'>sentiment mentions</a>
+</details>
+<details class='nav-group nav-depth-1'>
+<summary><span>import</span><span class='nav-count'>7</span></summary>
+<a class='nav-open nav-depth-2' href='#cmd-import'>查看 quantix import</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-from-image'>import from-image</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-from-csv'>import from-csv</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-from-excel'>import from-excel</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-from-clipboard'>import from-clipboard</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-from-text'>import from-text</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-resolve'>import resolve</a>
+<a class='nav-link nav-depth-2' href='#cmd-import-market-manifest'>import market-manifest</a>
+</details>
+<a class='nav-link nav-depth-1' href='#cmd-status'>status</a>
+</div></div></aside><main class='main'>
+<section class='hero' id='overview'><h2>Quantix CLI 命令手册</h2><p>这份手册用于手工测试与命令查阅，覆盖当前项目可见的全部 CLI 命令层级。重点对齐面包括 <code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理、<code>task</code> 实验性边界，以及推荐优先使用的 <code>execution qmt</code> 入口。</p><p>兼容性原则：<code>execution qmt</code> 是当前推荐业务入口，<code>execution bridge</code> 保留为向后兼容路径；<code>analyze screener</code> 当前公开 <code>preset-list</code> 与 <code>run</code> 两条命令路径。另有少数能力已进入功能树规划但尚未暴露为当前二进制命令，本手册会在对应分组里明确标注；本次同步补齐 <code>data tdx-api</code> 与 <code>safety kill-switch</code> 当前可用入口。</p>
+<div class='grid'><div class='metric'><b>27</b><span>1 级命令</span></div><div class='metric'><b>137</b><span>2 级命令</span></div><div class='metric'><b>102</b><span>3 级命令</span></div></div>
 <div class='notice' style='margin-top:18px'><b>本轮同步补充</b><br>已补入 <code>factor</code> 顶级命令（<code>list</code>、<code>compute</code>、<code>score</code>、<code>evaluate</code>）和 <code>import market-manifest</code>（miniQMT manifest 解析校验，当前默认 dry-run-only）。此前轮次已补入 <code>task add</code>、<code>market strength-stocks</code>、<code>data import-fundamentals</code>，并把 <code>strategy create/update/delete</code>、<code>task list/start/status</code> 以及多组父命令页改成”按实际处理逻辑写”的说明与真实操作链示例。当前边界也已同步写明：<code>task add</code> 在 Foundation P0 仍未开放；<code>task start --daemon</code> 仍会直接拒绝；<code>fundamental capital-flow</code> 与 <code>fundamental dividend</code> 在真实基本面数据源接线前会返回显式 Unsupported；<code>import from-excel</code> 已接入 watchlist 级 Excel worksheet 解析；<code>news trend</code> 已复用 provider 聚合搜索，但不是完整趋势量化模型。<div class='legend'><span class='chip must'>必测</span><span class='chip dep'>外部依赖</span><span class='chip risk'>高风险实盘</span><span class='chip compat'>兼容路径</span><span class='chip partial'>部分实现</span><span class='chip todo'>未开放 / 开发中</span></div></div><div class='notice' style='margin-top:18px'><b>手工测试建议</b><br>先执行 <code>quantix --help</code> 与重点命令组 <code>--help</code>，再按 <code>data source → backtest → performance → factor → strategy → execution qmt → 兼容路径</code> 的顺序逐项验证。涉及网络、数据源、券商桥接的命令，需要把外部依赖失败和 CLI 参数/解析失败区分记录。</div></section>
 <section class='section card' id='test-summary'><div class='kicker'>测试汇总</div><h3>手工测试结果总表</h3><div class='meta'>用途：测完后统一沉淀结论，区分通过、外部依赖失败与 CLI 缺陷。</div><div class='testbox'><h4>总表模板</h4><pre>测试日期:
 测试二进制: ./target/debug/quantix
@@ -326,6 +503,7 @@
 <li><a href='#cmd-market'><code>quantix market</code></a>：市场分析命令</li>
 <li><a href='#cmd-trade'><code>quantix trade</code></a>：模拟交易命令</li>
 <li><a href='#cmd-risk'><code>quantix risk</code></a>：风险管理命令</li>
+<li><a href='#cmd-safety'><code>quantix safety</code></a>：系统安全控制命令</li>
 <li><a href='#cmd-execution'><code>quantix execution</code></a>：执行自动化命令</li>
 <li><a href='#cmd-anomaly'><code>quantix anomaly</code></a>：异常检测命令 (Isolation Forest)</li>
 <li><a href='#cmd-algo'><code>quantix algo</code></a>：算法交易命令 (TWAP/VWAP)</li>
@@ -338,7 +516,7 @@
 <li><a href='#cmd-import'><code>quantix import</code></a>：智能导入命令</li>
 <li><a href='#cmd-status'><code>quantix status</code></a>：系统状态</li>
 </ul>
-<div class='chips'><span class='chip'>26 个下级命令</span><span class='chip'>2 个选项</span></div>
+<div class='chips'><span class='chip'>27 个下级命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-init'>
 <div class='kicker'>1 级命令</div>
@@ -402,15 +580,16 @@
 <pre class='shell'>quantix data source list
 quantix data query --code 600519 --type daily --limit 50</pre>
 <h4>功能说明</h4>
-<p>数据分组入口，当前覆盖本地数据源配置管理、市场基础面快照导入、K 线查询和导出。这里的命令大多围绕 <code>config/data_sources.toml</code> 覆盖层与 ClickHouse 数据读写展开，不负责调度同步任务本身。</p>
+<p>数据分组入口，当前覆盖本地数据源配置管理、tdx-api REST 服务查询与导入桥接、市场基础面快照导入、K 线查询和导出。这里的命令大多围绕 <code>config/data_sources.toml</code> 覆盖层、tdx-api REST 服务以及 ClickHouse/TDengine 数据读写展开，不负责调度同步任务本身。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-data-source'><code>quantix data source</code></a>：数据源管理</li>
+<li><a href='#cmd-data-tdx-api'><code>quantix data tdx-api</code></a>：tdx-api Docker 服务查询</li>
 <li><a href='#cmd-data-import-fundamentals'><code>quantix data import-fundamentals</code></a>：导入本地市场基础面快照到 ClickHouse</li>
 <li><a href='#cmd-data-query'><code>quantix data query</code></a>：查询历史数据</li>
 <li><a href='#cmd-data-export'><code>quantix data export</code></a>：导出数据到文件</li>
 </ul>
-<div class='chips'><span class='chip'>CLI 对齐重点</span><span class='chip'>4 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='chips'><span class='chip'>CLI 对齐重点</span><span class='chip'>5 个下级命令</span><span class='chip'>1 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card focus' id='cmd-data-source'>
 <div class='kicker'>2 级命令</div>
@@ -539,6 +718,471 @@ quantix data source add --type tdx --hosts 127.0.0.1,192.168.1.10 --port 7709 --
 返回码:
 输出摘要:
 判定: 通过 / 外部依赖失败 / CLI 缺陷</pre></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api'>
+<div class='kicker'>2 级命令</div>
+<h3>quantix data tdx-api</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api</code></div>
+<p>tdx-api Docker 服务查询</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api &lt;COMMAND&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api health
+quantix data tdx-api quote -c 600000</pre>
+<h4>功能说明</h4>
+<p>tdx-api REST 桥接入口，通过 TDX_API_URL 连接 Docker 服务，覆盖行情、K 线、分时、搜索、交易日历、异步任务与导入桥接。写入型命令需要先确认 ClickHouse 或 TDengine 配置。</p>
+</div></div>
+<h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
+<li><a href='#cmd-data-tdx-api-health'><code>quantix data tdx-api health</code></a>：测试 tdx-api 连通性</li>
+<li><a href='#cmd-data-tdx-api-quote'><code>quantix data tdx-api quote</code></a>：获取实时行情</li>
+<li><a href='#cmd-data-tdx-api-kline'><code>quantix data tdx-api kline</code></a>：获取 K 线数据</li>
+<li><a href='#cmd-data-tdx-api-kline-ths'><code>quantix data tdx-api kline-ths</code></a>：获取完整历史K线 (同花顺前复权)</li>
+<li><a href='#cmd-data-tdx-api-minute'><code>quantix data tdx-api minute</code></a>：获取分时数据</li>
+<li><a href='#cmd-data-tdx-api-search'><code>quantix data tdx-api search</code></a>：搜索股票代码/名称</li>
+<li><a href='#cmd-data-tdx-api-workday'><code>quantix data tdx-api workday</code></a>：查询交易日</li>
+<li><a href='#cmd-data-tdx-api-workday-range'><code>quantix data tdx-api workday-range</code></a>：查询交易日范围</li>
+<li><a href='#cmd-data-tdx-api-income'><code>quantix data tdx-api income</code></a>：N日收益计算</li>
+<li><a href='#cmd-data-tdx-api-market-stats'><code>quantix data tdx-api market-stats</code></a>：获取市场涨跌统计</li>
+<li><a href='#cmd-data-tdx-api-tasks'><code>quantix data tdx-api tasks</code></a>：列出异步任务</li>
+<li><a href='#cmd-data-tdx-api-task-info'><code>quantix data tdx-api task-info</code></a>：查看任务详情</li>
+<li><a href='#cmd-data-tdx-api-pull-kline'><code>quantix data tdx-api pull-kline</code></a>：创建 K 线拉取异步任务</li>
+<li><a href='#cmd-data-tdx-api-pull-trade'><code>quantix data tdx-api pull-trade</code></a>：创建成交拉取异步任务</li>
+<li><a href='#cmd-data-tdx-api-cancel-task'><code>quantix data tdx-api cancel-task</code></a>：取消异步任务</li>
+<li><a href='#cmd-data-tdx-api-import-ticks'><code>quantix data tdx-api import-ticks</code></a>：导入逐笔成交数据到 TDengine</li>
+<li><a href='#cmd-data-tdx-api-import-klines'><code>quantix data tdx-api import-klines</code></a>：导入 THS 前复权 K 线到 ClickHouse</li>
+<li><a href='#cmd-data-tdx-api-sync-calendar'><code>quantix data tdx-api sync-calendar</code></a>：从 tdx-api 同步交易日历到本地 config/holidays.json</li>
+</ul>
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>18 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-health'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api health</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api health</code></div>
+<p>测试 tdx-api 连通性</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api health</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api health</pre>
+<h4>功能说明</h4>
+<p>轻量健康探针，用于确认 tdx-api 服务地址、进程状态和连接状态。默认地址由 TDX_API_URL 或运行环境配置决定。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-quote'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api quote</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api quote</code></div>
+<p>获取实时行情</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api quote [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码 (如 600000 或 sh600000)</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api quote -c 600000</pre>
+<h4>功能说明</h4>
+<p>获取单只股票实时行情，股票代码支持 600000、sh600000、000001、sz000001 等格式。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-kline'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api kline</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api kline</code></div>
+<p>获取 K 线数据</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api kline [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-l, --limit</code></td><td>LIMIT</td><td>限制返回条数</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api kline -c 600000 -t day --limit 100</pre>
+<h4>功能说明</h4>
+<p>读取 tdx-api 原始 K 线，周期支持 minute1、minute5、minute15、minute30、hour、day、week、month。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-kline-ths'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api kline-ths</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api kline-ths</code></div>
+<p>获取完整历史K线 (同花顺前复权)</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api kline-ths [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api kline-ths -c 600000 -t week</pre>
+<h4>功能说明</h4>
+<p>读取同花顺前复权历史 K 线，适合后续 ClickHouse 导入或本地对账。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-minute'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api minute</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api minute</code></div>
+<p>获取分时数据</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api minute [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api minute -c 600000 --date 20250605</pre>
+<h4>功能说明</h4>
+<p>读取指定股票的分时数据；未传日期时按服务端默认日期处理。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-search'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api search</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api search</code></div>
+<p>搜索股票代码/名称</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api search [OPTIONS] --keyword &lt;KEYWORD&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-k, --keyword</code></td><td>KEYWORD</td><td>搜索关键词</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api search -k 平安</pre>
+<h4>功能说明</h4>
+<p>按股票代码或名称关键词检索证券列表。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-workday'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api workday</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api workday</code></div>
+<p>查询交易日</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api workday [OPTIONS]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-d, --date</code></td><td>DATE</td><td>日期 (YYYYMMDD)</td></tr>
+<tr><td><code>-c, --count</code></td><td>COUNT</td><td>前后查询数量 [default: 5]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api workday -d 20250605 --count 5</pre>
+<h4>功能说明</h4>
+<p>查询单日附近交易日，适合排查交易日历边界。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-workday-range'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api workday-range</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api workday-range</code></div>
+<p>查询交易日范围</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api workday-range [OPTIONS] --start &lt;START&gt; --end &lt;END&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--start</code></td><td>START</td><td>开始日期 (YYYYMMDD)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYYMMDD)</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api workday-range --start 20250601 --end 20250630</pre>
+<h4>功能说明</h4>
+<p>按起止日期查询交易日范围。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-income'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api income</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api income</code></div>
+<p>N日收益计算</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api income [OPTIONS] --code &lt;CODE&gt; --start-date &lt;START_DATE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>--start-date</code></td><td>START_DATE</td><td>起始日期 (YYYYMMDD)</td></tr>
+<tr><td><code>-d, --days</code></td><td>DAYS</td><td>计算天数列表 (如 5,10,20) [default: 5]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api income -c 600000 --start-date 20250101 -d 5,10,30</pre>
+<h4>功能说明</h4>
+<p>计算指定起始日后的 N 日收益，天数列表可用逗号分隔。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-market-stats'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api market-stats</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api market-stats</code></div>
+<p>获取市场涨跌统计</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api market-stats</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api market-stats</pre>
+<h4>功能说明</h4>
+<p>获取市场涨跌统计，用于快速观察全市场宽度。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-tasks'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api tasks</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api tasks</code></div>
+<p>列出异步任务</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api tasks</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api tasks</pre>
+<h4>功能说明</h4>
+<p>列出 tdx-api 异步任务。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-task-info'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api task-info</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api task-info</code></div>
+<p>查看任务详情</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api task-info [OPTIONS] --id &lt;ID&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-i, --id</code></td><td>ID</td><td>任务 ID</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api task-info --id &lt;task-uuid&gt;</pre>
+<h4>功能说明</h4>
+<p>按任务 ID 查看异步任务详情。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-pull-kline'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api pull-kline</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api pull-kline</code></div>
+<p>创建 K 线拉取异步任务</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api pull-kline [OPTIONS] --codes &lt;CODES&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --codes</code></td><td>CODES</td><td>股票代码 (逗号分隔, 如 600519,000001)</td></tr>
+<tr><td><code>--start-date</code></td><td>START_DATE</td><td>起始日期 (YYYYMMDD)</td></tr>
+<tr><td><code>--limit</code></td><td>LIMIT</td><td>限制条数</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api pull-kline -c 600000,000001 --limit 100</pre>
+<h4>功能说明</h4>
+<p>创建 K 线拉取异步任务，适合批量预热远端数据。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-pull-trade'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api pull-trade</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api pull-trade</code></div>
+<p>创建成交拉取异步任务</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api pull-trade [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>--start-year</code></td><td>START_YEAR</td><td>起始年份</td></tr>
+<tr><td><code>--end-year</code></td><td>END_YEAR</td><td>结束年份</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api pull-trade -c 600000 --start-year 2024 --end-year 2025</pre>
+<h4>功能说明</h4>
+<p>创建逐笔成交拉取异步任务。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-cancel-task'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api cancel-task</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api cancel-task</code></div>
+<p>取消异步任务</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api cancel-task [OPTIONS] --id &lt;ID&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-i, --id</code></td><td>ID</td><td>任务 ID</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api cancel-task --id &lt;task-uuid&gt;</pre>
+<h4>功能说明</h4>
+<p>按任务 ID 取消远端异步任务。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-import-ticks'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api import-ticks</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api import-ticks</code></div>
+<p>导入逐笔成交数据到 TDengine</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api import-ticks [OPTIONS] --code &lt;CODE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api import-ticks -c 600000 --date 20250605</pre>
+<h4>功能说明</h4>
+<p>把 tdx-api 逐笔成交写入 TDengine tick_data 超级表；执行前应确认 TDengine 连接配置。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-import-klines'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api import-klines</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api import-klines</code></div>
+<p>导入 THS 前复权 K 线到 ClickHouse</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api import-klines [OPTIONS]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码 (如 600519), 与 --all 互斥</td></tr>
+<tr><td><code>--all</code></td><td>-</td><td>导入全部 A 股</td></tr>
+<tr><td><code>--exchange</code></td><td>EXCHANGE</td><td>交易所过滤 (sh/sz/bj), 仅 --all 时有效</td></tr>
+<tr><td><code>-t, --type</code></td><td>TYPE</td><td>K线周期: day, week, month [default: day]</td></tr>
+<tr><td><code>--force</code></td><td>-</td><td>覆盖导入（忽略已有数据直接插入）</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api import-klines --all --exchange sh -t day</pre>
+<h4>功能说明</h4>
+<p>把 THS 前复权 K 线写入 ClickHouse；--code 与 --all 互斥，--all 时可用 --exchange 缩小市场范围。</p>
+</div></div>
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>6 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-tdx-api-sync-calendar'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data tdx-api sync-calendar</h3>
+<div class='meta'>命令路径：<code>quantix data tdx-api sync-calendar</code></div>
+<p>从 tdx-api 同步交易日历到本地 config/holidays.json</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data tdx-api sync-calendar [OPTIONS]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-y, --year</code></td><td>YEAR</td><td>年份 (默认今年)</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data tdx-api sync-calendar --year 2026</pre>
+<h4>功能说明</h4>
+<p>从 tdx-api 同步交易日历到本地 config/holidays.json。</p>
+</div></div>
+
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-data-import-fundamentals'>
 <div class='kicker'>2 级命令</div>
@@ -4169,6 +4813,124 @@ quantix risk position --source live_import --account live-001</pre>
 </div></div>
 <div class='chips'><span class='chip partial'>自动减仓仅建议</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-safety'>
+<div class='kicker'>1 级命令</div>
+<h3>quantix safety</h3>
+<div class='meta'>命令路径：<code>quantix safety</code></div>
+<p>系统安全控制命令</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix safety &lt;COMMAND&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix safety kill-switch status</pre>
+<h4>功能说明</h4>
+<p>系统安全控制入口，当前公开 kill-switch 分组。该分组用于人工或流程化地切换全局安全状态。</p>
+</div></div>
+<h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
+<li><a href='#cmd-safety-kill-switch'><code>quantix safety kill-switch</code></a>：系统 kill switch</li>
+</ul>
+<div class='chips'><span class='chip'>安全控制</span><span class='chip'>1 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-safety-kill-switch'>
+<div class='kicker'>2 级命令</div>
+<h3>quantix safety kill-switch</h3>
+<div class='meta'>命令路径：<code>quantix safety kill-switch</code></div>
+<p>系统 kill switch</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix safety kill-switch &lt;COMMAND&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix safety kill-switch status
+quantix safety kill-switch enable --reason &quot;manual halt&quot;</pre>
+<h4>功能说明</h4>
+<p>全局 kill switch 管理入口：enable 需要明确 reason，disable 关闭开关，status 查看当前状态。</p>
+</div></div>
+<h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
+<li><a href='#cmd-safety-kill-switch-enable'><code>quantix safety kill-switch enable</code></a>：启用 kill switch</li>
+<li><a href='#cmd-safety-kill-switch-disable'><code>quantix safety kill-switch disable</code></a>：关闭 kill switch</li>
+<li><a href='#cmd-safety-kill-switch-status'><code>quantix safety kill-switch status</code></a>：查看 kill switch 状态</li>
+</ul>
+<div class='chips'><span class='chip'>安全控制</span><span class='chip'>3 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-safety-kill-switch-enable'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix safety kill-switch enable</h3>
+<div class='meta'>命令路径：<code>quantix safety kill-switch enable</code></div>
+<p>启用 kill switch</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix safety kill-switch enable [OPTIONS] --reason &lt;REASON&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--reason</code></td><td>REASON</td><td>启用原因</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix safety kill-switch enable --reason &quot;manual halt&quot;</pre>
+<h4>功能说明</h4>
+<p>启用系统 kill switch 并记录原因，适合异常行情、演练或人工暂停交易动作。</p>
+</div></div>
+
+<div class='chips'><span class='chip'>安全控制</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-safety-kill-switch-disable'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix safety kill-switch disable</h3>
+<div class='meta'>命令路径：<code>quantix safety kill-switch disable</code></div>
+<p>关闭 kill switch</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix safety kill-switch disable</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix safety kill-switch disable</pre>
+<h4>功能说明</h4>
+<p>关闭系统 kill switch。执行前应确认外部运行条件已经恢复。</p>
+</div></div>
+
+<div class='chips'><span class='chip'>安全控制</span><span class='chip'>叶子命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-safety-kill-switch-status'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix safety kill-switch status</h3>
+<div class='meta'>命令路径：<code>quantix safety kill-switch status</code></div>
+<p>查看 kill switch 状态</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix safety kill-switch status</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix safety kill-switch status</pre>
+<h4>功能说明</h4>
+<p>查看 kill switch 当前状态，适合作为运行前安全检查。</p>
+</div></div>
+
+<div class='chips'><span class='chip'>安全控制</span><span class='chip'>叶子命令</span><span class='chip'>1 个选项</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card focus' id='cmd-execution'>
 <div class='kicker'>1 级命令</div>
 <h3>quantix execution</h3>
@@ -6324,4 +7086,4 @@ quantix status --health</pre>
 </div></div>
 <div class='chips'><span class='chip must'>必测</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
-<footer>文档依据：<code>src/cli/commands/*.rs</code> 的命令结构、对应 handler 的当前行为边界，以及 <code>target/debug/quantix --help</code> 递归结果。若 CLI 结构变化，应重新同步本文件。当前推荐路径以 <code>execution qmt</code>、<code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理为优先。最后同步：2026-06-01。</footer></main></div></body></html>
+<footer>文档依据：<code>src/cli/commands/*.rs</code> 的命令结构、对应 handler 的当前行为边界，以及 <code>target/debug/quantix --help</code> 递归结果。若 CLI 结构变化，应重新同步本文件。当前推荐路径以 <code>execution qmt</code>、<code>data source</code>、<code>backtest</code>、<code>performance</code>、<code>factor</code> 因子研究、<code>strategy</code> 实例管理为优先。最后同步：2026-06-15。</footer></main></div></body></html>
