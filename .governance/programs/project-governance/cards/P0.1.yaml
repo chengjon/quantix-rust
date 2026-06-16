@@ -1,0 +1,38 @@
+task:
+  id: "P0.1"
+  title: "Paper order query/cancel runnable closure"
+
+scope:
+  allowed_paths:
+    - "src/execution/paper.rs"
+    - "src/trade"
+    - "src/cli/handlers/trade_handler.rs"
+    - "tests/execution_kernel_test.rs"
+    - "tests/repo_hygiene_test.rs"
+    - "tests"
+    - "FUNCTION_TREE.md"
+    - "docs/reports/MAINLINE_NEXT_TASK_PROPOSAL_2026-06-16.md"
+    - ".github/workflows/cleanup.yml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No .unwrap cleanup or unrelated error-handling cleanup"
+  - "No QMT live, Windows Bridge, ClickHouse, miniQMT, external broker, or provider integration changes"
+  - "No broad CLI manual refresh unless command contract actually changes"
+  - "Workflow changes are allowed only to close the existing cargo test ci_workflow_structure_test gate failure"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact completed before editing each modified production symbol; HIGH/CRITICAL must stop for explicit warning"
+    - "TDD red-green evidence for paper query/cancel behavior"
+    - "cargo fmt --check, cargo clippy -- -D warnings, cargo test"
+    - "GitNexus detect_changes(scope=all) before commit"
+  closeout_gate:
+    - "FUNCTION_TREE.md updated only if paper query/cancel runnable capability is verified"
+    - "Graphiti conclusion memory written and ingest verified"
+    - "If full cargo test exposes an unrelated baseline gate failure, the minimal gate-related fix must be recorded separately from the mainline capability"
+
+evidence:
+  current_head: "cd370a53b694ccb833c388707a24d48edb54215b"
+  notes: []

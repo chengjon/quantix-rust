@@ -38,18 +38,17 @@ jobs:
         run: |
           echo "Cleaning up images older than 30 days..."
 
-          OWNER="${GH_REPO%%/*}"
           REPO_NAME="${GH_REPO#*/}"
           CUTOFF="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
 
-          PACKAGES_JSON="$(gh api "/users/${OWNER}/packages?package_type=container" 2>/tmp/gh-packages-error.log || true)"
+          PACKAGES_JSON="$(gh api "/repos/${GH_REPO}/packages?package_type=container" 2>/tmp/gh-packages-error.log || true)"
           if ! echo "$PACKAGES_JSON" | jq -e 'type == "array"' >/dev/null 2>&1; then
-            echo "No accessible container packages for ${OWNER}; skipping cleanup."
+            echo "No accessible container packages for ${GH_REPO}; skipping cleanup."
             cat /tmp/gh-packages-error.log || true
             exit 0
           fi
 
-          PACKAGE_NAMES="$(echo "$PACKAGES_JSON" | jq -r \
+          PACKAGE_ROWS="$(echo "$PACKAGES_JSON" | jq -r \
             --arg repo "$REPO_NAME" \
             --arg image "$DOCKER_IMAGE" \
             '.[] | select(
@@ -57,19 +56,19 @@ jobs:
               (.name == ($repo + "/" + $image)) or
               (.name | contains($repo)) or
               (.name | contains($image))
-            ) | .name')"
+            ) | [.id, .name] | @tsv')"
 
-          if [ -z "$PACKAGE_NAMES" ]; then
+          if [ -z "$PACKAGE_ROWS" ]; then
             echo "No matching container packages found; skipping cleanup."
             exit 0
           fi
 
-          while IFS= read -r pkg_name; do
+          while IFS=$'\t' read -r pkg_id pkg_name; do
+            [ -n "$pkg_id" ] || continue
             [ -n "$pkg_name" ] || continue
             echo "Checking package: $pkg_name"
 
-            encoded_pkg="$(jq -rn --arg v "$pkg_name" '$v|@uri')"
-            VERSIONS_JSON="$(gh api "/users/${OWNER}/packages/container/${encoded_pkg}/versions" 2>/tmp/gh-versions-error.log || true)"
+            VERSIONS_JSON="$(gh api "/repos/${GH_REPO}/packages/$pkg_id/versions" 2>/tmp/gh-versions-error.log || true)"
             if ! echo "$VERSIONS_JSON" | jq -e 'type == "array"' >/dev/null 2>&1; then
               echo "Could not list versions for ${pkg_name}; skipping package."
               cat /tmp/gh-versions-error.log || true
@@ -86,10 +85,10 @@ jobs:
               echo "Deleting version: $ver_id"
               gh api \
                 --method DELETE \
-                "/user/packages/container/${encoded_pkg}/versions/$ver_id" \
+                "/repos/${GH_REPO}/packages/$pkg_id/versions/$ver_id" \
                 || true
             done
-          done <<< "$PACKAGE_NAMES"
+          done <<< "$PACKAGE_ROWS"
 
           echo "Cleanup completed"
         env:
