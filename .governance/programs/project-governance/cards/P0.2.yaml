@@ -1,0 +1,29 @@
+task:
+  id: "P0.2"
+  title: "Execution mode semantics hardening"
+
+scope:
+  allowed_paths:
+    - "FUNCTION_TREE.md"
+    - "docs/reports/EXECUTION_MODE_SEMANTICS_HARDENING_PROPOSAL_2026-06-16.md"
+    - ".governance/README.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code changes"
+  - "No ExecutionAdapter trait, OrderStatus, storage, matcher, qmt_live, or paper simulator implementation changes"
+  - "No .unwrap cleanup or unrelated refactoring"
+
+acceptance:
+  commit_gate:
+    - "function-tree validate passes"
+    - "git diff --check passes"
+    - "GitNexus detect_changes(scope=all) confirms documentation/governance-only low risk"
+  closeout_gate:
+    - "P0.2a proposal records official execution-mode semantic baseline and follow-up slices"
+    - "Graphiti conclusion memory written and ingest verified"
+
+evidence:
+  current_head: "6eba7ca9fa8422679ff37be49333119e42e64811"
+  notes: []

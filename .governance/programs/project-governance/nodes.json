@@ -714,5 +714,76 @@
       "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
       "prepared_at": "2026-06-16T06:38:15.202Z"
     }
+  },
+  {
+    "id": "P0.2",
+    "title": "Execution mode semantics hardening",
+    "node_type": "implementation",
+    "owner_lane": "execution",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "Execution mode semantics",
+    "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "Current execution registry separates paper immediate local fill from qmt_live bridge-gated live path; paper_sim_lifecycle is not yet implemented.",
+        "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+        "recorded_at": "2026-06-16T15:14:18.315Z"
+      },
+      {
+        "kind": "decision",
+        "path": "User official input: split P0.2 low-intrusion semantic hardening from later ExecutionCapabilities, StatusSource, qmt_live hardening, and paper_sim_lifecycle cross-cutting projects.",
+        "note": "P0.2a scope is docs/governance proposal only; no production code, trait, storage, enum, matcher, or qmt_live implementation changes.",
+        "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+        "recorded_at": "2026-06-16T15:14:41.059Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus refreshed at current master: 16392 nodes, 31897 edges, 514 clusters, 300 flows; no working tree diff.",
+        "note": "P0.2a will remain documentation/governance-only; source impact analysis required later before code symbols are edited.",
+        "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+        "recorded_at": "2026-06-16T15:15:02.975Z"
+      }
+    ],
+    "allowed_paths": [
+      "FUNCTION_TREE.md",
+      "docs/reports/EXECUTION_MODE_SEMANTICS_HARDENING_PROPOSAL_2026-06-16.md",
+      ".governance/README.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code changes",
+      "No ExecutionAdapter trait, OrderStatus, storage, matcher, qmt_live, or paper simulator implementation changes",
+      "No .unwrap cleanup or unrelated refactoring"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-16T15:13:51.398Z",
+    "updated_at": "2026-06-16T15:15:47.751Z",
+    "acceptance": {
+      "commit_gate": [
+        "function-tree validate passes",
+        "git diff --check passes",
+        "GitNexus detect_changes(scope=all) confirms documentation/governance-only low risk"
+      ],
+      "closeout_gate": [
+        "P0.2a proposal records official execution-mode semantic baseline and follow-up slices",
+        "Graphiti conclusion memory written and ingest verified"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+        "transitioned_at": "2026-06-16T15:15:47.750Z"
+      }
+    ]
   }
 ]
