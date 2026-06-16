@@ -31,3 +31,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] Q1.6: Regenerate FUNCTION_TREE with functional tree template (planning, FT: project/root/function-tree-functional-template)
 - [ ] Q1.7: Clarify FUNCTION_TREE direction guidance (planning, FT: project/root/function-tree-direction-guidance)
 - [ ] P0.1: Paper order query/cancel runnable closure (planning, FT: Paper query/cancel)
+- [ ] P0.2: Execution mode semantics hardening (planning, FT: Execution mode semantics)
