@@ -15,7 +15,7 @@ use quantix_cli::execution::models::{
     MockLiveFillStep, MockLiveOrderState, OrderIntent, OrderRecord, OrderSide, OrderStatus,
     OrderType, SignalEnvelope, StrategyRunRecord, StrategyRunStatus, translate_signal,
 };
-use quantix_cli::execution::paper::PaperExecutionAdapter;
+use quantix_cli::execution::paper::{IMMEDIATE_FILL_ONLY, PaperExecutionAdapter};
 use quantix_cli::execution::runtime_store::StrategyRuntimeStore;
 use quantix_cli::strategy::runtime::{StrategyBarLoader, StrategyRuntime};
 use quantix_cli::trade::{InitAccountRequest, PaperTradeState, PaperTradeStore, TradeService};
@@ -532,7 +532,7 @@ async fn paper_adapter_sell_submission_returns_filled() {
 }
 
 #[tokio::test]
-async fn paper_adapter_query_returns_submitted_trade_record() {
+async fn paper_adapter_query_returns_filled_trade_record() {
     let store = FakePaperTradeStore::default();
     let service = TradeService::new(store.clone());
     service
@@ -556,6 +556,13 @@ async fn paper_adapter_query_returns_submitted_trade_record() {
         .unwrap();
     let query = adapter.query_order(&submit.adapter_order_id).await.unwrap();
 
+    assert_eq!(
+        IMMEDIATE_FILL_ONLY,
+        submit.latest_status == OrderStatus::Filled
+    );
+    assert_eq!(submit.latest_status, OrderStatus::Filled);
+    assert_eq!(submit.filled_quantity, 100);
+    assert_eq!(submit.avg_fill_price, Some(dec!(10.00)));
     assert_eq!(query.adapter_order_id, submit.adapter_order_id);
     assert_eq!(query.latest_status, OrderStatus::Filled);
     assert_eq!(query.filled_quantity, 100);
@@ -585,6 +592,7 @@ async fn paper_adapter_cancel_rejects_filled_trade_record_without_unsupported() 
         })
         .await
         .unwrap();
+    assert_eq!(submit.latest_status, OrderStatus::Filled);
     let err = adapter
         .cancel_order(&submit.adapter_order_id)
         .await

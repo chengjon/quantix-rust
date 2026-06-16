@@ -1,5 +1,29 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-16T15:43:37.730Z",
-  "gates": []
+  "updated_at": "2026-06-16T17:30:55.284Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.2b",
+      "title": "Paper immediate-fill behavior lock",
+      "node_type": "decision",
+      "owner_lane": "codex",
+      "parent": "P0.2",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "execution/paper-immediate",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/paper.rs",
+        "tests/execution_kernel_test.rs",
+        "tests/repo_hygiene_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/**"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-16T17:30:55.283Z"
+    }
+  ]
 }

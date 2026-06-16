@@ -1,0 +1,33 @@
+task:
+  id: "P0.2b"
+  title: "Paper immediate-fill behavior lock"
+
+scope:
+  allowed_paths:
+    - "src/execution/paper.rs"
+    - "tests/execution_kernel_test.rs"
+    - "tests/repo_hygiene_test.rs"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not change ExecutionAdapter trait or order response schemas"
+  - "Do not modify qmt_live/mock_live or implement paper_sim_lifecycle"
+  - "Do not resume unwrap cleanup or alter paper ledger calculations"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact completed for modified production symbols and HIGH/CRITICAL risk absent"
+    - "cargo fmt --check passes"
+    - "cargo clippy --all-targets --all-features -- -D warnings passes"
+    - "cargo test --all-targets passes or documented scoped equivalent plus CI"
+    - "GitNexus detect_changes scope=all reviewed before commit"
+  closeout_gate:
+    - "FUNCTION_TREE/governance validate passes and active gates are closed"
+    - "Graphiti memory written and ingest verified"
+
+evidence:
+  current_head: "91e6b7cbfb84a18650a790a38b28d7ed09da3dad"
+  notes: []
