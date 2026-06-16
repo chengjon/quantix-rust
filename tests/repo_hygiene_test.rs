@@ -2448,7 +2448,7 @@ fn function_tree_status_registry_is_single_source_of_status() {
         "expected FUNCTION_TREE.md to keep status/evidence/boundary registry rows; found {status_registry_rows}"
     );
     assert!(
-        designed_registry_rows >= 15,
+        designed_registry_rows >= 14,
         "expected FUNCTION_TREE.md to keep explicit designed/pending registry rows; found {designed_registry_rows}"
     );
 }

@@ -1,5 +1,33 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-05-25T17:53:18.091Z",
-  "gates": []
+  "updated_at": "2026-06-16T06:30:55.384Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.1",
+      "title": "Paper order query/cancel runnable closure",
+      "node_type": "implementation",
+      "owner_lane": "execution",
+      "parent": "",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "Paper query/cancel",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/paper.rs",
+        "src/trade",
+        "src/cli/handlers/trade_handler.rs",
+        "tests/execution_kernel_test.rs",
+        "tests/repo_hygiene_test.rs",
+        "tests",
+        "FUNCTION_TREE.md",
+        "docs/reports/MAINLINE_NEXT_TASK_PROPOSAL_2026-06-16.md",
+        ".github/workflows/cleanup.yml"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-16T06:30:27.198Z"
+    }
+  ]
 }

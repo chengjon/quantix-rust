@@ -6,7 +6,7 @@ use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
-use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeService};
+use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeRecord, TradeService};
 
 #[derive(Debug, Clone)]
 pub struct PaperExecutionAdapter<Store> {
@@ -45,22 +45,11 @@ where
                     .await
                     .map_err(|err| AdapterError::Execution(err.to_string()))?;
                 Ok(OrderInitialResponse {
-                    adapter_order_id: request.client_order_id,
+                    adapter_order_id: record.id.clone(),
                     latest_status: OrderStatus::Filled,
                     filled_quantity: record.volume,
                     avg_fill_price: Some(record.price),
-                    fill_details: Some(FillDetails {
-                        fill_id: 1,
-                        fill_quantity: record.volume,
-                        fill_price: record.price,
-                        last_fill_price: record.price,
-                        last_fill_quantity: record.volume,
-                        total_fills: 1,
-                        commission: Decimal::ZERO,
-                        fees: Decimal::ZERO,
-                        venue: "paper".to_string(),
-                        broker_fill_id: String::new(),
-                    }),
+                    fill_details: Some(fill_details_from_record(&record)),
                     rejection_reason: None,
                 })
             }
@@ -71,22 +60,11 @@ where
                     .await
                     .map_err(|err| AdapterError::Execution(err.to_string()))?;
                 Ok(OrderInitialResponse {
-                    adapter_order_id: request.client_order_id,
+                    adapter_order_id: record.id.clone(),
                     latest_status: OrderStatus::Filled,
                     filled_quantity: record.volume,
                     avg_fill_price: Some(record.price),
-                    fill_details: Some(FillDetails {
-                        fill_id: 1,
-                        fill_quantity: record.volume,
-                        fill_price: record.price,
-                        last_fill_price: record.price,
-                        last_fill_quantity: record.volume,
-                        total_fills: 1,
-                        commission: Decimal::ZERO,
-                        fees: Decimal::ZERO,
-                        venue: "paper".to_string(),
-                        broker_fill_id: String::new(),
-                    }),
+                    fill_details: Some(fill_details_from_record(&record)),
                     rejection_reason: None,
                 })
             }
@@ -95,17 +73,46 @@ where
 
     async fn query_order(
         &self,
-        _order_id: &str,
+        order_id: &str,
     ) -> std::result::Result<OrderQueryResponse, AdapterError> {
-        Err(AdapterError::Unsupported(
-            "phase29a paper adapter 不支持 query_order".to_string(),
-        ))
+        let record = self.find_trade_record(order_id).await?;
+        Ok(OrderQueryResponse {
+            adapter_order_id: record.id.clone(),
+            latest_status: OrderStatus::Filled,
+            filled_quantity: record.volume,
+            avg_fill_price: Some(record.price),
+            fill_details: Some(fill_details_from_record(&record)),
+            rejection_reason: None,
+        })
     }
 
-    async fn cancel_order(&self, _order_id: &str) -> std::result::Result<(), AdapterError> {
-        Err(AdapterError::Unsupported(
-            "phase29a paper adapter 不支持 cancel_order".to_string(),
-        ))
+    async fn cancel_order(&self, order_id: &str) -> std::result::Result<(), AdapterError> {
+        let record = self.find_trade_record(order_id).await?;
+        Err(AdapterError::Execution(format!(
+            "paper order {} 已成交，无法撤单",
+            record.id
+        )))
+    }
+}
+
+impl<Store> PaperExecutionAdapter<Store>
+where
+    Store: PaperTradeStore,
+{
+    async fn find_trade_record(
+        &self,
+        order_id: &str,
+    ) -> std::result::Result<TradeRecord, AdapterError> {
+        let state = self
+            .trade_service
+            .state_snapshot()
+            .await
+            .map_err(|err| AdapterError::Execution(err.to_string()))?;
+        state
+            .trade_records
+            .into_iter()
+            .find(|record| record.id == order_id)
+            .ok_or_else(|| AdapterError::Execution(format!("paper order {order_id} 不存在")))
     }
 }
 
@@ -123,4 +130,19 @@ fn decimal_to_f64(value: Decimal) -> std::result::Result<f64, AdapterError> {
             "phase29a paper adapter 无法将价格 {value} 转换为 f64"
         ))
     })
+}
+
+fn fill_details_from_record(record: &TradeRecord) -> FillDetails {
+    FillDetails {
+        fill_id: 1,
+        fill_quantity: record.volume,
+        fill_price: record.price,
+        last_fill_price: record.price,
+        last_fill_quantity: record.volume,
+        total_fills: 1,
+        commission: record.commission,
+        fees: record.total_fee,
+        venue: "paper".to_string(),
+        broker_fill_id: record.id.clone(),
+    }
 }

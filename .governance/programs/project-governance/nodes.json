@@ -578,5 +578,99 @@
       "current_head": "14ab859af2ac1312aec67d8aa78dfca2e5a83f4b",
       "prepared_at": "2026-05-25T17:53:09.007Z"
     }
+  },
+  {
+    "id": "P0.1",
+    "title": "Paper order query/cancel runnable closure",
+    "node_type": "implementation",
+    "owner_lane": "execution",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "Paper query/cancel",
+    "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "FUNCTION_TREE status registry marks Paper query/cancel as designed/to-implement and current mainline unavailable.",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "recorded_at": "2026-06-16T04:18:09.482Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact LOW for paper query_order, paper cancel_order, and trade run_trade_command",
+        "note": "Pre-change impact analysis completed before source edits; no HIGH/CRITICAL risk reported.",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "recorded_at": "2026-06-16T04:18:09.584Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "cargo test failed in tests/ci_workflow_structure_test.rs::cleanup_workflow_uses_repository_context; .github/workflows/cleanup.yml is unchanged from HEAD and baseline lacks /repos//packages strings expected by the test",
+        "note": "Paper adapter target tests pass; full cargo test is blocked by unrelated workflow structure baseline failure outside current allowed paths.",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "recorded_at": "2026-06-16T04:34:45.343Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/paper.rs",
+    "src/trade",
+    "src/cli/handlers/trade_handler.rs",
+    "tests/execution_kernel_test.rs",
+    "tests/repo_hygiene_test.rs",
+    "tests",
+    "FUNCTION_TREE.md",
+    "docs/reports/MAINLINE_NEXT_TASK_PROPOSAL_2026-06-16.md",
+    ".github/workflows/cleanup.yml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No .unwrap cleanup or unrelated error-handling cleanup",
+      "No QMT live, Windows Bridge, ClickHouse, miniQMT, external broker, or provider integration changes",
+      "No broad CLI manual refresh unless command contract actually changes",
+      "Workflow changes are allowed only to close the existing cargo test ci_workflow_structure_test gate failure"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-16T04:17:54.504Z",
+  "updated_at": "2026-06-16T06:30:27.198Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact completed before editing each modified production symbol; HIGH/CRITICAL must stop for explicit warning",
+        "TDD red-green evidence for paper query/cancel behavior",
+        "cargo fmt --check, cargo clippy -- -D warnings, cargo test",
+        "GitNexus detect_changes(scope=all) before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE.md updated only if paper query/cancel runnable capability is verified",
+        "Graphiti conclusion memory written and ingest verified",
+        "If full cargo test exposes an unrelated baseline gate failure, the minimal gate-related fix must be recorded separately from the mainline capability"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "User approved the proposal and authorized continuation into implementation.",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "transitioned_at": "2026-06-16T04:18:54.478Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "blocked",
+        "note": "",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "transitioned_at": "2026-06-16T04:35:02.936Z"
+      },
+      {
+        "from": "blocked",
+        "to": "approved-for-implementation",
+        "note": "User selected option 1 and explicitly authorized the narrow cleanup workflow gate fix required by full cargo test.",
+        "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+        "transitioned_at": "2026-06-16T06:11:28.416Z"
+      }
+    ]
   }
 ]

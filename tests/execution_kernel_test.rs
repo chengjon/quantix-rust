@@ -532,25 +532,65 @@ async fn paper_adapter_sell_submission_returns_filled() {
 }
 
 #[tokio::test]
-async fn paper_adapter_cancel_returns_unsupported() {
+async fn paper_adapter_query_returns_submitted_trade_record() {
     let store = FakePaperTradeStore::default();
-    let service = TradeService::new(store);
+    let service = TradeService::new(store.clone());
+    service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            chrono::Utc::now(),
+        )
+        .await
+        .unwrap();
     let adapter = PaperExecutionAdapter::new(service);
 
-    let err = adapter.cancel_order("paper-order-1").await.unwrap_err();
+    let submit = adapter
+        .submit_order(AdapterOrderRequest {
+            client_order_id: "run_000001_query".to_string(),
+            symbol: "000001".to_string(),
+            side: OrderSide::Buy,
+            quantity: 100,
+            price: dec!(10.00),
+        })
+        .await
+        .unwrap();
+    let query = adapter.query_order(&submit.adapter_order_id).await.unwrap();
 
-    assert!(matches!(err, AdapterError::Unsupported(_)));
+    assert_eq!(query.adapter_order_id, submit.adapter_order_id);
+    assert_eq!(query.latest_status, OrderStatus::Filled);
+    assert_eq!(query.filled_quantity, 100);
+    assert_eq!(query.avg_fill_price, Some(dec!(10.00)));
 }
 
 #[tokio::test]
-async fn paper_adapter_query_returns_unsupported() {
+async fn paper_adapter_cancel_rejects_filled_trade_record_without_unsupported() {
     let store = FakePaperTradeStore::default();
-    let service = TradeService::new(store);
+    let service = TradeService::new(store.clone());
+    service
+        .init_account(
+            InitAccountRequest::new(Some(100000.0), None, None, None, None).unwrap(),
+            chrono::Utc::now(),
+        )
+        .await
+        .unwrap();
     let adapter = PaperExecutionAdapter::new(service);
 
-    let err = adapter.query_order("paper-order-1").await.unwrap_err();
+    let submit = adapter
+        .submit_order(AdapterOrderRequest {
+            client_order_id: "run_000001_cancel".to_string(),
+            symbol: "000001".to_string(),
+            side: OrderSide::Buy,
+            quantity: 100,
+            price: dec!(10.00),
+        })
+        .await
+        .unwrap();
+    let err = adapter
+        .cancel_order(&submit.adapter_order_id)
+        .await
+        .unwrap_err();
 
-    assert!(matches!(err, AdapterError::Unsupported(_)));
+    assert!(matches!(err, AdapterError::Execution(message) if message.contains("已成交")));
 }
 
 fn sample_run_request(client_order_id: &str) -> ExecutionRunRequest {
