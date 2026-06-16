@@ -721,11 +721,11 @@
     "node_type": "implementation",
     "owner_lane": "execution",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "Execution mode semantics",
-    "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
+    "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -747,6 +747,13 @@
         "note": "P0.2a will remain documentation/governance-only; source impact analysis required later before code symbols are edited.",
         "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
         "recorded_at": "2026-06-16T15:15:02.975Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "ef1b136",
+        "note": "P0.2a proposal and FUNCTION_TREE registry alignment committed; documentation/governance only.",
+        "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
+        "recorded_at": "2026-06-16T15:40:50.480Z"
       }
     ],
     "allowed_paths": [
@@ -760,11 +767,11 @@
       "No ExecutionAdapter trait, OrderStatus, storage, matcher, qmt_live, or paper simulator implementation changes",
       "No .unwrap cleanup or unrelated refactoring"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-16T15:13:51.398Z",
-    "updated_at": "2026-06-16T15:15:47.751Z",
+    "updated_at": "2026-06-16T15:43:04.652Z",
     "acceptance": {
       "commit_gate": [
         "function-tree validate passes",
@@ -783,7 +790,40 @@
         "note": "",
         "current_head": "6eba7ca9fa8422679ff37be49333119e42e64811",
         "transitioned_at": "2026-06-16T15:15:47.750Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
+        "transitioned_at": "2026-06-16T15:41:12.578Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
+        "transitioned_at": "2026-06-16T15:41:44.822Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
+        "transitioned_at": "2026-06-16T15:43:04.651Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.2a added execution mode semantics hardening proposal and FUNCTION_TREE registry alignment for paper_immediate, paper_sim_lifecycle, and qmt_live. No production code, trait, storage, status response, matcher, qmt_live, or paper runtime behavior changed.",
+      "compatibility": "Existing paper_immediate local immediate-fill behavior and qmt_live miniQMT/broker-governed behavior are unchanged; paper_sim_lifecycle remains unavailable.",
+      "gates": [
+        "git diff --check passed",
+        "function-tree validate passed",
+        "repo_hygiene function_tree_status_registry_is_single_source_of_status passed",
+        "GitNexus detect_changes(scope=all) reported low risk and 0 affected processes with documentation/governance-only changes; stale warning recorded after prior analyze"
+      ],
+      "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
+      "prepared_at": "2026-06-16T15:42:17.691Z"
+    }
   }
 ]
