@@ -585,11 +585,11 @@
     "node_type": "implementation",
     "owner_lane": "execution",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "Paper query/cancel",
-    "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
+    "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -611,18 +611,25 @@
         "note": "Paper adapter target tests pass; full cargo test is blocked by unrelated workflow structure baseline failure outside current allowed paths.",
         "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
         "recorded_at": "2026-06-16T04:34:45.343Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "fb0eb72",
+        "note": "Implementation commit feat: close paper query cancel path with verified gates",
+        "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
+        "recorded_at": "2026-06-16T06:37:16.253Z"
       }
     ],
     "allowed_paths": [
       "src/execution/paper.rs",
-    "src/trade",
-    "src/cli/handlers/trade_handler.rs",
-    "tests/execution_kernel_test.rs",
-    "tests/repo_hygiene_test.rs",
-    "tests",
-    "FUNCTION_TREE.md",
-    "docs/reports/MAINLINE_NEXT_TASK_PROPOSAL_2026-06-16.md",
-    ".github/workflows/cleanup.yml"
+      "src/trade",
+      "src/cli/handlers/trade_handler.rs",
+      "tests/execution_kernel_test.rs",
+      "tests/repo_hygiene_test.rs",
+      "tests",
+      "FUNCTION_TREE.md",
+      "docs/reports/MAINLINE_NEXT_TASK_PROPOSAL_2026-06-16.md",
+      ".github/workflows/cleanup.yml"
     ],
     "forbidden_paths": [],
     "non_goals": [
@@ -631,11 +638,11 @@
       "No broad CLI manual refresh unless command contract actually changes",
       "Workflow changes are allowed only to close the existing cargo test ci_workflow_structure_test gate failure"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-16T04:17:54.504Z",
-  "updated_at": "2026-06-16T06:30:27.198Z",
+    "updated_at": "2026-06-16T06:38:51.802Z",
     "acceptance": {
       "commit_gate": [
         "GitNexus impact completed before editing each modified production symbol; HIGH/CRITICAL must stop for explicit warning",
@@ -670,7 +677,42 @@
         "note": "User selected option 1 and explicitly authorized the narrow cleanup workflow gate fix required by full cargo test.",
         "current_head": "cd370a53b694ccb833c388707a24d48edb54215b",
         "transitioned_at": "2026-06-16T06:11:28.416Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
+        "transitioned_at": "2026-06-16T06:37:49.024Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
+        "transitioned_at": "2026-06-16T06:37:58.822Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
+        "transitioned_at": "2026-06-16T06:38:51.802Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "Paper adapter now returns local TradeRecord id as adapter_order_id, supports querying filled local paper records, and fail-closes cancellation for filled or missing paper records; cleanup workflow and FUNCTION_TREE status registry gates were repaired as minimal gate-related fixes.",
+      "compatibility": "No QMT/live/external broker behavior changed; paper submit still fills immediately, now exposing the local paper trade record id for follow-up query/cancel semantics.",
+      "gates": [
+        "cargo fmt --check exit 0",
+        "cargo clippy -- -D warnings exit 0",
+        "cargo test exit 0",
+        "git diff --check exit 0",
+        "GitNexus detect_changes(scope=all) risk low, affected_processes empty",
+        "function-tree scope-check and validate passed"
+      ],
+      "current_head": "fb0eb72cdce59b9e83032d24576e093820e9e950",
+      "prepared_at": "2026-06-16T06:38:15.202Z"
+    }
   }
 ]
