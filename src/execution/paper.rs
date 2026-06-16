@@ -8,6 +8,9 @@ use crate::execution::adapter::{
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeRecord, TradeService};
 
+/// Paper execution is intentionally local immediate-fill accounting only.
+pub const IMMEDIATE_FILL_ONLY: bool = true;
+
 #[derive(Debug, Clone)]
 pub struct PaperExecutionAdapter<Store> {
     trade_service: TradeService<Store>,

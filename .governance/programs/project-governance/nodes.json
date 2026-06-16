@@ -825,5 +825,129 @@
       "current_head": "ef1b1369ce620f65be2311d534702160b37a13af",
       "prepared_at": "2026-06-16T15:42:17.691Z"
     }
+  },
+  {
+    "id": "P0.2b",
+    "title": "Paper immediate-fill behavior lock",
+    "node_type": "decision",
+    "owner_lane": "codex",
+    "parent": "P0.2",
+    "status": "closed",
+    "function_tree_ref": "execution/paper-immediate",
+    "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "git status clean on feat/paper-immediate-behavior-lock-p0-2b before P0.2b edits",
+        "note": "git status clean on feat/paper-immediate-behavior-lock-p0-2b before P0.2b edits",
+        "current_head": "91e6b7cbfb84a18650a790a38b28d7ed09da3dad",
+        "recorded_at": "2026-06-16T17:30:55.045Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus query identified src/execution/paper.rs submit_order/query_order/cancel_order and tests/execution_kernel_test.rs as target surface",
+        "note": "GitNexus query identified src/execution/paper.rs submit_order/query_order/cancel_order and tests/execution_kernel_test.rs as target surface",
+        "current_head": "91e6b7cbfb84a18650a790a38b28d7ed09da3dad",
+        "recorded_at": "2026-06-16T17:30:55.094Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact submit_order LOW: 4 direct test dependents, 0 affected processes; query_order LOW: 1 direct test dependent, 0 affected processes; cancel_order LOW: 1 direct test dependent, 0 affected processes",
+        "note": "GitNexus impact submit_order LOW: 4 direct test dependents, 0 affected processes; query_order LOW: 1 direct test dependent, 0 affected processes; cancel_order LOW: 1 direct test dependent, 0 affected processes",
+        "current_head": "91e6b7cbfb84a18650a790a38b28d7ed09da3dad",
+        "recorded_at": "2026-06-16T17:30:55.145Z"
+      },
+      {
+        "kind": "design",
+        "path": "P0.2b scope: explicit IMMEDIATE_FILL_ONLY marker, hygiene guard against Submitted/PendingCancel in paper adapter, focused tests; no trait/qmt_live/simulated-lifecycle changes",
+        "note": "P0.2b scope: explicit IMMEDIATE_FILL_ONLY marker, hygiene guard against Submitted/PendingCancel in paper adapter, focused tests; no trait/qmt_live/simulated-lifecycle changes",
+        "current_head": "91e6b7cbfb84a18650a790a38b28d7ed09da3dad",
+        "recorded_at": "2026-06-16T17:30:55.189Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "implementation commit e182c52 feat: lock paper immediate-fill semantics",
+        "note": "P0.2b implementation commit landed locally with fmt/clippy/test/GitNexus gates run before commit",
+        "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+        "recorded_at": "2026-06-16T17:44:02.446Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/paper.rs",
+      "tests/execution_kernel_test.rs",
+      "tests/repo_hygiene_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change ExecutionAdapter trait or order response schemas",
+      "Do not modify qmt_live/mock_live or implement paper_sim_lifecycle",
+      "Do not resume unwrap cleanup or alter paper ledger calculations"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-16T17:30:54.981Z",
+    "updated_at": "2026-06-16T17:44:02.621Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact completed for modified production symbols and HIGH/CRITICAL risk absent",
+        "cargo fmt --check passes",
+        "cargo clippy --all-targets --all-features -- -D warnings passes",
+        "cargo test --all-targets passes or documented scoped equivalent plus CI",
+        "GitNexus detect_changes scope=all reviewed before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE/governance validate passes and active gates are closed",
+        "Graphiti memory written and ingest verified"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "91e6b7cbfb84a18650a790a38b28d7ed09da3dad",
+        "transitioned_at": "2026-06-16T17:30:55.282Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+        "transitioned_at": "2026-06-16T17:44:02.493Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+        "transitioned_at": "2026-06-16T17:44:02.536Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+        "transitioned_at": "2026-06-16T17:44:02.621Z"
+      }
+    ],
+    "closeout": {
+      "summary": "P0.2b locks paper_immediate immediate-fill semantics with IMMEDIATE_FILL_ONLY, submit/query Filled assertions, and repo hygiene guard against Submitted/PendingCancel in src/execution/paper.rs",
+      "compatibility": "No ExecutionAdapter trait, response schema, qmt_live, mock_live, paper ledger calculation, or paper_sim_lifecycle behavior changed",
+      "gates": [
+        "cargo fmt --check passed",
+        "cargo clippy --all-targets --all-features -- -D warnings passed",
+        "cargo test --all-targets passed",
+        "git diff --check passed",
+        "function-tree validate passed",
+        "GitNexus detect_changes scope=all risk low, affected processes 0"
+      ],
+      "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
+      "prepared_at": "2026-06-16T17:44:02.577Z"
+    }
   }
 ]

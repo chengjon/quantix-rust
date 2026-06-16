@@ -90,6 +90,24 @@ fn cron_presets_do_not_panic_on_runtime_parse() {
 }
 
 #[test]
+fn paper_adapter_remains_immediate_fill_only() {
+    let path = repo_root().join("src/execution/paper.rs");
+    let contents = fs::read_to_string(&path).expect("expected paper execution adapter to exist");
+    let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+
+    assert!(
+        production.contains("IMMEDIATE_FILL_ONLY"),
+        "paper adapter must keep an explicit immediate-fill marker"
+    );
+    for forbidden_status in ["OrderStatus::Submitted", "OrderStatus::PendingCancel"] {
+        assert!(
+            !production.contains(forbidden_status),
+            "paper adapter must not introduce pending lifecycle status {forbidden_status}"
+        );
+    }
+}
+
+#[test]
 fn anomaly_detector_does_not_write_directly_to_stdio() {
     let path = repo_root().join("src/anomaly/detector.rs");
     let contents = fs::read_to_string(&path).expect("expected anomaly detector to exist");
