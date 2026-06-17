@@ -108,6 +108,27 @@ fn paper_adapter_remains_immediate_fill_only() {
 }
 
 #[test]
+fn concrete_execution_adapters_emit_standard_risk_notices_on_submit() {
+    for (relative_path, expected_channel) in [
+        ("src/execution/paper.rs", "PAPER_IMMEDIATE_CHANNEL"),
+        ("src/execution/qmt_live_adapter.rs", "QMT_LIVE_CHANNEL"),
+    ] {
+        let path = repo_root().join(relative_path);
+        let contents = fs::read_to_string(&path).expect("expected execution adapter to exist");
+        let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+
+        assert!(
+            production.contains(expected_channel),
+            "{relative_path} should use the standard execution-mode channel marker"
+        );
+        assert!(
+            production.contains("log_execution_mode_risk_notice("),
+            "{relative_path} should emit the standard execution-mode risk notice on submit"
+        );
+    }
+}
+
+#[test]
 fn anomaly_detector_does_not_write_directly_to_stdio() {
     let path = repo_root().join("src/anomaly/detector.rs");
     let contents = fs::read_to_string(&path).expect("expected anomaly detector to exist");

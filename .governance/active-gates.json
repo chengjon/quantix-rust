@@ -1,5 +1,32 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-16T17:44:02.655Z",
-  "gates": []
+  "updated_at": "2026-06-16T18:34:50.786Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.2c",
+      "title": "Execution mode risk notice catalog",
+      "node_type": "decision",
+      "owner_lane": "codex",
+      "parent": "P0.2",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "execution/mode-semantics",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/mode_semantics.rs",
+        "src/execution/mod.rs",
+        "src/execution/paper.rs",
+        "src/execution/qmt_live_adapter.rs",
+        "tests/execution_mode_semantics_test.rs",
+        "tests/repo_hygiene_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/**"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-16T18:34:50.785Z"
+    }
+  ]
 }

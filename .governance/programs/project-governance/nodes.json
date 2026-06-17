@@ -949,5 +949,90 @@
       "current_head": "e182c52e1b52d52888d71407e3072fd13da99993",
       "prepared_at": "2026-06-16T17:44:02.577Z"
     }
+  },
+  {
+    "id": "P0.2c",
+    "title": "Execution mode risk notice catalog",
+    "node_type": "decision",
+    "owner_lane": "codex",
+    "parent": "P0.2",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "execution/mode-semantics",
+    "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master clean at eda2ef2 before P0.2c branch; P0.2b handoff ingest completed",
+        "note": "master clean at eda2ef2 before P0.2c branch; P0.2b handoff ingest completed",
+        "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+        "recorded_at": "2026-06-16T18:34:50.552Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus query found existing risk wording in P0.2a proposal and concrete submit_order symbols in src/execution/paper.rs and src/execution/qmt_live_adapter.rs",
+        "note": "GitNexus query found existing risk wording in P0.2a proposal and concrete submit_order symbols in src/execution/paper.rs and src/execution/qmt_live_adapter.rs",
+        "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+        "recorded_at": "2026-06-16T18:34:50.598Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact paper submit_order LOW: 4 direct test dependents, 0 affected processes; qmt_live submit_order LOW: 3 direct test dependents, 0 affected processes",
+        "note": "GitNexus impact paper submit_order LOW: 4 direct test dependents, 0 affected processes; qmt_live submit_order LOW: 3 direct test dependents, 0 affected processes",
+        "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+        "recorded_at": "2026-06-16T18:34:50.642Z"
+      },
+      {
+        "kind": "design",
+        "path": "P0.2c scope: standard execution-mode risk notice catalog plus submit-time logging for paper_immediate and qmt_live; paper_sim_lifecycle notice catalog only because channel is not implemented",
+        "note": "P0.2c scope: standard execution-mode risk notice catalog plus submit-time logging for paper_immediate and qmt_live; paper_sim_lifecycle notice catalog only because channel is not implemented",
+        "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+        "recorded_at": "2026-06-16T18:34:50.694Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/mode_semantics.rs",
+      "src/execution/mod.rs",
+      "src/execution/paper.rs",
+      "src/execution/qmt_live_adapter.rs",
+      "tests/execution_mode_semantics_test.rs",
+      "tests/repo_hygiene_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not change ExecutionAdapter trait or order response schemas",
+      "Do not implement paper_sim_lifecycle or pending-order matcher",
+      "Do not alter qmt_live bridge request semantics or paper ledger calculations"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-16T18:34:50.501Z",
+    "updated_at": "2026-06-16T18:34:50.785Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact completed for modified production submit_order symbols and HIGH/CRITICAL risk absent",
+        "cargo fmt --check passes",
+        "cargo clippy --all-targets --all-features -- -D warnings passes",
+        "cargo test --all-targets passes",
+        "GitNexus detect_changes scope=all reviewed before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE/governance validate passes and active gates are closed",
+        "Graphiti memory written and ingest verified"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+        "transitioned_at": "2026-06-16T18:34:50.785Z"
+      }
+    ]
   }
 ]
