@@ -956,11 +956,11 @@
     "node_type": "decision",
     "owner_lane": "codex",
     "parent": "P0.2",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "execution/mode-semantics",
-    "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
+    "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -989,6 +989,13 @@
         "note": "P0.2c scope: standard execution-mode risk notice catalog plus submit-time logging for paper_immediate and qmt_live; paper_sim_lifecycle notice catalog only because channel is not implemented",
         "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
         "recorded_at": "2026-06-16T18:34:50.694Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "implementation commit 51d4130 feat: add execution mode risk notices; gates passed: cargo fmt --check, cargo clippy --all-targets --all-features -- -D warnings, cargo test --all-targets, git diff --check, function-tree validate/status/scope-check, GitNexus detect_changes LOW",
+        "note": "",
+        "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
+        "recorded_at": "2026-06-17T03:45:37.588Z"
       }
     ],
     "allowed_paths": [
@@ -1007,11 +1014,11 @@
       "Do not implement paper_sim_lifecycle or pending-order matcher",
       "Do not alter qmt_live bridge request semantics or paper ledger calculations"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-16T18:34:50.501Z",
-    "updated_at": "2026-06-16T18:34:50.785Z",
+    "updated_at": "2026-06-17T03:45:37.779Z",
     "acceptance": {
       "commit_gate": [
         "GitNexus impact completed for modified production submit_order symbols and HIGH/CRITICAL risk absent",
@@ -1032,7 +1039,35 @@
         "note": "",
         "current_head": "eda2ef265ec5958ef8cb256e53c0f9b9776ec765",
         "transitioned_at": "2026-06-16T18:34:50.785Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
+        "transitioned_at": "2026-06-17T03:45:37.632Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
+        "transitioned_at": "2026-06-17T03:45:37.677Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
+        "transitioned_at": "2026-06-17T03:45:37.778Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.2c landed execution mode risk notice catalog plus submit-time risk logging for paper_immediate and qmt_live; no trait/schema/storage/matcher changes; paper_sim_lifecycle catalog-only. Verification: fmt, clippy all targets/features -D warnings, cargo test --all-targets, diff check, FUNCTION_TREE validate/status/scope-check, GitNexus detect_changes LOW/0 processes.",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
+      "prepared_at": "2026-06-17T03:45:37.731Z"
+    }
   }
 ]
