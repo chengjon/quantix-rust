@@ -1,7 +1,7 @@
 use quantix_cli::execution::mode_semantics::{
     PAPER_IMMEDIATE_CHANNEL, PAPER_IMMEDIATE_RISK_NOTICE, PAPER_SIM_LIFECYCLE_CHANNEL,
     PAPER_SIM_LIFECYCLE_RISK_NOTICE, QMT_LIVE_CHANNEL, QMT_LIVE_RISK_NOTICE,
-    storage_namespace_for_channel,
+    storage_binding_for_configured_execution_mode, storage_namespace_for_channel,
 };
 
 #[test]
@@ -55,4 +55,30 @@ fn execution_mode_storage_namespaces_are_stable_and_disjoint() {
     }
 
     assert!(storage_namespace_for_channel("unknown").is_none());
+}
+
+#[test]
+fn configured_execution_modes_bind_to_stable_storage_namespaces_without_runtime_switching() {
+    let paper = storage_binding_for_configured_execution_mode("paper").unwrap();
+    assert_eq!(paper.configured_mode, "paper");
+    assert_eq!(paper.channel, PAPER_IMMEDIATE_CHANNEL);
+    assert_eq!(paper.storage_namespace, "paper-immediate");
+    assert!(!paper.runtime_switching_allowed);
+
+    let qmt_live = storage_binding_for_configured_execution_mode(QMT_LIVE_CHANNEL).unwrap();
+    assert_eq!(qmt_live.configured_mode, QMT_LIVE_CHANNEL);
+    assert_eq!(qmt_live.channel, QMT_LIVE_CHANNEL);
+    assert_eq!(qmt_live.storage_namespace, "qmt-live");
+    assert!(!qmt_live.runtime_switching_allowed);
+
+    let paper_sim =
+        storage_binding_for_configured_execution_mode(PAPER_SIM_LIFECYCLE_CHANNEL).unwrap();
+    assert_eq!(paper_sim.configured_mode, PAPER_SIM_LIFECYCLE_CHANNEL);
+    assert_eq!(paper_sim.channel, PAPER_SIM_LIFECYCLE_CHANNEL);
+    assert_eq!(paper_sim.storage_namespace, "paper-sim-lifecycle");
+    assert!(!paper_sim.runtime_switching_allowed);
+
+    assert!(storage_binding_for_configured_execution_mode("live").is_none());
+    assert!(storage_binding_for_configured_execution_mode("mock_live").is_none());
+    assert!(storage_binding_for_configured_execution_mode("unknown").is_none());
 }
