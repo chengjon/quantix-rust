@@ -4,6 +4,7 @@ pub mod config;
 pub mod daemon;
 pub mod kernel;
 pub mod mock_live;
+pub mod mode_semantics;
 pub mod models;
 pub mod paper;
 pub mod qmt_bridge;

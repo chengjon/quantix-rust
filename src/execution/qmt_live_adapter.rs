@@ -37,6 +37,7 @@ use crate::core::runtime::{DEFAULT_BRIDGE_POLL_INTERVAL_MS, DEFAULT_BRIDGE_POLL_
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
+use crate::execution::mode_semantics::{QMT_LIVE_CHANNEL, log_execution_mode_risk_notice};
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 use crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode;
 use crate::execution::qmt_task_submit_service::QmtTaskSubmitService;
@@ -136,6 +137,7 @@ impl ExecutionAdapter for QmtLiveExecutionAdapter {
         &self,
         request: AdapterOrderRequest,
     ) -> Result<OrderInitialResponse, AdapterError> {
+        log_execution_mode_risk_notice(QMT_LIVE_CHANNEL);
         info!(
             adapter = self.adapter_name,
             symbol = %request.symbol,

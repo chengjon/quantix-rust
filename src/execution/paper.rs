@@ -5,6 +5,7 @@ use rust_decimal::prelude::ToPrimitive;
 use crate::execution::adapter::{
     AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
 };
+use crate::execution::mode_semantics::{PAPER_IMMEDIATE_CHANNEL, log_execution_mode_risk_notice};
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeRecord, TradeService};
 
@@ -38,6 +39,7 @@ where
         &self,
         request: AdapterOrderRequest,
     ) -> std::result::Result<OrderInitialResponse, AdapterError> {
+        log_execution_mode_risk_notice(PAPER_IMMEDIATE_CHANNEL);
         let trade_request = to_trade_order_request(&request)?;
 
         match request.side {
