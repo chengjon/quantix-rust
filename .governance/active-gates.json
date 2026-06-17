@@ -1,5 +1,29 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-17T03:45:37.820Z",
-  "gates": []
+  "updated_at": "2026-06-17T15:36:16.141Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.2d",
+      "title": "Execution storage namespace semantics",
+      "node_type": "implementation",
+      "owner_lane": "project-governance",
+      "parent": "P0.2",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "FUNCTION_TREE.md",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/mode_semantics.rs",
+        "tests/execution_mode_semantics_test.rs",
+        "tests/repo_hygiene_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/**"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-17T15:36:16.139Z"
+    }
+  ]
 }

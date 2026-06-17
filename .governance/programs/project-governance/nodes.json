@@ -1069,5 +1069,78 @@
       "current_head": "51d41300fe612ce53fae1ebc806527aa95d61999",
       "prepared_at": "2026-06-17T03:45:37.731Z"
     }
+  },
+  {
+    "id": "P0.2d",
+    "title": "Execution storage namespace semantics",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "P0.2",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "2c1f4eac5d8aa008b8228ea17306270fc8719dc1",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "User requested continue after P0.2c closeout; selected low-intrusion P0.2d execution storage namespace semantics helper, default runtime paths unchanged.",
+        "note": "",
+        "current_head": "2c1f4eac5d8aa008b8228ea17306270fc8719dc1",
+        "recorded_at": "2026-06-17T15:35:37.018Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "Graphiti facts confirm P0.2a defers paper_sim_lifecycle engine work and qmt_live hardening remains separate.",
+        "note": "",
+        "current_head": "2c1f4eac5d8aa008b8228ea17306270fc8719dc1",
+        "recorded_at": "2026-06-17T15:35:37.145Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/mode_semantics.rs",
+      "tests/execution_mode_semantics_test.rs",
+      "tests/repo_hygiene_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No change to CliRuntime::load default path behavior",
+      "No ExecutionAdapter trait or OrderStatus/schema changes",
+      "No qmt_live bridge/runtime behavior change",
+      "No paper_sim_lifecycle implementation or storage migration",
+      "No .unwrap() cleanup"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-17T15:35:36.905Z",
+    "updated_at": "2026-06-17T15:36:16.139Z",
+    "acceptance": {
+      "commit_gate": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-targets",
+        "git diff --check",
+        "GitNexus detect_changes LOW/0 unexpected processes",
+        "FUNCTION_TREE validate/status/scope-check"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE active gates repaired to 0",
+        "PR CI passes before merge",
+        "post-merge master CI passes",
+        "Graphiti docs/handoff memories written or backfill noted"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "2c1f4eac5d8aa008b8228ea17306270fc8719dc1",
+        "transitioned_at": "2026-06-17T15:36:16.139Z"
+      }
+    ]
   }
 ]
