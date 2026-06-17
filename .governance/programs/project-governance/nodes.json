@@ -1274,5 +1274,71 @@
       "current_head": "89fe0ae1c57fdf90271e3c47de639ce0a14f1447",
       "prepared_at": "2026-06-17T18:28:06.395Z"
     }
+  },
+  {
+    "id": "P0.2f",
+    "title": "Execution mode semantics closeout report",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.2",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "4d8266146e636b47b826ebce901c998491ccdc61",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "P0.2e merged at 4d82661 on master; P0.2 scope now spans PRs 232, 234, 235, 236, 240 plus metadata refreshes 233, 237, 238, 239. Current master is clean, FUNCTION_TREE active gates are 0, GitNexus detect_changes reports low/no process impact for the final semantics helpers, and remaining stale warnings are metadata/index lag only.",
+        "note": "",
+        "current_head": "4d8266146e636b47b826ebce901c998491ccdc61",
+        "recorded_at": "2026-06-17T23:43:04.969Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/EXECUTION_MODE_SEMANTICS_P0_2_CLOSEOUT_2026-06-18.md",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.2f.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production source changes",
+      "No ExecutionAdapter trait changes",
+      "No OrderStatus or response shape changes",
+      "No CliRuntime or execution daemon behavior changes",
+      "No qmt_live runtime changes",
+      "No paper_sim_lifecycle implementation",
+      "No .unwrap() cleanup"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-17T23:42:48.559Z",
+    "updated_at": "2026-06-17T23:43:36.361Z",
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check",
+        "FUNCTION_TREE validate",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "PR CI passes",
+        "FUNCTION_TREE active gates return to 0",
+        "Graphiti closeout memory attempted"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "4d8266146e636b47b826ebce901c998491ccdc61",
+        "transitioned_at": "2026-06-17T23:43:36.361Z"
+      }
+    ]
   }
 ]

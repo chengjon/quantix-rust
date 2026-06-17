@@ -1,0 +1,38 @@
+task:
+  id: "P0.2f"
+  title: "Execution mode semantics closeout report"
+
+scope:
+  allowed_paths:
+    - "docs/reports/EXECUTION_MODE_SEMANTICS_P0_2_CLOSEOUT_2026-06-18.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.2f.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production source changes"
+  - "No ExecutionAdapter trait changes"
+  - "No OrderStatus or response shape changes"
+  - "No CliRuntime or execution daemon behavior changes"
+  - "No qmt_live runtime changes"
+  - "No paper_sim_lifecycle implementation"
+  - "No .unwrap() cleanup"
+
+acceptance:
+  commit_gate:
+    - "git diff --check"
+    - "FUNCTION_TREE validate"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "PR CI passes"
+    - "FUNCTION_TREE active gates return to 0"
+    - "Graphiti closeout memory attempted"
+
+evidence:
+  current_head: "4d8266146e636b47b826ebce901c998491ccdc61"
+  notes: []
