@@ -35,3 +35,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.2b: Paper immediate-fill behavior lock (planning, FT: execution/paper-immediate)
 - [ ] P0.2c: Execution mode risk notice catalog (planning, FT: execution/mode-semantics)
 - [ ] P0.2d: Execution storage namespace semantics (planning, FT: FUNCTION_TREE.md)
+- [ ] P0.2e: Execution mode config namespace semantics (planning, FT: FUNCTION_TREE.md)

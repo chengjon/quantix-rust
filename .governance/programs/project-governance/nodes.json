@@ -1177,5 +1177,74 @@
       "current_head": "be75f56af27921674a1914f26d0055446d62aaf4",
       "prepared_at": "2026-06-17T15:45:50.645Z"
     }
+  },
+  {
+    "id": "P0.2e",
+    "title": "Execution mode config namespace semantics",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.2",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "8845d8fae025498d7fec518bc0e4106f8603a635",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "P0.2d storage namespace helper is merged; next low-risk slice only adds config namespace semantics helpers/tests/docs, with GitNexus impact LOW for storage_namespace_for_channel and 0 affected processes.",
+        "note": "",
+        "current_head": "8845d8fae025498d7fec518bc0e4106f8603a635",
+        "recorded_at": "2026-06-17T18:17:56.184Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/mode_semantics.rs",
+      "tests/execution_mode_semantics_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.2e.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No ExecutionAdapter trait changes",
+      "No OrderStatus or response shape changes",
+      "No CliRuntime::load default path changes",
+      "No execution daemon behavior changes",
+      "No qmt_live bridge/runtime changes",
+      "No paper_sim_lifecycle implementation",
+      "No .unwrap() cleanup"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-17T18:17:56.127Z",
+    "updated_at": "2026-06-17T18:18:31.820Z",
+    "acceptance": {
+      "commit_gate": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets --all-features -- -D warnings",
+        "cargo test --all-targets",
+        "node /root/.codex/skills/myskills/skills/function-tree/scripts/ft-governance.cjs validate --root /opt/claude/quantix-rust",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "PR CI passes",
+        "FUNCTION_TREE active gates return to 0",
+        "Graphiti closeout memory attempted"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "8845d8fae025498d7fec518bc0e4106f8603a635",
+        "transitioned_at": "2026-06-17T18:18:31.819Z"
+      }
+    ]
   }
 ]

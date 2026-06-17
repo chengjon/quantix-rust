@@ -1,0 +1,41 @@
+task:
+  id: "P0.2e"
+  title: "Execution mode config namespace semantics"
+
+scope:
+  allowed_paths:
+    - "src/execution/mode_semantics.rs"
+    - "tests/execution_mode_semantics_test.rs"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.2e.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No ExecutionAdapter trait changes"
+  - "No OrderStatus or response shape changes"
+  - "No CliRuntime::load default path changes"
+  - "No execution daemon behavior changes"
+  - "No qmt_live bridge/runtime changes"
+  - "No paper_sim_lifecycle implementation"
+  - "No .unwrap() cleanup"
+
+acceptance:
+  commit_gate:
+    - "cargo fmt --check"
+    - "cargo clippy --all-targets --all-features -- -D warnings"
+    - "cargo test --all-targets"
+    - "node /root/.codex/skills/myskills/skills/function-tree/scripts/ft-governance.cjs validate --root /opt/claude/quantix-rust"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "PR CI passes"
+    - "FUNCTION_TREE active gates return to 0"
+    - "Graphiti closeout memory attempted"
+
+evidence:
+  current_head: "8845d8fae025498d7fec518bc0e4106f8603a635"
+  notes: []

@@ -1,5 +1,32 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-17T15:45:50.728Z",
-  "gates": []
+  "updated_at": "2026-06-17T18:18:31.821Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.2e",
+      "title": "Execution mode config namespace semantics",
+      "node_type": "decision",
+      "owner_lane": "project-governance",
+      "parent": "P0.2",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "FUNCTION_TREE.md",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/mode_semantics.rs",
+        "tests/execution_mode_semantics_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/programs/project-governance/cards/P0.2e.yaml",
+        ".governance/programs/project-governance/nodes.json",
+        ".governance/programs/project-governance/tree.md",
+        ".governance/active-gates.json",
+        ".governance/active-gates.md"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-17T18:18:31.820Z"
+    }
+  ]
 }
