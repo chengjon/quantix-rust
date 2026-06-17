@@ -1184,11 +1184,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "P0.2",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md",
     "current_head": "8845d8fae025498d7fec518bc0e4106f8603a635",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1218,11 +1218,11 @@
       "No paper_sim_lifecycle implementation",
       "No .unwrap() cleanup"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-17T18:17:56.127Z",
-    "updated_at": "2026-06-17T18:18:31.820Z",
+    "updated_at": "2026-06-17T18:28:06.462Z",
     "acceptance": {
       "commit_gate": [
         "cargo fmt --check",
@@ -1244,7 +1244,35 @@
         "note": "",
         "current_head": "8845d8fae025498d7fec518bc0e4106f8603a635",
         "transitioned_at": "2026-06-17T18:18:31.819Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "89fe0ae1c57fdf90271e3c47de639ce0a14f1447",
+        "transitioned_at": "2026-06-17T18:28:06.248Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "89fe0ae1c57fdf90271e3c47de639ce0a14f1447",
+        "transitioned_at": "2026-06-17T18:28:06.324Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "89fe0ae1c57fdf90271e3c47de639ce0a14f1447",
+        "transitioned_at": "2026-06-17T18:28:06.462Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.2e landed in commit 89fe0ae: src/execution/mode_semantics.rs adds read-only configured execution mode to semantic channel/storage namespace bindings; tests lock paper->paper_immediate, qmt_live, future paper_sim_lifecycle, and exclude live/mock_live/unknown; no runtime path, daemon, trait, status, qmt_live bridge, or paper lifecycle behavior changed.",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "89fe0ae1c57fdf90271e3c47de639ce0a14f1447",
+      "prepared_at": "2026-06-17T18:28:06.395Z"
+    }
   }
 ]
