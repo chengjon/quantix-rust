@@ -1368,5 +1368,114 @@
       "current_head": "c5fe76a7bb2edfba08b6c9a04836600e498061c6",
       "prepared_at": "2026-06-17T23:46:43.411Z"
     }
+  },
+  {
+    "id": "P0.3a",
+    "title": "qmt_live capability identity hardening design",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "execution",
+    "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "FUNCTION_TREE.md",
+        "note": "P0.2 closed; qmt_live registered as guarded miniQMT/bridge-backed live path with capability identity hardening deferred",
+        "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+        "recorded_at": "2026-06-18T02:16:08.674Z"
+      },
+      {
+        "kind": "structural",
+        "path": "Graphiti facts: P0.2f closed via PR #241; next recommended qmt_live capability/identity hardening requires fresh GitNexus impact and tailored tests",
+        "note": "Graphiti docs and handoff episodes completed ingest on 2026-06-18",
+        "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+        "recorded_at": "2026-06-18T02:16:17.002Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: QmtLiveExecutionAdapter impl LOW; QmtTaskSubmitService impl LOW; request_diagnostics capability diagnostic HIGH",
+        "note": "Design slice must avoid production symbol edits and mark request_diagnostics/CLI diagnostics as high-risk follow-up",
+        "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+        "recorded_at": "2026-06-18T02:16:25.030Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.3a.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production source changes in src/",
+      "No test changes in tests/",
+      "No ExecutionAdapter trait or OrderStatus shape changes",
+      "No qmt_live runtime behavior, bridge protocol, storage schema, or diagnostics behavior changes",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-18T02:15:58.147Z",
+    "updated_at": "2026-06-18T02:21:08.479Z",
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check",
+        "FUNCTION_TREE governance validate",
+        "GitNexus detect_changes confirms docs/governance-only change scope"
+      ],
+      "closeout_gate": [
+        "P0.3a report records impact boundaries, staged rollout, and next authorized slices",
+        "active gates return to 0 after closeout"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+        "transitioned_at": "2026-06-18T02:16:49.914Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
+        "transitioned_at": "2026-06-18T02:19:39.445Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+        "transitioned_at": "2026-06-18T02:20:48.796Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+        "transitioned_at": "2026-06-18T02:21:08.478Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+      "compatibility": "Docs/governance-only design baseline; no production runtime behavior, bridge protocol, storage schema, trait, status response, tests, or unwrap cleanup changed.",
+      "gates": [
+        "git diff --check passed",
+        "FUNCTION_TREE governance validate passed",
+        "GitNexus staged detect_changes reported documentation/config only, affected processes 0, risk LOW"
+      ],
+      "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+      "prepared_at": "2026-06-18T02:20:59.910Z"
+    }
   }
 ]
