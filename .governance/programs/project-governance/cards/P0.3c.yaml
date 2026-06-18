@@ -1,0 +1,43 @@
+task:
+  id: "P0.3c"
+  title: "qmt_live identity reconciliation tightening"
+
+scope:
+  allowed_paths:
+    - "src/execution/reconciliation.rs"
+    - "src/execution/runtime_store/orders.rs"
+    - "tests/qmt_live_reconciliation_test.rs"
+    - "tests/execution_runtime_store_test.rs"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.3c.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No CLI handler or request formatting changes"
+  - "No request_diagnostics or qmt_live_gate changes"
+  - "No ExecutionAdapter trait, OrderStatus, response shape, bridge protocol, or storage schema changes"
+  - "No background reconciliation daemon or broad migration"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact remains LOW for edited production symbols before source edits"
+    - "TDD red/green evidence for qmt_live identity reconciliation gap"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test --test qmt_live_reconciliation_test"
+    - "cargo test --test execution_runtime_store_test"
+    - "cargo test"
+    - "GitNexus detect_changes confirms expected qmt_live reconciliation/runtime metadata scope"
+  closeout_gate:
+    - "FUNCTION_TREE documents P0.3c status/boundary"
+    - "active gates return to 0 after closeout"
+
+evidence:
+  current_head: "be7669b89645682e2ff706af295fa326a40d4bd8"
+  notes: []

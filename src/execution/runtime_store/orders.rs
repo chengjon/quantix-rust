@@ -400,7 +400,12 @@ WHERE order_id = ? AND version = ?
         updated_at: DateTime<Utc>,
     ) -> Result<bool> {
         let mut payload_json = order.payload_json.clone();
-        payload_json["qmt_live"] = serde_json::to_value(metadata)?;
+        let mut qmt_live_metadata = serde_json::to_value(metadata)?;
+        preserve_existing_qmt_live_external_order_id(
+            payload_json.get("qmt_live"),
+            &mut qmt_live_metadata,
+        );
+        payload_json["qmt_live"] = qmt_live_metadata;
         self.try_update_order_payload_with_version(
             &order.order_id,
             order.version,
@@ -541,5 +546,33 @@ ORDER BY created_at DESC
             orders.push(Self::row_to_order(row)?);
         }
         Ok(orders)
+    }
+}
+
+fn preserve_existing_qmt_live_external_order_id(
+    existing: Option<&serde_json::Value>,
+    next: &mut serde_json::Value,
+) {
+    let Some(existing_external_order_id) = existing
+        .and_then(|value| value.get("task_identity"))
+        .and_then(|value| value.get("external_order_id"))
+        .filter(|value| !value.is_null())
+        .cloned()
+    else {
+        return;
+    };
+
+    let Some(next_task_identity) = next
+        .get_mut("task_identity")
+        .and_then(|value| value.as_object_mut())
+    else {
+        return;
+    };
+
+    let has_next_external_order_id = next_task_identity
+        .get("external_order_id")
+        .is_some_and(|value| !value.is_null());
+    if !has_next_external_order_id {
+        next_task_identity.insert("external_order_id".to_string(), existing_external_order_id);
     }
 }

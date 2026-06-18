@@ -1,5 +1,34 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-18T09:13:39.906Z",
-  "gates": []
+  "updated_at": "2026-06-18T16:54:06.930Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.3c",
+      "title": "qmt_live identity reconciliation tightening",
+      "node_type": "decision",
+      "owner_lane": "project-governance",
+      "parent": "",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "implement within allowed_paths",
+      "function_tree_ref": "execution",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/reconciliation.rs",
+        "src/execution/runtime_store/orders.rs",
+        "tests/qmt_live_reconciliation_test.rs",
+        "tests/execution_runtime_store_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/programs/project-governance/cards/P0.3c.yaml",
+        ".governance/programs/project-governance/nodes.json",
+        ".governance/programs/project-governance/tree.md",
+        ".governance/active-gates.json",
+        ".governance/active-gates.md"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-18T16:54:06.929Z"
+    }
+  ]
 }
