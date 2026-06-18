@@ -1375,11 +1375,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "execution",
     "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1420,11 +1420,11 @@
       "No qmt_live runtime behavior, bridge protocol, storage schema, or diagnostics behavior changes",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-18T02:15:58.147Z",
-    "updated_at": "2026-06-18T02:19:39.445Z",
+    "updated_at": "2026-06-18T02:21:08.479Z",
     "acceptance": {
       "commit_gate": [
         "git diff --check",
@@ -1450,7 +1450,32 @@
         "note": "",
         "current_head": "01700f0c4619bdcd917854cdb8037db3dc06de83",
         "transitioned_at": "2026-06-18T02:19:39.445Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+        "transitioned_at": "2026-06-18T02:20:48.796Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+        "transitioned_at": "2026-06-18T02:21:08.478Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+      "compatibility": "Docs/governance-only design baseline; no production runtime behavior, bridge protocol, storage schema, trait, status response, tests, or unwrap cleanup changed.",
+      "gates": [
+        "git diff --check passed",
+        "FUNCTION_TREE governance validate passed",
+        "GitNexus staged detect_changes reported documentation/config only, affected processes 0, risk LOW"
+      ],
+      "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
+      "prepared_at": "2026-06-18T02:20:59.910Z"
+    }
   }
 ]
