@@ -1484,11 +1484,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "execution",
     "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1532,11 +1532,11 @@
       "No bridge protocol changes or background reconciliation daemon",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-18T02:45:15.719Z",
-    "updated_at": "2026-06-18T09:03:01.041Z",
+    "updated_at": "2026-06-18T09:13:39.905Z",
     "acceptance": {
       "commit_gate": [
         "GitNexus impact is recorded before source edits",
@@ -1566,7 +1566,36 @@
         "note": "",
         "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
         "transitioned_at": "2026-06-18T09:03:01.040Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+        "transitioned_at": "2026-06-18T09:08:54.840Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+        "transitioned_at": "2026-06-18T09:13:39.905Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.3b added QmtLiveCapabilitySnapshot and QmtTaskSubmitService::qmt_live_capability_snapshot with targeted qmt task test coverage",
+      "compatibility": "No qmt_live_gate, request_diagnostics, CLI handler, ExecutionAdapter trait, OrderStatus, bridge protocol, storage schema, or runtime submit/query/cancel behavior changed.",
+      "gates": [
+        "RED test failed with missing QmtLiveCapabilityValue and qmt_live_capability_snapshot",
+        "targeted qmt_task_contract_test passed",
+        "targeted qmt_live_adapter_test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "GitNexus detect_changes risk LOW and affected processes 0"
+      ],
+      "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+      "prepared_at": "2026-06-18T09:13:30.977Z"
+    }
   }
 ]
