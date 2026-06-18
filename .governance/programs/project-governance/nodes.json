@@ -1597,5 +1597,135 @@
       "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
       "prepared_at": "2026-06-18T09:13:30.977Z"
     }
+  },
+  {
+    "id": "P0.3c",
+    "title": "qmt_live identity reconciliation tightening",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "execution",
+    "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+        "note": "P0.3a design still defines P0.3c as task_id <-> external_order_id reconciliation tightening with qmt_live-local behavior only",
+        "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+        "recorded_at": "2026-06-18T15:01:58.961Z"
+      },
+      {
+        "kind": "structural",
+        "path": "Graphiti facts: ReconciliationService writes external_order_id into payload_json.qmt_live.task_identity.external_order_id; P0.3c requires FUNCTION_TREE authorization",
+        "note": "Graphiti P0.3b memories completed ingest; no backfill pending for previous slice",
+        "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+        "recorded_at": "2026-06-18T15:02:27.692Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: reconcile_qmt_live_order LOW; persist_qmt_live_query_failure LOW; try_update_order_qmt_live_metadata LOW",
+        "note": "Allowed scope can be qmt_live reconciliation/runtime metadata plus tests; avoid CLI handler and request formatting",
+        "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+        "recorded_at": "2026-06-18T15:02:56.579Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact 2026-06-19: reconcile_qmt_live_order LOW direct=1 processes=2 modules=2; persist_qmt_live_query_failure LOW direct=1 processes=2 modules=2; try_update_order_qmt_live_metadata LOW direct=0 processes=0 modules=0. Index stale warning noted; staged diff fresh_for_staged_diff=true.",
+        "note": "Pre-edit impact confirms P0.3c remains LOW and qmt_live-local.",
+        "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+        "recorded_at": "2026-06-18T16:51:55.960Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/reconciliation.rs",
+      "src/execution/runtime_store/orders.rs",
+      "tests/qmt_live_reconciliation_test.rs",
+      "tests/execution_runtime_store_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.3c.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No CLI handler or request formatting changes",
+      "No request_diagnostics or qmt_live_gate changes",
+      "No ExecutionAdapter trait, OrderStatus, response shape, bridge protocol, or storage schema changes",
+      "No background reconciliation daemon or broad migration",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-18T15:01:25.781Z",
+    "updated_at": "2026-06-18T17:07:29.790Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact remains LOW for edited production symbols before source edits",
+        "TDD red/green evidence for qmt_live identity reconciliation gap",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test --test qmt_live_reconciliation_test",
+        "cargo test --test execution_runtime_store_test",
+        "cargo test",
+        "GitNexus detect_changes confirms expected qmt_live reconciliation/runtime metadata scope"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE documents P0.3c status/boundary",
+        "active gates return to 0 after closeout"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "be7669b89645682e2ff706af295fa326a40d4bd8",
+        "transitioned_at": "2026-06-18T16:54:06.929Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "000a263836221085dcef2560a912ef8976c9c443",
+        "transitioned_at": "2026-06-18T17:06:27.847Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "000a263836221085dcef2560a912ef8976c9c443",
+        "transitioned_at": "2026-06-18T17:06:44.216Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "000a263836221085dcef2560a912ef8976c9c443",
+        "transitioned_at": "2026-06-18T17:07:29.790Z"
+      }
+    ],
+    "closeout": {
+      "summary": "P0.3c landed in commit 000a263: qmt_live runtime metadata updates now preserve an existing payload_json.qmt_live.task_identity.external_order_id when new metadata has none; regression test added in tests/execution_runtime_store_test.rs.",
+      "compatibility": "No CLI, qmt_live_gate, request_diagnostics, ExecutionAdapter, OrderStatus, bridge protocol, response shape, or storage schema changes. Existing qmt_live reconciliation tests and runtime store tests remain compatible.",
+      "gates": [
+        "TDD RED verified: cargo test --test execution_runtime_store_test qmt_live_runtime_metadata_update_preserves_existing_external_order_id_when_new_metadata_has_none failed with left Null/right broker-ack-1 before implementation",
+        "TDD GREEN verified: cargo test --test execution_runtime_store_test qmt_live_runtime_metadata_update_preserves_existing_external_order_id_when_new_metadata_has_none passed",
+        "cargo test --test execution_runtime_store_test passed: 24 passed",
+        "cargo test --test qmt_live_reconciliation_test passed: 7 passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "GitNexus detect_changes staged/all risk low and expected qmt_live runtime metadata scope; stale index warning noted",
+        "FUNCTION_TREE documents P0.3c status/boundary"
+      ],
+      "current_head": "000a263836221085dcef2560a912ef8976c9c443",
+      "prepared_at": "2026-06-18T17:07:02.530Z"
+    }
   }
 ]

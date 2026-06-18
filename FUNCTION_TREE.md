@@ -253,7 +253,7 @@ quantix-rust/
 │   ├── QMT Live 能力/身份硬化 (P0.3)
 │   │   ├── P0.3a 设计基线和 GitNexus 影响面备案
 │   │   ├── P0.3b `QmtLiveCapabilitySnapshot` seed
-│   │   ├── `task_id <-> external_order_id` 对账补强仍待实现
+│   │   ├── P0.3c `task_id <-> external_order_id` 对账补强
 │   │   └── HIGH 风险 request_diagnostics / CLI handler 改动需单独审批
 │   ├── QMT 任务提交服务 (qmt_task_submit_service)
 │   │   ├── `/api/v1/task/execute` receipt 提交
