@@ -1,0 +1,42 @@
+task:
+  id: "P0.3b"
+  title: "qmt_live capability snapshot seed"
+
+scope:
+  allowed_paths:
+    - "src/execution/qmt_live_adapter.rs"
+    - "src/execution/qmt_task_submit_service.rs"
+    - "tests/qmt_live_adapter_test.rs"
+    - "tests/qmt_task_contract_test.rs"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.3b.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No qmt_live_gate changes because current impact is HIGH"
+  - "No request_diagnostics or CLI handler changes"
+  - "No ExecutionAdapter trait, OrderStatus, query response, or storage schema changes"
+  - "No bridge protocol changes or background reconciliation daemon"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact is recorded before source edits"
+    - "TDD red/green targeted qmt_live capability test"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "targeted qmt_live tests"
+    - "cargo test"
+    - "GitNexus detect_changes confirms expected scope"
+  closeout_gate:
+    - "FUNCTION_TREE documents P0.3b capability snapshot seed status"
+    - "active gates return to 0 after closeout"
+
+evidence:
+  current_head: "958d710e9183b73b62f88690328451d87391f7e1"
+  notes: []

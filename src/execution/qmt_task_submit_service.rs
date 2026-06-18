@@ -28,6 +28,33 @@ pub struct QmtTaskSubmitReceipt {
     pub source_name: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QmtLiveCapabilityValue {
+    Known(String),
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QmtLiveCapabilitySnapshot {
+    pub qmt_enabled: bool,
+    pub qmt_mode: String,
+    pub qmt_supports: Vec<String>,
+    pub bridge_contract_version: QmtLiveCapabilityValue,
+    pub miniqmt_version: QmtLiveCapabilityValue,
+}
+
+impl QmtLiveCapabilitySnapshot {
+    pub fn supports(&self, capability: &str) -> bool {
+        self.qmt_supports
+            .iter()
+            .any(|supported| supported == capability)
+    }
+
+    pub fn is_live_order_submit_ready(&self) -> bool {
+        self.qmt_enabled && self.qmt_mode == "live" && self.supports("order_submit")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct QmtTaskResolvedResult {
     pub adapter_order_id: String,
@@ -64,6 +91,20 @@ impl QmtTaskSubmitService {
             client,
             poll_interval: Duration::from_millis(poll_interval_ms),
             poll_timeout: Duration::from_millis(poll_timeout_ms),
+        })
+    }
+
+    pub async fn qmt_live_capability_snapshot(
+        &self,
+    ) -> Result<QmtLiveCapabilitySnapshot, BridgeError> {
+        let capabilities = self.client.capabilities().await?;
+
+        Ok(QmtLiveCapabilitySnapshot {
+            qmt_enabled: capabilities.qmt.enabled,
+            qmt_mode: capabilities.qmt.mode,
+            qmt_supports: capabilities.qmt.supports,
+            bridge_contract_version: QmtLiveCapabilityValue::Unknown,
+            miniqmt_version: QmtLiveCapabilityValue::Unknown,
         })
     }
 

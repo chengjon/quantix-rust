@@ -2,7 +2,9 @@ use quantix_cli::bridge::client::BridgeHttpClient;
 use quantix_cli::bridge::error::BridgeError;
 use quantix_cli::execution::adapter::AdapterOrderRequest;
 use quantix_cli::execution::models::OrderSide;
-use quantix_cli::execution::qmt_task_submit_service::QmtTaskSubmitService;
+use quantix_cli::execution::qmt_task_submit_service::{
+    QmtLiveCapabilityValue, QmtTaskSubmitService,
+};
 use rust_decimal_macros::dec;
 use wiremock::matchers::{body_partial_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -50,6 +52,26 @@ async fn qmt_task_submit_service_poll_until_terminal_times_out_on_repeated_pendi
         .unwrap_err();
 
     assert!(matches!(error, BridgeError::Timeout(_)));
+}
+
+#[tokio::test]
+async fn qmt_task_submit_service_builds_qmt_live_capability_snapshot() {
+    let server = MockServer::start().await;
+    mock_live_capabilities(&server).await;
+
+    let service = QmtTaskSubmitService::new(sample_client(&server), 1, 10).unwrap();
+    let snapshot = service.qmt_live_capability_snapshot().await.unwrap();
+
+    assert!(snapshot.qmt_enabled);
+    assert_eq!(snapshot.qmt_mode, "live");
+    assert!(snapshot.supports("order_submit"));
+    assert!(snapshot.supports("account_status"));
+    assert!(snapshot.is_live_order_submit_ready());
+    assert_eq!(
+        snapshot.bridge_contract_version,
+        QmtLiveCapabilityValue::Unknown
+    );
+    assert_eq!(snapshot.miniqmt_version, QmtLiveCapabilityValue::Unknown);
 }
 
 fn sample_client(server: &MockServer) -> BridgeHttpClient {
@@ -135,6 +157,24 @@ async fn mock_task_result_pending(server: &MockServer) {
             "status": "pending",
             "bridge_contract_version": "miniqmt.v1",
             "result": null
+        })))
+        .mount(server)
+        .await;
+}
+
+async fn mock_live_capabilities(server: &MockServer) {
+    Mock::given(method("GET"))
+        .and(path("/api/v1/capabilities"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "tdx": {
+                "enabled": true,
+                "supports": ["quote", "batch_quotes", "kline"]
+            },
+            "qmt": {
+                "enabled": true,
+                "mode": "live",
+                "supports": ["order_submit", "account_status"]
+            }
         })))
         .mount(server)
         .await;

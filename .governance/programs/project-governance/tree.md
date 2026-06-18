@@ -38,3 +38,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.2e: Execution mode config namespace semantics (planning, FT: FUNCTION_TREE.md)
 - [ ] P0.2f: Execution mode semantics closeout report (planning, FT: FUNCTION_TREE.md)
 - [ ] P0.3a: qmt_live capability identity hardening design (planning, FT: execution)
+- [ ] P0.3b: qmt_live capability snapshot seed (planning, FT: execution)

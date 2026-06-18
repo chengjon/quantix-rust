@@ -1477,5 +1477,125 @@
       "current_head": "a6e12a030c5cde0e85033ed08c4d9339b130bfeb",
       "prepared_at": "2026-06-18T02:20:59.910Z"
     }
+  },
+  {
+    "id": "P0.3b",
+    "title": "qmt_live capability snapshot seed",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "execution",
+    "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+        "note": "P0.3a defines P0.3b as qmt_live Capability Snapshot Seed with no trait, diagnostics, storage schema, or CLI changes",
+        "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+        "recorded_at": "2026-06-18T02:45:26.188Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: QmtLiveExecutionAdapter impl LOW; QmtTaskSubmitService impl LOW; qmt_live_gate::check_bridge_qmt_live_mode HIGH",
+        "note": "P0.3b must avoid qmt_live_gate/request_diagnostics/CLI handler and stay in adapter/service-local LOW scope",
+        "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+        "recorded_at": "2026-06-18T02:45:39.575Z"
+      },
+      {
+        "kind": "structural",
+        "path": "Graphiti read attempted for P0.3b and timed out; existing P0.3a docs/handoff memories remain processing without error",
+        "note": "Continue from local merged report as authority; Graphiti backfill required if closeout ingest remains unavailable",
+        "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+        "recorded_at": "2026-06-18T02:45:53.976Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/qmt_live_adapter.rs",
+      "src/execution/qmt_task_submit_service.rs",
+      "tests/qmt_live_adapter_test.rs",
+      "tests/qmt_task_contract_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.3b.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No qmt_live_gate changes because current impact is HIGH",
+      "No request_diagnostics or CLI handler changes",
+      "No ExecutionAdapter trait, OrderStatus, query response, or storage schema changes",
+      "No bridge protocol changes or background reconciliation daemon",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-18T02:45:15.719Z",
+    "updated_at": "2026-06-18T09:13:39.905Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact is recorded before source edits",
+        "TDD red/green targeted qmt_live capability test",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "targeted qmt_live tests",
+        "cargo test",
+        "GitNexus detect_changes confirms expected scope"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE documents P0.3b capability snapshot seed status",
+        "active gates return to 0 after closeout"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+        "transitioned_at": "2026-06-18T02:46:26.918Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "958d710e9183b73b62f88690328451d87391f7e1",
+        "transitioned_at": "2026-06-18T09:03:01.040Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+        "transitioned_at": "2026-06-18T09:08:54.840Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+        "transitioned_at": "2026-06-18T09:13:39.905Z"
+      }
+    ],
+    "closeout": {
+      "summary": "P0.3b added QmtLiveCapabilitySnapshot and QmtTaskSubmitService::qmt_live_capability_snapshot with targeted qmt task test coverage",
+      "compatibility": "No qmt_live_gate, request_diagnostics, CLI handler, ExecutionAdapter trait, OrderStatus, bridge protocol, storage schema, or runtime submit/query/cancel behavior changed.",
+      "gates": [
+        "RED test failed with missing QmtLiveCapabilityValue and qmt_live_capability_snapshot",
+        "targeted qmt_task_contract_test passed",
+        "targeted qmt_live_adapter_test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "GitNexus detect_changes risk LOW and affected processes 0"
+      ],
+      "current_head": "55c815e66a112bccb983cd18cbf567798a22556b",
+      "prepared_at": "2026-06-18T09:13:30.977Z"
+    }
   }
 ]
