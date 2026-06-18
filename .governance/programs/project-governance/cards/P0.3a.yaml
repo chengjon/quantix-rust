@@ -1,0 +1,35 @@
+task:
+  id: "P0.3a"
+  title: "qmt_live capability identity hardening design"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.3a.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production source changes in src/"
+  - "No test changes in tests/"
+  - "No ExecutionAdapter trait or OrderStatus shape changes"
+  - "No qmt_live runtime behavior, bridge protocol, storage schema, or diagnostics behavior changes"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "git diff --check"
+    - "FUNCTION_TREE governance validate"
+    - "GitNexus detect_changes confirms docs/governance-only change scope"
+  closeout_gate:
+    - "P0.3a report records impact boundaries, staged rollout, and next authorized slices"
+    - "active gates return to 0 after closeout"
+
+evidence:
+  current_head: "01700f0c4619bdcd917854cdb8037db3dc06de83"
+  notes: []
