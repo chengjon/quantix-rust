@@ -55,6 +55,51 @@ impl QmtLiveCapabilitySnapshot {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QmtLiveErrorCategory {
+    LocalValidationRejected,
+    LocalRiskGateRejected,
+    BridgeFailure,
+    BrokerRejected,
+    BrokerUnknownState,
+    ManualInterventionRequired,
+}
+
+impl QmtLiveErrorCategory {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LocalValidationRejected => "local_validation_rejected",
+            Self::LocalRiskGateRejected => "local_risk_gate_rejected",
+            Self::BridgeFailure => "bridge_failure",
+            Self::BrokerRejected => "broker_rejected",
+            Self::BrokerUnknownState => "broker_unknown_state",
+            Self::ManualInterventionRequired => "manual_intervention_required",
+        }
+    }
+
+    pub fn from_bridge_error(error: &BridgeError) -> Self {
+        match error {
+            BridgeError::InvalidResult(_) => Self::ManualInterventionRequired,
+            BridgeError::Config(_)
+            | BridgeError::Timeout(_)
+            | BridgeError::Unavailable(_)
+            | BridgeError::Unauthorized(_)
+            | BridgeError::UnsupportedContractVersion(_)
+            | BridgeError::UnsupportedMethod(_)
+            | BridgeError::Protocol(_)
+            | BridgeError::Http(_) => Self::BridgeFailure,
+        }
+    }
+
+    pub fn from_task_result(result: &QmtTaskResolvedResult) -> Option<Self> {
+        match result.latest_status {
+            OrderStatus::Rejected => Some(Self::BrokerRejected),
+            OrderStatus::Unknown => Some(Self::BrokerUnknownState),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct QmtTaskResolvedResult {
     pub adapter_order_id: String,

@@ -1,9 +1,9 @@
 use quantix_cli::bridge::client::BridgeHttpClient;
 use quantix_cli::bridge::error::BridgeError;
 use quantix_cli::execution::adapter::AdapterOrderRequest;
-use quantix_cli::execution::models::OrderSide;
+use quantix_cli::execution::models::{OrderSide, OrderStatus};
 use quantix_cli::execution::qmt_task_submit_service::{
-    QmtLiveCapabilityValue, QmtTaskSubmitService,
+    QmtLiveCapabilityValue, QmtLiveErrorCategory, QmtTaskResolvedResult, QmtTaskSubmitService,
 };
 use rust_decimal_macros::dec;
 use wiremock::matchers::{body_partial_json, header, method, path};
@@ -72,6 +72,47 @@ async fn qmt_task_submit_service_builds_qmt_live_capability_snapshot() {
         QmtLiveCapabilityValue::Unknown
     );
     assert_eq!(snapshot.miniqmt_version, QmtLiveCapabilityValue::Unknown);
+}
+
+#[test]
+fn qmt_live_error_taxonomy_classifies_current_task_contract_surfaces() {
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Timeout("poll timeout".to_string())),
+        QmtLiveErrorCategory::BridgeFailure
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::InvalidResult(
+            "task result client_order_id mismatch".to_string(),
+        )),
+        QmtLiveErrorCategory::ManualInterventionRequired
+    );
+
+    let rejected = QmtTaskResolvedResult {
+        adapter_order_id: "task-1".to_string(),
+        latest_status: OrderStatus::Rejected,
+        filled_quantity: 0,
+        avg_fill_price: None,
+        rejection_reason: Some("price rejected".to_string()),
+        broker_event_type: None,
+        external_order_id: Some("broker-1".to_string()),
+        client_order_id: Some("cli-1".to_string()),
+        local_submission_id: Some("local-1".to_string()),
+        source_name: Some("miniqmt".to_string()),
+    };
+    assert_eq!(
+        QmtLiveErrorCategory::from_task_result(&rejected),
+        Some(QmtLiveErrorCategory::BrokerRejected)
+    );
+
+    let unknown = QmtTaskResolvedResult {
+        latest_status: OrderStatus::Unknown,
+        rejection_reason: None,
+        ..rejected
+    };
+    assert_eq!(
+        QmtLiveErrorCategory::from_task_result(&unknown),
+        Some(QmtLiveErrorCategory::BrokerUnknownState)
+    );
 }
 
 fn sample_client(server: &MockServer) -> BridgeHttpClient {

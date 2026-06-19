@@ -1,0 +1,41 @@
+task:
+  id: "P0.3d"
+  title: "qmt_live error taxonomy seed"
+
+scope:
+  allowed_paths:
+    - "src/execution/qmt_task_submit_service.rs"
+    - "tests/qmt_task_contract_test.rs"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.3d.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No request_diagnostics or CLI handler changes"
+  - "No ExecutionAdapter trait, OrderStatus, response shape, bridge protocol, or storage schema changes"
+  - "No qmt_live_gate behavior change"
+  - "No global error response rewrite"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact remains LOW for edited production symbols before source edits"
+    - "TDD red/green qmt_live error taxonomy contract test"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test --test qmt_task_contract_test"
+    - "cargo test --test qmt_live_adapter_test"
+    - "cargo test"
+    - "GitNexus detect_changes confirms expected qmt_live-local taxonomy scope"
+  closeout_gate:
+    - "FUNCTION_TREE documents P0.3d status/boundary"
+    - "active gates return to 0 after closeout"
+
+evidence:
+  current_head: "e5f8a3c96a47c01509f6d94552203e9fd3916976"
+  notes: []
