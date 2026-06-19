@@ -1727,5 +1727,88 @@
       "current_head": "000a263836221085dcef2560a912ef8976c9c443",
       "prepared_at": "2026-06-18T17:07:02.530Z"
     }
+  },
+  {
+    "id": "P0.3d",
+    "title": "qmt_live error taxonomy seed",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "implementation-ready",
+    "function_tree_ref": "execution",
+    "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "docs/reports/QMT_LIVE_CAPABILITY_IDENTITY_HARDENING_P0_3A_2026-06-18.md",
+        "note": "P0.3a defines P0.3d as qmt_live-local error taxonomy seed only; request_diagnostics and CLI handlers are explicitly out of scope.",
+        "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
+        "recorded_at": "2026-06-19T00:16:32.310Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact 2026-06-19: qmt_live_adapter.submit_order LOW direct=3 processes=0 modules=1; qmt_task_submit_service.query_task_result_internal LOW direct=2 processes=0 modules=2; map_completed_result LOW direct=1 processes=0 modules=2; reconciliation.persist_qmt_live_query_failure LOW direct=1 processes=2 modules=2. Index stale warning noted.",
+        "note": "LOW candidates support a narrow qmt_live-local taxonomy seed. request_diagnostics and CLI remain out of scope.",
+        "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
+        "recorded_at": "2026-06-19T00:20:30.312Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/qmt_task_submit_service.rs",
+      "tests/qmt_task_contract_test.rs",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.3d.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No request_diagnostics or CLI handler changes",
+      "No ExecutionAdapter trait, OrderStatus, response shape, bridge protocol, or storage schema changes",
+      "No qmt_live_gate behavior change",
+      "No global error response rewrite",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-19T00:13:40.898Z",
+    "updated_at": "2026-06-19T00:48:09.351Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact remains LOW for edited production symbols before source edits",
+        "TDD red/green qmt_live error taxonomy contract test",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test --test qmt_task_contract_test",
+        "cargo test --test qmt_live_adapter_test",
+        "cargo test",
+        "GitNexus detect_changes confirms expected qmt_live-local taxonomy scope"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE documents P0.3d status/boundary",
+        "active gates return to 0 after closeout"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
+        "transitioned_at": "2026-06-19T00:23:23.723Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
+        "transitioned_at": "2026-06-19T00:48:09.338Z"
+      }
+    ]
   }
 ]

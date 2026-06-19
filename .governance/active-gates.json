@@ -1,5 +1,32 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-18T17:07:29.792Z",
-  "gates": []
+  "updated_at": "2026-06-19T00:48:09.355Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.3d",
+      "title": "qmt_live error taxonomy seed",
+      "node_type": "decision",
+      "owner_lane": "project-governance",
+      "parent": "",
+      "status": "implementation-ready",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "land implementation with Git evidence",
+      "function_tree_ref": "execution",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/qmt_task_submit_service.rs",
+        "tests/qmt_task_contract_test.rs",
+        "FUNCTION_TREE.md",
+        ".governance/programs/project-governance/cards/P0.3d.yaml",
+        ".governance/programs/project-governance/nodes.json",
+        ".governance/programs/project-governance/tree.md",
+        ".governance/active-gates.json",
+        ".governance/active-gates.md"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-19T00:48:09.351Z"
+    }
+  ]
 }
