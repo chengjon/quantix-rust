@@ -1734,11 +1734,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "execution",
     "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1773,11 +1773,11 @@
       "No global error response rewrite",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-19T00:13:40.898Z",
-    "updated_at": "2026-06-19T00:48:09.351Z",
+    "updated_at": "2026-06-19T00:52:07.706Z",
     "acceptance": {
       "commit_gate": [
         "GitNexus impact remains LOW for edited production symbols before source edits",
@@ -1808,7 +1808,38 @@
         "note": "",
         "current_head": "e5f8a3c96a47c01509f6d94552203e9fd3916976",
         "transitioned_at": "2026-06-19T00:48:09.338Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "53fa51648aaa31e5718cea9290c5bc14554ae08e",
+        "transitioned_at": "2026-06-19T00:50:59.967Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "53fa51648aaa31e5718cea9290c5bc14554ae08e",
+        "transitioned_at": "2026-06-19T00:52:07.705Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.3d landed in commit 53fa516: added qmt_live-local error taxonomy seed in qmt_task_submit_service.rs with categories for bridge failure, broker rejected, broker unknown state, and manual intervention required; regression test added in tests/qmt_task_contract_test.rs. No request_diagnostics or CLI handler changes were made.",
+      "compatibility": "Preserved existing qmt_task_submit_service and qmt_live adapter behavior; taxonomy is additive and local to qmt_live task service. Bridge protocol, storage schema, response shapes, and CLI diagnostics were not changed.",
+      "gates": [
+        "TDD RED verified: cargo test --test qmt_task_contract_test qmt_live_error_taxonomy_classifies_current_task_contract_surfaces failed before implementation due to missing QmtLiveErrorCategory",
+        "TDD GREEN verified: cargo test --test qmt_task_contract_test qmt_live_error_taxonomy_classifies_current_task_contract_surfaces passed",
+        "cargo test --test qmt_task_contract_test passed: 5 passed",
+        "cargo test --test qmt_live_adapter_test passed: 6 passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "GitNexus detect_changes staged/all risk low and expected qmt_live-local taxonomy scope; no affected processes",
+        "FUNCTION_TREE documents P0.3d status/boundary"
+      ],
+      "current_head": "53fa51648aaa31e5718cea9290c5bc14554ae08e",
+      "prepared_at": "2026-06-19T00:51:29.704Z"
+    }
   }
 ]

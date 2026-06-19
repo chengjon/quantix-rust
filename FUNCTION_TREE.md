@@ -254,6 +254,7 @@ quantix-rust/
 │   │   ├── P0.3a 设计基线和 GitNexus 影响面备案
 │   │   ├── P0.3b `QmtLiveCapabilitySnapshot` seed
 │   │   ├── P0.3c `task_id <-> external_order_id` 对账补强
+│   │   ├── P0.3d `qmt_live` error taxonomy seed
 │   │   └── HIGH 风险 request_diagnostics / CLI handler 改动需单独审批
 │   ├── QMT 任务提交服务 (qmt_task_submit_service)
 │   │   ├── `/api/v1/task/execute` receipt 提交
