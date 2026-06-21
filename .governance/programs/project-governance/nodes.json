@@ -2188,9 +2188,9 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "qmt_live capability / identity hardening",
-    "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+    "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
     "freshness": "current-head",
     "source_edits_authorized": false,
     "evidence": [
@@ -2228,6 +2228,13 @@
         "note": "P0.4b verification evidence",
         "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
         "recorded_at": "2026-06-21T14:03:42.287Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "commit 531efaa feat: add qmt live capability descriptor",
+        "note": "P0.4b implementation landed in local commit",
+        "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
+        "recorded_at": "2026-06-21T14:05:11.406Z"
       }
     ],
     "allowed_paths": [
@@ -2246,11 +2253,11 @@
       "Do not add miniQMT runtime probing or startup self-check implementation.",
       "Do not resume unwrap cleanup."
     ],
-    "next_gate": "prepare decision or authorization",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T13:42:44.571Z",
-    "updated_at": "2026-06-21T14:03:42.287Z",
+    "updated_at": "2026-06-21T14:06:30.400Z",
     "transitions": [
       {
         "from": "evidence-prepared",
@@ -2265,6 +2272,27 @@
         "note": "",
         "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
         "transitioned_at": "2026-06-21T13:48:44.662Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
+        "transitioned_at": "2026-06-21T14:05:23.514Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
+        "transitioned_at": "2026-06-21T14:05:35.067Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
+        "transitioned_at": "2026-06-21T14:06:30.400Z"
       }
     ],
     "acceptance": {
@@ -2277,6 +2305,23 @@
         "PR CI and master CI pass, or failure documented.",
         "Graphiti memory written and ingest completed, or local backfill recorded."
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_CAPABILITY_DESCRIPTOR_P0_4B_2026-06-21.md",
+      "compatibility": "Local qmt_live capability descriptor only; no bridge protocol, bridge response model, qmt_live gate, request_diagnostics, CLI output, storage schema, response shape, OrderStatus, miniQMT runtime probe, or execution behavior changes.",
+      "gates": [
+        "TDD RED/GREEN for missing order_submit descriptor",
+        "cargo test --test qmt_task_contract_test passed",
+        "cargo test --test qmt_live_adapter_test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "FUNCTION_TREE scope-check and validate passed",
+        "GitNexus detect_changes LOW risk, 0 affected processes"
+      ],
+      "current_head": "531efaaba3bd18d85e6e1eccac7e80354de0f7f6",
+      "prepared_at": "2026-06-21T14:05:51.056Z"
     }
   }
 ]
