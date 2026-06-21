@@ -2719,11 +2719,11 @@
     "node_type": "implementation",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
     "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -2774,11 +2774,11 @@
       "No opportunistic identity fields beyond recovery of existing task_identity fields",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T18:06:03.653Z",
-    "updated_at": "2026-06-21T18:19:13.268Z",
+    "updated_at": "2026-06-21T18:40:32.428Z",
     "track": "mainline",
     "mainline_id": "P0.4f",
     "depth": 0,
@@ -2815,7 +2815,37 @@
         "note": "",
         "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
         "transitioned_at": "2026-06-21T18:19:13.267Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+        "transitioned_at": "2026-06-21T18:40:10.332Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+        "transitioned_at": "2026-06-21T18:40:32.428Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_IDENTITY_RUNTIME_METADATA_RECOVERY_P0_4F_2026-06-22.md",
+      "compatibility": "No storage schema, bridge protocol, response shape, gate behavior, diagnostics, OrderStatus, or ExecutionAdapter change",
+      "gates": [
+        "targeted runtime metadata compatibility test passed",
+        "targeted qmt_live reconciliation recovery test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "Function Tree scope/gate/validate passed",
+        "GitNexus detect_changes completed with expected MEDIUM qmt_live reconciliation scope"
+      ],
+      "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+      "prepared_at": "2026-06-21T18:40:23.934Z"
+    }
   }
 ]
