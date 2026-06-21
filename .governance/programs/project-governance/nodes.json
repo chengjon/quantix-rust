@@ -2070,5 +2070,77 @@
       "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
       "prepared_at": "2026-06-21T10:55:15.084Z"
     }
+  },
+  {
+    "id": "P0.4a",
+    "title": "qmt_live hardening design",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch feat/p0-4a-qmt-live-hardening-design at HEAD 2a29d43; master clean; active gates none before node creation; Graphiti read timed out",
+        "note": "Baseline before P0.4a qmt_live hardening design",
+        "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
+        "recorded_at": "2026-06-21T12:44:08.210Z"
+      },
+      {
+        "kind": "structural",
+        "path": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+        "note": "P0.4a qmt_live hardening design report with GitNexus LOW/HIGH risk matrix and staged follow-up plan",
+        "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
+        "recorded_at": "2026-06-21T12:56:08.051Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+      "FUNCTION_TREE.md",
+      ".governance",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify src production code in P0.4a",
+      "Do not add miniQMT runtime probing or startup self-check implementation",
+      "Do not change bridge protocol, response shapes, storage schema, OrderStatus, or execution behavior",
+      "Do not resume unwrap cleanup"
+    ],
+    "next_gate": "prepare decision or authorization",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T12:44:08.150Z",
+    "updated_at": "2026-06-21T12:56:08.051Z",
+    "track": "mainline",
+    "mainline_id": "P0.4a",
+    "depth": 0,
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact matrix for qmt_live hardening candidates is recorded",
+        "Design report documents phased slices, risk boundaries, tests, and non-goals",
+        "git diff --check",
+        "FUNCTION_TREE validate",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "P0.4a closed with active gates none and validation passed",
+        "PR CI and master CI pass or failure is documented"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
+        "transitioned_at": "2026-06-21T12:44:08.314Z"
+      }
+    ]
   }
 ]
