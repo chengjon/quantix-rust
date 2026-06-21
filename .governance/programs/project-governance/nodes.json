@@ -2446,11 +2446,11 @@
     "node_type": "implementation",
     "owner_lane": "execution",
     "parent": "P0.4a",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
-    "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+    "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -2472,6 +2472,13 @@
         "note": "",
         "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
         "recorded_at": "2026-06-21T15:50:30.850Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "implementation commit 0910ce5 feat: classify qmt live gate mode failures",
+        "note": "P0.4d implementation landed with report, tests, fmt, qmt_live filter, clippy, cargo test, GitNexus detect_changes LOW/0 affected processes",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "recorded_at": "2026-06-21T16:20:21.230Z"
       }
     ],
     "allowed_paths": [
@@ -2496,11 +2503,11 @@
       "No submit/query/cancel implementation change outside the existing qmt_live gate",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T15:49:27.742Z",
-    "updated_at": "2026-06-21T15:51:07.139Z",
+    "updated_at": "2026-06-21T16:21:07.078Z",
     "track": "mainline",
     "mainline_id": "P0.4d",
     "depth": 0,
@@ -2536,7 +2543,38 @@
         "note": "",
         "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
         "transitioned_at": "2026-06-21T15:51:07.138Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "transitioned_at": "2026-06-21T16:20:35.577Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "transitioned_at": "2026-06-21T16:21:07.078Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_GATE_COMPATIBILITY_P0_4D_2026-06-21.md",
+      "compatibility": "P0.4d adds qmt_live gate-local mode failure classification only; non-live modes remain fail-closed, CLI diagnostics/output, bridge protocol/response shape, storage schema, identity metadata, OrderStatus, ExecutionAdapter, and submit/query/cancel main flows are unchanged.",
+      "gates": [
+        "cargo test --test qmt_live_adapter_test qmt_live_gate_classifies_unknown_mode_as_structured_failure",
+        "cargo test --test qmt_live_adapter_test",
+        "cargo fmt --check",
+        "cargo test qmt_live",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "function-tree scope-check/gate/validate",
+        "GitNexus detect_changes LOW/0 affected processes"
+      ],
+      "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+      "prepared_at": "2026-06-21T16:20:55.648Z"
+    }
   }
 ]
