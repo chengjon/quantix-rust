@@ -1958,11 +1958,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md",
-    "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
+    "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1977,6 +1977,13 @@
         "note": "Impact analysis for P0.3f candidate symbols",
         "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
         "recorded_at": "2026-06-21T10:38:57.225Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "commit 844ecde feat: surface execution capabilities in qmt checklist; gates passed: RED/GREEN checklist test, execution_adapter_capabilities_test, qmt_live_adapter_test, fmt, clippy, cargo test, git diff --check, GitNexus detect_changes MEDIUM expected CLI status flow only",
+        "note": "Implementation landed and verified before closeout",
+        "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
+        "recorded_at": "2026-06-21T10:54:53.573Z"
       }
     ],
     "allowed_paths": [
@@ -1997,11 +2004,11 @@
       "Do not add miniQMT runtime probing, startup self-check, or unwrap cleanup",
       "Do not change JSON status response shape unless explicitly covered by tests"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T10:38:57.114Z",
-    "updated_at": "2026-06-21T10:39:21.397Z",
+    "updated_at": "2026-06-21T10:55:31.843Z",
     "track": "mainline",
     "mainline_id": "P0.3f",
     "depth": 0,
@@ -2026,7 +2033,42 @@
         "note": "",
         "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
         "transitioned_at": "2026-06-21T10:39:21.397Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
+        "transitioned_at": "2026-06-21T10:55:14.982Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
+        "transitioned_at": "2026-06-21T10:55:15.037Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
+        "transitioned_at": "2026-06-21T10:55:31.842Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_OBSERVABILITY_P0_3F_2026-06-21.md",
+      "compatibility": "Read-only qmt_live checklist observability only; no submit/query/cancel, OrderStatus, response shape, storage schema, bridge protocol, miniQMT runtime probe, or unwrap cleanup changes",
+      "gates": [
+        "TDD RED/GREEN checklist test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "GitNexus detect_changes MEDIUM expected CLI status flow only"
+      ],
+      "current_head": "844ecdecdf9f63ce1feb11fe81ac8520d28a92e4",
+      "prepared_at": "2026-06-21T10:55:15.084Z"
+    }
   }
 ]
