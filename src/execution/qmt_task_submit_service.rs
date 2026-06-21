@@ -110,8 +110,17 @@ pub enum QmtLiveErrorCategory {
     LocalValidationRejected,
     LocalRiskGateRejected,
     BridgeFailure,
+    BridgeTimeout,
+    BridgeUnavailable,
+    BridgeAuthFailed,
+    BridgeUnsupportedContractVersion,
+    BridgeUnsupportedMethod,
+    BridgeProtocolViolation,
+    BridgeHttpFailure,
+    BridgeInvalidResult,
     BrokerRejected,
     BrokerUnknownState,
+    TaskIdentityMismatch,
     ManualInterventionRequired,
 }
 
@@ -121,23 +130,35 @@ impl QmtLiveErrorCategory {
             Self::LocalValidationRejected => "local_validation_rejected",
             Self::LocalRiskGateRejected => "local_risk_gate_rejected",
             Self::BridgeFailure => "bridge_failure",
+            Self::BridgeTimeout => "bridge_timeout",
+            Self::BridgeUnavailable => "bridge_unavailable",
+            Self::BridgeAuthFailed => "bridge_auth_failed",
+            Self::BridgeUnsupportedContractVersion => "bridge_unsupported_contract_version",
+            Self::BridgeUnsupportedMethod => "bridge_unsupported_method",
+            Self::BridgeProtocolViolation => "bridge_protocol_violation",
+            Self::BridgeHttpFailure => "bridge_http_failure",
+            Self::BridgeInvalidResult => "bridge_invalid_result",
             Self::BrokerRejected => "broker_rejected",
             Self::BrokerUnknownState => "broker_unknown_state",
+            Self::TaskIdentityMismatch => "task_identity_mismatch",
             Self::ManualInterventionRequired => "manual_intervention_required",
         }
     }
 
     pub fn from_bridge_error(error: &BridgeError) -> Self {
         match error {
-            BridgeError::InvalidResult(_) => Self::ManualInterventionRequired,
-            BridgeError::Config(_)
-            | BridgeError::Timeout(_)
-            | BridgeError::Unavailable(_)
-            | BridgeError::Unauthorized(_)
-            | BridgeError::UnsupportedContractVersion(_)
-            | BridgeError::UnsupportedMethod(_)
-            | BridgeError::Protocol(_)
-            | BridgeError::Http(_) => Self::BridgeFailure,
+            BridgeError::Config(_) => Self::LocalValidationRejected,
+            BridgeError::Timeout(_) => Self::BridgeTimeout,
+            BridgeError::Unavailable(_) => Self::BridgeUnavailable,
+            BridgeError::Unauthorized(_) => Self::BridgeAuthFailed,
+            BridgeError::UnsupportedContractVersion(_) => Self::BridgeUnsupportedContractVersion,
+            BridgeError::UnsupportedMethod(_) => Self::BridgeUnsupportedMethod,
+            BridgeError::Protocol(_) => Self::BridgeProtocolViolation,
+            BridgeError::Http(_) => Self::BridgeHttpFailure,
+            BridgeError::InvalidResult(message) if is_identity_mismatch_error(message) => {
+                Self::TaskIdentityMismatch
+            }
+            BridgeError::InvalidResult(_) => Self::BridgeInvalidResult,
         }
     }
 
@@ -148,6 +169,12 @@ impl QmtLiveErrorCategory {
             _ => None,
         }
     }
+}
+
+fn is_identity_mismatch_error(message: &str) -> bool {
+    message.contains("client_order_id mismatch")
+        || message.contains("local_submission_id mismatch")
+        || message.contains("live_bridge_identity_mismatch")
 }
 
 #[derive(Debug, Clone, PartialEq)]
