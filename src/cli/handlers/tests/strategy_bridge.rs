@@ -3,6 +3,10 @@ use super::*;
 use crate::bridge::models::{
     BridgeCapabilitiesResponse, BridgeCapabilitySection, BridgeQmtCapabilitySection,
 };
+use crate::execution::adapter::{
+    ExecutionCancelSemantics, ExecutionCapabilities, ExecutionChannel, ExecutionFillSource,
+    ExecutionStatusSource,
+};
 
 #[allow(dead_code)]
 async fn test_execute_execution_bridge_qmt_live_rejects_preview_only_bridge_mode() {
@@ -87,22 +91,37 @@ async fn test_execute_execution_bridge_qmt_live_rejects_preview_only_bridge_mode
 
 #[test]
 fn test_format_qmt_promotion_checklist_surfaces_live_readiness_and_next_steps() {
-    let checklist = format_qmt_promotion_checklist(&BridgeCapabilitiesResponse {
-        tdx: BridgeCapabilitySection {
-            enabled: true,
-            supports: vec!["quote".to_string()],
+    let checklist = format_qmt_promotion_checklist(
+        &BridgeCapabilitiesResponse {
+            tdx: BridgeCapabilitySection {
+                enabled: true,
+                supports: vec!["quote".to_string()],
+            },
+            qmt: BridgeQmtCapabilitySection {
+                enabled: false,
+                mode: "preview_only".to_string(),
+                supports: vec!["order_preview".to_string()],
+            },
         },
-        qmt: BridgeQmtCapabilitySection {
-            enabled: false,
-            mode: "preview_only".to_string(),
-            supports: vec!["order_preview".to_string()],
+        ExecutionCapabilities {
+            channel: ExecutionChannel::QmtLive,
+            status_source: ExecutionStatusSource::Broker,
+            fill_source: ExecutionFillSource::Broker,
+            relies_on_broker_api: true,
+            supports_pending_order_lifecycle: true,
+            supports_partial_fill: true,
+            cancel_semantics: ExecutionCancelSemantics::Broker,
         },
-    });
+    );
 
     assert!(checklist.contains("QMT promotion checklist"));
     assert!(checklist.contains("[x] bridge qmt.enabled=true"));
     assert!(checklist.contains("[x] bridge qmt.mode=live"));
     assert!(checklist.contains("[x] bridge qmt.supports 包含 order_submit"));
+    assert!(checklist.contains("[ok] qmt_live adapter channel=qmt_live"));
+    assert!(checklist.contains("[ok] qmt_live status_source=broker"));
+    assert!(checklist.contains("[ok] qmt_live fill_source=broker"));
+    assert!(checklist.contains("[ok] qmt_live cancel_semantics=broker"));
     assert!(checklist.contains("[ ] request target_mode=qmt_live"));
     assert!(checklist.contains("[ ] 先在 paper 路径验证策略与风控"));
     assert!(checklist.contains("[ ] 再在 mock_live 路径验证非终态与收敛"));
