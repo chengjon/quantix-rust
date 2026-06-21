@@ -94,6 +94,18 @@ The targeted test passed after `qmt.mode=unknown` remained fail-closed as `ModeN
 - `function-tree validate`: passed
 - GitNexus `detect_changes`: LOW risk, 0 affected execution processes
 
+## CI Follow-up
+
+PR #257 first Lint run failed on GitHub stable clippy with `clippy::let_and_return` in the test helper `sample_bridge_client` inside `tests/qmt_live_adapter_test.rs`.
+
+The follow-up fix returned the `BridgeHttpClient::new_with_contract(...).unwrap()` expression directly. It did not change production code or qmt_live behavior.
+
+Post-fix local verification:
+
+- `cargo fmt --check`
+- `cargo clippy --test qmt_live_adapter_test -- -D warnings`
+- `cargo test --test qmt_live_adapter_test`
+
 Remaining closeout gates after this report:
 
 - FUNCTION_TREE closeout transition to `closed`

@@ -117,16 +117,14 @@ fn sample_qmt_live_adapter(server: &MockServer) -> QmtLiveExecutionAdapter {
 }
 
 fn sample_bridge_client(server: &MockServer) -> BridgeHttpClient {
-    let client = BridgeHttpClient::new_with_contract(
+    BridgeHttpClient::new_with_contract(
         server.uri(),
         Some("legacy-key".to_string()),
         Some("bearer-123".to_string()),
         "miniqmt.v1".to_string(),
         30_000,
     )
-    .unwrap();
-
-    client
+    .unwrap()
 }
 
 fn sample_request(client_order_id: &str) -> AdapterOrderRequest {
