@@ -45,9 +45,50 @@ pub enum AdapterError {
     Network(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionChannel {
+    PaperImmediate,
+    MockLive,
+    QmtLive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionStatusSource {
+    LocalImmediateAccounting,
+    LocalSimulatedLifecycle,
+    Broker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionFillSource {
+    LocalImmediateAccounting,
+    LocalSimulatedMatcher,
+    Broker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionCancelSemantics {
+    AlreadyFilledOnly,
+    LocalLifecycle,
+    Broker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExecutionCapabilities {
+    pub channel: ExecutionChannel,
+    pub status_source: ExecutionStatusSource,
+    pub fill_source: ExecutionFillSource,
+    pub relies_on_broker_api: bool,
+    pub supports_pending_order_lifecycle: bool,
+    pub supports_partial_fill: bool,
+    pub cancel_semantics: ExecutionCancelSemantics,
+}
+
 #[async_trait]
 pub trait ExecutionAdapter: Send + Sync {
     fn adapter_name(&self) -> &'static str;
+
+    fn capabilities(&self) -> ExecutionCapabilities;
 
     async fn submit_order(
         &self,

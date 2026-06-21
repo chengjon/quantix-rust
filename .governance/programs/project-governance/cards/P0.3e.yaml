@@ -1,0 +1,32 @@
+task:
+  id: "P0.3e"
+  title: "ExecutionCapabilities MVP"
+
+scope:
+  allowed_paths:
+    - "src/execution/adapter.rs"
+    - "src/execution/paper.rs"
+    - "src/execution/mock_live.rs"
+    - "src/execution/qmt_live_adapter.rs"
+    - "tests/execution_adapter_capabilities_test.rs"
+    - "tests/execution_kernel_test.rs"
+    - "docs/reports"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not replace upper-layer mode checks"
+  - "Do not modify OrderStatus, query response shapes, storage schema, bridge protocol, CLI handlers, request_diagnostics, miniQMT runtime probing, startup self-check, or unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for adapter capabilities contract"
+    - "cargo fmt --check; cargo clippy -- -D warnings; cargo test; git diff --check; GitNexus detect_changes"
+  closeout_gate:
+    - "FUNCTION_TREE P0.3e closed; PR CI and master CI pass; Graphiti memory written or local backfill recorded"
+
+evidence:
+  current_head: "2eadf409bf82939243b29782efe2c35af9b722e6"
+  notes: []

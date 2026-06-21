@@ -1841,5 +1841,115 @@
       "current_head": "53fa51648aaa31e5718cea9290c5bc14554ae08e",
       "prepared_at": "2026-06-19T00:51:29.704Z"
     }
+  },
+  {
+    "id": "P0.3e",
+    "title": "ExecutionCapabilities MVP",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch feat/p0-3e-execution-capabilities-mvp at HEAD 2eadf40; master clean before implementation; active gates none before node creation",
+        "note": "Baseline before ExecutionCapabilities MVP implementation",
+        "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
+        "recorded_at": "2026-06-19T02:32:01.692Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: ExecutionAdapter trait LOW direct=4 processes=0; QmtLiveExecutionAdapter impl LOW direct=0 processes=0; PaperExecutionAdapter impl LOW direct=0 processes=0; MockLiveExecutionAdapter impl LOW direct=0 processes=0",
+        "note": "Pre-edit GitNexus impact for ExecutionCapabilities MVP",
+        "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
+        "recorded_at": "2026-06-19T02:32:16.942Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/adapter.rs",
+      "src/execution/paper.rs",
+      "src/execution/mock_live.rs",
+      "src/execution/qmt_live_adapter.rs",
+      "tests/execution_adapter_capabilities_test.rs",
+      "tests/execution_kernel_test.rs",
+      "docs/reports",
+      "docs/reports/EXECUTION_CAPABILITIES_MVP_P0_3E_2026-06-21.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not replace upper-layer mode checks",
+      "Do not modify OrderStatus, query response shapes, storage schema, bridge protocol, CLI handlers, request_diagnostics, miniQMT runtime probing, startup self-check, or unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-19T02:31:46.175Z",
+    "updated_at": "2026-06-21T09:10:46.132Z",
+    "track": "mainline",
+    "mainline_id": "P0.3e",
+    "depth": 0,
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for adapter capabilities contract",
+        "cargo fmt --check; cargo clippy -- -D warnings; cargo test; git diff --check; GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.3e closed; PR CI and master CI pass; Graphiti memory written or local backfill recorded"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
+        "transitioned_at": "2026-06-19T02:32:52.449Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
+        "transitioned_at": "2026-06-21T09:08:44.539Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+        "transitioned_at": "2026-06-21T09:10:15.099Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+        "transitioned_at": "2026-06-21T09:10:46.131Z"
+      }
+    ],
+    "closeout": {
+      "summary": "P0.3e ExecutionCapabilities MVP landed in 5df8b08: added static ExecutionCapabilities contract, channel/status/fill/cancel enums, capabilities() on ExecutionAdapter, static returns for paper/mock_live/qmt_live, CountingAdapter test stub update, contract tests, and architecture report docs/reports/EXECUTION_CAPABILITIES_MVP_P0_3E_2026-06-21.md",
+      "compatibility": "Additive static capability declaration only; no upper-layer mode migration; no OrderStatus, response shape, storage schema, bridge protocol, CLI handler, request_diagnostics, miniQMT runtime probing, startup self-check, or unwrap cleanup changes",
+      "gates": [
+        "TDD RED: cargo test --test execution_adapter_capabilities_test failed for missing capability types and methods",
+        "GREEN: cargo test --test execution_adapter_capabilities_test passed with 3 tests",
+        "cargo test --test execution_kernel_test passed with 23 tests",
+        "cargo test --test qmt_live_adapter_test passed with 6 tests",
+        "cargo test --test mock_live_adapter_test passed with 6 tests",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW risk, no affected processes"
+      ],
+      "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+      "prepared_at": "2026-06-21T09:10:33.477Z"
+    }
   }
 ]
