@@ -2330,11 +2330,11 @@
     "node_type": "implementation",
     "owner_lane": "execution",
     "parent": "P0.4a",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
-    "current_head": "b7ffee5839524b967200195d945cc6374ed51b65",
+    "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -2349,6 +2349,13 @@
         "note": "",
         "current_head": "b7ffee5839524b967200195d945cc6374ed51b65",
         "recorded_at": "2026-06-21T14:54:37.151Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "implementation commit 2c1bac2 feat: enrich qmt live error taxonomy",
+        "note": "",
+        "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
+        "recorded_at": "2026-06-21T15:11:49.148Z"
       }
     ],
     "allowed_paths": [
@@ -2370,11 +2377,11 @@
       "No submit/query/cancel behavior changes",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T14:54:03.261Z",
-    "updated_at": "2026-06-21T14:56:16.960Z",
+    "updated_at": "2026-06-21T15:12:56.439Z",
     "track": "mainline",
     "mainline_id": "P0.4c",
     "depth": 0,
@@ -2409,7 +2416,28 @@
         "note": "",
         "current_head": "b7ffee5839524b967200195d945cc6374ed51b65",
         "transitioned_at": "2026-06-21T14:56:16.960Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
+        "transitioned_at": "2026-06-21T15:12:08.891Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
+        "transitioned_at": "2026-06-21T15:12:56.439Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_ERROR_TAXONOMY_P0_4C_2026-06-21.md",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
+      "prepared_at": "2026-06-21T15:12:34.162Z"
+    }
   }
 ]
