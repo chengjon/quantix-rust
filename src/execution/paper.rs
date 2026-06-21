@@ -3,7 +3,9 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
 use crate::execution::adapter::{
-    AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
+    AdapterError, AdapterOrderRequest, ExecutionAdapter, ExecutionCancelSemantics,
+    ExecutionCapabilities, ExecutionChannel, ExecutionFillSource, ExecutionStatusSource,
+    OrderInitialResponse, OrderQueryResponse,
 };
 use crate::execution::mode_semantics::{PAPER_IMMEDIATE_CHANNEL, log_execution_mode_risk_notice};
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
@@ -33,6 +35,18 @@ where
 {
     fn adapter_name(&self) -> &'static str {
         "paper"
+    }
+
+    fn capabilities(&self) -> ExecutionCapabilities {
+        ExecutionCapabilities {
+            channel: ExecutionChannel::PaperImmediate,
+            status_source: ExecutionStatusSource::LocalImmediateAccounting,
+            fill_source: ExecutionFillSource::LocalImmediateAccounting,
+            relies_on_broker_api: false,
+            supports_pending_order_lifecycle: false,
+            supports_partial_fill: false,
+            cancel_semantics: ExecutionCancelSemantics::AlreadyFilledOnly,
+        }
     }
 
     async fn submit_order(

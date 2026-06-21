@@ -295,6 +295,21 @@ impl ExecutionAdapter for CountingAdapter {
         "counting"
     }
 
+    fn capabilities(&self) -> quantix_cli::execution::adapter::ExecutionCapabilities {
+        quantix_cli::execution::adapter::ExecutionCapabilities {
+            channel: quantix_cli::execution::adapter::ExecutionChannel::MockLive,
+            status_source:
+                quantix_cli::execution::adapter::ExecutionStatusSource::LocalSimulatedLifecycle,
+            fill_source:
+                quantix_cli::execution::adapter::ExecutionFillSource::LocalSimulatedMatcher,
+            relies_on_broker_api: false,
+            supports_pending_order_lifecycle: true,
+            supports_partial_fill: true,
+            cancel_semantics:
+                quantix_cli::execution::adapter::ExecutionCancelSemantics::LocalLifecycle,
+        }
+    }
+
     async fn submit_order(
         &self,
         request: AdapterOrderRequest,

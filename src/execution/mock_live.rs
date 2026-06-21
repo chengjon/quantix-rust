@@ -5,7 +5,9 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use crate::execution::adapter::{
-    AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
+    AdapterError, AdapterOrderRequest, ExecutionAdapter, ExecutionCancelSemantics,
+    ExecutionCapabilities, ExecutionChannel, ExecutionFillSource, ExecutionStatusSource,
+    OrderInitialResponse, OrderQueryResponse,
 };
 use crate::execution::models::{FillDetails, MockLiveOrderState, OrderStatus};
 use crate::execution::runtime_store::StrategyRuntimeStore;
@@ -271,6 +273,18 @@ where
 {
     fn adapter_name(&self) -> &'static str {
         "mock_live"
+    }
+
+    fn capabilities(&self) -> ExecutionCapabilities {
+        ExecutionCapabilities {
+            channel: ExecutionChannel::MockLive,
+            status_source: ExecutionStatusSource::LocalSimulatedLifecycle,
+            fill_source: ExecutionFillSource::LocalSimulatedMatcher,
+            relies_on_broker_api: false,
+            supports_pending_order_lifecycle: true,
+            supports_partial_fill: true,
+            cancel_semantics: ExecutionCancelSemantics::LocalLifecycle,
+        }
     }
 
     async fn submit_order(

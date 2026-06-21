@@ -35,7 +35,9 @@ use tracing::{error, info, warn};
 use crate::bridge::client::BridgeHttpClient;
 use crate::core::runtime::{DEFAULT_BRIDGE_POLL_INTERVAL_MS, DEFAULT_BRIDGE_POLL_TIMEOUT_MS};
 use crate::execution::adapter::{
-    AdapterError, AdapterOrderRequest, ExecutionAdapter, OrderInitialResponse, OrderQueryResponse,
+    AdapterError, AdapterOrderRequest, ExecutionAdapter, ExecutionCancelSemantics,
+    ExecutionCapabilities, ExecutionChannel, ExecutionFillSource, ExecutionStatusSource,
+    OrderInitialResponse, OrderQueryResponse,
 };
 use crate::execution::mode_semantics::{QMT_LIVE_CHANNEL, log_execution_mode_risk_notice};
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
@@ -131,6 +133,18 @@ impl QmtLiveExecutionAdapter {
 impl ExecutionAdapter for QmtLiveExecutionAdapter {
     fn adapter_name(&self) -> &'static str {
         self.adapter_name
+    }
+
+    fn capabilities(&self) -> ExecutionCapabilities {
+        ExecutionCapabilities {
+            channel: ExecutionChannel::QmtLive,
+            status_source: ExecutionStatusSource::Broker,
+            fill_source: ExecutionFillSource::Broker,
+            relies_on_broker_api: true,
+            supports_pending_order_lifecycle: true,
+            supports_partial_fill: true,
+            cancel_semantics: ExecutionCancelSemantics::Broker,
+        }
     }
 
     async fn submit_order(
