@@ -1,0 +1,47 @@
+task:
+  id: "P0.4d"
+  title: "qmt_live gate runtime compatibility check"
+
+scope:
+  allowed_paths:
+    - "src/execution/qmt_live_gate.rs"
+    - "tests/qmt_live_adapter_test.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "docs/reports/QMT_LIVE_GATE_COMPATIBILITY_P0_4D_2026-06-21.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No request diagnostics formatting rewrite"
+  - "No CLI output wording or response shape change beyond existing gate error path"
+  - "No bridge protocol or response schema change"
+  - "No storage schema change"
+  - "No identity metadata change"
+  - "No OrderStatus or ExecutionAdapter changes"
+  - "No submit/query/cancel implementation change outside the existing qmt_live gate"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for qmt_live gate compatibility checks"
+    - "qmt_live adapter/gate targeted tests"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+    - "function-tree gate/validate closeout"
+  closeout_gate:
+    - "P0.4d report records HIGH impact, explicit approval, TDD evidence, verification, and boundaries"
+    - "FUNCTION_TREE references P0.4d as closed after implementation"
+    - "PR CI and master CI pass, or failure is documented"
+    - "Graphiti memory reaches completed or local backfill document is committed with Graphiti backfill required"
+
+evidence:
+  current_head: "c86f8d32a0b99c60f9ad9f56dc207302266ac42c"
+  notes: []

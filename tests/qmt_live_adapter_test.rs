@@ -2,6 +2,9 @@ use quantix_cli::bridge::client::BridgeHttpClient;
 use quantix_cli::execution::adapter::{AdapterOrderRequest, ExecutionAdapter};
 use quantix_cli::execution::models::{OrderSide, OrderStatus};
 use quantix_cli::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
+use quantix_cli::execution::qmt_live_gate::{
+    QmtLiveGateFailure, QmtLiveModeFailureKind, check_bridge_qmt_live_mode,
+};
 use rust_decimal_macros::dec;
 use wiremock::matchers::{body_partial_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -88,7 +91,32 @@ async fn qmt_live_adapter_rejects_submit_when_order_submit_capability_missing() 
     assert!(error.to_string().contains("order_submit"));
 }
 
+#[tokio::test]
+async fn qmt_live_gate_classifies_unknown_mode_as_structured_failure() {
+    let server = MockServer::start().await;
+    mock_unknown_qmt_mode_capabilities(&server).await;
+
+    let error = check_bridge_qmt_live_mode(&sample_bridge_client(&server))
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        QmtLiveGateFailure::ModeNotLive {
+            observed_mode: "unknown".to_string()
+        }
+    );
+    assert_eq!(
+        error.mode_failure_kind(),
+        Some(QmtLiveModeFailureKind::Ambiguous)
+    );
+}
+
 fn sample_qmt_live_adapter(server: &MockServer) -> QmtLiveExecutionAdapter {
+    QmtLiveExecutionAdapter::with_polling(sample_bridge_client(server), 1, 10)
+}
+
+fn sample_bridge_client(server: &MockServer) -> BridgeHttpClient {
     let client = BridgeHttpClient::new_with_contract(
         server.uri(),
         Some("legacy-key".to_string()),
@@ -98,7 +126,7 @@ fn sample_qmt_live_adapter(server: &MockServer) -> QmtLiveExecutionAdapter {
     )
     .unwrap();
 
-    QmtLiveExecutionAdapter::with_polling(client, 1, 10)
+    client
 }
 
 fn sample_request(client_order_id: &str) -> AdapterOrderRequest {
@@ -159,6 +187,24 @@ async fn mock_live_capabilities_without_order_submit(server: &MockServer) {
                 "enabled": true,
                 "mode": "live",
                 "supports": ["account_status"]
+            }
+        })))
+        .mount(server)
+        .await;
+}
+
+async fn mock_unknown_qmt_mode_capabilities(server: &MockServer) {
+    Mock::given(method("GET"))
+        .and(path("/api/v1/capabilities"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "tdx": {
+                "enabled": true,
+                "supports": ["quote", "batch_quotes", "kline"]
+            },
+            "qmt": {
+                "enabled": true,
+                "mode": "unknown",
+                "supports": ["order_submit", "account_status"]
             }
         })))
         .mount(server)
