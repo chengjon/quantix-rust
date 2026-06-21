@@ -13,6 +13,12 @@ pub enum QmtLiveGateFailure {
     MissingOrderSubmitSupport,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QmtLiveModeFailureKind {
+    NonLive,
+    Ambiguous,
+}
+
 impl QmtLiveGateFailure {
     pub fn to_quantix_error(&self) -> QuantixError {
         match self {
@@ -32,6 +38,23 @@ impl QmtLiveGateFailure {
             )),
         }
     }
+
+    pub fn mode_failure_kind(&self) -> Option<QmtLiveModeFailureKind> {
+        match self {
+            Self::ModeNotLive { observed_mode } if is_ambiguous_qmt_mode(observed_mode) => {
+                Some(QmtLiveModeFailureKind::Ambiguous)
+            }
+            Self::ModeNotLive { .. } => Some(QmtLiveModeFailureKind::NonLive),
+            _ => None,
+        }
+    }
+}
+
+fn is_ambiguous_qmt_mode(mode: &str) -> bool {
+    let normalized = mode.trim();
+    normalized.is_empty()
+        || normalized != mode
+        || matches!(normalized, "unknown" | "unsupported" | "unavailable")
 }
 
 pub async fn check_bridge_qmt_live_mode(

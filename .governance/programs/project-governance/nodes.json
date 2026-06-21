@@ -2439,5 +2439,142 @@
       "current_head": "2c1bac2af30d30c86eb1b0eba5fcdca1109b0afa",
       "prepared_at": "2026-06-21T15:12:34.162Z"
     }
+  },
+  {
+    "id": "P0.4d",
+    "title": "qmt_live gate runtime compatibility check",
+    "node_type": "implementation",
+    "owner_lane": "execution",
+    "parent": "P0.4a",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+    "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md#P0.4d qmt_live Gate Runtime Compatibility Check: HIGH risk, explicit approval required",
+        "note": "",
+        "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+        "recorded_at": "2026-06-21T15:49:42.664Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "User approval 2026-06-21: 同意，请继续 after explicit HIGH-risk P0.4d qmt_live gate runtime compatibility approval request",
+        "note": "",
+        "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+        "recorded_at": "2026-06-21T15:50:07.656Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "GitNexus impact before edits: check_bridge_qmt_live_mode HIGH/direct 2/processes 2/modules 3; affected processes execute_execution_command and execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch",
+        "note": "",
+        "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+        "recorded_at": "2026-06-21T15:50:30.850Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "implementation commit 0910ce5 feat: classify qmt live gate mode failures",
+        "note": "P0.4d implementation landed with report, tests, fmt, qmt_live filter, clippy, cargo test, GitNexus detect_changes LOW/0 affected processes",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "recorded_at": "2026-06-21T16:20:21.230Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/qmt_live_gate.rs",
+      "tests/qmt_live_adapter_test.rs",
+      "src/cli/handlers/tests/strategy_bridge.rs",
+      "src/cli/handlers/tests/strategy_execution.rs",
+      "docs/reports/QMT_LIVE_GATE_COMPATIBILITY_P0_4D_2026-06-21.md",
+      "FUNCTION_TREE.md",
+      ".governance",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No request diagnostics formatting rewrite",
+      "No CLI output wording or response shape change beyond existing gate error path",
+      "No bridge protocol or response schema change",
+      "No storage schema change",
+      "No identity metadata change",
+      "No OrderStatus or ExecutionAdapter changes",
+      "No submit/query/cancel implementation change outside the existing qmt_live gate",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T15:49:27.742Z",
+    "updated_at": "2026-06-21T16:21:07.078Z",
+    "track": "mainline",
+    "mainline_id": "P0.4d",
+    "depth": 0,
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for qmt_live gate compatibility checks",
+        "qmt_live adapter/gate targeted tests",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "GitNexus detect_changes before commit",
+        "function-tree gate/validate closeout"
+      ],
+      "closeout_gate": [
+        "P0.4d report records HIGH impact, explicit approval, TDD evidence, verification, and boundaries",
+        "FUNCTION_TREE references P0.4d as closed after implementation",
+        "PR CI and master CI pass, or failure is documented",
+        "Graphiti memory reaches completed or local backfill document is committed with Graphiti backfill required"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+        "transitioned_at": "2026-06-21T15:51:07.080Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "c86f8d32a0b99c60f9ad9f56dc207302266ac42c",
+        "transitioned_at": "2026-06-21T15:51:07.138Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "transitioned_at": "2026-06-21T16:20:35.577Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+        "transitioned_at": "2026-06-21T16:21:07.078Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_GATE_COMPATIBILITY_P0_4D_2026-06-21.md",
+      "compatibility": "P0.4d adds qmt_live gate-local mode failure classification only; non-live modes remain fail-closed, CLI diagnostics/output, bridge protocol/response shape, storage schema, identity metadata, OrderStatus, ExecutionAdapter, and submit/query/cancel main flows are unchanged.",
+      "gates": [
+        "cargo test --test qmt_live_adapter_test qmt_live_gate_classifies_unknown_mode_as_structured_failure",
+        "cargo test --test qmt_live_adapter_test",
+        "cargo fmt --check",
+        "cargo test qmt_live",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "function-tree scope-check/gate/validate",
+        "GitNexus detect_changes LOW/0 affected processes"
+      ],
+      "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
+      "prepared_at": "2026-06-21T16:20:55.648Z"
+    }
   }
 ]
