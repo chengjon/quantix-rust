@@ -1,5 +1,31 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-21T12:58:24.669Z",
-  "gates": []
+  "updated_at": "2026-06-21T14:03:42.290Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.4b",
+      "title": "qmt_live capability descriptor",
+      "node_type": "decision",
+      "owner_lane": "project-governance",
+      "parent": "",
+      "status": "approved-for-implementation",
+      "source_edits_authorized": false,
+      "current_blocker": "",
+      "next_allowed": "prepare decision or authorization",
+      "function_tree_ref": "qmt_live capability / identity hardening",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/qmt_task_submit_service.rs",
+        "tests/qmt_task_contract_test.rs",
+        "docs/reports/QMT_LIVE_CAPABILITY_DESCRIPTOR_P0_4B_2026-06-21.md",
+        "FUNCTION_TREE.md",
+        ".governance",
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-21T14:03:42.287Z"
+    }
+  ]
 }

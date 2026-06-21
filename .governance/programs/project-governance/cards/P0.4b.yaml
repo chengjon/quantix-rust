@@ -1,0 +1,34 @@
+task:
+  id: "P0.4b"
+  title: "qmt_live capability descriptor"
+
+scope:
+  allowed_paths:
+    - "src/execution/qmt_task_submit_service.rs"
+    - "tests/qmt_task_contract_test.rs"
+    - "docs/reports/QMT_LIVE_CAPABILITY_DESCRIPTOR_P0_4B_2026-06-21.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify bridge protocol, bridge response models, or bridge client endpoint behavior."
+  - "Do not modify qmt_live_gate, request_diagnostics, CLI handlers, storage schema, response shapes, OrderStatus, or execution behavior."
+  - "Do not add miniQMT runtime probing or startup self-check implementation."
+  - "Do not resume unwrap cleanup."
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for qmt_live capability compatibility descriptor contract."
+    - "cargo test --test qmt_task_contract_test; cargo test --test qmt_live_adapter_test; cargo fmt --check; cargo clippy -- -D warnings; cargo test; git diff --check; FUNCTION_TREE scope-check/validate; GitNexus detect_changes."
+  closeout_gate:
+    - "FUNCTION_TREE P0.4b closed with active gates none and validation passed."
+    - "PR CI and master CI pass, or failure documented."
+    - "Graphiti memory written and ingest completed, or local backfill recorded."
+
+evidence:
+  current_head: "a40f4c219eaee3f1989e140d29c42840b2932299"
+  notes: []

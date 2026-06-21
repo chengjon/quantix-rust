@@ -3,7 +3,8 @@ use quantix_cli::bridge::error::BridgeError;
 use quantix_cli::execution::adapter::AdapterOrderRequest;
 use quantix_cli::execution::models::{OrderSide, OrderStatus};
 use quantix_cli::execution::qmt_task_submit_service::{
-    QmtLiveCapabilityValue, QmtLiveErrorCategory, QmtTaskResolvedResult, QmtTaskSubmitService,
+    QmtLiveCapabilityReadiness, QmtLiveCapabilityValue, QmtLiveErrorCategory,
+    QmtTaskResolvedResult, QmtTaskSubmitService,
 };
 use rust_decimal_macros::dec;
 use wiremock::matchers::{body_partial_json, header, method, path};
@@ -67,6 +68,36 @@ async fn qmt_task_submit_service_builds_qmt_live_capability_snapshot() {
     assert!(snapshot.supports("order_submit"));
     assert!(snapshot.supports("account_status"));
     assert!(snapshot.is_live_order_submit_ready());
+    assert_eq!(
+        snapshot.compatibility.readiness,
+        QmtLiveCapabilityReadiness::Ready
+    );
+    assert!(snapshot.compatibility.missing_required_supports.is_empty());
+    assert_eq!(
+        snapshot.bridge_contract_version,
+        QmtLiveCapabilityValue::Unknown
+    );
+    assert_eq!(snapshot.miniqmt_version, QmtLiveCapabilityValue::Unknown);
+}
+
+#[tokio::test]
+async fn qmt_task_submit_service_marks_missing_order_submit_in_capability_descriptor() {
+    let server = MockServer::start().await;
+    mock_live_capabilities_without_order_submit(&server).await;
+
+    let service = QmtTaskSubmitService::new(sample_client(&server), 1, 10).unwrap();
+    let snapshot = service.qmt_live_capability_snapshot().await.unwrap();
+
+    assert!(!snapshot.supports("order_submit"));
+    assert!(!snapshot.is_live_order_submit_ready());
+    assert_eq!(
+        snapshot.compatibility.readiness,
+        QmtLiveCapabilityReadiness::MissingOrderSubmit
+    );
+    assert_eq!(
+        snapshot.compatibility.missing_required_supports,
+        vec!["order_submit".to_string()]
+    );
     assert_eq!(
         snapshot.bridge_contract_version,
         QmtLiveCapabilityValue::Unknown
@@ -215,6 +246,24 @@ async fn mock_live_capabilities(server: &MockServer) {
                 "enabled": true,
                 "mode": "live",
                 "supports": ["order_submit", "account_status"]
+            }
+        })))
+        .mount(server)
+        .await;
+}
+
+async fn mock_live_capabilities_without_order_submit(server: &MockServer) {
+    Mock::given(method("GET"))
+        .and(path("/api/v1/capabilities"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "tdx": {
+                "enabled": true,
+                "supports": ["quote", "batch_quotes", "kline"]
+            },
+            "qmt": {
+                "enabled": true,
+                "mode": "live",
+                "supports": ["account_status"]
             }
         })))
         .mount(server)

@@ -34,11 +34,61 @@ pub enum QmtLiveCapabilityValue {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QmtLiveCapabilityReadiness {
+    Ready,
+    Disabled,
+    NonLiveMode,
+    MissingOrderSubmit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QmtLiveCompatibilityDescriptor {
+    pub readiness: QmtLiveCapabilityReadiness,
+    pub missing_required_supports: Vec<String>,
+}
+
+impl QmtLiveCompatibilityDescriptor {
+    fn from_bridge_capabilities(
+        qmt_enabled: bool,
+        qmt_mode: &str,
+        qmt_supports: &[String],
+    ) -> Self {
+        let order_submit_supported = qmt_supports
+            .iter()
+            .any(|supported| supported == "order_submit");
+        let missing_required_supports = if order_submit_supported {
+            Vec::new()
+        } else {
+            vec!["order_submit".to_string()]
+        };
+        let readiness = if !qmt_enabled {
+            QmtLiveCapabilityReadiness::Disabled
+        } else if qmt_mode != "live" {
+            QmtLiveCapabilityReadiness::NonLiveMode
+        } else if !order_submit_supported {
+            QmtLiveCapabilityReadiness::MissingOrderSubmit
+        } else {
+            QmtLiveCapabilityReadiness::Ready
+        };
+
+        Self {
+            readiness,
+            missing_required_supports,
+        }
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.readiness == QmtLiveCapabilityReadiness::Ready
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QmtLiveCapabilitySnapshot {
     pub qmt_enabled: bool,
     pub qmt_mode: String,
     pub qmt_supports: Vec<String>,
+    pub compatibility: QmtLiveCompatibilityDescriptor,
     pub bridge_contract_version: QmtLiveCapabilityValue,
     pub miniqmt_version: QmtLiveCapabilityValue,
 }
@@ -51,7 +101,7 @@ impl QmtLiveCapabilitySnapshot {
     }
 
     pub fn is_live_order_submit_ready(&self) -> bool {
-        self.qmt_enabled && self.qmt_mode == "live" && self.supports("order_submit")
+        self.compatibility.is_ready()
     }
 }
 
@@ -143,11 +193,20 @@ impl QmtTaskSubmitService {
         &self,
     ) -> Result<QmtLiveCapabilitySnapshot, BridgeError> {
         let capabilities = self.client.capabilities().await?;
+        let qmt_enabled = capabilities.qmt.enabled;
+        let qmt_mode = capabilities.qmt.mode;
+        let qmt_supports = capabilities.qmt.supports;
+        let compatibility = QmtLiveCompatibilityDescriptor::from_bridge_capabilities(
+            qmt_enabled,
+            &qmt_mode,
+            &qmt_supports,
+        );
 
         Ok(QmtLiveCapabilitySnapshot {
-            qmt_enabled: capabilities.qmt.enabled,
-            qmt_mode: capabilities.qmt.mode,
-            qmt_supports: capabilities.qmt.supports,
+            qmt_enabled,
+            qmt_mode,
+            qmt_supports,
+            compatibility,
             bridge_contract_version: QmtLiveCapabilityValue::Unknown,
             miniqmt_version: QmtLiveCapabilityValue::Unknown,
         })

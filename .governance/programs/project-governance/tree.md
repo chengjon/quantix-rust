@@ -44,3 +44,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.3e: ExecutionCapabilities MVP (planning, FT: FUNCTION_TREE.md)
 - [ ] P0.3f: ExecutionCapabilities read-only observability (planning, FT: FUNCTION_TREE.md)
 - [ ] P0.4a: qmt_live hardening design (planning, FT: FUNCTION_TREE.md)
+- [ ] P0.4b: qmt_live capability descriptor (planning, FT: qmt_live capability / identity hardening)

@@ -2181,5 +2181,102 @@
       "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
       "prepared_at": "2026-06-21T12:57:55.904Z"
     }
+  },
+  {
+    "id": "P0.4b",
+    "title": "qmt_live capability descriptor",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "qmt_live capability / identity hardening",
+    "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch feat/p0-4b-qmt-live-capability-descriptor at HEAD a40f4c2; master clean; active gates none before node creation",
+        "note": "Baseline before P0.4b qmt_live capability descriptor slice",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "recorded_at": "2026-06-21T13:42:59.525Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: QmtTaskSubmitService.qmt_live_capability_snapshot LOW direct=1 processes=0; QmtLiveCapabilitySnapshot struct LOW direct=1 processes=0; affected modules tests only; index fresh",
+        "note": "P0.4b target impact analysis before source edits",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "recorded_at": "2026-06-21T13:45:39.490Z"
+      },
+      {
+        "kind": "structural",
+        "path": "Decision: implement local QmtLiveCompatibilityDescriptor on QmtLiveCapabilitySnapshot from existing qmt.enabled/qmt.mode/qmt.supports only; preserve bridge_contract_version/miniqmt_version Unknown; no bridge model, qmt_live_gate, request_diagnostics, CLI, storage, response shape, OrderStatus, or execution behavior changes",
+        "note": "P0.4b narrow implementation decision",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "recorded_at": "2026-06-21T13:48:06.040Z"
+      },
+      {
+        "kind": "structural",
+        "path": "P0.4b implementation: added QmtLiveCompatibilityDescriptor and QmtLiveCapabilityReadiness to qmt_task_submit_service; added qmt_task_contract_test RED/GREEN coverage for missing order_submit descriptor; preserved bridge protocol/gate/diagnostics/execution behavior",
+        "note": "P0.4b implementation evidence",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "recorded_at": "2026-06-21T14:03:19.267Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "P0.4b gates passed: targeted RED/GREEN; cargo test --test qmt_task_contract_test; cargo test --test qmt_live_adapter_test; cargo fmt --check; git diff --check; FUNCTION_TREE scope-check/validate; cargo clippy -- -D warnings; cargo test; GitNexus detect_changes LOW risk 0 affected processes",
+        "note": "P0.4b verification evidence",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "recorded_at": "2026-06-21T14:03:42.287Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/qmt_task_submit_service.rs",
+      "tests/qmt_task_contract_test.rs",
+      "docs/reports/QMT_LIVE_CAPABILITY_DESCRIPTOR_P0_4B_2026-06-21.md",
+      "FUNCTION_TREE.md",
+      ".governance",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify bridge protocol, bridge response models, or bridge client endpoint behavior.",
+      "Do not modify qmt_live_gate, request_diagnostics, CLI handlers, storage schema, response shapes, OrderStatus, or execution behavior.",
+      "Do not add miniQMT runtime probing or startup self-check implementation.",
+      "Do not resume unwrap cleanup."
+    ],
+    "next_gate": "prepare decision or authorization",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T13:42:44.571Z",
+    "updated_at": "2026-06-21T14:03:42.287Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "transitioned_at": "2026-06-21T13:47:52.455Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "a40f4c219eaee3f1989e140d29c42840b2932299",
+        "transitioned_at": "2026-06-21T13:48:44.662Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for qmt_live capability compatibility descriptor contract.",
+        "cargo test --test qmt_task_contract_test; cargo test --test qmt_live_adapter_test; cargo fmt --check; cargo clippy -- -D warnings; cargo test; git diff --check; FUNCTION_TREE scope-check/validate; GitNexus detect_changes."
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.4b closed with active gates none and validation passed.",
+        "PR CI and master CI pass, or failure documented.",
+        "Graphiti memory written and ingest completed, or local backfill recorded."
+      ]
+    }
   }
 ]
