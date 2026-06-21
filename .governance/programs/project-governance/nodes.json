@@ -2576,5 +2576,141 @@
       "current_head": "0910ce5f856b162dd177681da4f174e1ec5667ef",
       "prepared_at": "2026-06-21T16:20:55.648Z"
     }
+  },
+  {
+    "id": "P0.4e",
+    "title": "qmt_live diagnostics wiring",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "qmt_live capability / identity hardening",
+    "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master HEAD 8b88cf9 docs: note p0.4d graphiti backfill (#258); git status clean; active gates none; function-tree validate passed",
+        "note": "P0.4e starts from clean master after P0.4d closeout/backfill",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "recorded_at": "2026-06-21T17:08:09.589Z"
+      },
+      {
+        "kind": "structural",
+        "path": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md#P0.4e Diagnostics Wiring: HIGH risk; targets build_bridge_qmt_capability_check_failed_diagnostics and build_bridge_qmt_order_submit_capability_missing_diagnostics; non-goals no gate semantics change, no taxonomy expansion unless separately justified, no response/schema migration",
+        "note": "P0.4e design evidence and boundaries",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "recorded_at": "2026-06-21T17:08:22.384Z"
+      },
+      {
+        "kind": "structural",
+        "path": "User approval 2026-06-22: 同意，请继续 after P0.4e was identified as next HIGH-risk diagnostics wiring slice requiring explicit approval",
+        "note": "Explicit HIGH-risk approval for P0.4e",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "recorded_at": "2026-06-21T17:08:38.930Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: build_bridge_qmt_capability_check_failed_diagnostics HIGH, direct=2, processes=2, modules=3; affected processes execute_execution_command and execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch",
+        "note": "P0.4e target impact 1",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "recorded_at": "2026-06-21T17:08:52.683Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: build_bridge_qmt_order_submit_capability_missing_diagnostics HIGH, direct=1, processes=2, modules=3; affected processes execute_execution_command and execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch",
+        "note": "P0.4e target impact 2",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "recorded_at": "2026-06-21T17:09:11.479Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/request_diagnostics.rs",
+      "src/cli/handlers/tests/strategy_bridge.rs",
+      "src/cli/handlers/tests/strategy_execution.rs",
+      "docs/reports/QMT_LIVE_DIAGNOSTICS_WIRING_P0_4E_2026-06-22.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No qmt_live gate semantics change",
+      "No QmtLiveErrorCategory taxonomy expansion",
+      "No bridge protocol or response/schema migration",
+      "No storage schema, identity metadata, OrderStatus, or ExecutionAdapter changes",
+      "No submit/query/cancel main-flow change outside diagnostics payload construction",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T17:07:57.022Z",
+    "updated_at": "2026-06-21T17:28:23.356Z",
+    "track": "mainline",
+    "mainline_id": "P0.4e",
+    "depth": 0,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "transitioned_at": "2026-06-21T17:09:47.344Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "transitioned_at": "2026-06-21T17:10:25.231Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
+        "transitioned_at": "2026-06-21T17:10:38.632Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+        "transitioned_at": "2026-06-21T17:27:34.473Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+        "transitioned_at": "2026-06-21T17:28:23.355Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for qmt_live request diagnostics structured fields",
+        "cargo test targeted request_diagnostics and qmt_live handler tests",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "GitNexus detect_changes before commit",
+        "function-tree scope-check/gate/validate"
+      ],
+      "closeout_gate": [
+        "P0.4e report records HIGH impact, explicit approval, TDD evidence, verification, and boundaries",
+        "FUNCTION_TREE references P0.4e as closed after implementation",
+        "PR CI and master CI pass, or failure is documented",
+        "Graphiti memory completed, or local backfill record with Graphiti backfill required"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_DIAGNOSTICS_WIRING_P0_4E_2026-06-22.md",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+      "prepared_at": "2026-06-21T17:27:43.290Z"
+    }
   }
 ]

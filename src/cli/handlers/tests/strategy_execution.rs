@@ -686,6 +686,18 @@ async fn test_execute_execution_bridge_qmt_live_rejects_when_capability_check_fa
         saved.payload_json["execution_diagnostics"]["code"],
         "bridge_qmt_capability_check_failed"
     );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["diagnostic_source"],
+        "qmt_live_gate"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["qmt_live_failure_category"],
+        "capability_check_failed"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["compatibility_requirement"],
+        "bridge /api/v1/capabilities returns qmt capability metadata"
+    );
 }
 
 #[tokio::test]
@@ -1050,6 +1062,18 @@ async fn test_execute_execution_bridge_qmt_live_rejects_live_mode_without_order_
     assert_eq!(
         saved.payload_json["execution_diagnostics"]["code"],
         "bridge_qmt_order_submit_capability_missing"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["diagnostic_source"],
+        "qmt_live_gate"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["qmt_live_failure_category"],
+        "missing_required_capability"
+    );
+    assert_eq!(
+        saved.payload_json["execution_diagnostics"]["compatibility_requirement"],
+        "bridge qmt.supports includes order_submit"
     );
     assert_eq!(saved.payload_json["execution_error"]["adapter"], "qmt_live");
     assert!(

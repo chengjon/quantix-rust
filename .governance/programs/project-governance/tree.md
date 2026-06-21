@@ -47,3 +47,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.4b: qmt_live capability descriptor (planning, FT: qmt_live capability / identity hardening)
 - [ ] P0.4c: qmt_live error taxonomy local enrichment (planning, FT: docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md)
 - [ ] P0.4d: qmt_live gate runtime compatibility check (planning, FT: docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md)
+- [ ] P0.4e: qmt_live diagnostics wiring (planning, FT: qmt_live capability / identity hardening)
