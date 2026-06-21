@@ -1,0 +1,42 @@
+task:
+  id: "P0.4e"
+  title: "qmt_live diagnostics wiring"
+
+scope:
+  allowed_paths:
+    - "src/execution/request_diagnostics.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "docs/reports/QMT_LIVE_DIAGNOSTICS_WIRING_P0_4E_2026-06-22.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No qmt_live gate semantics change"
+  - "No QmtLiveErrorCategory taxonomy expansion"
+  - "No bridge protocol or response/schema migration"
+  - "No storage schema, identity metadata, OrderStatus, or ExecutionAdapter changes"
+  - "No submit/query/cancel main-flow change outside diagnostics payload construction"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for qmt_live request diagnostics structured fields"
+    - "cargo test targeted request_diagnostics and qmt_live handler tests"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+    - "function-tree scope-check/gate/validate"
+  closeout_gate:
+    - "P0.4e report records HIGH impact, explicit approval, TDD evidence, verification, and boundaries"
+    - "FUNCTION_TREE references P0.4e as closed after implementation"
+    - "PR CI and master CI pass, or failure is documented"
+    - "Graphiti memory completed, or local backfill record with Graphiti backfill required"
+
+evidence:
+  current_head: "8b88cf9f3b4108c3c1166cd99c044f5bd2211003"
+  notes: []

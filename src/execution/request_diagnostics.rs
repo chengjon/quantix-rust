@@ -1,6 +1,13 @@
+use crate::execution::qmt_live_gate::QMT_LIVE_SUBMIT_SUPPORT_REQUIREMENT;
 use serde_json::{Value, json};
 
 pub const EXECUTION_DIAGNOSTICS_KEY: &str = "execution_diagnostics";
+pub const QMT_LIVE_DIAGNOSTIC_SOURCE: &str = "qmt_live_gate";
+pub const QMT_LIVE_FAILURE_CATEGORY_CAPABILITY_CHECK_FAILED: &str = "capability_check_failed";
+pub const QMT_LIVE_FAILURE_CATEGORY_MISSING_REQUIRED_CAPABILITY: &str =
+    "missing_required_capability";
+pub const QMT_LIVE_CAPABILITIES_ENDPOINT_REQUIREMENT: &str =
+    "bridge /api/v1/capabilities returns qmt capability metadata";
 
 pub fn diagnostics_code(payload_json: &Value) -> Option<&str> {
     payload_json
@@ -134,6 +141,9 @@ pub fn build_bridge_qmt_order_submit_capability_missing_diagnostics() -> Value {
         "stage": "execute",
         "semantics": null,
         "order_terminality": "unknown",
+        "diagnostic_source": QMT_LIVE_DIAGNOSTIC_SOURCE,
+        "qmt_live_failure_category": QMT_LIVE_FAILURE_CATEGORY_MISSING_REQUIRED_CAPABILITY,
+        "compatibility_requirement": QMT_LIVE_SUBMIT_SUPPORT_REQUIREMENT,
         "summary": "qmt_live 提交被阻止：bridge 缺少 order_submit 能力",
         "operator_action": "enable_order_submit_capability",
         "hint_command": "quantix execution bridge status"
@@ -148,6 +158,9 @@ pub fn build_bridge_qmt_capability_check_failed_diagnostics(summary: &str) -> Va
         "stage": "execute",
         "semantics": null,
         "order_terminality": "unknown",
+        "diagnostic_source": QMT_LIVE_DIAGNOSTIC_SOURCE,
+        "qmt_live_failure_category": QMT_LIVE_FAILURE_CATEGORY_CAPABILITY_CHECK_FAILED,
+        "compatibility_requirement": QMT_LIVE_CAPABILITIES_ENDPOINT_REQUIREMENT,
         "summary": summary,
         "operator_action": "inspect_bridge_status",
         "hint_command": "quantix execution bridge status"
@@ -252,6 +265,40 @@ mod tests {
         assert_eq!(
             diagnostics["hint_command"].as_str(),
             Some("quantix execution bridge status")
+        );
+    }
+
+    #[test]
+    fn test_build_bridge_qmt_diagnostics_surface_structured_gate_metadata() {
+        let capability_failed =
+            build_bridge_qmt_capability_check_failed_diagnostics("QMT 实盘能力检查失败: 503");
+
+        assert_eq!(
+            capability_failed["diagnostic_source"].as_str(),
+            Some("qmt_live_gate")
+        );
+        assert_eq!(
+            capability_failed["qmt_live_failure_category"].as_str(),
+            Some("capability_check_failed")
+        );
+        assert_eq!(
+            capability_failed["compatibility_requirement"].as_str(),
+            Some("bridge /api/v1/capabilities returns qmt capability metadata")
+        );
+
+        let missing_order_submit = build_bridge_qmt_order_submit_capability_missing_diagnostics();
+
+        assert_eq!(
+            missing_order_submit["diagnostic_source"].as_str(),
+            Some("qmt_live_gate")
+        );
+        assert_eq!(
+            missing_order_submit["qmt_live_failure_category"].as_str(),
+            Some("missing_required_capability")
+        );
+        assert_eq!(
+            missing_order_submit["compatibility_requirement"].as_str(),
+            Some("bridge qmt.supports includes order_submit")
         );
     }
 

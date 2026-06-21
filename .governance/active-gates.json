@@ -1,5 +1,30 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-21T16:21:07.081Z",
-  "gates": []
+  "updated_at": "2026-06-21T17:10:38.636Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.4e",
+      "title": "qmt_live diagnostics wiring",
+      "node_type": "implementation",
+      "owner_lane": "project-governance",
+      "parent": "",
+      "status": "implementation-ready",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "land implementation with Git evidence",
+      "function_tree_ref": "qmt_live capability / identity hardening",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/request_diagnostics.rs",
+        "src/cli/handlers/tests/strategy_bridge.rs",
+        "src/cli/handlers/tests/strategy_execution.rs",
+        "docs/reports/QMT_LIVE_DIAGNOSTICS_WIRING_P0_4E_2026-06-22.md",
+        "FUNCTION_TREE.md",
+        ".governance"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-21T17:10:38.633Z"
+    }
+  ]
 }
