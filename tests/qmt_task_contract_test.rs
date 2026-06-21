@@ -109,13 +109,67 @@ async fn qmt_task_submit_service_marks_missing_order_submit_in_capability_descri
 fn qmt_live_error_taxonomy_classifies_current_task_contract_surfaces() {
     assert_eq!(
         QmtLiveErrorCategory::from_bridge_error(&BridgeError::Timeout("poll timeout".to_string())),
-        QmtLiveErrorCategory::BridgeFailure
+        QmtLiveErrorCategory::BridgeTimeout
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Unavailable(
+            "bridge offline".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeUnavailable
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Unauthorized(
+            "auth failed".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeAuthFailed
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::UnsupportedContractVersion(
+            "unsupported contract".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeUnsupportedContractVersion
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::UnsupportedMethod(
+            "unsupported method".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeUnsupportedMethod
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Protocol(
+            "completed task result missing payload".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeProtocolViolation
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Http(
+            "bridge returned 500".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeHttpFailure
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::Config(
+            "poll interval must be greater than zero".to_string(),
+        )),
+        QmtLiveErrorCategory::LocalValidationRejected
     );
     assert_eq!(
         QmtLiveErrorCategory::from_bridge_error(&BridgeError::InvalidResult(
             "task result client_order_id mismatch".to_string(),
         )),
-        QmtLiveErrorCategory::ManualInterventionRequired
+        QmtLiveErrorCategory::TaskIdentityMismatch
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::InvalidResult(
+            "live_bridge_identity_mismatch".to_string(),
+        )),
+        QmtLiveErrorCategory::TaskIdentityMismatch
+    );
+    assert_eq!(
+        QmtLiveErrorCategory::from_bridge_error(&BridgeError::InvalidResult(
+            "task result payload missing source name".to_string(),
+        )),
+        QmtLiveErrorCategory::BridgeInvalidResult
     );
 
     let rejected = QmtTaskResolvedResult {

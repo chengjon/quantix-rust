@@ -1,5 +1,31 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-21T14:06:45.633Z",
-  "gates": []
+  "updated_at": "2026-06-21T14:56:16.965Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.4c",
+      "title": "qmt_live error taxonomy local enrichment",
+      "node_type": "implementation",
+      "owner_lane": "execution",
+      "parent": "P0.4a",
+      "status": "implementation-ready",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "land implementation with Git evidence",
+      "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "src/execution/qmt_task_submit_service.rs",
+        "tests/qmt_task_contract_test.rs",
+        "docs/reports/QMT_LIVE_ERROR_TAXONOMY_P0_4C_2026-06-21.md",
+        "FUNCTION_TREE.md",
+        ".governance",
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-21T14:56:16.960Z"
+    }
+  ]
 }

@@ -1,0 +1,43 @@
+task:
+  id: "P0.4c"
+  title: "qmt_live error taxonomy local enrichment"
+
+scope:
+  allowed_paths:
+    - "src/execution/qmt_task_submit_service.rs"
+    - "tests/qmt_task_contract_test.rs"
+    - "docs/reports/QMT_LIVE_ERROR_TAXONOMY_P0_4C_2026-06-21.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No global error response rewrite"
+  - "No request diagnostics wiring"
+  - "No CLI output changes"
+  - "No bridge protocol or response shape changes"
+  - "No OrderStatus or ExecutionAdapter changes"
+  - "No submit/query/cancel behavior changes"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for qmt_task_contract_test taxonomy coverage"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+    - "function-tree gate/validate closeout"
+  closeout_gate:
+    - "P0.4c report records scope, impact, TDD evidence, verification, and boundaries"
+    - "FUNCTION_TREE references P0.4c as closed after implementation"
+    - "PR CI and master CI pass, or failure is documented"
+    - "Graphiti memory reaches completed or local backfill document is committed with Graphiti backfill required"
+
+evidence:
+  current_head: "b7ffee5839524b967200195d945cc6374ed51b65"
+  notes: []
