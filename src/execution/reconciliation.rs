@@ -20,6 +20,7 @@ use crate::bridge::models::BridgeBrokerEventType;
 use crate::core::{QuantixError, Result};
 use crate::execution::models::{
     OrderRecord, OrderStatus, QmtLiveLastQuerySummary, QmtLiveReconciliationState,
+    QmtLiveRuntimeMetadata, QmtLiveTaskIdentity,
 };
 use crate::execution::qmt_task_submit_service::{QmtTaskResolvedResult, QmtTaskSubmitService};
 use crate::execution::runtime_store::StrategyRuntimeStore;
@@ -587,15 +588,64 @@ impl ReconciliationService {
             .ok_or_else(|| QuantixError::Other("qmt_live payload is not an object".to_string()))?;
 
         if let Some(result) = result {
-            if let Some(task_identity) = qmt_live
-                .get_mut("task_identity")
-                .and_then(|value| value.as_object_mut())
-                && let Some(external_order_id) = &result.external_order_id
+            if result.client_order_id.is_some()
+                || result.local_submission_id.is_some()
+                || result.external_order_id.is_some()
             {
+                let current_metadata = serde_json::from_value::<QmtLiveRuntimeMetadata>(
+                    serde_json::Value::Object(qmt_live.clone()),
+                )
+                .unwrap_or_default();
+
+                let recovered_task_identity = current_metadata
+                    .recover_task_identity(
+                        &result.adapter_order_id,
+                        &order.client_order_id,
+                        result.local_submission_id.as_deref(),
+                        result.external_order_id.as_deref(),
+                    )
+                    .task_identity
+                    .unwrap_or_else(|| QmtLiveTaskIdentity {
+                        task_id: result.adapter_order_id.clone(),
+                        client_order_id: order.client_order_id.clone(),
+                        local_submission_id: result
+                            .local_submission_id
+                            .as_deref()
+                            .unwrap_or_default()
+                            .to_string(),
+                        external_order_id: result.external_order_id.clone(),
+                    });
+
+                let task_identity = qmt_live
+                    .entry("task_identity".to_string())
+                    .or_insert_with(|| serde_json::json!({}));
+                if !task_identity.is_object() {
+                    *task_identity = serde_json::json!({});
+                }
+                let task_identity = task_identity.as_object_mut().ok_or_else(|| {
+                    QuantixError::Other(
+                        "qmt_live task_identity payload is not an object".to_string(),
+                    )
+                })?;
+
                 task_identity.insert(
-                    "external_order_id".to_string(),
-                    serde_json::Value::String(external_order_id.clone()),
+                    "task_id".to_string(),
+                    serde_json::Value::String(recovered_task_identity.task_id),
                 );
+                task_identity.insert(
+                    "client_order_id".to_string(),
+                    serde_json::Value::String(recovered_task_identity.client_order_id),
+                );
+                task_identity.insert(
+                    "local_submission_id".to_string(),
+                    serde_json::Value::String(recovered_task_identity.local_submission_id),
+                );
+                if let Some(external_order_id) = recovered_task_identity.external_order_id {
+                    task_identity.insert(
+                        "external_order_id".to_string(),
+                        serde_json::Value::String(external_order_id),
+                    );
+                }
             }
 
             qmt_live.insert(

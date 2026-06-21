@@ -390,6 +390,20 @@ async fn qmt_live_runtime_metadata_update_preserves_existing_external_order_id_w
     );
 }
 
+#[test]
+fn qmt_live_task_identity_deserializes_missing_fields_as_compatibility_defaults() {
+    let identity: QmtLiveTaskIdentity = serde_json::from_value(serde_json::json!({
+        "task_id": "task-compat",
+        "client_order_id": "client-compat"
+    }))
+    .unwrap();
+
+    assert_eq!(identity.task_id, "task-compat");
+    assert_eq!(identity.client_order_id, "client-compat");
+    assert_eq!(identity.local_submission_id, "");
+    assert_eq!(identity.external_order_id, None);
+}
+
 #[tokio::test]
 async fn try_update_order_with_version_updates_and_increments_version() {
     let dir = tempdir().unwrap();
