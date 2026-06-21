@@ -1,29 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-21T12:56:08.053Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.4a",
-      "title": "qmt_live hardening design",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "",
-      "status": "approved-for-implementation",
-      "source_edits_authorized": false,
-      "current_blocker": "",
-      "next_allowed": "prepare decision or authorization",
-      "function_tree_ref": "FUNCTION_TREE.md",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
-        "FUNCTION_TREE.md",
-        ".governance",
-        "AGENTS.md",
-        "CLAUDE.md"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-21T12:56:08.051Z"
-    }
-  ]
+  "updated_at": "2026-06-21T12:58:24.669Z",
+  "gates": []
 }

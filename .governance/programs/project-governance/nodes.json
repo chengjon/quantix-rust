@@ -2077,9 +2077,9 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md",
-    "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
+    "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
     "freshness": "current-head",
     "source_edits_authorized": false,
     "evidence": [
@@ -2096,6 +2096,13 @@
         "note": "P0.4a qmt_live hardening design report with GitNexus LOW/HIGH risk matrix and staged follow-up plan",
         "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
         "recorded_at": "2026-06-21T12:56:08.051Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "commit 2a2332f docs: design qmt live hardening plan",
+        "note": "P0.4a design report and FUNCTION_TREE update landed in local commit",
+        "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
+        "recorded_at": "2026-06-21T12:57:24.478Z"
       }
     ],
     "allowed_paths": [
@@ -2112,11 +2119,11 @@
       "Do not change bridge protocol, response shapes, storage schema, OrderStatus, or execution behavior",
       "Do not resume unwrap cleanup"
     ],
-    "next_gate": "prepare decision or authorization",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T12:44:08.150Z",
-    "updated_at": "2026-06-21T12:56:08.051Z",
+    "updated_at": "2026-06-21T12:58:17.347Z",
     "track": "mainline",
     "mainline_id": "P0.4a",
     "depth": 0,
@@ -2140,7 +2147,39 @@
         "note": "",
         "current_head": "2a29d43e5323f000898c4e83975544f7facc5d43",
         "transitioned_at": "2026-06-21T12:44:08.314Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
+        "transitioned_at": "2026-06-21T12:57:33.520Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
+        "transitioned_at": "2026-06-21T12:57:44.568Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
+        "transitioned_at": "2026-06-21T12:58:17.346Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+      "compatibility": "Design-only slice; no src production code, bridge protocol, storage schema, response shape, OrderStatus, qmt_live gate, diagnostics, or execution behavior changed.",
+      "gates": [
+        "git diff --check passed",
+        "FUNCTION_TREE validate passed",
+        "GitNexus detect_changes staged passed: LOW risk, 0 affected processes, documentation/governance/config scope only"
+      ],
+      "current_head": "2a2332f44ba3f2a4aca5cd141ddfec1ab1f84727",
+      "prepared_at": "2026-06-21T12:57:55.904Z"
+    }
   }
 ]
