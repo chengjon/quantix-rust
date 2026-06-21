@@ -1,34 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-21T09:08:44.542Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.3e",
-      "title": "ExecutionCapabilities MVP",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "",
-      "status": "implementation-ready",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "land implementation with Git evidence",
-      "function_tree_ref": "FUNCTION_TREE.md",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "src/execution/adapter.rs",
-        "src/execution/paper.rs",
-        "src/execution/mock_live.rs",
-        "src/execution/qmt_live_adapter.rs",
-        "tests/execution_adapter_capabilities_test.rs",
-        "tests/execution_kernel_test.rs",
-        "docs/reports",
-        "docs/reports/EXECUTION_CAPABILITIES_MVP_P0_3E_2026-06-21.md",
-        "FUNCTION_TREE.md",
-        ".governance"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-21T09:08:44.539Z"
-    }
-  ]
+  "updated_at": "2026-06-21T09:10:46.134Z",
+  "gates": []
 }

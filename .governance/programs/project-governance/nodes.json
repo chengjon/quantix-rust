@@ -1848,11 +1848,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md",
     "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -1886,11 +1886,11 @@
       "Do not replace upper-layer mode checks",
       "Do not modify OrderStatus, query response shapes, storage schema, bridge protocol, CLI handlers, request_diagnostics, miniQMT runtime probing, startup self-check, or unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-19T02:31:46.175Z",
-    "updated_at": "2026-06-21T09:08:44.539Z",
+    "updated_at": "2026-06-21T09:10:46.132Z",
     "track": "mainline",
     "mainline_id": "P0.3e",
     "depth": 0,
@@ -1917,7 +1917,39 @@
         "note": "",
         "current_head": "2eadf409bf82939243b29782efe2c35af9b722e6",
         "transitioned_at": "2026-06-21T09:08:44.539Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+        "transitioned_at": "2026-06-21T09:10:15.099Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+        "transitioned_at": "2026-06-21T09:10:46.131Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "P0.3e ExecutionCapabilities MVP landed in 5df8b08: added static ExecutionCapabilities contract, channel/status/fill/cancel enums, capabilities() on ExecutionAdapter, static returns for paper/mock_live/qmt_live, CountingAdapter test stub update, contract tests, and architecture report docs/reports/EXECUTION_CAPABILITIES_MVP_P0_3E_2026-06-21.md",
+      "compatibility": "Additive static capability declaration only; no upper-layer mode migration; no OrderStatus, response shape, storage schema, bridge protocol, CLI handler, request_diagnostics, miniQMT runtime probing, startup self-check, or unwrap cleanup changes",
+      "gates": [
+        "TDD RED: cargo test --test execution_adapter_capabilities_test failed for missing capability types and methods",
+        "GREEN: cargo test --test execution_adapter_capabilities_test passed with 3 tests",
+        "cargo test --test execution_kernel_test passed with 23 tests",
+        "cargo test --test qmt_live_adapter_test passed with 6 tests",
+        "cargo test --test mock_live_adapter_test passed with 6 tests",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW risk, no affected processes"
+      ],
+      "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
+      "prepared_at": "2026-06-21T09:10:33.477Z"
+    }
   }
 ]
