@@ -2712,5 +2712,140 @@
       "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
       "prepared_at": "2026-06-21T17:27:43.290Z"
     }
+  },
+  {
+    "id": "P0.4f",
+    "title": "qmt_live identity and runtime metadata recovery",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+    "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master HEAD ef54008 docs: note p0.4e graphiti backfill (#260); active gates none before P0.4f; user explicitly approved P0.4f HIGH-risk slice",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "recorded_at": "2026-06-21T18:16:41.445Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md#P0.4f: HIGH risk; targets QmtLiveTaskIdentity and QmtLiveRuntimeMetadata; goal durable recovery/reconciliation metadata improvements after schema compatibility; non-goals no opportunistic fields, no untested migration, no combined gate/diagnostics behavior change",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "recorded_at": "2026-06-21T18:16:51.852Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "GitNexus context: QmtLiveTaskIdentity/QmtLiveRuntimeMetadata in src/execution/models.rs have direct callers in tests/execution_runtime_store_test.rs and src/cli/handlers/execution_handler.rs; no indexed processes on the structs; index stale warning known",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "recorded_at": "2026-06-21T18:17:07.614Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "GitNexus context: ReconciliationService.qmt_live_payload_json in src/execution/reconciliation.rs is called only by apply_qmt_live_result and persist_qmt_live_manual_intervention within reconciliation.rs; no indexed processes; planned change limited to identity metadata recovery inside qmt_live payload construction",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "recorded_at": "2026-06-21T18:17:39.633Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/models.rs",
+      "src/execution/reconciliation.rs",
+      "tests/qmt_live_reconciliation_test.rs",
+      "tests/execution_runtime_store_test.rs",
+      "docs/reports/QMT_LIVE_IDENTITY_RUNTIME_METADATA_RECOVERY_P0_4F_2026-06-22.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No bridge protocol or response schema migration",
+      "No storage schema migration",
+      "No qmt_live gate semantics change",
+      "No diagnostics payload expansion",
+      "No QmtLiveErrorCategory taxonomy expansion",
+      "No submit/query/cancel main-flow rewrite",
+      "No opportunistic identity fields beyond recovery of existing task_identity fields",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T18:06:03.653Z",
+    "updated_at": "2026-06-21T18:40:32.428Z",
+    "track": "mainline",
+    "mainline_id": "P0.4f",
+    "depth": 0,
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for qmt_live task identity missing-field compatibility",
+        "TDD RED/GREEN for reconciliation recovery of missing task_identity fields",
+        "targeted qmt_live reconciliation/runtime metadata tests",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "GitNexus detect_changes before commit",
+        "function-tree scope-check/gate/validate"
+      ],
+      "closeout_gate": [
+        "P0.4f report records HIGH approval, GitNexus evidence, TDD evidence, verification, and boundaries",
+        "FUNCTION_TREE references P0.4f after implementation",
+        "PR CI and master CI pass, or failure documented",
+        "Graphiti memory completed, or local backfill record with Graphiti backfill required"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "transitioned_at": "2026-06-21T18:19:03.139Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "ef5400896f5389f6a51a8c88543b9ef80339d463",
+        "transitioned_at": "2026-06-21T18:19:13.267Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+        "transitioned_at": "2026-06-21T18:40:10.332Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+        "transitioned_at": "2026-06-21T18:40:32.428Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_IDENTITY_RUNTIME_METADATA_RECOVERY_P0_4F_2026-06-22.md",
+      "compatibility": "No storage schema, bridge protocol, response shape, gate behavior, diagnostics, OrderStatus, or ExecutionAdapter change",
+      "gates": [
+        "targeted runtime metadata compatibility test passed",
+        "targeted qmt_live reconciliation recovery test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "Function Tree scope/gate/validate passed",
+        "GitNexus detect_changes completed with expected MEDIUM qmt_live reconciliation scope"
+      ],
+      "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
+      "prepared_at": "2026-06-21T18:40:23.934Z"
+    }
   }
 ]

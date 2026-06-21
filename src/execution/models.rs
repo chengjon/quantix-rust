@@ -294,8 +294,11 @@ pub struct OrderRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QmtLiveTaskIdentity {
+    #[serde(default)]
     pub task_id: String,
+    #[serde(default)]
     pub client_order_id: String,
+    #[serde(default)]
     pub local_submission_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_order_id: Option<String>,
@@ -333,6 +336,61 @@ pub struct QmtLiveRuntimeMetadata {
     pub last_query: Option<QmtLiveLastQuerySummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reconciliation: Option<QmtLiveReconciliationState>,
+}
+
+impl QmtLiveTaskIdentity {
+    pub fn recover_missing_fields(
+        &self,
+        task_id: &str,
+        client_order_id: &str,
+        local_submission_id: Option<&str>,
+        external_order_id: Option<&str>,
+    ) -> Self {
+        Self {
+            task_id: if self.task_id.trim().is_empty() {
+                task_id.to_string()
+            } else {
+                self.task_id.clone()
+            },
+            client_order_id: if self.client_order_id.trim().is_empty() {
+                client_order_id.to_string()
+            } else {
+                self.client_order_id.clone()
+            },
+            local_submission_id: if self.local_submission_id.trim().is_empty() {
+                local_submission_id.unwrap_or_default().to_string()
+            } else {
+                self.local_submission_id.clone()
+            },
+            external_order_id: self
+                .external_order_id
+                .clone()
+                .or_else(|| external_order_id.map(|value| value.to_string())),
+        }
+    }
+}
+
+impl QmtLiveRuntimeMetadata {
+    pub fn recover_task_identity(
+        &self,
+        task_id: &str,
+        client_order_id: &str,
+        local_submission_id: Option<&str>,
+        external_order_id: Option<&str>,
+    ) -> Self {
+        Self {
+            task_identity: self.task_identity.as_ref().map(|task_identity| {
+                task_identity.recover_missing_fields(
+                    task_id,
+                    client_order_id,
+                    local_submission_id,
+                    external_order_id,
+                )
+            }),
+            last_query: self.last_query.clone(),
+            reconciliation: self.reconciliation.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

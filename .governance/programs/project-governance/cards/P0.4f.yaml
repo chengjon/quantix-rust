@@ -1,0 +1,46 @@
+task:
+  id: "P0.4f"
+  title: "qmt_live identity and runtime metadata recovery"
+
+scope:
+  allowed_paths:
+    - "src/execution/models.rs"
+    - "src/execution/reconciliation.rs"
+    - "tests/qmt_live_reconciliation_test.rs"
+    - "tests/execution_runtime_store_test.rs"
+    - "docs/reports/QMT_LIVE_IDENTITY_RUNTIME_METADATA_RECOVERY_P0_4F_2026-06-22.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No bridge protocol or response schema migration"
+  - "No storage schema migration"
+  - "No qmt_live gate semantics change"
+  - "No diagnostics payload expansion"
+  - "No QmtLiveErrorCategory taxonomy expansion"
+  - "No submit/query/cancel main-flow rewrite"
+  - "No opportunistic identity fields beyond recovery of existing task_identity fields"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for qmt_live task identity missing-field compatibility"
+    - "TDD RED/GREEN for reconciliation recovery of missing task_identity fields"
+    - "targeted qmt_live reconciliation/runtime metadata tests"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+    - "function-tree scope-check/gate/validate"
+  closeout_gate:
+    - "P0.4f report records HIGH approval, GitNexus evidence, TDD evidence, verification, and boundaries"
+    - "FUNCTION_TREE references P0.4f after implementation"
+    - "PR CI and master CI pass, or failure documented"
+    - "Graphiti memory completed, or local backfill record with Graphiti backfill required"
+
+evidence:
+  current_head: "ef5400896f5389f6a51a8c88543b9ef80339d463"
+  notes: []
