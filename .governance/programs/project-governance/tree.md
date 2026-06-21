@@ -43,3 +43,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.3d: qmt_live error taxonomy seed (planning, FT: execution)
 - [ ] P0.3e: ExecutionCapabilities MVP (planning, FT: FUNCTION_TREE.md)
 - [ ] P0.3f: ExecutionCapabilities read-only observability (planning, FT: FUNCTION_TREE.md)
+- [ ] P0.4a: qmt_live hardening design (planning, FT: FUNCTION_TREE.md)

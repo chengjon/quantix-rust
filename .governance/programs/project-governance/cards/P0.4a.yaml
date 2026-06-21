@@ -1,0 +1,34 @@
+task:
+  id: "P0.4a"
+  title: "qmt_live hardening design"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify src production code in P0.4a"
+  - "Do not add miniQMT runtime probing or startup self-check implementation"
+  - "Do not change bridge protocol, response shapes, storage schema, OrderStatus, or execution behavior"
+  - "Do not resume unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact matrix for qmt_live hardening candidates is recorded"
+    - "Design report documents phased slices, risk boundaries, tests, and non-goals"
+    - "git diff --check"
+    - "FUNCTION_TREE validate"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "P0.4a closed with active gates none and validation passed"
+    - "PR CI and master CI pass or failure is documented"
+
+evidence:
+  current_head: "2a29d43e5323f000898c4e83975544f7facc5d43"
+  notes: []
