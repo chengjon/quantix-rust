@@ -2583,11 +2583,11 @@
     "node_type": "implementation",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "qmt_live capability / identity hardening",
     "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -2642,11 +2642,11 @@
       "No submit/query/cancel main-flow change outside diagnostics payload construction",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-21T17:07:57.022Z",
-    "updated_at": "2026-06-21T17:10:38.633Z",
+    "updated_at": "2026-06-21T17:28:23.356Z",
     "track": "mainline",
     "mainline_id": "P0.4e",
     "depth": 0,
@@ -2671,6 +2671,20 @@
         "note": "",
         "current_head": "8b88cf9f3b4108c3c1166cd99c044f5bd2211003",
         "transitioned_at": "2026-06-21T17:10:38.632Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+        "transitioned_at": "2026-06-21T17:27:34.473Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+        "transitioned_at": "2026-06-21T17:28:23.355Z"
       }
     ],
     "acceptance": {
@@ -2690,6 +2704,13 @@
         "PR CI and master CI pass, or failure is documented",
         "Graphiti memory completed, or local backfill record with Graphiti backfill required"
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_DIAGNOSTICS_WIRING_P0_4E_2026-06-22.md",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "44720d752d979232e127e5af67f3f3dba566d323",
+      "prepared_at": "2026-06-21T17:27:43.290Z"
     }
   }
 ]
