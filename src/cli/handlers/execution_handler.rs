@@ -2,7 +2,10 @@ use super::*;
 use crate::bridge::client::BridgeHttpClient;
 use crate::bridge::error::BridgeError;
 use crate::core::{CliRuntime, QuantixError, Result};
-use crate::execution::adapter::AdapterOrderRequest;
+use crate::execution::adapter::{
+    AdapterOrderRequest, ExecutionAdapter, ExecutionCancelSemantics, ExecutionCapabilities,
+    ExecutionChannel, ExecutionFillSource, ExecutionStatusSource,
+};
 use crate::execution::config::JsonExecutionConfigStore;
 use crate::execution::daemon::{
     ExecutionDaemonIterationSummary, consume_next_pending_request_with_components,
@@ -12,6 +15,7 @@ use crate::execution::models::{
     QmtLiveTaskIdentity,
 };
 use crate::execution::qmt_bridge::QmtBridgePreviewAdapter;
+use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
 use crate::execution::qmt_live_gate::QmtLiveGateFailure;
 use crate::execution::qmt_task_submit_service::QmtTaskSubmitService;
 use crate::execution::request_diagnostics::{
@@ -83,6 +87,7 @@ pub(crate) async fn execute_execution_daemon_run(once: bool) -> Result<()> {
 
 pub(crate) fn format_qmt_promotion_checklist(
     capabilities: &crate::bridge::models::BridgeCapabilitiesResponse,
+    qmt_live_capabilities: ExecutionCapabilities,
 ) -> String {
     let qmt_enabled = capabilities.qmt.enabled;
     let qmt_mode_live = capabilities.qmt.mode == "live";
@@ -92,6 +97,11 @@ pub(crate) fn format_qmt_promotion_checklist(
         .iter()
         .any(|item| item == "order_submit");
     let status_mark = |ok: bool| if ok { "[ok]" } else { "[x]" };
+    let qmt_live_channel = qmt_live_capabilities.channel == ExecutionChannel::QmtLive;
+    let broker_status_source = qmt_live_capabilities.status_source == ExecutionStatusSource::Broker;
+    let broker_fill_source = qmt_live_capabilities.fill_source == ExecutionFillSource::Broker;
+    let broker_cancel_semantics =
+        qmt_live_capabilities.cancel_semantics == ExecutionCancelSemantics::Broker;
 
     [
         "QMT promotion checklist".to_string(),
@@ -100,6 +110,26 @@ pub(crate) fn format_qmt_promotion_checklist(
         format!(
             "{} bridge qmt.supports 包含 order_submit",
             status_mark(order_submit_supported)
+        ),
+        format!(
+            "{} qmt_live adapter channel={}",
+            status_mark(qmt_live_channel),
+            qmt_live_capabilities.channel.as_str()
+        ),
+        format!(
+            "{} qmt_live status_source={}",
+            status_mark(broker_status_source),
+            qmt_live_capabilities.status_source.as_str()
+        ),
+        format!(
+            "{} qmt_live fill_source={}",
+            status_mark(broker_fill_source),
+            qmt_live_capabilities.fill_source.as_str()
+        ),
+        format!(
+            "{} qmt_live cancel_semantics={}",
+            status_mark(broker_cancel_semantics),
+            qmt_live_capabilities.cancel_semantics.as_str()
         ),
         "[ ] request target_mode=qmt_live".to_string(),
         "[ ] 先在 paper 路径验证策略与风控".to_string(),
@@ -112,7 +142,9 @@ pub(crate) fn format_qmt_promotion_checklist(
 }
 
 pub(crate) async fn execute_execution_bridge_status(checklist: bool) -> Result<()> {
-    let capabilities = create_bridge_client()?
+    let bridge_client = create_bridge_client()?;
+    let qmt_live_capabilities = QmtLiveExecutionAdapter::new(bridge_client.clone()).capabilities();
+    let capabilities = bridge_client
         .capabilities()
         .await
         .map_err(|err| QuantixError::Other(format!("bridge status 查询失败: {err}")))?;
@@ -133,7 +165,10 @@ pub(crate) async fn execute_execution_bridge_status(checklist: bool) -> Result<(
     );
     if checklist {
         println!();
-        println!("{}", format_qmt_promotion_checklist(&capabilities));
+        println!(
+            "{}",
+            format_qmt_promotion_checklist(&capabilities, qmt_live_capabilities)
+        );
     }
     Ok(())
 }

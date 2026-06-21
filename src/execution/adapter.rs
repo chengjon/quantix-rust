@@ -52,11 +52,31 @@ pub enum ExecutionChannel {
     QmtLive,
 }
 
+impl ExecutionChannel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::PaperImmediate => "paper_immediate",
+            Self::MockLive => "mock_live",
+            Self::QmtLive => "qmt_live",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionStatusSource {
     LocalImmediateAccounting,
     LocalSimulatedLifecycle,
     Broker,
+}
+
+impl ExecutionStatusSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LocalImmediateAccounting => "local_immediate_accounting",
+            Self::LocalSimulatedLifecycle => "local_simulated_lifecycle",
+            Self::Broker => "broker",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,11 +86,31 @@ pub enum ExecutionFillSource {
     Broker,
 }
 
+impl ExecutionFillSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LocalImmediateAccounting => "local_immediate_accounting",
+            Self::LocalSimulatedMatcher => "local_simulated_matcher",
+            Self::Broker => "broker",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionCancelSemantics {
     AlreadyFilledOnly,
     LocalLifecycle,
     Broker,
+}
+
+impl ExecutionCancelSemantics {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AlreadyFilledOnly => "already_filled_only",
+            Self::LocalLifecycle => "local_lifecycle",
+            Self::Broker => "broker",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

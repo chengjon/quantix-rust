@@ -1951,5 +1951,82 @@
       "current_head": "5df8b084235243dfeeabf4dbc22912220615af9c",
       "prepared_at": "2026-06-21T09:10:33.477Z"
     }
+  },
+  {
+    "id": "P0.3f",
+    "title": "ExecutionCapabilities read-only observability",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md",
+    "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch feat/p0-3f-execution-capabilities-observability at HEAD 0b3273b; master clean except GitNexus analyzer updated AGENTS.md/CLAUDE.md stats; active gates none before node creation",
+        "note": "Baseline before P0.3f read-only observability slice",
+        "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
+        "recorded_at": "2026-06-21T10:38:57.171Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact after index refresh: ExecutionCapabilities LOW direct=3 processes=0; ExecutionChannel LOW processes=0; format_qmt_promotion_checklist LOW processes=0; execute_execution_bridge_status LOW direct=1 processes=2",
+        "note": "Impact analysis for P0.3f candidate symbols",
+        "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
+        "recorded_at": "2026-06-21T10:38:57.225Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/adapter.rs",
+      "src/cli/handlers/execution_handler.rs",
+      "src/cli/handlers/tests/strategy_bridge.rs",
+      "tests/execution_adapter_capabilities_test.rs",
+      "docs/reports/EXECUTION_CAPABILITIES_OBSERVABILITY_P0_3F_2026-06-21.md",
+      "FUNCTION_TREE.md",
+      ".governance",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not migrate upper-layer mode checks to capability checks",
+      "Do not modify submit, query, cancel, storage, bridge protocol, or OrderStatus behavior",
+      "Do not add miniQMT runtime probing, startup self-check, or unwrap cleanup",
+      "Do not change JSON status response shape unless explicitly covered by tests"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-21T10:38:57.114Z",
+    "updated_at": "2026-06-21T10:39:21.397Z",
+    "track": "mainline",
+    "mainline_id": "P0.3f",
+    "depth": 0,
+    "acceptance": {
+      "commit_gate": [
+        "TDD RED/GREEN for checklist capability visibility",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "targeted tests and cargo test",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.3f closed with active gates none and validation passed",
+        "PR CI and master CI pass or failure is documented"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "0b3273b5ec78c462b9b523e513ff929f085d9a43",
+        "transitioned_at": "2026-06-21T10:39:21.397Z"
+      }
+    ]
   }
 ]

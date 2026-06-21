@@ -1,0 +1,39 @@
+task:
+  id: "P0.3f"
+  title: "ExecutionCapabilities read-only observability"
+
+scope:
+  allowed_paths:
+    - "src/execution/adapter.rs"
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "tests/execution_adapter_capabilities_test.rs"
+    - "docs/reports/EXECUTION_CAPABILITIES_OBSERVABILITY_P0_3F_2026-06-21.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not migrate upper-layer mode checks to capability checks"
+  - "Do not modify submit, query, cancel, storage, bridge protocol, or OrderStatus behavior"
+  - "Do not add miniQMT runtime probing, startup self-check, or unwrap cleanup"
+  - "Do not change JSON status response shape unless explicitly covered by tests"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for checklist capability visibility"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "targeted tests and cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "FUNCTION_TREE P0.3f closed with active gates none and validation passed"
+    - "PR CI and master CI pass or failure is documented"
+
+evidence:
+  current_head: "0b3273b5ec78c462b9b523e513ff929f085d9a43"
+  notes: []
