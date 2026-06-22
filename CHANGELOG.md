@@ -5,6 +5,25 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-22
+
+### Fixed
+- **AuctionCollector 单元测试离线化** (`src/sources/auction_collector.rs`, `.governance/programs/project-governance/cards/auction-collector-offline-test-seam.yaml`)
+  - `sources::auction_collector::tests::test_auction_collector_creation` 不再调用 `AuctionCollector::new()` / `rustdx_complete::tcp::Tcp::new()` 连接外部 TDX TCP
+  - 测试改为验证 deterministic 默认自选股列表，消除 master CI 对 live TDX 网络可用性的依赖
+  - 生产 `AuctionCollector::new()` / `with_watchlist()` 行为保持不变
+
+### Changed
+- **qmt_live reconciliation query refinement P0.4g** (`src/execution/reconciliation.rs`, `tests/qmt_live_reconciliation_test.rs`, `docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_2026-06-22.md`)
+  - 完整本地 `task_identity` 存在时，reconciliation 使用 `task_id + client_order_id + local_submission_id` 查询，并复用任务服务身份校验
+  - legacy/partial identity 保留 task-id-only recovery fallback
+  - identity mismatch 保留本地状态并记录 manual intervention；不改动 metadata schema、gate/diagnostics、bridge 协议、响应 shape、存储 schema、`OrderStatus`、`ExecutionAdapter` 或 submit/query/cancel 主流程
+
+### Docs
+- **Graphiti backfill 归档** (`docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_GRAPHITI_BACKFILL_2026-06-22.md`, `docs/reports/AUCTION_COLLECTOR_OFFLINE_TEST_SEAM_GRAPHITI_BACKFILL_2026-06-22.md`)
+  - 记录 P0.4g 与 AuctionCollector hotfix 的 Graphiti ingest timeout / `apitimeouterror`
+  - 按项目规则保留 `Graphiti backfill required` 本地回填记录
+
 ## 2026-06-06
 
 ### Added
