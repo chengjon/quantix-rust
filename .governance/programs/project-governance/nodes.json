@@ -2974,5 +2974,70 @@
       "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
       "prepared_at": "2026-06-22T00:16:05.105Z"
     }
+  },
+  {
+    "id": "auction-collector-offline-test-seam",
+    "title": "auction collector offline test seam",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "implementation-ready",
+    "function_tree_ref": "src/sources/auction_collector.rs",
+    "current_head": "aa0d9be833b8d3589ddd699429874f9cc896dd19",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master CI run 27923085656 failed in sources::auction_collector::tests::test_auction_collector_creation; local cargo test --lib sources::auction_collector::tests::test_auction_collector_creation -- --test-threads=1 failed the same way; rustdx_complete::tcp::Tcp::new() in ~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustdx-complete-0.6.6/src/tcp/mod.rs calls TcpStream::connect_timeout to a fixed stock IP, so the unit test depends on live external connectivity.",
+        "note": "external TDX connectivity makes constructor test nondeterministic",
+        "current_head": "aa0d9be833b8d3589ddd699429874f9cc896dd19",
+        "recorded_at": "2026-06-22T01:05:00.765Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/sources/auction_collector.rs"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No TDX/TDXSource refactor",
+      "No quote_collector or tdx.rs changes",
+      "No runtime behavior change for production paths"
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T01:04:26.419Z",
+    "updated_at": "2026-06-22T01:11:41.194Z",
+    "track": "untracked",
+    "depth": 99,
+    "acceptance": {
+      "commit_gate": [
+        "cargo test --lib sources::auction_collector::tests::test_auction_collector_creation -- --test-threads=1",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings"
+      ],
+      "closeout_gate": [
+        "cargo test --lib --all-features -- --test-threads=1",
+        "git diff --check",
+        "node /root/.codex/skills/myskills/skills/function-tree/scripts/ft-governance.cjs validate"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "aa0d9be833b8d3589ddd699429874f9cc896dd19",
+        "transitioned_at": "2026-06-22T01:05:27.207Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "aa0d9be833b8d3589ddd699429874f9cc896dd19",
+        "transitioned_at": "2026-06-22T01:11:41.193Z"
+      }
+    ]
   }
 ]

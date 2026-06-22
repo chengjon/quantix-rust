@@ -1,0 +1,28 @@
+task:
+  id: "auction-collector-offline-test-seam"
+  title: "auction collector offline test seam"
+
+scope:
+  allowed_paths:
+    - "src/sources/auction_collector.rs"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No TDX/TDXSource refactor"
+  - "No quote_collector or tdx.rs changes"
+  - "No runtime behavior change for production paths"
+
+acceptance:
+  commit_gate:
+    - "cargo test --lib sources::auction_collector::tests::test_auction_collector_creation -- --test-threads=1"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+  closeout_gate:
+    - "cargo test --lib --all-features -- --test-threads=1"
+    - "git diff --check"
+    - "node /root/.codex/skills/myskills/skills/function-tree/scripts/ft-governance.cjs validate"
+
+evidence:
+  current_head: "aa0d9be833b8d3589ddd699429874f9cc896dd19"
+  notes: []

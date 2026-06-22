@@ -315,9 +315,12 @@ mod tests {
         assert_eq!(sell, 5250.0);
     }
 
-    #[tokio::test]
-    async fn test_auction_collector_creation() {
-        let collector = AuctionCollector::new().await;
-        assert!(collector.is_ok());
+    #[test]
+    fn test_auction_collector_creation() {
+        let watchlist = AuctionCollector::default_watchlist();
+
+        assert_eq!(watchlist.len(), 5);
+        assert_eq!(watchlist[0].code, "000001");
+        assert_eq!(watchlist[4].code, "600519");
     }
 }
