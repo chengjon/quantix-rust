@@ -3164,5 +3164,116 @@
       "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
       "prepared_at": "2026-06-22T11:32:33.225Z"
     }
+  },
+  {
+    "id": "P0.5b",
+    "title": "qmt_live canary runbook and evidence artifact",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-P0.5",
+    "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch docs/p0-5b-qmt-live-canary-runbook at HEAD acb5a359e5809052f1e51fdd637732c6d5a15a7b; baseline cargo test passed before edits",
+        "note": "P0.5b starts from clean master after P0.5a/backfill merge",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "recorded_at": "2026-06-22T12:23:04.132Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "Graphiti pre-read for qmt_live canary runbook/evidence artifact context timed out against quantix_rust_main and quantix_rust_docs; Graphiti backfill required if final ingest also fails",
+        "note": "Graphiti timeout during P0.5b pre-read",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "recorded_at": "2026-06-22T12:23:29.317Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus pre-edit impact: not applicable because P0.5b is docs-only and selects no production function, method, class, handler, trait, enum, storage schema, or bridge protocol symbol for editing; final GitNexus detect_changes remains required before commit",
+        "note": "No source symbol selected for P0.5b",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "recorded_at": "2026-06-22T12:24:45.089Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md",
+      "docs/reports/evidence/qmt-live-canary-20260622/**",
+      "docs/reports/QMT_LIVE_CANARY_RUNBOOK_P0_5B_2026-06-22.md",
+      "tests/repo_hygiene_test.rs",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust source changes",
+      "No qmt_live submit, cancel, query, runtime-store, broker, bridge protocol, response shape, storage schema, OrderStatus, ExecutionAdapter, paper_immediate, paper_sim_lifecycle, or unwrap-cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T12:22:31.812Z",
+    "updated_at": "2026-06-22T13:00:07.746Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "P0.5b evidence collected; preparing docs-only canary runbook/evidence decision package",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "transitioned_at": "2026-06-22T12:25:16.473Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "User approved continuing P0.5 work; P0.5b scope is docs-only canary runbook/evidence artifact",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "transitioned_at": "2026-06-22T12:25:46.990Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "transitioned_at": "2026-06-22T13:00:07.627Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "transitioned_at": "2026-06-22T13:00:07.665Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+        "transitioned_at": "2026-06-22T13:00:07.746Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "docs-only P0.5b runbook/evidence artifact plus repo hygiene documentation guard; git diff --check; focused repo hygiene test; OpenSpec validate; Function Tree scope-check/gate/validate; GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.5b report records canary sequence, evidence path/template, Graphiti status, gates, PR/CI status, and preserved runtime boundaries"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_CANARY_RUNBOOK_P0_5B_2026-06-22.md",
+      "compatibility": "Docs/test-only canary runbook and evidence artifact; no qmt_live runtime, bridge, response, storage, OrderStatus, ExecutionAdapter, paper_immediate, paper_sim_lifecycle, or unwrap-cleanup changes.",
+      "gates": [
+        "focused repo hygiene test, repo_hygiene_test, git diff --check, cargo fmt --check, cargo clippy -- -D warnings, cargo test, OpenSpec validate, Function Tree scope/gate/validate, GitNexus detect_changes LOW/0 affected processes"
+      ],
+      "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
+      "prepared_at": "2026-06-22T13:00:07.705Z"
+    }
   }
 ]

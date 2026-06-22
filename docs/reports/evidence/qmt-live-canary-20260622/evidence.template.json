@@ -1,0 +1,103 @@
+{
+  "schema": "qmt_live_canary_evidence_v1",
+  "canary_status": "blocked|submitted|queried|reconciled|manual_intervention_required",
+  "commit_hash": "<git commit hash under test>",
+  "collected_at": "<UTC timestamp>",
+  "operator": {
+    "label": "<redacted operator label>",
+    "confirmation_recorded": false
+  },
+  "environment": {
+    "bridge_host_label": "<redacted bridge host label>",
+    "miniqmt_account_label": "<redacted account label>",
+    "quantix_runtime_label": "<redacted runtime label>"
+  },
+  "commands": [
+    {
+      "name": "preflight",
+      "command_line": "quantix execution qmt status --checklist",
+      "completed_at": "<UTC timestamp>",
+      "exit_status": "<redacted status>"
+    },
+    {
+      "name": "preview",
+      "command_line": "quantix execution qmt preview --request-id <ID>",
+      "completed_at": "<UTC timestamp>",
+      "exit_status": "<redacted status>"
+    },
+    {
+      "name": "submit",
+      "command_line": "quantix execution qmt live --request-id <ID> --yes",
+      "completed_at": "<UTC timestamp or null>",
+      "exit_status": "<redacted status or null>"
+    },
+    {
+      "name": "query",
+      "command_line": "quantix execution qmt query <ID>",
+      "completed_at": "<UTC timestamp or null>",
+      "exit_status": "<redacted status or null>"
+    }
+  ],
+  "readiness_summary": {
+    "ready": false,
+    "failure_category": "<category or none>",
+    "bridge_reachable": false,
+    "qmt_enabled": false,
+    "qmt_mode": "<live|other>",
+    "order_submit_supported": false,
+    "kill_switch_enabled": false
+  },
+  "preview_payload_hash": "<hash of reviewed preview payload>",
+  "preview_summary": {
+    "request_id": "<request id>",
+    "symbol": "<symbol>",
+    "side": "<buy|sell>",
+    "quantity": "<redacted quantity summary>",
+    "order_type": "<order type>",
+    "price_policy": "<redacted price or pricing policy>",
+    "account_label": "<redacted account label>"
+  },
+  "operator_confirmation": {
+    "confirmed": false,
+    "confirmed_at": "<UTC timestamp or null>",
+    "statement": "qmt_live canary submission approved for request <ID>",
+    "reviewed_preview_payload_hash": "<hash or null>"
+  },
+  "submission_summary": {
+    "submitted": false,
+    "submitted_at": "<UTC timestamp or null>",
+    "adapter_order_id": "<redacted adapter order id or null>",
+    "client_order_id": "<redacted client order id or null>",
+    "task_id": "<redacted task id or null>",
+    "external_order_id_present": false,
+    "error_category": "<category or null>"
+  },
+  "query_summary": {
+    "queried": false,
+    "queried_at": "<UTC timestamp or null>",
+    "latest_status": "<status or null>",
+    "broker_unknown_state": false,
+    "rejection_summary": "<redacted rejection summary or null>"
+  },
+  "reconciliation_summary": {
+    "verified": false,
+    "verified_at": "<UTC timestamp or null>",
+    "decision": "<decision or null>",
+    "identity_fields_used": [
+      "task_id",
+      "client_order_id",
+      "local_submission_id"
+    ],
+    "local_state_preserved": false
+  },
+  "manual_intervention_status": {
+    "status": "none|identity_mismatch|broker_unknown_state|missing_external_order_id|bridge_failure|reconciliation_preserved_local_state|operator_review_required",
+    "notes": "<redacted operator notes or null>"
+  },
+  "redaction": {
+    "secrets_removed": true,
+    "account_identifiers_redacted": true,
+    "broker_logs_excluded": true,
+    "bridge_payloads_summarized": true
+  }
+}
