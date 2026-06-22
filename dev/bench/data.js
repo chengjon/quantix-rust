@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782026222034,
+  "lastUpdate": 1782114625038,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -2319,6 +2319,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 1149727.6741753977,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "songjon",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b3ec7487eb9a9d31998c3dc54b18d61f6b385f64",
+          "message": "docs: update status registry and changelog (#266)",
+          "timestamp": "2026-06-22T03:33:05Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/b3ec7487eb9a9d31998c3dc54b18d61f6b385f64"
+        },
+        "date": 1782114623942,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 362215.24596547696,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 3040612.8592387564,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 39437775.08776984,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1305057.596367137,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 9490464.412460318,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 90779082.8651455,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 1426934.6540206473,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 10558165.221168429,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 105198327.76446429,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 14788.91599664298,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 157327.9432487687,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1648869.4609100034,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 14829.710631705055,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 156835.06071629925,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1661803.2102415168,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 38396.01921943556,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 392491.61791456194,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 4012622.3507999997,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 26982.97418733771,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 322140.8384578977,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 3341854.5782930823,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 39209.59335338048,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 644895.360124696,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 6712366.009333331,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 6165.3134529305225,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 71510.16723349593,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 1215270.0165736096,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 8079.325955260624,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 95705.65574906452,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 48631.31852328308,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 16873.589245081603,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 147192.99013963068,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 74353.75627541648,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 54.2793657271661,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 50.55657673084739,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 75.88096798237474,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 1226.732548804031,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 12433.203874870585,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 124273.60755468016,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 9035.914576741474,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 91695.15201560756,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 920660.1825543228,
             "unit": "ns"
           }
         ]
