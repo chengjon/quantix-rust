@@ -308,6 +308,70 @@ fn legacy_docs_are_archived_without_moving_current_reports() {
 }
 
 #[test]
+fn qmt_live_canary_runbook_and_evidence_template_are_present() {
+    let runbook_path = "docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md";
+    let evidence_readme_path = "docs/reports/evidence/qmt-live-canary-20260622/README.md";
+    let evidence_template_path =
+        "docs/reports/evidence/qmt-live-canary-20260622/evidence.template.json";
+
+    let runbook = fs::read_to_string(repo_root().join(runbook_path))
+        .unwrap_or_else(|_| panic!("expected {runbook_path} to be readable"));
+    let evidence_readme = fs::read_to_string(repo_root().join(evidence_readme_path))
+        .unwrap_or_else(|_| panic!("expected {evidence_readme_path} to be readable"));
+    let evidence_template = fs::read_to_string(repo_root().join(evidence_template_path))
+        .unwrap_or_else(|_| panic!("expected {evidence_template_path} to be readable"));
+
+    for expected in [
+        "start Windows Bridge",
+        "confirm miniQMT login",
+        "quantix execution qmt status --checklist",
+        "quantix execution qmt preview --request-id <ID>",
+        "verify preview payload",
+        "confirm kill switch status",
+        "operator confirmation",
+        "quantix execution qmt live --request-id <ID> --yes",
+        "quantix execution qmt query <ID>",
+        "reconciliation verification",
+        "manual-intervention status",
+    ] {
+        assert!(
+            runbook.contains(expected),
+            "expected {runbook_path} to document canary step: {expected}"
+        );
+    }
+
+    assert!(
+        evidence_readme.contains("docs/reports/evidence/qmt-live-canary-20260622/"),
+        "expected {evidence_readme_path} to document the concrete evidence directory"
+    );
+
+    for expected in [
+        "\"commit_hash\"",
+        "\"commands\"",
+        "\"readiness_summary\"",
+        "\"preview_payload_hash\"",
+        "\"operator_confirmation\"",
+        "\"submission_summary\"",
+        "\"query_summary\"",
+        "\"reconciliation_summary\"",
+        "\"manual_intervention_status\"",
+        "\"redaction\"",
+    ] {
+        assert!(
+            evidence_template.contains(expected),
+            "expected {evidence_template_path} to define evidence field: {expected}"
+        );
+    }
+
+    for forbidden in ["raw_broker_log", "api_key", "token", "full_account_id"] {
+        assert!(
+            !evidence_template.contains(forbidden),
+            "expected {evidence_template_path} not to include forbidden raw secret/account field {forbidden}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_foundation_p0_workspace_constraints() {
     let readme_path = repo_root().join("README.md");
     let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");

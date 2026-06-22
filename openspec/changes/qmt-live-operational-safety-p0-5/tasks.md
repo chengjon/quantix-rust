@@ -39,8 +39,8 @@
 
 ## 2. P0.5b Canary Runbook And Evidence Artifact
 
-- [ ] 2.1 Add `docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md` or a same-date successor if implemented later.
-- [ ] 2.2 Document the exact canary sequence:
+- [x] 2.1 Add `docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md` or a same-date successor if implemented later.
+- [x] 2.2 Document the exact canary sequence:
   - start Windows Bridge;
   - confirm miniQMT login;
   - run qmt_live preflight;
@@ -51,11 +51,11 @@
   - run `quantix execution qmt query <ID>`;
   - run reconciliation verification;
   - record manual-intervention status.
-- [ ] 2.3 Define an evidence artifact path under `docs/reports/evidence/qmt-live-canary-<YYYYMMDD>/`.
-- [ ] 2.4 Define a redacted evidence JSON shape with commit hash, command lines, readiness summary, preview hash, submission summary, query summary, reconciliation summary, and operator confirmation timestamp.
-- [ ] 2.5 Add a repo hygiene or documentation test if a stable local guard already exists for operations docs.
-- [ ] 2.6 Run documentation-focused validation and full project gates required by the touched files.
-- [ ] 2.7 Run GitNexus detect_changes before commit.
+- [x] 2.3 Define an evidence artifact path under `docs/reports/evidence/qmt-live-canary-<YYYYMMDD>/`.
+- [x] 2.4 Define a redacted evidence JSON shape with commit hash, command lines, readiness summary, preview hash, submission summary, query summary, reconciliation summary, and operator confirmation timestamp.
+- [x] 2.5 Add a repo hygiene or documentation test if a stable local guard already exists for operations docs.
+- [x] 2.6 Run documentation-focused validation and full project gates required by the touched files.
+- [x] 2.7 Run GitNexus detect_changes before commit.
 
 ## 3. P0.5c Kill Switch Acceptance
 
