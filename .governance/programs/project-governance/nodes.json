@@ -3067,5 +3067,102 @@
       "current_head": "a9df010afc124b30a08858dc365e652ba61acbae",
       "prepared_at": "2026-06-22T01:13:57.042Z"
     }
+  },
+  {
+    "id": "P0.5a",
+    "title": "qmt_live preflight doctor",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-P0.5",
+    "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "structural",
+        "path": "Graphiti pre-read for P0.5a qmt_live preflight doctor timed out; Graphiti backfill required",
+        "note": "Graphiti read attempted before design/code work",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "recorded_at": "2026-06-22T10:57:02.541Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact: execute_execution_bridge_status LOW direct=1 processes=2; format_qmt_promotion_checklist LOW direct=1 processes=0",
+        "note": "Pre-edit GitNexus impact",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "recorded_at": "2026-06-22T10:57:02.631Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/cli/handlers/execution_handler.rs",
+      "src/cli/handlers/tests/strategy_bridge.rs",
+      "src/cli/handlers/tests/strategy_execution.rs",
+      "src/cli/commands/trade.rs",
+      "src/safety/kill_switch.rs",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      "FUNCTION_TREE.md",
+      "docs/reports/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No order submission/cancel/query mutation, no bridge protocol or response shape change, no storage schema migration, no OrderStatus or ExecutionAdapter change, no paper_immediate or paper_sim_lifecycle change, no unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T10:56:33.379Z",
+    "updated_at": "2026-06-22T11:32:55.995Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "RED/GREEN focused preflight tests; cargo fmt --check; cargo clippy -- -D warnings; cargo test; function-tree validate; GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.5a FUNCTION_TREE/OpenSpec status updated, active gate closed, PR CI and master CI passed"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "P0.5a source edits authorized after OpenSpec scope review, baseline cargo test, Graphiti attempt, and GitNexus LOW impact.",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "transitioned_at": "2026-06-22T10:58:53.915Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "P0.5a implementation complete; fmt, clippy, cargo test, OpenSpec validate, scope-check, and GitNexus detect_changes run locally",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "transitioned_at": "2026-06-22T11:32:10.754Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "P0.5a landed locally with report and all required local gates",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "transitioned_at": "2026-06-22T11:32:21.192Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.5a closeout reviewed; local gates and report complete",
+        "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+        "transitioned_at": "2026-06-22T11:32:55.995Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_PREFLIGHT_DOCTOR_P0_5A_2026-06-22.md",
+      "compatibility": "read-only qmt_live preflight on execution qmt status --checklist; no submit/cancel/runtime-store/broker mutation; no bridge protocol/response/storage/OrderStatus/ExecutionAdapter change",
+      "gates": [
+        "cargo fmt --check; cargo clippy -- -D warnings; cargo test; git diff --check; openspec validate; function-tree scope-check/validate; GitNexus detect_changes MEDIUM expected handler scope"
+      ],
+      "current_head": "966e2a09cb050cf7ceacaa9162cfce6820276849",
+      "prepared_at": "2026-06-22T11:32:33.225Z"
+    }
   }
 ]

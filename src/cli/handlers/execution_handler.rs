@@ -26,8 +26,8 @@ use crate::execution::request_diagnostics::{
 };
 use crate::execution::runtime_store::StrategyRuntimeStore;
 use crate::safety::{
-    JsonKillSwitchStore, build_kill_switch_payload, format_execution_kill_switch_block_message,
-    load_blocking_kill_switch_state,
+    JsonKillSwitchStore, KillSwitchState, build_kill_switch_payload,
+    format_execution_kill_switch_block_message, load_blocking_kill_switch_state,
 };
 use chrono::Utc;
 use rust_decimal::Decimal;
@@ -141,17 +141,213 @@ pub(crate) fn format_qmt_promotion_checklist(
     .join("\n")
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QmtLivePreflightFailureCategory {
+    BridgeUnreachable,
+    QmtCapabilityMissing,
+    QmtDisabled,
+    QmtModeNotLive,
+    QmtOrderSubmitMissing,
+    QmtLiveCapabilityMismatch,
+    KillSwitchEnabled,
+}
+
+impl QmtLivePreflightFailureCategory {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::BridgeUnreachable => "bridge_unreachable",
+            Self::QmtCapabilityMissing => "qmt_capability_missing",
+            Self::QmtDisabled => "qmt_disabled",
+            Self::QmtModeNotLive => "qmt_mode_not_live",
+            Self::QmtOrderSubmitMissing => "qmt_order_submit_missing",
+            Self::QmtLiveCapabilityMismatch => "qmt_live_capability_mismatch",
+            Self::KillSwitchEnabled => "kill_switch_enabled",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct QmtLivePreflightReport {
+    pub(crate) ready: bool,
+    pub(crate) failure_category: Option<QmtLivePreflightFailureCategory>,
+    pub(crate) bridge_reachable: bool,
+    pub(crate) bridge_error: Option<String>,
+    pub(crate) bridge_contract_version: String,
+    pub(crate) capability_source: String,
+    pub(crate) qmt_enabled: Option<bool>,
+    pub(crate) qmt_mode: Option<String>,
+    pub(crate) order_submit_supported: Option<bool>,
+    pub(crate) qmt_live_channel: bool,
+    pub(crate) broker_status_source: bool,
+    pub(crate) broker_fill_source: bool,
+    pub(crate) broker_cancel_semantics: bool,
+    pub(crate) kill_switch_enabled: bool,
+    pub(crate) kill_switch_reason: Option<String>,
+}
+
+pub(crate) fn build_qmt_live_preflight_report(
+    capabilities: Option<&crate::bridge::models::BridgeCapabilitiesResponse>,
+    bridge_error: Option<&str>,
+    qmt_live_capabilities: ExecutionCapabilities,
+    kill_switch_state: Option<&KillSwitchState>,
+) -> QmtLivePreflightReport {
+    let qmt_live_channel = qmt_live_capabilities.channel == ExecutionChannel::QmtLive;
+    let broker_status_source = qmt_live_capabilities.status_source == ExecutionStatusSource::Broker;
+    let broker_fill_source = qmt_live_capabilities.fill_source == ExecutionFillSource::Broker;
+    let broker_cancel_semantics =
+        qmt_live_capabilities.cancel_semantics == ExecutionCancelSemantics::Broker;
+    let kill_switch_enabled = kill_switch_state
+        .map(|state| state.enabled)
+        .unwrap_or(false);
+
+    let (qmt_enabled, qmt_mode, order_submit_supported) = capabilities
+        .map(|capabilities| {
+            (
+                Some(capabilities.qmt.enabled),
+                Some(capabilities.qmt.mode.clone()),
+                Some(
+                    capabilities
+                        .qmt
+                        .supports
+                        .iter()
+                        .any(|item| item == "order_submit"),
+                ),
+            )
+        })
+        .unwrap_or((None, None, None));
+
+    let failure_category = if bridge_error.is_some() {
+        Some(QmtLivePreflightFailureCategory::BridgeUnreachable)
+    } else if capabilities.is_none() {
+        Some(QmtLivePreflightFailureCategory::QmtCapabilityMissing)
+    } else if qmt_enabled == Some(false) {
+        Some(QmtLivePreflightFailureCategory::QmtDisabled)
+    } else if qmt_mode.as_deref() != Some("live") {
+        Some(QmtLivePreflightFailureCategory::QmtModeNotLive)
+    } else if order_submit_supported != Some(true) {
+        Some(QmtLivePreflightFailureCategory::QmtOrderSubmitMissing)
+    } else if !(qmt_live_channel
+        && broker_status_source
+        && broker_fill_source
+        && broker_cancel_semantics)
+    {
+        Some(QmtLivePreflightFailureCategory::QmtLiveCapabilityMismatch)
+    } else if kill_switch_enabled {
+        Some(QmtLivePreflightFailureCategory::KillSwitchEnabled)
+    } else {
+        None
+    };
+
+    QmtLivePreflightReport {
+        ready: failure_category.is_none(),
+        failure_category,
+        bridge_reachable: bridge_error.is_none() && capabilities.is_some(),
+        bridge_error: bridge_error.map(ToOwned::to_owned),
+        bridge_contract_version: "unknown".to_string(),
+        capability_source: "bridge:/api/v1/capabilities".to_string(),
+        qmt_enabled,
+        qmt_mode,
+        order_submit_supported,
+        qmt_live_channel,
+        broker_status_source,
+        broker_fill_source,
+        broker_cancel_semantics,
+        kill_switch_enabled,
+        kill_switch_reason: kill_switch_state.and_then(|state| state.reason.clone()),
+    }
+}
+
+fn qmt_live_preflight_report_json(report: &QmtLivePreflightReport) -> serde_json::Value {
+    serde_json::json!({
+        "ready": report.ready,
+        "failure_category": report
+            .failure_category
+            .map(QmtLivePreflightFailureCategory::as_str),
+        "bridge_reachable": report.bridge_reachable,
+        "bridge_error": report.bridge_error,
+        "bridge_contract_version": report.bridge_contract_version,
+        "capability_source": report.capability_source,
+        "qmt": {
+            "enabled": report.qmt_enabled,
+            "mode": report.qmt_mode,
+            "order_submit_supported": report.order_submit_supported
+        },
+        "qmt_live_capabilities": {
+            "channel": report.qmt_live_channel,
+            "broker_status_source": report.broker_status_source,
+            "broker_fill_source": report.broker_fill_source,
+            "broker_cancel_semantics": report.broker_cancel_semantics
+        },
+        "kill_switch": {
+            "enabled": report.kill_switch_enabled,
+            "reason": report.kill_switch_reason
+        }
+    })
+}
+
+pub(crate) fn format_qmt_live_preflight_report(report: &QmtLivePreflightReport) -> String {
+    let readiness = if report.ready { "ready" } else { "not_ready" };
+    let failure_category = report
+        .failure_category
+        .map(QmtLivePreflightFailureCategory::as_str)
+        .unwrap_or("none");
+    let kill_switch = if report.kill_switch_enabled {
+        "enabled"
+    } else {
+        "disabled"
+    };
+
+    [
+        "QMT live preflight".to_string(),
+        format!("readiness={readiness}"),
+        format!("failure_category={failure_category}"),
+        format!("bridge_reachable={}", report.bridge_reachable),
+        format!("bridge_contract_version={}", report.bridge_contract_version),
+        format!("capability_source={}", report.capability_source),
+        format!("kill_switch={kill_switch}"),
+    ]
+    .join("\n")
+}
+
 pub(crate) async fn execute_execution_bridge_status(checklist: bool) -> Result<()> {
     let bridge_client = create_bridge_client()?;
     let qmt_live_capabilities = QmtLiveExecutionAdapter::new(bridge_client.clone()).capabilities();
-    let capabilities = bridge_client
-        .capabilities()
-        .await
-        .map_err(|err| QuantixError::Other(format!("bridge status 查询失败: {err}")))?;
+    let capabilities_result = bridge_client.capabilities().await;
+    let bridge_error = capabilities_result.as_ref().err().map(ToString::to_string);
+    let kill_switch_state = if checklist {
+        Some(JsonKillSwitchStore::with_default_path()?.load_or_default()?)
+    } else {
+        None
+    };
+    let preflight_report = build_qmt_live_preflight_report(
+        capabilities_result.as_ref().ok(),
+        bridge_error.as_deref(),
+        qmt_live_capabilities,
+        kill_switch_state.as_ref(),
+    );
 
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&serde_json::json!({
+    let capabilities = match capabilities_result {
+        Ok(capabilities) => capabilities,
+        Err(err) if checklist => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "bridge_status_error": err.to_string(),
+                    "qmt_live_preflight": qmt_live_preflight_report_json(&preflight_report)
+                }))?
+            );
+            println!();
+            println!("{}", format_qmt_live_preflight_report(&preflight_report));
+            return Ok(());
+        }
+        Err(err) => {
+            return Err(QuantixError::Other(format!(
+                "bridge status 查询失败: {err}"
+            )));
+        }
+    };
+
+    let mut status_payload = serde_json::json!({
             "tdx": {
                 "enabled": capabilities.tdx.enabled,
                 "supports": capabilities.tdx.supports
@@ -161,14 +357,20 @@ pub(crate) async fn execute_execution_bridge_status(checklist: bool) -> Result<(
                 "mode": capabilities.qmt.mode,
                 "supports": capabilities.qmt.supports
             }
-        }))?
-    );
+    });
+    if checklist {
+        status_payload["qmt_live_preflight"] = qmt_live_preflight_report_json(&preflight_report);
+    }
+
+    println!("{}", serde_json::to_string_pretty(&status_payload)?);
     if checklist {
         println!();
         println!(
             "{}",
             format_qmt_promotion_checklist(&capabilities, qmt_live_capabilities)
         );
+        println!();
+        println!("{}", format_qmt_live_preflight_report(&preflight_report));
     }
     Ok(())
 }

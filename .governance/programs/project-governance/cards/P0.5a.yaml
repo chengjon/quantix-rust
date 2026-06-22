@@ -1,0 +1,29 @@
+task:
+  id: "P0.5a"
+  title: "qmt_live preflight doctor"
+
+scope:
+  allowed_paths:
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "src/cli/commands/trade.rs"
+    - "src/safety/kill_switch.rs"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md"
+    - "FUNCTION_TREE.md"
+    - "docs/reports/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No order submission/cancel/query mutation, no bridge protocol or response shape change, no storage schema migration, no OrderStatus or ExecutionAdapter change, no paper_immediate or paper_sim_lifecycle change, no unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "RED/GREEN focused preflight tests; cargo fmt --check; cargo clippy -- -D warnings; cargo test; function-tree validate; GitNexus detect_changes"
+  closeout_gate:
+    - "P0.5a FUNCTION_TREE/OpenSpec status updated, active gate closed, PR CI and master CI passed"
+
+evidence:
+  current_head: "966e2a09cb050cf7ceacaa9162cfce6820276849"
+  notes: []
