@@ -85,6 +85,13 @@ async fn mock_task_result_reject(server: &MockServer) {
 }
 
 async fn mock_task_result_ack_with_external_order_id(server: &MockServer) {
+    mock_task_result_ack_with_external_order_id_for(server, "req-qmt-live-ack").await;
+}
+
+async fn mock_task_result_ack_with_external_order_id_for(
+    server: &MockServer,
+    client_order_id: &str,
+) {
     Mock::given(method("GET"))
         .and(path("/api/v1/task/result/task-1"))
         .and(header("authorization", "Bearer bearer-123"))
@@ -94,7 +101,7 @@ async fn mock_task_result_ack_with_external_order_id(server: &MockServer) {
             "status": "completed",
             "bridge_contract_version": "miniqmt.v1",
             "result": {
-                "client_order_id": "req-qmt-live-ack",
+                "client_order_id": client_order_id,
                 "local_submission_id": "local-1",
                 "account_scope": "sim",
                 "event_id": "evt-ack-1",
@@ -348,7 +355,7 @@ async fn qmt_live_reconciliation_recovers_missing_identity_fields_from_completed
     .await;
 
     let server = MockServer::start().await;
-    mock_task_result_ack_with_external_order_id(&server).await;
+    mock_task_result_ack_with_external_order_id_for(&server, "req-qmt-live-ack-preserve").await;
     let service = QmtTaskSubmitService::new(sample_client(&server), 1, 30_000).unwrap();
     let reconciliation = ReconciliationService::with_qmt_live_query_service(store.clone(), service);
 
@@ -418,7 +425,7 @@ async fn qmt_live_reconciliation_preserves_unrelated_payload_keys_when_persistin
     .await;
 
     let server = MockServer::start().await;
-    mock_task_result_ack_with_external_order_id(&server).await;
+    mock_task_result_ack_with_external_order_id_for(&server, "req-qmt-live-ack-preserve").await;
     let service = QmtTaskSubmitService::new(sample_client(&server), 1, 30_000).unwrap();
     let reconciliation = ReconciliationService::with_qmt_live_query_service(store.clone(), service);
 
@@ -447,6 +454,53 @@ async fn qmt_live_reconciliation_preserves_unrelated_payload_keys_when_persistin
     assert_eq!(
         saved.payload_json["qmt_live"]["reconciliation"]["last_action"],
         "state_updated"
+    );
+}
+
+#[tokio::test]
+async fn qmt_live_reconciliation_marks_manual_intervention_when_task_result_identity_mismatches() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("runtime.db");
+    let store = StrategyRuntimeStore::new(&path).await.unwrap();
+    let run = sample_run("000001", fixed_ts());
+    store.insert_run(&run).await.unwrap();
+    seed_qmt_live_order(
+        &store,
+        &run.run_id,
+        "req-qmt-live-identity-local",
+        OrderStatus::PendingSubmit,
+        qmt_live_metadata(Some("task-1"), "req-qmt-live-identity-local"),
+    )
+    .await;
+
+    let server = MockServer::start().await;
+    mock_task_result_ack_with_external_order_id_for(&server, "req-qmt-live-identity-remote").await;
+    let service = QmtTaskSubmitService::new(sample_client(&server), 1, 30_000).unwrap();
+    let reconciliation = ReconciliationService::with_qmt_live_query_service(store.clone(), service);
+
+    reconciliation.reconcile_all().await.unwrap();
+
+    let saved = store
+        .find_order_by_client_order_id("req-qmt-live-identity-local")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.status, OrderStatus::PendingSubmit);
+    assert_eq!(
+        saved.payload_json["qmt_live"]["reconciliation"]["last_action"],
+        "manual_intervention"
+    );
+    let last_error = saved.payload_json["qmt_live"]["reconciliation"]["last_error"]
+        .as_str()
+        .unwrap();
+    assert!(last_error.contains("client_order_id mismatch"));
+    assert_eq!(
+        saved.payload_json["qmt_live"]["task_identity"]["client_order_id"],
+        "req-qmt-live-identity-local"
+    );
+    assert_eq!(
+        saved.payload_json["qmt_live"]["task_identity"]["external_order_id"],
+        serde_json::Value::Null
     );
 }
 

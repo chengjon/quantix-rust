@@ -346,10 +346,12 @@ impl ReconciliationService {
         &self,
         order: &OrderRecord,
     ) -> Result<OrderReconciliationResult> {
-        let Some(task_id) = order
+        let task_identity = order
             .payload_json
             .get("qmt_live")
-            .and_then(|value| value.get("task_identity"))
+            .and_then(|value| value.get("task_identity"));
+
+        let Some(task_id) = task_identity
             .and_then(|value| value.get("task_id"))
             .and_then(|value| value.as_str())
             .filter(|value| !value.trim().is_empty())
@@ -373,7 +375,20 @@ impl ReconciliationService {
                 .await;
         };
 
-        match service.query_task_result_by_task_id(task_id).await {
+        let local_submission_id = task_identity
+            .and_then(|value| value.get("local_submission_id"))
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.trim().is_empty());
+
+        let query_result = if let Some(local_submission_id) = local_submission_id {
+            service
+                .query_task_result_once(task_id, &order.client_order_id, local_submission_id)
+                .await
+        } else {
+            service.query_task_result_by_task_id(task_id).await
+        };
+
+        match query_result {
             Ok(result) => self.apply_qmt_live_result(order, result).await,
             Err(err) => self.persist_qmt_live_query_failure(order, err).await,
         }

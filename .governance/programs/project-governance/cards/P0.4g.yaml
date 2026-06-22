@@ -1,0 +1,38 @@
+task:
+  id: "P0.4g"
+  title: "qmt_live reconciliation query refinement"
+
+scope:
+  allowed_paths:
+    - "src/execution/reconciliation.rs"
+    - "tests/qmt_live_reconciliation_test.rs"
+    - "docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_2026-06-22.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No metadata schema change"
+  - "No qmt_live gate behavior change"
+  - "No diagnostics payload or CLI wording change"
+  - "No bridge protocol or response shape change"
+  - "No OrderStatus or ExecutionAdapter change"
+  - "No submit/cancel main-flow rewrite"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD red/green for qmt_live reconciliation identity-validated query behavior"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes"
+  closeout_gate:
+    - "Function Tree active gates none"
+    - "P0.4g report records behavior, boundaries, tests, GitNexus, and Graphiti fallback if needed"
+
+evidence:
+  current_head: "25ca2c412315d32c5a9c6145c2cc7c219c921970"
+  notes: []

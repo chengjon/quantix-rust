@@ -2847,5 +2847,132 @@
       "current_head": "a3fd0d40228b370bc7a658e7a2065cbe5d818945",
       "prepared_at": "2026-06-21T18:40:23.934Z"
     }
+  },
+  {
+    "id": "P0.4g",
+    "title": "qmt_live reconciliation query refinement",
+    "node_type": "implementation",
+    "owner_lane": "execution",
+    "parent": "qmt_live-hardening",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
+    "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master baseline 25ca2c4 after P0.4f merge; working branch feat/p0-4g-qmt-live-reconciliation-query-refinement",
+        "note": "P0.4g starts from clean master after PR #261 and master CI 27914269122 success",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "recorded_at": "2026-06-22T00:01:24.356Z"
+      },
+      {
+        "kind": "structural",
+        "path": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md#P0.4g Reconciliation Polling / Query Refinement",
+        "note": "Design says primary target ReconciliationService.reconcile_qmt_live_order; no metadata schema change; no gate or diagnostics changes; expected targeted pending/rejected/unknown-state tests and full gates",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "recorded_at": "2026-06-22T00:01:37.489Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact ReconciliationService.reconcile_qmt_live_order#1: LOW risk, direct=1, affected_processes=2, modules=2; affected tests qmt_live_reconciliation_keeps_pending_submit_when_task_result_is_pending and qmt_live_reconciliation_marks_rejected_and_persists_reason",
+        "note": "Pre-edit impact completed before source edits",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "recorded_at": "2026-06-22T00:01:51.973Z"
+      },
+      {
+        "kind": "structural",
+        "path": "Graphiti pre-read attempted for quantix_rust_main P0.4g/P0.4f design context; search_memory_facts timed out twice with Request timed out; continuing under documented Graphiti fallback",
+        "note": "Graphiti backfill required if durable P0.4g conclusions cannot ingest later",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "recorded_at": "2026-06-22T00:02:03.445Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/reconciliation.rs",
+      "tests/qmt_live_reconciliation_test.rs",
+      "docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_2026-06-22.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No metadata schema change",
+      "No qmt_live gate behavior change",
+      "No diagnostics payload or CLI wording change",
+      "No bridge protocol or response shape change",
+      "No OrderStatus or ExecutionAdapter change",
+      "No submit/cancel main-flow rewrite",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T00:01:12.639Z",
+    "updated_at": "2026-06-22T00:18:23.040Z",
+    "track": "mainline",
+    "mainline_id": "P0.4",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "TDD red/green for qmt_live reconciliation identity-validated query behavior",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "Function Tree active gates none",
+        "P0.4g report records behavior, boundaries, tests, GitNexus, and Graphiti fallback if needed"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "transitioned_at": "2026-06-22T00:02:56.117Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
+        "transitioned_at": "2026-06-22T00:03:07.908Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+        "transitioned_at": "2026-06-22T00:15:51.180Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+        "transitioned_at": "2026-06-22T00:18:23.040Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_2026-06-22.md",
+      "compatibility": "No metadata schema, bridge protocol, response shape, gate behavior, diagnostics, OrderStatus, ExecutionAdapter, submit/cancel, or unwrap cleanup change",
+      "gates": [
+        "targeted identity mismatch RED/GREEN test passed",
+        "qmt_live reconciliation test file passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "Function Tree scope/gate/validate passed",
+        "GitNexus detect_changes LOW with 0 affected processes"
+      ],
+      "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+      "prepared_at": "2026-06-22T00:16:05.105Z"
+    }
   }
 ]
