@@ -95,7 +95,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 
 ## 当前完成状态
 
-截至 2026-06-01，当前已经完成并落地的任务可概括为：
+截至 2026-06-22，当前已经完成并落地的任务可概括为：
 
 - 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
@@ -108,6 +108,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `TDX bridge source` 已接入 Rust 侧 bridge client 和 watchlist quote lookup
   - `QMT` 已接入 execution bridge CLI：`qmt-preview` 用于基于 frozen request 做 broker payload 预览，guarded `qmt_live` 用于真实提交
   - canonical Windows-side 路径固定为 `/mnt/d/mystocks/quantix/quantix_bridge`
+- qmt_live P0.4g reconciliation query refinement 已闭合：完整本地 `task_identity` 存在时使用 `task_id + client_order_id + local_submission_id` 查询并复用任务服务身份校验；legacy/partial identity 保留 task-id-only recovery；身份不匹配转人工介入；不改动 gate/diagnostics、bridge 协议、响应 shape、存储 schema、`OrderStatus`、`ExecutionAdapter` 或 submit/query/cancel 主流程。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
@@ -157,6 +158,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - **Graphiti MCP 集成**已完成：
   - 语义记忆层用于设计决策、代码审查、调试、交接和文档
   - Group IDs: `quantix_rust_main`, `_review`, `_debug`, `_handoff`, `_docs`
+  - 当 Graphiti ingest 超时失败时，项目按规则在 `docs/reports/*_GRAPHITI_BACKFILL_*.md` 留下 `Graphiti backfill required` 本地回填记录
 - **因子研究首切片**已有本地 CLI 闭环：
   - `factor list` - 查看已登记因子
   - `factor compute --input CSV` - 基于本地 CSV 计算因子并导出 table/csv/json/parquet
@@ -174,7 +176,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - TDX (通达信) - 实时行情数据
   - AkShare - 财务数据、历史数据
   - Quote Collector - 多股票实时采集
-  - Auction Collector - 竞价数据采集
+  - Auction Collector - 竞价数据采集（生产构造依赖 live TDX TCP；默认单元测试不再连接外部 TDX，使用 deterministic watchlist 断言）
 
 #### Phase 2: 竞价分析模块 ✅
 - **竞价分析器** (`src/analysis/auction.rs`)
