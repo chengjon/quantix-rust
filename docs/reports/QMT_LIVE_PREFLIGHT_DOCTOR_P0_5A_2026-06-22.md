@@ -123,7 +123,9 @@ The focused tests now cover the ready case, kill-switch visibility, and all seve
 
 Graphiti pre-read for P0.5a qmt_live preflight context was attempted against `quantix_rust_main` and `quantix_rust_docs` and timed out with `Request timed out.`.
 
-Graphiti backfill required if final P0.5a memory ingest also fails.
+Final Graphiti memory ingest was attempted after PR #268 and master CI completed. Episode `319affab-a8bc-466a-8c69-a57a103335e3` failed with `Request timed out.`.
+
+Graphiti backfill required. Local backfill summary: `docs/reports/QMT_LIVE_PREFLIGHT_DOCTOR_P0_5A_GRAPHITI_BACKFILL_2026-06-22.md`.
 
 ## Remaining Closeout Gates
 
