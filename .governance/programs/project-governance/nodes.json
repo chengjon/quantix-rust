@@ -2854,11 +2854,11 @@
     "node_type": "implementation",
     "owner_lane": "execution",
     "parent": "qmt_live-hardening",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md",
     "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -2906,11 +2906,11 @@
       "No submit/cancel main-flow rewrite",
       "No unwrap cleanup"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-22T00:01:12.639Z",
-    "updated_at": "2026-06-22T00:03:07.908Z",
+    "updated_at": "2026-06-22T00:18:23.040Z",
     "track": "mainline",
     "mainline_id": "P0.4",
     "depth": 2,
@@ -2942,7 +2942,37 @@
         "note": "",
         "current_head": "25ca2c412315d32c5a9c6145c2cc7c219c921970",
         "transitioned_at": "2026-06-22T00:03:07.908Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+        "transitioned_at": "2026-06-22T00:15:51.180Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+        "transitioned_at": "2026-06-22T00:18:23.040Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_RECONCILIATION_QUERY_REFINEMENT_P0_4G_2026-06-22.md",
+      "compatibility": "No metadata schema, bridge protocol, response shape, gate behavior, diagnostics, OrderStatus, ExecutionAdapter, submit/cancel, or unwrap cleanup change",
+      "gates": [
+        "targeted identity mismatch RED/GREEN test passed",
+        "qmt_live reconciliation test file passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "Function Tree scope/gate/validate passed",
+        "GitNexus detect_changes LOW with 0 affected processes"
+      ],
+      "current_head": "cc83e665d2f770caf08f571ac4911fe01062fba7",
+      "prepared_at": "2026-06-22T00:16:05.105Z"
+    }
   }
 ]
