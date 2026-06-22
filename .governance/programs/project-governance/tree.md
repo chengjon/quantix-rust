@@ -51,3 +51,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.4f: qmt_live identity and runtime metadata recovery (planning, FT: docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md)
 - [ ] P0.4g: qmt_live reconciliation query refinement (planning, FT: docs/reports/QMT_LIVE_HARDENING_DESIGN_P0_4A_2026-06-21.md)
 - [ ] auction-collector-offline-test-seam: auction collector offline test seam (planning, FT: src/sources/auction_collector.rs)
+- [ ] P0.5a: qmt_live preflight doctor (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)

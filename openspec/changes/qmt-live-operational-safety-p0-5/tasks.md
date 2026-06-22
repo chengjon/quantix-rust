@@ -2,27 +2,27 @@
 
 ## 0. Baseline And Governance
 
-- [ ] 0.1 Confirm the implementation branch starts from a clean `master` and record the commit hash in the slice report.
-- [ ] 0.2 Confirm this OpenSpec change is the governing scope before editing qmt_live operational safety code.
-- [ ] 0.3 Create or update a FUNCTION_TREE node for the specific implementation slice before source edits.
-- [ ] 0.4 Run Graphiti reads for `quantix_rust_main` and `quantix_rust_docs`; if Graphiti times out, record `Graphiti backfill required` in the slice report.
-- [ ] 0.5 Run GitNexus impact for every function, method, class, or handler selected for editing.
-- [ ] 0.6 Stop and request approval before editing any HIGH or CRITICAL impact target.
-- [ ] 0.7 Keep each implementation PR single-purpose; do not combine P0.5a-P0.5e in one runtime PR.
+- [x] 0.1 Confirm the implementation branch starts from a clean `master` and record the commit hash in the slice report.
+- [x] 0.2 Confirm this OpenSpec change is the governing scope before editing qmt_live operational safety code.
+- [x] 0.3 Create or update a FUNCTION_TREE node for the specific implementation slice before source edits.
+- [x] 0.4 Run Graphiti reads for `quantix_rust_main` and `quantix_rust_docs`; if Graphiti times out, record `Graphiti backfill required` in the slice report.
+- [x] 0.5 Run GitNexus impact for every function, method, class, or handler selected for editing.
+- [x] 0.6 Stop and request approval before editing any HIGH or CRITICAL impact target.
+- [x] 0.7 Keep each implementation PR single-purpose; do not combine P0.5a-P0.5e in one runtime PR.
 
 ## 1. P0.5a Preflight Doctor
 
-- [ ] 1.1 Identify the current owner for qmt_live readiness output:
+- [x] 1.1 Identify the current owner for qmt_live readiness output:
   - Prefer `quantix execution qmt status --checklist`.
   - Add `quantix execution qmt doctor` only if GitNexus impact and local command ownership show it is cleaner.
-- [ ] 1.2 Write RED tests for ready qmt_live preflight:
+- [x] 1.2 Write RED tests for ready qmt_live preflight:
   - bridge capability endpoint reachable;
   - `qmt.enabled=true`;
   - `qmt.mode=live`;
   - `qmt.supports` contains `order_submit`;
   - qmt_live adapter capability source is broker-owned;
   - kill switch state is visible.
-- [ ] 1.3 Write RED tests for fail-closed preflight categories:
+- [x] 1.3 Write RED tests for fail-closed preflight categories:
   - `bridge_unreachable`;
   - `qmt_capability_missing`;
   - `qmt_disabled`;
@@ -30,12 +30,12 @@
   - `qmt_order_submit_missing`;
   - `qmt_live_capability_mismatch`;
   - `kill_switch_enabled`.
-- [ ] 1.4 Implement the minimum read-only preflight model and formatter.
-- [ ] 1.5 Ensure preflight does not submit orders, cancel orders, mutate runtime store state, or write broker state.
-- [ ] 1.6 Run focused tests for the preflight command/model.
-- [ ] 1.7 Run `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
-- [ ] 1.8 Run GitNexus detect_changes and confirm affected scope is limited to qmt_live preflight/readiness surfaces.
-- [ ] 1.9 Update FUNCTION_TREE and PR documentation with P0.5a behavior and boundaries.
+- [x] 1.4 Implement the minimum read-only preflight model and formatter.
+- [x] 1.5 Ensure preflight does not submit orders, cancel orders, mutate runtime store state, or write broker state.
+- [x] 1.6 Run focused tests for the preflight command/model.
+- [x] 1.7 Run `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
+- [x] 1.8 Run GitNexus detect_changes and confirm affected scope is limited to qmt_live preflight/readiness surfaces.
+- [x] 1.9 Update FUNCTION_TREE and PR documentation with P0.5a behavior and boundaries.
 
 ## 2. P0.5b Canary Runbook And Evidence Artifact
 
