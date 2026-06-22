@@ -3275,5 +3275,104 @@
       "current_head": "acb5a359e5809052f1e51fdd637732c6d5a15a7b",
       "prepared_at": "2026-06-22T13:00:07.705Z"
     }
+  },
+  {
+    "id": "P0.5b-backfill",
+    "title": "P0.5b Graphiti backfill record",
+    "node_type": "evidence",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-P0.5",
+    "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "runtime",
+        "path": "Graphiti add_memory episode 52b90280-9be2-48b3-b699-b9e46686d29e failed with apitimeouterror: Request timed out; Graphiti search_nodes for P0.5b backfill also timed out",
+        "note": "Graphiti ingest failed after P0.5b PR #270 and master CI success",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "recorded_at": "2026-06-22T13:17:26.305Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus impact not applicable: docs/governance-only Graphiti fallback record; final detect_changes required before commit",
+        "note": "No production symbol selected for backfill",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "recorded_at": "2026-06-22T13:17:26.345Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_CANARY_RUNBOOK_P0_5B_GRAPHITI_BACKFILL_2026-06-22.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No runtime, source, OpenSpec task, bridge, storage, response, status, adapter, paper, or unwrap-cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T13:17:26.264Z",
+    "updated_at": "2026-06-22T13:20:05.990Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "transitioned_at": "2026-06-22T13:17:26.389Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "transitioned_at": "2026-06-22T13:17:26.468Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "transitioned_at": "2026-06-22T13:20:05.873Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "transitioned_at": "2026-06-22T13:20:05.913Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+        "transitioned_at": "2026-06-22T13:20:05.990Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "docs-only backfill record; git diff --check; Function Tree scope/gate/validate; GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "Backfill report contains exact Graphiti backfill required marker and records PR/master CI evidence"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_CANARY_RUNBOOK_P0_5B_GRAPHITI_BACKFILL_2026-06-22.md",
+      "compatibility": "Backfill record only; no runtime, source, OpenSpec task, bridge, storage, response, status, adapter, paper, or unwrap-cleanup changes.",
+      "gates": [
+        "git diff --check, Function Tree scope/gate/validate, GitNexus detect_changes LOW/0 affected processes"
+      ],
+      "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
+      "prepared_at": "2026-06-22T13:20:05.951Z"
+    }
   }
 ]
