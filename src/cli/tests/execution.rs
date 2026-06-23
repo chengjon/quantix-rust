@@ -185,4 +185,56 @@ fn parses_execution_config_and_daemon_commands() {
         }
         other => panic!("unexpected command: {:?}", other),
     }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "execution",
+        "qmt",
+        "manual-interventions",
+        "list",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(
+            ExecutionQmtCommands::ManualInterventions {
+                action,
+                request_id,
+                task_id,
+                local_submission_id,
+            },
+        )) => {
+            assert_eq!(action, "list");
+            assert_eq!(request_id, None);
+            assert_eq!(task_id, None);
+            assert_eq!(local_submission_id, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "execution",
+        "qmt",
+        "manual-interventions",
+        "show",
+        "--task-id",
+        "task-manual-1",
+    ])
+    .unwrap();
+    match cli.command {
+        Commands::Execution(ExecutionCommands::Qmt(
+            ExecutionQmtCommands::ManualInterventions {
+                action,
+                request_id,
+                task_id,
+                local_submission_id,
+            },
+        )) => {
+            assert_eq!(action, "show");
+            assert_eq!(request_id, None);
+            assert_eq!(task_id.as_deref(), Some("task-manual-1"));
+            assert_eq!(local_submission_id, None);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
 }
