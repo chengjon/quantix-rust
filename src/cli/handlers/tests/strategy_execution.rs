@@ -816,6 +816,160 @@ async fn test_execute_execution_bridge_qmt_live_persists_task_identity_into_rela
 }
 
 #[tokio::test]
+async fn test_build_execution_bridge_qmt_audit_output_includes_redacted_evidence() {
+    let dir = tempdir().unwrap();
+    let runtime_store = StrategyRuntimeStore::new(dir.path().join("runtime.db"))
+        .await
+        .unwrap();
+    let run = sample_run("000001", fixed_ts());
+    runtime_store.insert_run(&run).await.unwrap();
+
+    let signal = sample_signal(&run.run_id, "signal-qmt-live-audit", fixed_ts());
+    runtime_store.insert_signal(&signal).await.unwrap();
+
+    let request = runtime_store
+        .approve_signal_and_create_request(
+            "signal-qmt-live-audit",
+            "qmt_live",
+            "6222020202021234567",
+            Some("cli"),
+        )
+        .await
+        .unwrap();
+
+    let request_payload = merge_execution_request_payload(
+        &request.payload_json,
+        "execution_result",
+        serde_json::json!({
+            "executed_at": fixed_ts().to_rfc3339(),
+            "client_order_id": request.request_id.clone(),
+            "order_status": "pending_submit",
+            "adapter": "qmt_live",
+            "adapter_order_id": "task-audit-1",
+            "filled_quantity": 0,
+            "avg_fill_price": null,
+            "rejection_reason": null,
+            "bridge_contract_version": "miniqmt.v1"
+        }),
+    );
+    let request_payload = merge_execution_request_payload(
+        &request_payload,
+        "execution_diagnostics",
+        serde_json::json!({
+            "qmt_live_failure_category": "broker_unknown_state"
+        }),
+    );
+    runtime_store
+        .update_execution_request_status(
+            &request.request_id,
+            ExecutionRequestStatus::Completed,
+            request_payload,
+            fixed_ts(),
+        )
+        .await
+        .unwrap();
+
+    let order = OrderRecord {
+        order_id: request.request_id.clone(),
+        client_order_id: request.request_id.clone(),
+        run_id: run.run_id,
+        symbol: "000001".to_string(),
+        side: OrderSide::Buy,
+        order_type: OrderType::Limit,
+        requested_quantity: 800,
+        requested_price: dec!(12.34),
+        filled_quantity: 0,
+        remaining_quantity: 800,
+        avg_fill_price: None,
+        status: OrderStatus::PendingSubmit,
+        adapter: "qmt_live".to_string(),
+        created_at: fixed_ts(),
+        updated_at: fixed_ts(),
+        last_transition_at: fixed_ts(),
+        version: 1,
+        payload_json: serde_json::json!({
+            "qmt_live": {
+                "bridge_contract_version": "miniqmt.v1",
+                "task_identity": {
+                    "task_id": "task-audit-1",
+                    "client_order_id": request.request_id.clone(),
+                    "local_submission_id": "local-audit-1",
+                    "external_order_id": "broker-audit-1"
+                },
+                "last_query": {
+                    "latest_status": "accepted",
+                    "filled_quantity": 0,
+                    "avg_fill_price": null,
+                    "broker_event_type": "acknowledgement",
+                    "rejection_reason": null,
+                    "updated_at": fixed_ts().to_rfc3339()
+                },
+                "reconciliation": {
+                    "last_action": "manual_intervention",
+                    "last_error": "broker state ambiguous",
+                    "last_attempt_at": fixed_ts().to_rfc3339()
+                }
+            }
+        }),
+    };
+    runtime_store.insert_order(&order).await.unwrap();
+
+    let output = build_execution_bridge_qmt_audit_output(
+        &runtime_store,
+        QmtAuditLookup::Task("task-audit-1".to_string()),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(output["lookup"]["type"], "task_id");
+    assert_eq!(output["lookup"]["value"], "task-audit-1");
+    assert_eq!(output["request"]["request_id"], request.request_id);
+    assert_eq!(output["request"]["target_mode"], "qmt_live");
+    assert_eq!(
+        output["request"]["redacted_account_label"],
+        "**************4567"
+    );
+    assert_eq!(
+        output["request"]["target_account_raw"],
+        serde_json::Value::Null
+    );
+    assert_eq!(output["order"]["symbol"], "000001");
+    assert_eq!(output["order"]["side"], "buy");
+    assert_eq!(output["order"]["quantity"], 800);
+    assert_eq!(output["order"]["order_type"], "limit");
+    assert_eq!(output["order"]["price_intent"], "12.34");
+    assert_eq!(output["qmt_live"]["local_submission_id"], "local-audit-1");
+    assert_eq!(output["qmt_live"]["client_order_id"], request.request_id);
+    assert_eq!(output["qmt_live"]["task_id"], "task-audit-1");
+    assert_eq!(output["qmt_live"]["external_order_id"], "broker-audit-1");
+    assert_eq!(output["qmt_live"]["bridge_contract_version"], "miniqmt.v1");
+    assert_eq!(
+        output["qmt_live"]["qmt_live_error_category"],
+        "broker_unknown_state"
+    );
+    assert_eq!(
+        output["qmt_live"]["reconciliation_decision"],
+        "manual_intervention"
+    );
+    assert_eq!(output["qmt_live"]["manual_intervention_marker"], true);
+
+    let local_submission_output = build_execution_bridge_qmt_audit_output(
+        &runtime_store,
+        QmtAuditLookup::LocalSubmission("local-audit-1".to_string()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        local_submission_output["lookup"]["type"],
+        "local_submission_id"
+    );
+    assert_eq!(
+        local_submission_output["request"]["request_id"],
+        request.request_id
+    );
+}
+
+#[tokio::test]
 async fn test_execute_execution_bridge_qmt_preview_remains_available_when_kill_switch_enabled() {
     let _lock = env_lock();
     let _guard = RuntimeEnvGuard::capture();

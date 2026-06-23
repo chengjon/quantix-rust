@@ -3573,5 +3573,98 @@
       "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
       "prepared_at": "2026-06-23T07:48:18.257Z"
     }
+  },
+  {
+    "id": "P0.5d",
+    "title": "qmt_live audit evidence closure",
+    "node_type": "evidence",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+    "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "Baseline: branch feat/p0-5d-qmt-live-audit-evidence from master b88e463; cargo test --quiet passed; Graphiti pre-read timed out; OpenSpec P0.5d requires audit view from existing runtime payloads without storage schema or behavior changes.",
+        "note": "P0.5d startup evidence.",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "recorded_at": "2026-06-23T09:19:02.345Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/cli/commands/trade.rs",
+      "src/cli/handlers/execution_handler.rs",
+      "src/execution/runtime_store/orders.rs",
+      "src/cli/tests/execution.rs",
+      "src/cli/handlers/tests/strategy_execution.rs",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      "docs/reports/QMT_LIVE_AUDIT_EVIDENCE_P0_5D_2026-06-23.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No storage schema changes; no submit/query/cancel/reconciliation behavior changes; no bridge protocol or response shape changes; no OrderStatus or ExecutionAdapter changes; no paper/paper_sim changes; no unwrap cleanup."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-23T09:19:02.268Z",
+    "updated_at": "2026-06-23T16:48:21.703Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "Decision: implement minimal read-only qmt_live audit evidence view from existing runtime records; no submit/query/reconcile behavior change.",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "transitioned_at": "2026-06-23T09:19:02.413Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "Approved P0.5d minimal audit view slice after GitNexus LOW impacts for command enums, execution dispatch, and runtime order query area.",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "transitioned_at": "2026-06-23T09:27:59.702Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "transitioned_at": "2026-06-23T16:47:32.364Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "transitioned_at": "2026-06-23T16:47:32.416Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+        "transitioned_at": "2026-06-23T16:48:21.703Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD red/green; focused audit/CLI tests; git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test; OpenSpec validate; FUNCTION_TREE scope/gate/validate; GitNexus detect_changes."
+      ],
+      "closeout_gate": [
+        "P0.5d report records audit fields, redaction behavior, GitNexus impact/detect, Graphiti status, and P0.5d node closed."
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_AUDIT_EVIDENCE_P0_5D_2026-06-23.md",
+      "compatibility": "",
+      "gates": [],
+      "current_head": "b88e463170b0b088079f6de258b45ffb11af8f21",
+      "prepared_at": "2026-06-23T16:47:32.471Z"
+    }
   }
 ]
