@@ -233,6 +233,25 @@ pub enum ExecutionQmtCommands {
         local_submission_id: Option<String>,
     },
 
+    /// 查看未解决的 qmt_live 人工介入记录
+    ManualInterventions {
+        /// 操作: list 或 show
+        #[arg(value_parser = ["list", "show"])]
+        action: String,
+
+        /// frozen execution request ID
+        #[arg(long = "request-id")]
+        request_id: Option<String>,
+
+        /// qmt_live task_id
+        #[arg(long = "task-id")]
+        task_id: Option<String>,
+
+        /// qmt_live local_submission_id
+        #[arg(long = "local-submission-id")]
+        local_submission_id: Option<String>,
+    },
+
     /// 撤销订单（支持直接 order_id，或 qmt_live task_id 自动解析）
     Cancel {
         /// 订单 ID，或 qmt_live task_id

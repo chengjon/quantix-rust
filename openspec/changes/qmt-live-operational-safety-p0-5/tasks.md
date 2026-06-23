@@ -97,21 +97,21 @@
 
 ## 5. P0.5e Manual-Intervention Report
 
-- [ ] 5.1 Identify current persisted signals for qmt_live manual intervention:
+- [x] 5.1 Identify current persisted signals for qmt_live manual intervention:
   - identity mismatch;
   - broker unknown state;
   - missing external order ID after bridge task completion;
   - reconciliation preserved local state;
   - bridge failure requiring operator review.
-- [ ] 5.2 Add a read-only list/show report for unresolved qmt_live manual-intervention cases.
-- [ ] 5.3 The first report MUST NOT mark cases resolved or mutate runtime state.
-- [ ] 5.4 Add tests for listing and showing each supported intervention category.
-- [ ] 5.5 Add operator guidance text for each category:
+- [x] 5.2 Add a read-only list/show report for unresolved qmt_live manual-intervention cases.
+- [x] 5.3 The first report MUST NOT mark cases resolved or mutate runtime state.
+- [x] 5.4 Add tests for listing and showing each supported intervention category.
+- [x] 5.5 Add operator guidance text for each category:
   - inspect miniQMT same-day orders;
   - compare task ID, client order ID, local submission ID, and external order ID;
   - avoid resubmission until the ambiguous state is resolved.
-- [ ] 5.6 Run focused report tests.
-- [ ] 5.7 Run full gates and GitNexus detect_changes.
+- [x] 5.6 Run focused report tests.
+- [x] 5.7 Run full gates and GitNexus detect_changes.
 
 ## 6. Release And Closure Gates
 

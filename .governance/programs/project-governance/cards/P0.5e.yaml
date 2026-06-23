@@ -1,0 +1,40 @@
+task:
+  id: "P0.5e"
+  title: "qmt_live manual intervention report"
+
+scope:
+  allowed_paths:
+    - "src/cli/commands/trade.rs"
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/cli/tests/execution.rs"
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md"
+    - "docs/reports/QMT_LIVE_MANUAL_INTERVENTION_REPORT_P0_5E_2026-06-24.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No runtime state mutation or resolution workflow"
+  - "No storage schema changes"
+  - "No bridge protocol or miniQMT calls"
+  - "No qmt_live submit/query/cancel/reconciliation behavior changes"
+  - "No OrderStatus or ExecutionAdapter changes"
+  - "No paper/paper_sim changes"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD red/green for list and show report"
+    - "GitNexus impact before edits and detect_changes before commit"
+    - "focused report/CLI parse tests"
+    - "git diff --check, cargo fmt --check, cargo clippy -- -D warnings, cargo test"
+    - "openspec validate qmt-live-operational-safety-p0-5 --strict"
+    - "FUNCTION_TREE gate/validate/scope-check"
+  closeout_gate:
+    - "P0.5e report records persisted signal mapping, read-only guarantee, GitNexus result, Graphiti status, and closed node"
+
+evidence:
+  current_head: "c747b7999958083cfbb474decf6871095769cf4e"
+  notes: []
