@@ -3484,5 +3484,94 @@
       "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
       "prepared_at": "2026-06-23T04:31:48.220Z"
     }
+  },
+  {
+    "id": "P0.5c-backfill",
+    "title": "P0.5c Graphiti backfill record",
+    "node_type": "evidence",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_GRAPHITI_BACKFILL_2026-06-23.md",
+    "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "Graphiti episode 7adb64ad-1d99-4b3b-bbfb-b8229414982c failed ingest in quantix_rust_main with jsondecodeerror; local backfill record required.",
+        "note": "P0.5c PR #272 and master CI already passed; this node only records Graphiti backfill.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "recorded_at": "2026-06-23T07:41:45.883Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_GRAPHITI_BACKFILL_2026-06-23.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code, tests, OpenSpec task state, or qmt_live behavior changes."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-23T07:39:40.036Z",
+    "updated_at": "2026-06-23T07:48:18.326Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "Decision: add local Graphiti backfill report only.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "transitioned_at": "2026-06-23T07:41:46.013Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "P0.5c Graphiti backfill report only; no production code changes.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "transitioned_at": "2026-06-23T07:42:32.959Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Backfill report and FUNCTION_TREE index are prepared; local gates and GitNexus detect_changes passed.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "transitioned_at": "2026-06-23T07:48:18.120Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Backfill record ready to land on docs branch.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "transitioned_at": "2026-06-23T07:48:18.186Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.5c Graphiti backfill record closed after local gates.",
+        "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+        "transitioned_at": "2026-06-23T07:48:18.326Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check; Function Tree scope-check/gate/validate; GitNexus detect_changes."
+      ],
+      "closeout_gate": [
+        "Backfill report contains exact Graphiti backfill required marker and P0.5c memory payload; node closed."
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_GRAPHITI_BACKFILL_2026-06-23.md",
+      "compatibility": "",
+      "gates": [
+        "git diff --check; FUNCTION_TREE scope-check/gate/validate; GitNexus detect_changes LOW affected_processes=0"
+      ],
+      "current_head": "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee",
+      "prepared_at": "2026-06-23T07:48:18.257Z"
+    }
   }
 ]

@@ -1,0 +1,24 @@
+task:
+  id: "P0.5c-backfill"
+  title: "P0.5c Graphiti backfill record"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_GRAPHITI_BACKFILL_2026-06-23.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code, tests, OpenSpec task state, or qmt_live behavior changes."
+
+acceptance:
+  commit_gate:
+    - "git diff --check; Function Tree scope-check/gate/validate; GitNexus detect_changes."
+  closeout_gate:
+    - "Backfill report contains exact Graphiti backfill required marker and P0.5c memory payload; node closed."
+
+evidence:
+  current_head: "f7f0abf3656d45720fdc7840a9848f1d9e1f42ee"
+  notes: []
