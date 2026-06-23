@@ -59,18 +59,18 @@
 
 ## 3. P0.5c Kill Switch Acceptance
 
-- [ ] 3.1 Confirm existing `quantix safety kill-switch` behavior and qmt_live submit-path enforcement.
-- [ ] 3.2 Add missing tests only if current coverage does not prove:
+- [x] 3.1 Confirm existing `quantix safety kill-switch` behavior and qmt_live submit-path enforcement.
+- [x] 3.2 Add missing tests only if current coverage does not prove:
   - kill switch blocks `qmt_live` approval/submission;
   - kill switch blocks `mock_live`;
   - kill switch allows `paper`;
   - kill switch allows qmt_live status/checklist/preflight;
   - kill switch allows qmt_live preview and read-only query;
   - kill switch block payload includes reason, enabled timestamp, blocked timestamp, and target mode.
-- [ ] 3.3 Update operator documentation to make kill switch enablement a required pre-canary and incident-response step.
-- [ ] 3.4 Preserve current safety storage path and payload semantics unless a separate OpenSpec change approves a schema change.
-- [ ] 3.5 Run focused safety and qmt_live tests.
-- [ ] 3.6 Run full gates and GitNexus detect_changes.
+- [x] 3.3 Update operator documentation to make kill switch enablement a required pre-canary and incident-response step.
+- [x] 3.4 Preserve current safety storage path and payload semantics unless a separate OpenSpec change approves a schema change.
+- [x] 3.5 Run focused safety and qmt_live tests.
+- [x] 3.6 Run full gates and GitNexus detect_changes.
 
 ## 4. P0.5d Audit Evidence Closure
 

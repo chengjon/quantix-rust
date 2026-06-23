@@ -3374,5 +3374,115 @@
       "current_head": "5c576748aff234f0c46a40506d8ce721da6cdc2b",
       "prepared_at": "2026-06-22T13:20:05.951Z"
     }
+  },
+  {
+    "id": "P0.5c",
+    "title": "qmt_live kill switch acceptance",
+    "node_type": "implementation",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-P0.5",
+    "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "branch feat/p0-5c-qmt-live-kill-switch at HEAD 603b83b31a81a500d709719c80a5b95361eb2702; baseline cargo test passed after cached rerun; first cargo test RPC timed out but process finished",
+        "note": "P0.5c starts from clean master after P0.5b/backfill merge",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "recorded_at": "2026-06-22T15:04:36.909Z"
+      },
+      {
+        "kind": "runtime",
+        "path": "Graphiti pre-read for P0.5c kill switch acceptance timed out against quantix_rust_main and quantix_rust_docs; Graphiti backfill required if final ingest also fails",
+        "note": "Graphiti timeout during P0.5c pre-read",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "recorded_at": "2026-06-22T15:04:36.973Z"
+      },
+      {
+        "kind": "structural",
+        "path": "GitNexus pre-edit impact: build_kill_switch_payload HIGH, load_blocking_kill_switch_state CRITICAL, execute_execution_bridge_qmt_live_with_runtime_store_and_kill_switch LOW; avoid HIGH/CRITICAL shared helper changes unless separately approved",
+        "note": "P0.5c impact split",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "recorded_at": "2026-06-22T15:04:37.039Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/cli/handlers/tests/strategy_execution.rs",
+      "docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md",
+      "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_2026-06-22.md",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No changes to shared kill switch helpers build_kill_switch_payload or load_blocking_kill_switch_state without separate approval",
+      "No bridge protocol, response shape, storage schema, OrderStatus, ExecutionAdapter, paper_immediate, paper_sim_lifecycle, or unwrap-cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-22T15:04:36.828Z",
+    "updated_at": "2026-06-23T04:31:48.302Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "transitioned_at": "2026-06-22T15:04:37.102Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "transitioned_at": "2026-06-22T15:04:37.228Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "P0.5c acceptance tests, runbook update, report, OpenSpec tasks, local gates, and GitNexus detect_changes are complete.",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "transitioned_at": "2026-06-23T04:31:48.013Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Implementation slice is ready to land on feature branch with no production code changes.",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "transitioned_at": "2026-06-23T04:31:48.142Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.5c closed after local gates and GitNexus LOW detect_changes.",
+        "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+        "transitioned_at": "2026-06-23T04:31:48.302Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD focused P0.5c acceptance tests; git diff --check; cargo fmt --check; focused qmt/safety tests; cargo clippy -- -D warnings; cargo test; OpenSpec validate; Function Tree scope/gate/validate; GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.5c report records kill switch behavior coverage, preserved storage/payload semantics, Graphiti status, gates, PR/CI status, and runtime boundaries"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_2026-06-22.md",
+      "compatibility": "",
+      "gates": [
+        "git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test; npx openspec validate qmt-live-operational-safety-p0-5 --strict; GitNexus detect_changes LOW affected_processes=0"
+      ],
+      "current_head": "603b83b31a81a500d709719c80a5b95361eb2702",
+      "prepared_at": "2026-06-23T04:31:48.220Z"
+    }
   }
 ]

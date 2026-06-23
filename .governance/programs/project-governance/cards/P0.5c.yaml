@@ -1,0 +1,28 @@
+task:
+  id: "P0.5c"
+  title: "qmt_live kill switch acceptance"
+
+scope:
+  allowed_paths:
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "docs/operations/QMT_LIVE_CANARY_RUNBOOK_2026-06-22.md"
+    - "docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_2026-06-22.md"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No changes to shared kill switch helpers build_kill_switch_payload or load_blocking_kill_switch_state without separate approval"
+  - "No bridge protocol, response shape, storage schema, OrderStatus, ExecutionAdapter, paper_immediate, paper_sim_lifecycle, or unwrap-cleanup changes"
+
+acceptance:
+  commit_gate:
+    - "TDD focused P0.5c acceptance tests; git diff --check; cargo fmt --check; focused qmt/safety tests; cargo clippy -- -D warnings; cargo test; OpenSpec validate; Function Tree scope/gate/validate; GitNexus detect_changes"
+  closeout_gate:
+    - "P0.5c report records kill switch behavior coverage, preserved storage/payload semantics, Graphiti status, gates, PR/CI status, and runtime boundaries"
+
+evidence:
+  current_head: "603b83b31a81a500d709719c80a5b95361eb2702"
+  notes: []

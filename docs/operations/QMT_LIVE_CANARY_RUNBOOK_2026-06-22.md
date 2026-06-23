@@ -20,6 +20,16 @@ The canary is allowed only when the operator can produce the redacted evidence a
 - Do not commit secrets, raw credential material, full account identifiers, or raw broker logs.
 - Do not retry a qmt_live submission when identity, query, reconciliation, or manual-intervention state is ambiguous.
 
+## Kill Switch Operating Rule
+
+The kill switch is mandatory operational equipment for every qmt_live canary.
+
+Before the canary, the operator must verify that the kill switch state is visible and that the enable command is available for immediate incident response. This pre-canary check does not mean live submission is allowed while the switch is enabled.
+
+For a real qmt_live submission, the kill switch must be observed as disabled immediately before `quantix execution qmt live --request-id <ID> --yes`.
+
+For incident response, enabling the kill switch is the first containment action when bridge behavior, miniQMT state, identity reconciliation, external order identity, or broker status becomes ambiguous. After enabling it, read-only qmt_live status/checklist/preflight, preview, query, reconciliation, and manual-intervention review remain available for investigation.
+
 ## Required Inputs
 
 - Quantix commit hash under test.
@@ -27,6 +37,7 @@ The canary is allowed only when the operator can produce the redacted evidence a
 - miniQMT account label, redacted before evidence is committed.
 - A single approved qmt_live request ID.
 - Operator name or initials for local audit records.
+- Kill switch operator path and current state observed before submission.
 - Evidence directory:
 
 ```text
@@ -109,6 +120,7 @@ The evidence must record:
 - kill switch enabled/disabled state;
 - reason if enabled;
 - timestamp observed.
+- operator confirmation that the kill switch can be enabled immediately if incident response is needed.
 
 If the kill switch is enabled, stop here unless this is a blocked-path drill.
 

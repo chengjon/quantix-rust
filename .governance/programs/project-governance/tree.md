@@ -54,3 +54,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.5a: qmt_live preflight doctor (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
 - [ ] P0.5b: qmt_live canary runbook and evidence artifact (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
 - [ ] P0.5b-backfill: P0.5b Graphiti backfill record (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
+- [ ] P0.5c: qmt_live kill switch acceptance (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
