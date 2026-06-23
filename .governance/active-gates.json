@@ -1,32 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-23T19:31:30.772Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.5f",
-      "title": "qmt_live release closure docs",
-      "node_type": "closeout",
-      "owner_lane": "project-governance",
-      "parent": "P0.5",
-      "status": "implementation-landed",
-      "source_edits_authorized": false,
-      "current_blocker": "",
-      "next_allowed": "prepare closeout",
-      "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-p0-5",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "README.md",
-        "CHANGELOG.md",
-        "FUNCTION_TREE.md",
-        "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
-        ".governance/active-gates.json",
-        ".governance/active-gates.md",
-        ".governance/programs/project-governance/nodes.json",
-        ".governance/programs/project-governance/cards/P0.5f.yaml"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-23T19:31:30.769Z"
-    }
-  ]
+  "updated_at": "2026-06-23T20:25:14.621Z",
+  "gates": []
 }
