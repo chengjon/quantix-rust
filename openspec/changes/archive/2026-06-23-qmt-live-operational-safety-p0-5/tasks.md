@@ -128,5 +128,5 @@ cargo test
 
 - [x] 6.5 Run function-tree gate and validation.
 - [x] 6.6 Run GitNexus detect_changes and confirm only expected symbols and execution flows are affected.
-- [ ] 6.7 Create compact Graphiti memory for the completed P0.5 result; if ingest fails, add a local Graphiti backfill report containing `Graphiti backfill required`.
-- [ ] 6.8 Archive the OpenSpec change only after the implementation, evidence, documentation, and CI gates are complete.
+- [x] 6.7 Create compact Graphiti memory for the completed P0.5 result; if ingest fails, add a local Graphiti backfill report containing `Graphiti backfill required`.
+- [x] 6.8 Archive the OpenSpec change only after the implementation, evidence, documentation, and CI gates are complete.

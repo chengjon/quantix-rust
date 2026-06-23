@@ -3781,7 +3781,7 @@
     "node_type": "closeout",
     "owner_lane": "project-governance",
     "parent": "P0.5",
-    "status": "implementation-landed",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-p0-5",
     "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
     "freshness": "current-head",
@@ -3823,11 +3823,11 @@
     "non_goals": [
       "No source code, test, bridge protocol, runtime storage, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel, or unwrap cleanup changes."
     ],
-    "next_gate": "prepare closeout",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-23T19:02:39.937Z",
-    "updated_at": "2026-06-23T19:31:30.769Z",
+    "updated_at": "2026-06-23T19:56:58.613Z",
     "track": "mainline",
     "mainline_id": "qmt-live-operational-safety",
     "depth": 2,
@@ -3860,7 +3860,122 @@
         "note": "README, CHANGELOG, FUNCTION_TREE, and OpenSpec release closure docs updated; gates passed.",
         "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
         "transitioned_at": "2026-06-23T19:31:30.769Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "Post-merge Graphiti memory completed and release closure gate 6.7 reflected in OpenSpec/CHANGELOG.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T19:56:01.124Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.5f release docs merged via PR #277; master CI run 28052048372 passed; Graphiti memory episode 37518c95-5545-44cc-a923-85ab06f12b88 ingested completed; OpenSpec gate 6.7 reflected. OpenSpec archive is split to P0.5g.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T19:56:58.612Z"
       }
     ]
+  },
+  {
+    "id": "P0.5g",
+    "title": "qmt_live OpenSpec archive",
+    "node_type": "closeout",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "closed",
+    "function_tree_ref": "openspec/changes/qmt-live-operational-safety-p0-5",
+    "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "post-merge-closeout",
+        "path": "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+        "note": "P0.5 gates 6.1-6.7 are complete after PR #277 merge, master CI, and Graphiti ingest; 6.8 OpenSpec archive remains.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "recorded_at": "2026-06-23T20:02:39.282Z"
+      }
+    ],
+    "allowed_paths": [
+      "openspec/changes/qmt-live-operational-safety-p0-5",
+      "openspec/changes/qmt-live-operational-safety-p0-5/proposal.md",
+      "openspec/changes/qmt-live-operational-safety-p0-5/design.md",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      "openspec/changes/qmt-live-operational-safety-p0-5/specs/qmt-live-operational-safety/spec.md",
+      "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5",
+      "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/proposal.md",
+      "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/design.md",
+      "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/tasks.md",
+      "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/specs/qmt-live-operational-safety/spec.md",
+      "openspec/specs/qmt-live-operational-safety/spec.md",
+      "FUNCTION_TREE.md",
+      "CHANGELOG.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.5f.yaml",
+      ".governance/programs/project-governance/cards/P0.5g.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No source code, test code, runtime behavior, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel, or unwrap cleanup changes."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-23T19:58:26.504Z",
+    "updated_at": "2026-06-23T20:25:14.618Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "openspec archive qmt-live-operational-safety-p0-5 --skip-specs --yes; openspec validate --all --strict; function-tree gate/validate/scope-check; git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test --quiet; GitNexus detect_changes."
+      ],
+      "closeout_gate": [
+        "OpenSpec change archived under openspec/changes/archive; FUNCTION_TREE/CHANGELOG paths reflect archive state; active gates none after closeout."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "P0.5g approved for docs/spec-only OpenSpec archive after P0.5f merge, master CI, and Graphiti ingest.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T20:04:25.794Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Ready to run OpenSpec archive with --skip-specs for docs-only release closure.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T20:04:51.651Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "OpenSpec archive completed with --skip-specs; FUNCTION_TREE and CHANGELOG now reference archived P0.5 change.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T20:24:43.743Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.5 OpenSpec archive closeout complete; active gate can be cleared.",
+        "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+        "transitioned_at": "2026-06-23T20:25:14.618Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Archived qmt-live-operational-safety-p0-5 with openspec archive --skip-specs --yes; actual archive path is openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5. Updated FUNCTION_TREE and CHANGELOG to reference the archive and mark OpenSpec gate 6.8 complete.",
+      "compatibility": "Docs/spec/governance only; no source code, tests, runtime behavior, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel, paper_immediate, paper_sim_lifecycle, or unwrap cleanup changes.",
+      "gates": [
+        "openspec validate --all --strict, git diff --check, function-tree validate/gate/scope-check, cargo fmt --check, cargo clippy -- -D warnings, cargo test --quiet, and GitNexus detect_changes LOW/0 affected processes passed before closeout."
+      ],
+      "current_head": "fb60aab40a548af3c58175afc4c310e0a15c6464",
+      "prepared_at": "2026-06-23T20:25:00.718Z"
+    }
   }
 ]

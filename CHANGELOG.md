@@ -10,7 +10,7 @@ All notable changes to this project are documented here.
 ### Docs
 - **qmt_live operational safety P0.5 release closure** (`README.md`, `CHANGELOG.md`, `FUNCTION_TREE.md`, `openspec/changes/qmt-live-operational-safety-p0-5/tasks.md`)
   - README 同步记录 P0.5d/P0.5e 已落地的 operator 只读工作流：`quantix execution qmt audit` 证据视图与 `quantix execution qmt manual-interventions list/show` 未解决人工介入报表
-  - OpenSpec release closure gate 6.1-6.6 标记完成，确认 P0.5a-P0.5e 已闭合、FUNCTION_TREE 边界已同步、README/CHANGELOG 已更新，且最终门禁与 GitNexus detect_changes 已通过；Graphiti 和归档仍按 6.7-6.8 闭合
+  - OpenSpec release closure gate 6.1-6.8 标记完成，确认 P0.5a-P0.5e 已闭合、FUNCTION_TREE 边界已同步、README/CHANGELOG 已更新，最终门禁、GitNexus detect_changes 与 Graphiti memory 已通过，并将 change 归档到 `openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/`
   - FUNCTION_TREE 新增 P0.5f 发布闭合文档节点；本片仅做文档/治理对齐，不修改交易执行、bridge 协议、runtime storage、`OrderStatus`、`ExecutionAdapter` 或 qmt_live submit/query/cancel 主流程
 
 ## 2026-06-22

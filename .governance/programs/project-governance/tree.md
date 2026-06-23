@@ -59,3 +59,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.5d: qmt_live audit evidence closure (planning, FT: openspec/changes/qmt-live-operational-safety-p0-5/tasks.md)
 - [ ] P0.5e: qmt_live manual intervention report (planning, FT: openspec/changes/qmt-live-operational-safety-p0-5/tasks.md)
 - [ ] P0.5f: qmt_live release closure docs (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-p0-5)
+- [ ] P0.5g: qmt_live OpenSpec archive (planning, FT: openspec/changes/qmt-live-operational-safety-p0-5)

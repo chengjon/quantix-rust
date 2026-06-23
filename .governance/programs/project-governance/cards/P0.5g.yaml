@@ -1,0 +1,40 @@
+task:
+  id: "P0.5g"
+  title: "qmt_live OpenSpec archive"
+
+scope:
+  allowed_paths:
+    - "openspec/changes/qmt-live-operational-safety-p0-5"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/proposal.md"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/design.md"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/specs/qmt-live-operational-safety/spec.md"
+    - "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5"
+    - "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/proposal.md"
+    - "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/design.md"
+    - "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/tasks.md"
+    - "openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/specs/qmt-live-operational-safety/spec.md"
+    - "openspec/specs/qmt-live-operational-safety/spec.md"
+    - "FUNCTION_TREE.md"
+    - "CHANGELOG.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.5f.yaml"
+    - ".governance/programs/project-governance/cards/P0.5g.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No source code, test code, runtime behavior, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel, or unwrap cleanup changes."
+
+acceptance:
+  commit_gate:
+    - "openspec archive qmt-live-operational-safety-p0-5 --skip-specs --yes; openspec validate --all --strict; function-tree gate/validate/scope-check; git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test --quiet; GitNexus detect_changes."
+  closeout_gate:
+    - "OpenSpec change archived under openspec/changes/archive; FUNCTION_TREE/CHANGELOG paths reflect archive state; active gates none after closeout."
+
+evidence:
+  current_head: "fb60aab40a548af3c58175afc4c310e0a15c6464"
+  notes: []
