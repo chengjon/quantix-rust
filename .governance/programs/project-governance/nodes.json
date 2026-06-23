@@ -3774,5 +3774,93 @@
       "current_head": "c747b7999958083cfbb474decf6871095769cf4e",
       "prepared_at": "2026-06-23T18:15:32.676Z"
     }
+  },
+  {
+    "id": "P0.5f",
+    "title": "qmt_live release closure docs",
+    "node_type": "closeout",
+    "owner_lane": "project-governance",
+    "parent": "P0.5",
+    "status": "implementation-landed",
+    "function_tree_ref": "FUNCTION_TREE.md#qmt_live-operational-safety-p0-5",
+    "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "stale-docs",
+        "path": "README.md",
+        "note": "README current status still says 2026-06-22 and does not mention P0.5d/P0.5e qmt_live audit/manual-intervention operator workflows.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "recorded_at": "2026-06-23T19:04:07.687Z"
+      },
+      {
+        "kind": "stale-docs",
+        "path": "CHANGELOG.md",
+        "note": "CHANGELOG latest entry is 2026-06-22 and does not list P0.5d/P0.5e operator-facing qmt_live safety additions.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "recorded_at": "2026-06-23T19:05:16.305Z"
+      },
+      {
+        "kind": "release-closure",
+        "path": "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+        "note": "Release closure tasks 6.1-6.8 remain open after P0.5a-P0.5e implementation slices completed.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "recorded_at": "2026-06-23T19:05:42.696Z"
+      }
+    ],
+    "allowed_paths": [
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/cards/P0.5f.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No source code, test, bridge protocol, runtime storage, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel, or unwrap cleanup changes."
+    ],
+    "next_gate": "prepare closeout",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-23T19:02:39.937Z",
+    "updated_at": "2026-06-23T19:31:30.769Z",
+    "track": "mainline",
+    "mainline_id": "qmt-live-operational-safety",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test; openspec validate qmt-live-operational-safety-p0-5 --strict; function-tree scope/gate/validate; GitNexus detect_changes."
+      ],
+      "closeout_gate": [
+        "P0.5 release docs and OpenSpec closure gates updated; README/CHANGELOG reflect P0.5d/P0.5e user-facing operator workflows; Graphiti memory written and ingest verified after merge."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "Docs-only release closure slice approved; proceed to update README, CHANGELOG, OpenSpec tasks, and FUNCTION_TREE alignment.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "transitioned_at": "2026-06-23T19:12:44.689Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Docs-only release closure edits completed within authorized paths.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "transitioned_at": "2026-06-23T19:31:06.385Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "README, CHANGELOG, FUNCTION_TREE, and OpenSpec release closure docs updated; gates passed.",
+        "current_head": "8fb8b9554c95ca4635074db97e95ae8f075ea47b",
+        "transitioned_at": "2026-06-23T19:31:30.769Z"
+      }
+    ]
   }
 ]
