@@ -115,10 +115,10 @@
 
 ## 6. Release And Closure Gates
 
-- [ ] 6.1 Confirm P0.5a-P0.5e are either complete or explicitly deferred in `tasks.md`.
-- [ ] 6.2 Confirm `FUNCTION_TREE.md` reflects the final P0.5 status and boundaries.
-- [ ] 6.3 Confirm README/CHANGELOG are updated if user-facing commands or operator workflows changed.
-- [ ] 6.4 Run final gates:
+- [x] 6.1 Confirm P0.5a-P0.5e are either complete or explicitly deferred in `tasks.md`.
+- [x] 6.2 Confirm `FUNCTION_TREE.md` reflects the final P0.5 status and boundaries.
+- [x] 6.3 Confirm README/CHANGELOG are updated if user-facing commands or operator workflows changed.
+- [x] 6.4 Run final gates:
 
 ```bash
 cargo fmt --check
@@ -126,7 +126,7 @@ cargo clippy -- -D warnings
 cargo test
 ```
 
-- [ ] 6.5 Run function-tree gate and validation.
-- [ ] 6.6 Run GitNexus detect_changes and confirm only expected symbols and execution flows are affected.
+- [x] 6.5 Run function-tree gate and validation.
+- [x] 6.6 Run GitNexus detect_changes and confirm only expected symbols and execution flows are affected.
 - [ ] 6.7 Create compact Graphiti memory for the completed P0.5 result; if ingest fails, add a local Graphiti backfill report containing `Graphiti backfill required`.
 - [ ] 6.8 Archive the OpenSpec change only after the implementation, evidence, documentation, and CI gates are complete.
