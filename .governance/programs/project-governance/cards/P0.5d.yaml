@@ -1,0 +1,30 @@
+task:
+  id: "P0.5d"
+  title: "qmt_live audit evidence closure"
+
+scope:
+  allowed_paths:
+    - "src/cli/commands/trade.rs"
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/execution/runtime_store/orders.rs"
+    - "src/cli/tests/execution.rs"
+    - "src/cli/handlers/tests/strategy_execution.rs"
+    - "openspec/changes/qmt-live-operational-safety-p0-5/tasks.md"
+    - "docs/reports/QMT_LIVE_AUDIT_EVIDENCE_P0_5D_2026-06-23.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No storage schema changes; no submit/query/cancel/reconciliation behavior changes; no bridge protocol or response shape changes; no OrderStatus or ExecutionAdapter changes; no paper/paper_sim changes; no unwrap cleanup."
+
+acceptance:
+  commit_gate:
+    - "TDD red/green; focused audit/CLI tests; git diff --check; cargo fmt --check; cargo clippy -- -D warnings; cargo test; OpenSpec validate; FUNCTION_TREE scope/gate/validate; GitNexus detect_changes."
+  closeout_gate:
+    - "P0.5d report records audit fields, redaction behavior, GitNexus impact/detect, Graphiti status, and P0.5d node closed."
+
+evidence:
+  current_head: "b88e463170b0b088079f6de258b45ffb11af8f21"
+  notes: []

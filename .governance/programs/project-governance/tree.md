@@ -56,3 +56,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.5b-backfill: P0.5b Graphiti backfill record (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
 - [ ] P0.5c: qmt_live kill switch acceptance (planning, FT: FUNCTION_TREE.md#qmt_live-operational-safety-P0.5)
 - [ ] P0.5c-backfill: P0.5c Graphiti backfill record (planning, FT: docs/reports/QMT_LIVE_KILL_SWITCH_ACCEPTANCE_P0_5C_GRAPHITI_BACKFILL_2026-06-23.md)
+- [ ] P0.5d: qmt_live audit evidence closure (planning, FT: openspec/changes/qmt-live-operational-safety-p0-5/tasks.md)

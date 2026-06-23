@@ -511,6 +511,42 @@ ORDER BY event_time ASC, event_id ASC
         rows.into_iter().map(Self::row_to_order_event).collect()
     }
 
+    pub async fn list_orders(&self) -> Result<Vec<OrderRecord>> {
+        let rows = sqlx::query(
+            r#"
+SELECT
+    order_id,
+    client_order_id,
+    run_id,
+    symbol,
+    side,
+    order_type,
+    requested_quantity,
+    requested_price,
+    filled_quantity,
+    remaining_quantity,
+    avg_fill_price,
+    status,
+    adapter,
+    created_at,
+    updated_at,
+    last_transition_at,
+    version,
+    payload_json
+FROM orders
+ORDER BY created_at DESC
+"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut orders = Vec::new();
+        for row in rows {
+            orders.push(Self::row_to_order(row)?);
+        }
+        Ok(orders)
+    }
+
     pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
         let rows = sqlx::query(
             r#"

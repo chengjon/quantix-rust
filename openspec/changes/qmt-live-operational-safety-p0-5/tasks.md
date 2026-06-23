@@ -74,10 +74,10 @@
 
 ## 4. P0.5d Audit Evidence Closure
 
-- [ ] 4.1 Inventory existing runtime store payload fields for qmt_live submit, query, and reconciliation.
-- [ ] 4.2 Run GitNexus impact before editing runtime store, qmt task submit, reconciliation, or CLI report handlers.
-- [ ] 4.3 Prefer an audit report assembled from existing payloads over a new storage schema.
-- [ ] 4.4 Add tests that the audit view includes:
+- [x] 4.1 Inventory existing runtime store payload fields for qmt_live submit, query, and reconciliation.
+- [x] 4.2 Run GitNexus impact before editing runtime store, qmt task submit, reconciliation, or CLI report handlers.
+- [x] 4.3 Prefer an audit report assembled from existing payloads over a new storage schema.
+- [x] 4.4 Add tests that the audit view includes:
   - request ID;
   - redacted account label;
   - symbol;
@@ -91,9 +91,9 @@
   - qmt_live error category when present;
   - reconciliation decision;
   - manual-intervention marker when present.
-- [ ] 4.5 Ensure audit output redacts secrets and raw account identifiers.
-- [ ] 4.6 Run focused audit/report tests.
-- [ ] 4.7 Run full gates and GitNexus detect_changes.
+- [x] 4.5 Ensure audit output redacts secrets and raw account identifiers.
+- [x] 4.6 Run focused audit/report tests.
+- [x] 4.7 Run full gates and GitNexus detect_changes.
 
 ## 5. P0.5e Manual-Intervention Report
 

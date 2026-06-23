@@ -152,6 +152,21 @@ pub enum ExecutionBridgeCommands {
         order_id: String,
     },
 
+    /// 从本地运行时记录构建 qmt_live 审计证据
+    QmtAudit {
+        /// frozen execution request ID
+        #[arg(long = "request-id")]
+        request_id: Option<String>,
+
+        /// qmt_live task_id
+        #[arg(long = "task-id")]
+        task_id: Option<String>,
+
+        /// qmt_live local_submission_id
+        #[arg(long = "local-submission-id")]
+        local_submission_id: Option<String>,
+    },
+
     /// 撤销订单（支持直接 order_id，或 qmt_live task_id 自动解析）
     QmtCancel {
         /// 订单 ID，或 qmt_live task_id
@@ -201,6 +216,21 @@ pub enum ExecutionQmtCommands {
         /// 订单 ID，或 qmt_live task_id
         #[arg(long = "order-id")]
         order_id: String,
+    },
+
+    /// 从本地运行时记录构建 qmt_live 审计证据
+    Audit {
+        /// frozen execution request ID
+        #[arg(long = "request-id")]
+        request_id: Option<String>,
+
+        /// qmt_live task_id
+        #[arg(long = "task-id")]
+        task_id: Option<String>,
+
+        /// qmt_live local_submission_id
+        #[arg(long = "local-submission-id")]
+        local_submission_id: Option<String>,
     },
 
     /// 撤销订单（支持直接 order_id，或 qmt_live task_id 自动解析）
