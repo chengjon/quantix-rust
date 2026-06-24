@@ -1,0 +1,92 @@
+{
+  "schema": "qmt_live_runtime_readiness_read_only_smoke_v1",
+  "slice": "P0.6b",
+  "collected_at_utc": "2026-06-24T04:04:46.983Z",
+  "repo": {
+    "branch": "feat/p0-6b-qmt-live-read-only-smoke",
+    "head": "5d853d96afb64fd54f52a447f43c29be44b57c68"
+  },
+  "runtime": {
+    "os_runtime_label": "Linux 6.18.33.1-microsoft-standard-WSL2 x64",
+    "operator_selected_runtime_detected": false,
+    "bridge_process_observed": false,
+    "qmt_process_observed": false,
+    "selected_bridge_endpoint_config_present": false,
+    "selected_account_label_present": false,
+    "canonical_bridge_path_exists": true,
+    "canonical_miniqmt_path_exists": true
+  },
+  "decision": {
+    "read_only_smoke_status": "blocked_by_environment_selection",
+    "runtime_smoke_attempted": false,
+    "block_reason": "No qmt/bridge process and no selected qmt bridge environment/config were detected in this session.",
+    "ready_for_p0_6c_evidence_package": false
+  },
+  "safe_local_commands": [
+    {
+      "name": "version",
+      "command": "target/debug/quantix --version",
+      "kind": "read_only_local",
+      "attempted": true,
+      "exit_code": 0,
+      "summary": "quantix 0.1.0"
+    },
+    {
+      "name": "kill_switch_status",
+      "command": "target/debug/quantix safety kill-switch status",
+      "kind": "read_only_local",
+      "attempted": true,
+      "exit_code": 0,
+      "summary": "enabled=false"
+    }
+  ],
+  "qmt_read_only_commands": [
+    {
+      "name": "preflight_checklist",
+      "command": "quantix execution qmt status --checklist",
+      "attempted": false,
+      "skip_reason": "blocked_by_environment_selection"
+    },
+    {
+      "name": "preview_dry_path",
+      "command": "quantix execution qmt preview --request-id <redacted>",
+      "attempted": false,
+      "skip_reason": "blocked_by_environment_selection"
+    },
+    {
+      "name": "query_read_only",
+      "command": "quantix execution qmt query <redacted>",
+      "attempted": false,
+      "skip_reason": "blocked_by_environment_selection"
+    },
+    {
+      "name": "audit_report",
+      "command": "quantix execution qmt audit <redacted>",
+      "attempted": false,
+      "skip_reason": "blocked_by_environment_selection"
+    },
+    {
+      "name": "manual_interventions_list_show",
+      "command": "quantix execution qmt manual-interventions list/show",
+      "attempted": false,
+      "skip_reason": "blocked_by_environment_selection"
+    }
+  ],
+  "mutation_guard": {
+    "live_submit_executed": false,
+    "broker_cancel_executed": false,
+    "manual_intervention_resolution_executed": false,
+    "runtime_store_write_executed": false,
+    "broker_state_mutated": false
+  },
+  "redaction": {
+    "raw_account_identifiers_committed": false,
+    "credentials_committed": false,
+    "raw_bridge_url_committed": false,
+    "raw_broker_logs_committed": false,
+    "screenshots_committed": false,
+    "env_file_contents_committed": false,
+    "process_command_lines_committed": false
+  },
+  "next_required_action": "Operator must start or select a test-owned miniQMT/Windows Bridge runtime and provide commit-safe bridge host and account labels before P0.6b can be rerun as actual read-only smoke."
+}

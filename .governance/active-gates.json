@@ -1,5 +1,29 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-24T02:45:37.741Z",
-  "gates": []
+  "updated_at": "2026-06-24T04:04:15.056Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.6b",
+      "title": "qmt_live read-only command smoke",
+      "node_type": "external",
+      "owner_lane": "project-governance",
+      "parent": "P0.6",
+      "status": "implementation-ready",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "land implementation with Git evidence",
+      "function_tree_ref": "P0.6",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6B_2026-06-24.md",
+        "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
+        "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+        "FUNCTION_TREE.md",
+        ".governance/**"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-24T04:04:15.052Z"
+    }
+  ]
 }

@@ -4166,5 +4166,72 @@
       "current_head": "2ecc46f7419cb55b05266fdb6142ed8c8f790d4b",
       "prepared_at": "2026-06-24T02:45:37.679Z"
     }
+  },
+  {
+    "id": "P0.6b",
+    "title": "qmt_live read-only command smoke",
+    "node_type": "external",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "P0.6",
+    "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "baseline: master 5d853d9 after P0.6a; P0.6b starts as read-only smoke or blocked-by-environment evidence only",
+        "note": "P0.6b baseline",
+        "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
+        "recorded_at": "2026-06-24T04:03:56.641Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6B_2026-06-24.md",
+      "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
+      "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, tests, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6b."
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T04:03:56.555Z",
+    "updated_at": "2026-06-24T04:04:15.052Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict",
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "P0.6b records read-only smoke evidence when an operator-selected runtime exists, or records a blocked-by-environment smoke decision when it does not."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
+        "transitioned_at": "2026-06-24T04:04:14.993Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
+        "transitioned_at": "2026-06-24T04:04:15.051Z"
+      }
+    ]
   }
 ]
