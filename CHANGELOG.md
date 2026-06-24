@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-24
 
 ### Docs
+- **qmt_live runtime readiness P0.6 OpenSpec** (`openspec/changes/qmt-live-runtime-readiness-p0-6/`, `FUNCTION_TREE.md`, `README.md`, `CHANGELOG.md`)
+  - 新增 P0.6 正式 OpenSpec 规划，聚焦真实或测试 miniQMT/Windows Bridge 环境下的只读运行就绪验证、脱敏证据包、故障边界演练和 canary 前置决策
+  - 明确 P0.6 不授权实盘提交、撤单、manual-intervention resolution、bridge 协议变更、storage schema 变更、`OrderStatus`/`ExecutionAdapter` 改造、paper 执行语义改造或 `.unwrap()` 清理
 - **qmt_live operational safety P0.5 release closure** (`README.md`, `CHANGELOG.md`, `FUNCTION_TREE.md`, `openspec/changes/qmt-live-operational-safety-p0-5/tasks.md`)
   - README 同步记录 P0.5d/P0.5e 已落地的 operator 只读工作流：`quantix execution qmt audit` 证据视图与 `quantix execution qmt manual-interventions list/show` 未解决人工介入报表
   - OpenSpec release closure gate 6.1-6.8 标记完成，确认 P0.5a-P0.5e 已闭合、FUNCTION_TREE 边界已同步、README/CHANGELOG 已更新，最终门禁、GitNexus detect_changes 与 Graphiti memory 已通过，并将 change 归档到 `openspec/changes/archive/2026-06-23-qmt-live-operational-safety-p0-5/`
