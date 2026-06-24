@@ -1,0 +1,26 @@
+task:
+  id: "P0.6b-backfill"
+  title: "P0.6b Graphiti backfill record"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6B_GRAPHITI_BACKFILL_2026-06-24.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, or qmt_live behavior in this Graphiti backfill record."
+
+acceptance:
+  commit_gate:
+    - "function-tree validate/gate/scope-check must pass"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "Local Graphiti backfill record exists with exact failed episode IDs and equivalent memory summary."
+
+evidence:
+  current_head: "7fc4235a3026e0503de52fcfb525f9f896e304d2"
+  notes: []
