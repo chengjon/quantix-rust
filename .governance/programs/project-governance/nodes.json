@@ -4173,11 +4173,11 @@
     "node_type": "external",
     "owner_lane": "project-governance",
     "parent": "P0.6",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "P0.6",
     "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -4198,11 +4198,11 @@
     "non_goals": [
       "Do not modify runtime source code, tests, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6b."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T04:03:56.555Z",
-    "updated_at": "2026-06-24T04:04:15.052Z",
+    "updated_at": "2026-06-24T04:09:43.794Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 1,
@@ -4231,7 +4231,33 @@
         "note": "",
         "current_head": "5d853d96afb64fd54f52a447f43c29be44b57c68",
         "transitioned_at": "2026-06-24T04:04:15.051Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "da5eb259ca511790898ccff0ab5be72c74f1c92a",
+        "transitioned_at": "2026-06-24T04:09:43.665Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "da5eb259ca511790898ccff0ab5be72c74f1c92a",
+        "transitioned_at": "2026-06-24T04:09:43.794Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "Committed P0.6b read-only smoke blocked-by-environment evidence in da5eb25.",
+      "compatibility": "Documentation/evidence only; no runtime code, tests, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup changes.",
+      "gates": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict passed",
+        "function-tree scope-check/validate/gate passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW / 0 affected processes"
+      ],
+      "current_head": "da5eb259ca511790898ccff0ab5be72c74f1c92a",
+      "prepared_at": "2026-06-24T04:09:43.731Z"
+    }
   }
 ]
