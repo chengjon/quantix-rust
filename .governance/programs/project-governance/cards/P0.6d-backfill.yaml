@@ -1,0 +1,26 @@
+task:
+  id: "P0.6d-backfill"
+  title: "qmt_live failure boundary Graphiti backfill"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_GRAPHITI_BACKFILL_2026-06-24.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, qmt_live behavior, or P0.6 evidence artifacts in this Graphiti backfill record."
+
+acceptance:
+  commit_gate:
+    - "function-tree validate/gate/scope-check must pass"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "Local Graphiti backfill record exists with episode UUID, processing-timeout evidence, and equivalent P0.6d memory summary."
+
+evidence:
+  current_head: "d3951354f2e0f447b9069a1a1746728a0e940522"
+  notes: []
