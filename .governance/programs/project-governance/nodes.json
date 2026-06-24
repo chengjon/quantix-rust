@@ -4635,5 +4635,97 @@
         "transitioned_at": "2026-06-24T10:30:58.466Z"
       }
     ]
+  },
+  {
+    "id": "P0.6d-backfill",
+    "title": "qmt_live failure boundary Graphiti backfill",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.6d",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md",
+    "current_head": "32aaf04a3c35ec6dc8667b460319a2e569ae4504",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "Graphiti episode 4fe294c3-712e-49b8-b730-d627bc6d7fe5 for P0.6d closeout was queued and repeatedly polled but remained processing with processed_at=null, last_error=null, queue_depth=0; local backfill record required.",
+        "note": "Backfill scope is docs/governance only.",
+        "current_head": "d3951354f2e0f447b9069a1a1746728a0e940522",
+        "recorded_at": "2026-06-24T10:46:32.729Z"
+      },
+      {
+        "kind": "verification",
+        "path": "Backfill implementation commit 32aaf04 records Graphiti episode 4fe294c3-712e-49b8-b730-d627bc6d7fe5 as unverified/stuck processing and preserves equivalent P0.6d memory summary with Graphiti backfill required.",
+        "note": "Docs/governance only.",
+        "current_head": "32aaf04a3c35ec6dc8667b460319a2e569ae4504",
+        "recorded_at": "2026-06-24T10:49:38.364Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_GRAPHITI_BACKFILL_2026-06-24.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, qmt_live behavior, or P0.6 evidence artifacts in this Graphiti backfill record."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T10:46:14.599Z",
+    "updated_at": "2026-06-24T10:50:22.398Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "Local Graphiti backfill record exists with episode UUID, processing-timeout evidence, and equivalent P0.6d memory summary."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "Graphiti ingest verification for P0.6d could not be completed after repeated polling, so local backfill record is required.",
+        "current_head": "d3951354f2e0f447b9069a1a1746728a0e940522",
+        "transitioned_at": "2026-06-24T10:46:58.648Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Begin docs-only Graphiti backfill implementation.",
+        "current_head": "d3951354f2e0f447b9069a1a1746728a0e940522",
+        "transitioned_at": "2026-06-24T10:47:11.437Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Implementation landed in commit 32aaf04.",
+        "current_head": "32aaf04a3c35ec6dc8667b460319a2e569ae4504",
+        "transitioned_at": "2026-06-24T10:49:52.849Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "Closeout prepared for docs-only Graphiti backfill.",
+        "current_head": "32aaf04a3c35ec6dc8667b460319a2e569ae4504",
+        "transitioned_at": "2026-06-24T10:50:09.423Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.6d-backfill closed: local Graphiti backfill report committed, no active gates remain.",
+        "current_head": "32aaf04a3c35ec6dc8667b460319a2e569ae4504",
+        "transitioned_at": "2026-06-24T10:50:22.398Z"
+      }
+    ]
   }
 ]
