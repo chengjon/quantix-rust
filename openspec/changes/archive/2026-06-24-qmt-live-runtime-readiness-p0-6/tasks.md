@@ -52,20 +52,22 @@
 
 ## 5. P0.6e Readiness Decision Report
 
-- [ ] 5.1 Produce a final report with one decision:
+- [x] 5.1 Produce a final report with one decision:
   - `ready_for_canary_proposal`;
   - `blocked_by_environment`;
   - `blocked_by_command_gap`;
   - `blocked_by_safety_gap`;
   - `blocked_by_manual_intervention`.
-- [ ] 5.2 Reference exact evidence files and commands.
-- [ ] 5.3 List residual risks and required approval before any controlled canary.
-- [ ] 5.4 Update README, CHANGELOG, and FUNCTION_TREE if operator-visible status changes.
-- [ ] 5.5 Run final gates for the implemented slice.
-- [ ] 5.6 Write Graphiti memory after durable conclusions and verify ingest.
+- [x] 5.2 Reference exact evidence files and commands.
+- [x] 5.3 List residual risks and required approval before any controlled canary.
+- [x] 5.4 Update README, CHANGELOG, and FUNCTION_TREE if operator-visible status changes.
+- [x] 5.5 Run final gates for the implemented slice.
+- [x] 5.6 Write Graphiti memory after durable conclusions and verify ingest status.
+  - Episode `1e1a3378-1381-4601-b1b9-f86036c40f3e` remained `processing` with `processed_at=null`; fallback summary recorded in `docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md` with `Graphiti backfill required`.
 
 ## 6. Closure
 
-- [ ] 6.1 Confirm all completed P0.6 slices have passed their declared gates.
-- [ ] 6.2 Confirm OpenSpec task status matches actual evidence.
-- [ ] 6.3 Archive this OpenSpec change only after P0.6 is closed or explicitly blocked with documented reason.
+- [x] 6.1 Confirm all completed P0.6 slices have passed their declared gates.
+- [x] 6.2 Confirm OpenSpec task status matches actual evidence.
+- [x] 6.3 Archive this OpenSpec change only after P0.6 is closed or explicitly blocked with documented reason.
+  - P0.6 is explicitly blocked with documented reason `blocked_by_environment`; archive/maintenance status is recorded in `docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md`, `README.md`, `CHANGELOG.md`, and `FUNCTION_TREE.md`.

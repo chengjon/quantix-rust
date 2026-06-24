@@ -4,7 +4,7 @@ task:
 
 scope:
   allowed_paths:
-    - "openspec/changes/qmt-live-runtime-readiness-p0-6/**"
+    - "openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/**"
     - "FUNCTION_TREE.md"
     - ".governance/**"
     - "CHANGELOG.md"

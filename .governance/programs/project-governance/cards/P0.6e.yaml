@@ -1,0 +1,28 @@
+task:
+  id: "P0.6e"
+  title: "qmt_live runtime readiness decision report"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md"
+    - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md"
+    - "openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No qmt_live production code changes, no runtime probes, no submit/cancel/manual-intervention resolution, no bridge protocol or storage changes, no tests beyond documentation/governance gates"
+
+acceptance:
+  commit_gate:
+    - "OpenSpec validate, FUNCTION_TREE validate/gate/scope-check, git diff --check, GitNexus detect_changes"
+  closeout_gate:
+    - "P0.6e decision report records blocked_by_environment, Closure tasks updated, global docs mark P0.6 archived/maintenance-only, active gates none"
+
+evidence:
+  current_head: "98160104fcacce16c1ff9aa95610da33b786b982"
+  notes: []

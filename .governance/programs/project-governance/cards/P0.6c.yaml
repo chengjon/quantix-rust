@@ -6,7 +6,7 @@ scope:
   allowed_paths:
     - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md"
     - "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**"
-    - "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md"
+    - "openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/tasks.md"
     - "FUNCTION_TREE.md"
     - ".governance/**"
     - "tests/repo_hygiene_test.rs"
