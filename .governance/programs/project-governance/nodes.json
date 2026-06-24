@@ -4348,5 +4348,75 @@
       "current_head": "36ee3655b6d72963559316a6a9ca0e98e4dee34d",
       "prepared_at": "2026-06-24T04:42:23.071Z"
     }
+  },
+  {
+    "id": "P0.6c",
+    "title": "qmt_live runtime readiness evidence package",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#3-p06c-redacted-runtime-evidence-package",
+    "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "P0.6c scope confirmed from OpenSpec tasks: add/update runtime readiness evidence template, redaction rules, no-submit/cancel mutation proof, and repo hygiene coverage if needed.",
+        "note": "Graphiti pre-read completed for quantix_rust_main and quantix_rust_docs; P0.6b remains blocked_by_environment_selection, so P0.6c must not declare runtime smoke success.",
+        "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
+        "recorded_at": "2026-06-24T08:53:52.315Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md",
+      "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
+      "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance/**",
+      "tests/repo_hygiene_test.rs"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6c."
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T08:53:16.838Z",
+    "updated_at": "2026-06-24T08:56:48.043Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict",
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "focused repo hygiene test must pass",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "P0.6c adds a redacted runtime evidence template and local evidence README with mutation guard and redaction requirements.",
+        "Repo hygiene coverage prevents the runtime readiness evidence template from including raw secret/account/broker evidence fields."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "User approved continuing P0.6; P0.6c is constrained to evidence template, redaction documentation, mutation proof, OpenSpec task update, and focused repo hygiene test.",
+        "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
+        "transitioned_at": "2026-06-24T08:56:40.855Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Begin P0.6c implementation under authorized docs/evidence/test-hygiene scope.",
+        "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
+        "transitioned_at": "2026-06-24T08:56:48.043Z"
+      }
+    ]
   }
 ]

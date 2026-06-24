@@ -36,10 +36,10 @@
 
 ## 3. P0.6c Redacted Runtime Evidence Package
 
-- [ ] 3.1 Add or update the P0.6 evidence template.
-- [ ] 3.2 Include redaction rules for account IDs, account names, credentials, bridge URLs, broker logs, and screenshots.
-- [ ] 3.3 Include a checklist proving no submit/cancel or broker-state mutation occurred.
-- [ ] 3.4 Add repo hygiene coverage if needed to prevent committing secrets or raw broker evidence.
+- [x] 3.1 Add or update the P0.6 evidence template.
+- [x] 3.2 Include redaction rules for account IDs, account names, credentials, bridge URLs, broker logs, and screenshots.
+- [x] 3.3 Include a checklist proving no submit/cancel or broker-state mutation occurred.
+- [x] 3.4 Add repo hygiene coverage if needed to prevent committing secrets or raw broker evidence.
 
 ## 4. P0.6d Failure-Boundary Drill
 
