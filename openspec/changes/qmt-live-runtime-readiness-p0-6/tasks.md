@@ -27,12 +27,12 @@
 
 ## 2. P0.6b Read-Only Command Smoke
 
-- [ ] 2.1 Run `quantix execution qmt status --checklist` against the selected runtime.
-- [ ] 2.2 Run `quantix execution qmt preview` in a no-submit path with a redacted request reference or fixture.
-- [ ] 2.3 Run `quantix execution qmt query` only if a safe read-only query target exists.
-- [ ] 2.4 Run `quantix execution qmt audit` against local runtime-store records when available.
-- [ ] 2.5 Run `quantix execution qmt manual-interventions list/show` against local runtime-store records when available.
-- [ ] 2.6 Record outputs as summarized evidence, not raw broker logs.
+- [x] 2.1 Run `quantix execution qmt status --checklist` against the selected runtime, or record that no selected runtime exists.
+- [x] 2.2 Run `quantix execution qmt preview` in a no-submit path with a redacted request reference or fixture, or record that no selected runtime/request exists.
+- [x] 2.3 Run `quantix execution qmt query` only if a safe read-only query target exists.
+- [x] 2.4 Run `quantix execution qmt audit` against local runtime-store records when available.
+- [x] 2.5 Run `quantix execution qmt manual-interventions list/show` against local runtime-store records when available.
+- [x] 2.6 Record outputs as summarized evidence, not raw broker logs.
 
 ## 3. P0.6c Redacted Runtime Evidence Package
 

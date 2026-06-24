@@ -62,3 +62,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.5g: qmt_live OpenSpec archive (planning, FT: openspec/changes/qmt-live-operational-safety-p0-5)
 - [ ] P0.6: qmt_live runtime readiness (planning, FT: P0.5)
 - [ ] P0.6a: qmt_live environment inventory and prerequisite check (planning, FT: P0.6)
+- [ ] P0.6b: qmt_live read-only command smoke (planning, FT: P0.6)
