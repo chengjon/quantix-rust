@@ -43,12 +43,12 @@
 
 ## 4. P0.6d Failure-Boundary Drill
 
-- [ ] 4.1 Verify bridge-unavailable behavior is fail-closed and operator-readable.
-- [ ] 4.2 Verify `qmt.enabled=false` behavior is fail-closed.
-- [ ] 4.3 Verify non-live or ambiguous `qmt.mode` behavior is fail-closed.
-- [ ] 4.4 Verify missing required qmt capability behavior is fail-closed.
-- [ ] 4.5 Verify enabled kill switch blocks mutation while read-only inspection remains available.
-- [ ] 4.6 Record which cases were actually executed and which were deferred due to unavailable runtime controls.
+- [x] 4.1 Verify bridge-unavailable behavior is fail-closed and operator-readable.
+- [x] 4.2 Verify `qmt.enabled=false` behavior is fail-closed.
+- [x] 4.3 Verify non-live or ambiguous `qmt.mode` behavior is fail-closed.
+- [x] 4.4 Verify missing required qmt capability behavior is fail-closed.
+- [x] 4.5 Verify enabled kill switch blocks mutation while read-only inspection remains available.
+- [x] 4.6 Record which cases were actually executed and which were deferred due to unavailable runtime controls.
 
 ## 5. P0.6e Readiness Decision Report
 

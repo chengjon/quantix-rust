@@ -1,0 +1,144 @@
+{
+  "schema": "qmt_live_runtime_readiness_failure_boundary_v1",
+  "slice": "P0.6d",
+  "collected_at_utc": "2026-06-24T10:25:48Z",
+  "repo": {
+    "branch": "feat/p0-6d-failure-boundary-drill",
+    "head": "adc84de3d37b6301338f8018ba15d8b507708139"
+  },
+  "runtime": {
+    "operator_selected_runtime_detected": false,
+    "selected_bridge_endpoint_config_present": false,
+    "selected_account_label_present": false,
+    "bridge_endpoint_label": "default_local_bridge_capability_endpoint_redacted",
+    "broker_runtime_mutation_allowed": false
+  },
+  "executed_read_only_probes": [
+    {
+      "name": "version",
+      "command": "target/debug/quantix --version",
+      "attempted": true,
+      "exit_code": 0,
+      "summary": "quantix 0.1.0"
+    },
+    {
+      "name": "qmt_status_checklist_bridge_unavailable",
+      "command": "target/debug/quantix execution qmt status --checklist",
+      "attempted": true,
+      "exit_code": 0,
+      "summary": {
+        "ready": false,
+        "readiness": "not_ready",
+        "failure_category": "bridge_unreachable",
+        "bridge_reachable": false,
+        "bridge_contract_version": "unknown",
+        "kill_switch": "disabled",
+        "qmt_enabled": null,
+        "qmt_mode": null,
+        "order_submit_supported": null
+      },
+      "operator_readable": true,
+      "broker_state_mutated": false
+    },
+    {
+      "name": "kill_switch_status",
+      "command": "target/debug/quantix safety kill-switch status",
+      "attempted": true,
+      "exit_code": 0,
+      "summary": {
+        "enabled": false,
+        "reason": null,
+        "updated_by": "cli"
+      }
+    }
+  ],
+  "contract_verification_tests": [
+    {
+      "name": "preflight_fail_closed_categories",
+      "command": "cargo test --lib test_qmt_live_preflight_report_classifies_fail_closed_categories -- --test-threads=1",
+      "result": "passed",
+      "summary": "1 passed; verifies bridge_unreachable, qmt_disabled, qmt_mode_not_live, missing_order_submit, kill_switch_enabled, and local_capability_mismatch preflight categories."
+    },
+    {
+      "name": "kill_switch_read_only_paths_remain_available",
+      "command": "cargo test --lib remains_available_when_kill_switch_enabled -- --test-threads=1",
+      "result": "passed",
+      "summary": "2 passed; verifies qmt preview and qmt query read-only paths remain available when kill switch is enabled."
+    },
+    {
+      "name": "kill_switch_enabled_blocks_live_capable_mutation",
+      "command": "cargo test --lib kill_switch_enabled -- --test-threads=1",
+      "result": "passed",
+      "summary": "8 passed; verifies qmt_live and mock_live mutation paths are rejected while paper remains allowed and qmt preview/query remain read-only available."
+    }
+  ],
+  "boundary_matrix": [
+    {
+      "boundary": "bridge_unavailable",
+      "status": "executed",
+      "evidence": "qmt_status_checklist_bridge_unavailable",
+      "fail_closed": true,
+      "operator_readable": true,
+      "runtime_control_deferred": false
+    },
+    {
+      "boundary": "qmt.enabled=false",
+      "status": "contract_verified_runtime_control_deferred",
+      "evidence": "preflight_fail_closed_categories",
+      "fail_closed": true,
+      "operator_readable": true,
+      "runtime_control_deferred": true,
+      "deferred_reason": "No operator-selected bridge runtime was available to return a controlled qmt.enabled=false capabilities payload."
+    },
+    {
+      "boundary": "qmt.mode_not_live_or_ambiguous",
+      "status": "contract_verified_runtime_control_deferred",
+      "evidence": "preflight_fail_closed_categories",
+      "fail_closed": true,
+      "operator_readable": true,
+      "runtime_control_deferred": true,
+      "deferred_reason": "No operator-selected bridge runtime was available to return controlled non-live or ambiguous qmt.mode capability metadata."
+    },
+    {
+      "boundary": "missing_required_order_submit_capability",
+      "status": "contract_verified_runtime_control_deferred",
+      "evidence": "preflight_fail_closed_categories",
+      "fail_closed": true,
+      "operator_readable": true,
+      "runtime_control_deferred": true,
+      "deferred_reason": "No operator-selected bridge runtime was available to return controlled qmt.supports metadata without order_submit."
+    },
+    {
+      "boundary": "kill_switch_enabled",
+      "status": "contract_verified_runtime_mutation_not_attempted",
+      "evidence": "kill_switch_read_only_paths_remain_available; kill_switch_enabled_blocks_live_capable_mutation",
+      "fail_closed": true,
+      "operator_readable": true,
+      "runtime_control_deferred": true,
+      "deferred_reason": "Live mutation command was not executed in P0.6d; current behavior was verified through focused tests."
+    }
+  ],
+  "mutation_guard": {
+    "qmt_live_submit_executed": false,
+    "broker_cancel_executed": false,
+    "manual_intervention_resolution_executed": false,
+    "runtime_store_write_executed": false,
+    "broker_state_mutated": false,
+    "kill_switch_state_changed_by_cli": false
+  },
+  "redaction": {
+    "account_details_removed": true,
+    "credentials_removed": true,
+    "bridge_endpoints_label_only": true,
+    "broker_logs_excluded": true,
+    "screenshots_excluded": true,
+    "raw_payloads_summarized": true
+  },
+  "decision": {
+    "failure_boundary_drill_status": "partially_executed_with_runtime_controls_deferred",
+    "ready_for_canary_proposal": false,
+    "block_reason": "P0.6b actual read-only smoke remains blocked by missing operator-selected Windows Bridge/miniQMT runtime and commit-safe labels.",
+    "next_required_action": "Operator must provide a test-owned runtime and commit-safe labels before rerunning P0.6b and repeating P0.6d against controlled bridge capability responses."
+  }
+}
+

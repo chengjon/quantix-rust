@@ -4538,5 +4538,74 @@
         "transitioned_at": "2026-06-24T09:35:34.814Z"
       }
     ]
+  },
+  {
+    "id": "P0.6d",
+    "title": "qmt_live runtime readiness failure boundary drill",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#4-p06d-failure-boundary-drill",
+    "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "P0.6d scope confirmed from OpenSpec task 4: verify bridge-unavailable, qmt.enabled=false, non-live/ambiguous mode, missing order_submit, kill switch enabled boundaries; record executed vs deferred due to unavailable runtime controls. Graphiti reads completed for qmt_live runtime readiness and kill-switch semantics.",
+        "note": "No qmt_live live submit/cancel or broker/runtime mutation allowed.",
+        "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
+        "recorded_at": "2026-06-24T10:23:09.446Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md",
+      "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
+      "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, tests, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6d."
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T10:22:58.832Z",
+    "updated_at": "2026-06-24T10:23:49.402Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict",
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "focused failure-boundary tests and read-only CLI probes must pass",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "P0.6d records which failure-boundary cases were executed and which were deferred due to missing operator-selected runtime controls.",
+        "P0.6d evidence proves no qmt_live submit/cancel, manual-intervention resolution, broker/runtime mutation, or broker-state mutation occurred."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "User approved continuing P0.6; P0.6d is constrained to failure-boundary evidence/reporting with no runtime source changes.",
+        "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
+        "transitioned_at": "2026-06-24T10:23:38.728Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Begin P0.6d read-only/local failure-boundary drill evidence implementation.",
+        "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
+        "transitioned_at": "2026-06-24T10:23:49.402Z"
+      }
+    ]
   }
 ]
