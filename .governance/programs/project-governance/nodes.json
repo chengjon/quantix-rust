@@ -3984,11 +3984,11 @@
     "node_type": "external",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "P0.5",
     "current_head": "325d2276bf939b261385b8fc7a1e2decfe18a946",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -4010,11 +4010,11 @@
     "non_goals": [
       "Do not modify runtime source code, tests, bridge protocol, storage schema, order status semantics, miniQMT submission behavior, or unwrap cleanup in this planning slice."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T01:30:46.083Z",
-    "updated_at": "2026-06-24T01:32:52.470Z",
+    "updated_at": "2026-06-24T01:41:08.847Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 0,
@@ -4044,7 +4044,34 @@
         "note": "",
         "current_head": "325d2276bf939b261385b8fc7a1e2decfe18a946",
         "transitioned_at": "2026-06-24T01:32:52.469Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "63c8da6ab29c49e91282a201b969008940135604",
+        "transitioned_at": "2026-06-24T01:41:08.718Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "63c8da6ab29c49e91282a201b969008940135604",
+        "transitioned_at": "2026-06-24T01:41:08.847Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "Committed P0.6 qmt_live runtime readiness OpenSpec planning in 63c8da6.",
+      "compatibility": "Documentation/governance only; no runtime code, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, broker mutation, paper semantics, or unwrap cleanup changes.",
+      "gates": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict passed",
+        "openspec validate --all --strict passed",
+        "function-tree validate/gate/scope-check passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW / 0 affected processes"
+      ],
+      "current_head": "63c8da6ab29c49e91282a201b969008940135604",
+      "prepared_at": "2026-06-24T01:41:08.783Z"
+    }
   }
 ]
