@@ -1,0 +1,111 @@
+{
+  "schema": "qmt_live_runtime_readiness_environment_inventory_v1",
+  "slice": "P0.6a",
+  "collected_at_utc": "2026-06-24T02:32:53.510Z",
+  "repo": {
+    "branch": "feat/p0-6a-qmt-live-runtime-inventory",
+    "head": "9846390ccd4ca20a7b4f5887b15f07728a26562a"
+  },
+  "runtime": {
+    "os_runtime_label": "Linux 6.18.33.1-microsoft-standard-WSL2 x64",
+    "workspace_root": "/opt/claude/quantix-rust",
+    "operator_runtime_selected": false,
+    "runtime_availability_status": "blocked_by_environment_selection",
+    "runtime_availability_reason": "Canonical Windows Bridge and miniQMT directories exist, but this session has no selected bridge endpoint/config and no qmt/bridge process was observed."
+  },
+  "bridge": {
+    "bridge_host_label": "not_selected",
+    "canonical_bridge_path": {
+      "path": "/mnt/d/mystocks/quantix/quantix_bridge",
+      "exists": true,
+      "is_dir": true
+    },
+    "repo_bridge_path": {
+      "path": "/opt/claude/quantix-rust/quantix_bridge",
+      "exists": false,
+      "is_dir": false
+    },
+    "process_observed": false,
+    "process_count": 0,
+    "endpoint_selected": false,
+    "contract_version_observed": null
+  },
+  "miniqmt": {
+    "account_type_label": "not_selected",
+    "account_label": "not_selected",
+    "raw_account_id_recorded": false,
+    "canonical_miniqmt_path": {
+      "path": "/mnt/d/MyCode3/miniQMT",
+      "exists": true,
+      "is_dir": true
+    }
+  },
+  "quantix": {
+    "binary": "target/debug/quantix",
+    "binary_available": true,
+    "version": "quantix 0.1.0",
+    "command_on_path": true
+  },
+  "configuration": {
+    "matching_env_vars_present": [],
+    "user_quantix_config_present": false,
+    "repo_default_config_present": true,
+    "repo_default_config_contains_qmt_key": false,
+    "repo_default_config_contains_bridge_key": false,
+    "repo_default_config_contains_kill_switch_key": false,
+    "raw_values_redacted": true
+  },
+  "qmt_capability_summary": {
+    "observed": false,
+    "bridge_reachable": false,
+    "qmt_enabled": "not_observed",
+    "qmt_mode": "not_observed",
+    "order_submit_supported": "not_observed",
+    "reason": "No endpoint was selected and no bridge/qmt process was observed in this session."
+  },
+  "kill_switch": {
+    "command": "target/debug/quantix safety kill-switch status",
+    "exit_code": 0,
+    "enabled": false,
+    "reason": null,
+    "enabled_at": null,
+    "disabled_at": null,
+    "updated_by": "cli"
+  },
+  "commands": [
+    {
+      "name": "environment_probe",
+      "kind": "read_only",
+      "mutates_broker_state": false,
+      "result": "completed"
+    },
+    {
+      "name": "quantix_version",
+      "command": "target/debug/quantix --version",
+      "kind": "read_only",
+      "exit_code": 0,
+      "summary": "quantix 0.1.0"
+    },
+    {
+      "name": "kill_switch_status",
+      "command": "target/debug/quantix safety kill-switch status",
+      "kind": "read_only",
+      "exit_code": 0,
+      "summary": "enabled=false"
+    }
+  ],
+  "redaction": {
+    "raw_account_identifiers_committed": false,
+    "credentials_committed": false,
+    "raw_bridge_url_committed": false,
+    "raw_broker_logs_committed": false,
+    "screenshots_committed": false,
+    "env_file_contents_committed": false,
+    "process_command_lines_committed": false
+  },
+  "p0_6a_result": {
+    "environment_inventory_recorded": true,
+    "runtime_ready_for_p0_6b_smoke": false,
+    "next_required_action": "Operator must select and start a test-owned miniQMT/Windows Bridge runtime and provide a commit-safe bridge host label before P0.6b read-only smoke can run."
+  }
+}

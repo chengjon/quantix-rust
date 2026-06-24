@@ -4073,5 +4073,72 @@
       "current_head": "63c8da6ab29c49e91282a201b969008940135604",
       "prepared_at": "2026-06-24T01:41:08.783Z"
     }
+  },
+  {
+    "id": "P0.6a",
+    "title": "qmt_live environment inventory and prerequisite check",
+    "node_type": "external",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "P0.6",
+    "current_head": "9846390ccd4ca20a7b4f5887b15f07728a26562a",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "baseline: master 9846390 after P0.6 OpenSpec merge; P0.6a starts as docs/evidence-only runtime environment inventory and prerequisite check",
+        "note": "P0.6a baseline",
+        "current_head": "9846390ccd4ca20a7b4f5887b15f07728a26562a",
+        "recorded_at": "2026-06-24T02:31:57.536Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6A_2026-06-24.md",
+      "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
+      "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, tests, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, qmt_live submit/query/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6a."
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T02:31:57.464Z",
+    "updated_at": "2026-06-24T02:32:17.002Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "openspec validate qmt-live-runtime-readiness-p0-6 --strict",
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "P0.6a records a commit-safe runtime inventory/prerequisite evidence file and updates OpenSpec task status without claiming readiness if no runtime is available."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "9846390ccd4ca20a7b4f5887b15f07728a26562a",
+        "transitioned_at": "2026-06-24T02:32:16.946Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "9846390ccd4ca20a7b4f5887b15f07728a26562a",
+        "transitioned_at": "2026-06-24T02:32:17.002Z"
+      }
+    ]
   }
 ]
