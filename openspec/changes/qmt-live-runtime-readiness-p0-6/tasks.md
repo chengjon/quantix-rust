@@ -9,12 +9,12 @@
 - [x] 0.5 Run `openspec validate qmt-live-runtime-readiness-p0-6 --strict`.
 - [x] 0.6 Run `openspec validate --all --strict`.
 - [x] 0.7 Run function-tree gate and validation.
-- [ ] 0.8 Run GitNexus detect_changes before committing.
+- [x] 0.8 Run GitNexus detect_changes before committing.
 
 ## 1. P0.6a Environment Inventory And Prerequisite Check
 
-- [ ] 1.1 Identify the operator-owned miniQMT/Windows Bridge runtime to test, or record that no runtime is available.
-- [ ] 1.2 Capture redacted runtime metadata:
+- [x] 1.1 Identify the operator-owned miniQMT/Windows Bridge runtime to test, or record that no runtime is available.
+- [x] 1.2 Capture redacted runtime metadata:
   - OS/runtime label;
   - bridge host label;
   - account type label;
@@ -22,8 +22,8 @@
   - Quantix commit hash;
   - qmt capability summary;
   - kill-switch status.
-- [ ] 1.3 Store environment inventory in a commit-safe evidence file without secrets or raw account identifiers.
-- [ ] 1.4 If the runtime is unavailable, stop and prepare a blocked readiness report instead of fabricating evidence.
+- [x] 1.3 Store environment inventory in a commit-safe evidence file without secrets or raw account identifiers.
+- [x] 1.4 If the runtime is unavailable, stop and prepare a blocked readiness report instead of fabricating evidence.
 
 ## 2. P0.6b Read-Only Command Smoke
 
