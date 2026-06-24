@@ -65,3 +65,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.6b: qmt_live read-only command smoke (planning, FT: P0.6)
 - [ ] P0.6b-backfill: P0.6b Graphiti backfill record (planning, FT: P0.6)
 - [ ] P0.6c: qmt_live runtime readiness evidence package (planning, FT: openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#3-p06c-redacted-runtime-evidence-package)
+- [ ] P0.6c-backfill: qmt_live runtime readiness Graphiti backfill (planning, FT: docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md)
