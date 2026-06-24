@@ -1,29 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-24T10:23:49.406Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.6d",
-      "title": "qmt_live runtime readiness failure boundary drill",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "P0.6",
-      "status": "implementation-ready",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "land implementation with Git evidence",
-      "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#4-p06d-failure-boundary-drill",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md",
-        "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**",
-        "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
-        "FUNCTION_TREE.md",
-        ".governance/**"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-24T10:23:49.402Z"
-    }
-  ]
+  "updated_at": "2026-06-24T10:30:58.473Z",
+  "gates": []
 }

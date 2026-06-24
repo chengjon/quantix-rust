@@ -4545,11 +4545,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "P0.6",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#4-p06d-failure-boundary-drill",
-    "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
+    "current_head": "b67206d8a9ae609a1f8bb382d390b047ef4dbd06",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -4557,6 +4557,13 @@
         "note": "No qmt_live live submit/cancel or broker/runtime mutation allowed.",
         "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
         "recorded_at": "2026-06-24T10:23:09.446Z"
+      },
+      {
+        "kind": "verification",
+        "path": "Implementation commit b67206d records P0.6d failure-boundary drill report and evidence. Executed read-only qmt status checklist returned ready=false/failure_category=bridge_unreachable; focused tests passed for preflight categories and kill-switch blocking/read-only availability. Gates passed: JSON parse, fmt, OpenSpec validate, diff check, function-tree validate/gate/scope-check, GitNexus detect_changes LOW/0 affected processes.",
+        "note": "No qmt_live live submit/cancel, manual-intervention resolution, broker/runtime mutation, or runtime source changes.",
+        "current_head": "b67206d8a9ae609a1f8bb382d390b047ef4dbd06",
+        "recorded_at": "2026-06-24T10:30:02.509Z"
       }
     ],
     "allowed_paths": [
@@ -4570,11 +4577,11 @@
     "non_goals": [
       "Do not modify runtime source code, tests, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6d."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T10:22:58.832Z",
-    "updated_at": "2026-06-24T10:23:49.402Z",
+    "updated_at": "2026-06-24T10:30:58.467Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 1,
@@ -4605,6 +4612,27 @@
         "note": "Begin P0.6d read-only/local failure-boundary drill evidence implementation.",
         "current_head": "adc84de3d37b6301338f8018ba15d8b507708139",
         "transitioned_at": "2026-06-24T10:23:49.402Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Implementation landed in commit b67206d with declared gates passing.",
+        "current_head": "b67206d8a9ae609a1f8bb382d390b047ef4dbd06",
+        "transitioned_at": "2026-06-24T10:30:19.606Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "Closeout prepared for P0.6d failure-boundary drill.",
+        "current_head": "b67206d8a9ae609a1f8bb382d390b047ef4dbd06",
+        "transitioned_at": "2026-06-24T10:30:34.836Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.6d closed: failure-boundary evidence recorded; runtime-controlled cases explicitly deferred; no active gates remain after closeout verification.",
+        "current_head": "b67206d8a9ae609a1f8bb382d390b047ef4dbd06",
+        "transitioned_at": "2026-06-24T10:30:58.466Z"
       }
     ]
   }
