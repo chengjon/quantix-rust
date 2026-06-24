@@ -77,3 +77,36 @@ GitNexus detect_changes
 ```
 
 The final gate results are recorded in the PR and closeout evidence for this slice.
+
+## Graphiti Fallback
+
+Graphiti memory write was attempted after the P0.6e decision report landed.
+
+Episode:
+
+```text
+group_id: quantix_rust_main
+episode_uuid: 1e1a3378-1381-4601-b1b9-f86036c40f3e
+name: P0.6e qmt_live runtime readiness decision closure
+```
+
+Repeated ingest checks remained stuck in:
+
+```text
+state=processing
+queue_depth=0
+attempt_count=1
+processed_at=null
+last_error=null
+last_error_code=null
+queued_at=2026-06-24T16:09:16.649402+00:00
+started_at=2026-06-24T16:09:16.703226+00:00
+```
+
+Graphiti backfill required.
+
+Equivalent memory summary:
+
+```text
+P0.6e qmt_live runtime readiness decision closure was prepared on 2026-06-25 on branch feat/p0-6e-readiness-decision. Implementation commit 81b109f added docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md and docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md, updated OpenSpec tasks, README, CHANGELOG, FUNCTION_TREE, and FUNCTION_TREE governance. Final readiness decision: blocked_by_environment. qmt_live canary is not approved because there is no operator-selected miniQMT Windows Bridge runtime, commit-safe account label, or bridge-backed read-only smoke evidence. P0.6 is archived as maintenance-only; do not open new qmt_live environment-validation slices until the operator supplies a runtime. If runtime becomes available, rerun P0.6b read-only smoke or open a narrow P0.7 runtime-smoke slice reusing P0.6 evidence templates. Current primary development priority moves to ExecutionCapabilities continuation from the landed P0.3e/P0.3f baseline and OpenStock data consumption adaptation. No qmt_live production code, runtime probe, submit/cancel, manual-intervention resolution, broker/runtime state write, bridge protocol, storage schema, OrderStatus, ExecutionAdapter, paper semantics, or unwrap cleanup was changed.
+```

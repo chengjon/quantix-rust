@@ -1,31 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-24T13:37:19.004Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.6e",
-      "title": "qmt_live runtime readiness decision report",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "P0.6",
-      "status": "implementation-ready",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "land implementation with Git evidence",
-      "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#5-p06e-readiness-decision-report",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md",
-        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md",
-        "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
-        "README.md",
-        "CHANGELOG.md",
-        "FUNCTION_TREE.md",
-        ".governance/**"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-24T13:37:19.000Z"
-    }
-  ]
+  "updated_at": "2026-06-24T16:19:21.386Z",
+  "gates": []
 }

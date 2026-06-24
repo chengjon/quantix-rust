@@ -8,14 +8,14 @@ All notable changes to this project are documented here.
 ## 2026-06-25
 
 ### Docs
-- **qmt_live runtime readiness P0.6 decision closure** (`docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md`, `docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md`, `openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
+- **qmt_live runtime readiness P0.6 decision closure** (`docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md`, `docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md`, `openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
   - P0.6 最终就绪决策记录为 `blocked_by_environment`：缺少 operator 选定的 miniQMT Windows Bridge runtime、账户标签和真实只读 smoke 证据，因此 qmt_live canary 不获批准
   - P0.6 阶段性归档为 maintenance-only，后续仅在 operator 提供隔离可用 runtime 后重跑 P0.6b 或开窄范围 P0.7 runtime-smoke；当前开发优先级转向 ExecutionCapabilities 后续抽象与 OpenStock 数据消费适配
 
 ## 2026-06-24
 
 ### Docs
-- **qmt_live runtime readiness P0.6 OpenSpec** (`openspec/changes/qmt-live-runtime-readiness-p0-6/`, `FUNCTION_TREE.md`, `README.md`, `CHANGELOG.md`)
+- **qmt_live runtime readiness P0.6 OpenSpec** (`openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/`, `FUNCTION_TREE.md`, `README.md`, `CHANGELOG.md`)
   - 新增 P0.6 正式 OpenSpec 规划，聚焦真实或测试 miniQMT/Windows Bridge 环境下的只读运行就绪验证、脱敏证据包、故障边界演练和 canary 前置决策
   - 明确 P0.6 不授权实盘提交、撤单、manual-intervention resolution、bridge 协议变更、storage schema 变更、`OrderStatus`/`ExecutionAdapter` 改造、paper 执行语义改造或 `.unwrap()` 清理
 - **qmt_live operational safety P0.5 release closure** (`README.md`, `CHANGELOG.md`, `FUNCTION_TREE.md`, `openspec/changes/qmt-live-operational-safety-p0-5/tasks.md`)

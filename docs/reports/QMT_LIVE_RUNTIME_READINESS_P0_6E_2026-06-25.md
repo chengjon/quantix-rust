@@ -6,7 +6,7 @@ Status: `blocked_by_environment`
 
 Branch: `feat/p0-6e-readiness-decision`
 
-OpenSpec: `openspec/changes/qmt-live-runtime-readiness-p0-6`
+OpenSpec: `openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6`
 
 ## Decision
 
