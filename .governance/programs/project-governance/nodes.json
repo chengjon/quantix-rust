@@ -4453,11 +4453,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "P0.6c",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md",
-    "current_head": "b6281f101a046d3e3f7640e97056127d355a3a68",
+    "current_head": "31b82f5e6bd6230795c92dcf24154b48203cd4db",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -4465,6 +4465,13 @@
         "note": "Backfill scope is docs/governance only.",
         "current_head": "b6281f101a046d3e3f7640e97056127d355a3a68",
         "recorded_at": "2026-06-24T09:31:34.477Z"
+      },
+      {
+        "kind": "verification",
+        "path": "Backfill implementation commit 31b82f5 records Graphiti episode b580686d-69ff-485b-879b-e84f088e9422 as unverified/stuck processing and preserves equivalent P0.6c memory summary with Graphiti backfill required.",
+        "note": "Docs/governance only.",
+        "current_head": "31b82f5e6bd6230795c92dcf24154b48203cd4db",
+        "recorded_at": "2026-06-24T09:34:54.308Z"
       }
     ],
     "allowed_paths": [
@@ -4476,11 +4483,11 @@
     "non_goals": [
       "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, qmt_live behavior, or P0.6 evidence artifacts in this Graphiti backfill record."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T09:31:23.444Z",
-    "updated_at": "2026-06-24T09:32:14.740Z",
+    "updated_at": "2026-06-24T09:35:34.814Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 1,
@@ -4508,6 +4515,27 @@
         "note": "Begin docs-only Graphiti backfill implementation.",
         "current_head": "b6281f101a046d3e3f7640e97056127d355a3a68",
         "transitioned_at": "2026-06-24T09:32:14.740Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Implementation landed in commit 31b82f5.",
+        "current_head": "31b82f5e6bd6230795c92dcf24154b48203cd4db",
+        "transitioned_at": "2026-06-24T09:35:07.458Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "Closeout prepared for docs-only Graphiti backfill.",
+        "current_head": "31b82f5e6bd6230795c92dcf24154b48203cd4db",
+        "transitioned_at": "2026-06-24T09:35:23.641Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.6c-backfill closed: local Graphiti backfill report committed, no active gates remain.",
+        "current_head": "31b82f5e6bd6230795c92dcf24154b48203cd4db",
+        "transitioned_at": "2026-06-24T09:35:34.814Z"
       }
     ]
   }
