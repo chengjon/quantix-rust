@@ -52,16 +52,16 @@
 
 ## 5. P0.6e Readiness Decision Report
 
-- [ ] 5.1 Produce a final report with one decision:
+- [x] 5.1 Produce a final report with one decision:
   - `ready_for_canary_proposal`;
   - `blocked_by_environment`;
   - `blocked_by_command_gap`;
   - `blocked_by_safety_gap`;
   - `blocked_by_manual_intervention`.
-- [ ] 5.2 Reference exact evidence files and commands.
-- [ ] 5.3 List residual risks and required approval before any controlled canary.
-- [ ] 5.4 Update README, CHANGELOG, and FUNCTION_TREE if operator-visible status changes.
-- [ ] 5.5 Run final gates for the implemented slice.
+- [x] 5.2 Reference exact evidence files and commands.
+- [x] 5.3 List residual risks and required approval before any controlled canary.
+- [x] 5.4 Update README, CHANGELOG, and FUNCTION_TREE if operator-visible status changes.
+- [x] 5.5 Run final gates for the implemented slice.
 - [ ] 5.6 Write Graphiti memory after durable conclusions and verify ingest.
 
 ## 6. Closure

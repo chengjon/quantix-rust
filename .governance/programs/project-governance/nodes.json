@@ -4727,5 +4727,70 @@
         "transitioned_at": "2026-06-24T10:50:22.398Z"
       }
     ]
+  },
+  {
+    "id": "P0.6e",
+    "title": "qmt_live runtime readiness decision report",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#5-p06e-readiness-decision-report",
+    "current_head": "98160104fcacce16c1ff9aa95610da33b786b982",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "P0.6a-P0.6d reports and OpenSpec tasks show qmt_live runtime readiness evidence complete except selected miniQMT Bridge runtime; P0.6e is documentation-only blocked_by_environment decision closure",
+        "note": "",
+        "current_head": "98160104fcacce16c1ff9aa95610da33b786b982",
+        "recorded_at": "2026-06-24T13:36:46.904Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md",
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md",
+      "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No qmt_live production code changes, no runtime probes, no submit/cancel/manual-intervention resolution, no bridge protocol or storage changes, no tests beyond documentation/governance gates"
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T13:36:35.890Z",
+    "updated_at": "2026-06-24T13:37:19.000Z",
+    "track": "mainline",
+    "depth": 1,
+    "acceptance": {
+      "commit_gate": [
+        "OpenSpec validate, FUNCTION_TREE validate/gate/scope-check, git diff --check, GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.6e decision report records blocked_by_environment, Closure tasks updated, global docs mark P0.6 archived/maintenance-only, active gates none"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "User approved minimal P0.6e blocked_by_environment closure and mainline priority handoff",
+        "current_head": "98160104fcacce16c1ff9aa95610da33b786b982",
+        "transitioned_at": "2026-06-24T13:37:10.129Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Documentation-only implementation authorized after baseline evidence matches current HEAD",
+        "current_head": "98160104fcacce16c1ff9aa95610da33b786b982",
+        "transitioned_at": "2026-06-24T13:37:19.000Z"
+      }
+    ]
   }
 ]

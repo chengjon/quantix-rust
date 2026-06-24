@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-25
+
+### Docs
+- **qmt_live runtime readiness P0.6 decision closure** (`docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6E_2026-06-25.md`, `docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6_CLOSURE_2026-06-25.md`, `openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
+  - P0.6 最终就绪决策记录为 `blocked_by_environment`：缺少 operator 选定的 miniQMT Windows Bridge runtime、账户标签和真实只读 smoke 证据，因此 qmt_live canary 不获批准
+  - P0.6 阶段性归档为 maintenance-only，后续仅在 operator 提供隔离可用 runtime 后重跑 P0.6b 或开窄范围 P0.7 runtime-smoke；当前开发优先级转向 ExecutionCapabilities 后续抽象与 OpenStock 数据消费适配
+
 ## 2026-06-24
 
 ### Docs

@@ -68,3 +68,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.6c-backfill: qmt_live runtime readiness Graphiti backfill (planning, FT: docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md)
 - [ ] P0.6d: qmt_live runtime readiness failure boundary drill (planning, FT: openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#4-p06d-failure-boundary-drill)
 - [ ] P0.6d-backfill: qmt_live failure boundary Graphiti backfill (planning, FT: docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md)
+- [ ] P0.6e: qmt_live runtime readiness decision report (planning, FT: openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#5-p06e-readiness-decision-report)
