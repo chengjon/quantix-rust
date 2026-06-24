@@ -1,0 +1,32 @@
+task:
+  id: "P0.6c"
+  title: "qmt_live runtime readiness evidence package"
+
+scope:
+  allowed_paths:
+    - "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md"
+    - "docs/reports/evidence/qmt-live-runtime-readiness-20260624/**"
+    - "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+    - "tests/repo_hygiene_test.rs"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify runtime source code, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6c."
+
+acceptance:
+  commit_gate:
+    - "openspec validate qmt-live-runtime-readiness-p0-6 --strict"
+    - "function-tree validate/gate/scope-check must pass"
+    - "git diff --check"
+    - "focused repo hygiene test must pass"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "P0.6c adds a redacted runtime evidence template and local evidence README with mutation guard and redaction requirements."
+    - "Repo hygiene coverage prevents the runtime readiness evidence template from including raw secret/account/broker evidence fields."
+
+evidence:
+  current_head: "321083ad1831382cfe02b29eeeb8ec4d94ab6b66"
+  notes: []

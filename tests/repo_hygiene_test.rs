@@ -372,6 +372,66 @@ fn qmt_live_canary_runbook_and_evidence_template_are_present() {
 }
 
 #[test]
+fn qmt_live_runtime_readiness_evidence_template_is_redacted() {
+    let evidence_readme_path =
+        "docs/reports/evidence/qmt-live-runtime-readiness-20260624/README.md";
+    let evidence_template_path =
+        "docs/reports/evidence/qmt-live-runtime-readiness-20260624/evidence.template.json";
+
+    let evidence_readme = fs::read_to_string(repo_root().join(evidence_readme_path))
+        .unwrap_or_else(|_| panic!("expected {evidence_readme_path} to be readable"));
+    let evidence_template = fs::read_to_string(repo_root().join(evidence_template_path))
+        .unwrap_or_else(|_| panic!("expected {evidence_template_path} to be readable"));
+
+    for expected in [
+        "docs/reports/evidence/qmt-live-runtime-readiness-20260624/",
+        "redacted",
+        "No submit/cancel",
+        "no broker-state mutation",
+    ] {
+        assert!(
+            evidence_readme.contains(expected),
+            "expected {evidence_readme_path} to document runtime evidence policy: {expected}"
+        );
+    }
+
+    for expected in [
+        "\"schema\"",
+        "\"runtime_evidence_status\"",
+        "\"commit_hash\"",
+        "\"collected_at_utc\"",
+        "\"environment\"",
+        "\"read_only_commands\"",
+        "\"qmt_read_only_commands\"",
+        "\"blocked_or_deferred_items\"",
+        "\"mutation_guard\"",
+        "\"no_mutation_attestation\"",
+        "\"operator_review\"",
+        "\"redaction\"",
+    ] {
+        assert!(
+            evidence_template.contains(expected),
+            "expected {evidence_template_path} to define evidence field: {expected}"
+        );
+    }
+
+    for forbidden in [
+        "raw_broker_log",
+        "api_key",
+        "token",
+        "full_account_id",
+        "account_id",
+        "credential_value",
+        "bridge_url",
+    ] {
+        assert!(
+            !evidence_template.contains(forbidden),
+            "expected {evidence_template_path} not to include forbidden raw secret/account field {forbidden}"
+        );
+    }
+}
+
+#[test]
 fn readme_documents_foundation_p0_workspace_constraints() {
     let readme_path = repo_root().join("README.md");
     let contents = fs::read_to_string(readme_path).expect("expected README.md to exist");
