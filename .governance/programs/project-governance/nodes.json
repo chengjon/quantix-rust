@@ -4266,11 +4266,11 @@
     "node_type": "evidence",
     "owner_lane": "project-governance",
     "parent": "P0.6",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "P0.6",
     "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -4289,11 +4289,11 @@
     "non_goals": [
       "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, or qmt_live behavior in this Graphiti backfill record."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T04:40:29.209Z",
-    "updated_at": "2026-06-24T04:40:29.402Z",
+    "updated_at": "2026-06-24T04:42:23.121Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 2,
@@ -4321,7 +4321,32 @@
         "note": "",
         "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
         "transitioned_at": "2026-06-24T04:40:29.402Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "36ee3655b6d72963559316a6a9ca0e98e4dee34d",
+        "transitioned_at": "2026-06-24T04:42:23.014Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "36ee3655b6d72963559316a6a9ca0e98e4dee34d",
+        "transitioned_at": "2026-06-24T04:42:23.121Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "Committed P0.6b Graphiti backfill record in 36ee365 after failed Graphiti closeout memory episodes.",
+      "compatibility": "Documentation/governance only; records Graphiti backfill required without changing runtime code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, or qmt_live behavior.",
+      "gates": [
+        "function-tree scope-check/validate/gate passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW / 0 affected processes"
+      ],
+      "current_head": "36ee3655b6d72963559316a6a9ca0e98e4dee34d",
+      "prepared_at": "2026-06-24T04:42:23.071Z"
+    }
   }
 ]
