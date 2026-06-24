@@ -1,5 +1,27 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-24T09:15:03.953Z",
-  "gates": []
+  "updated_at": "2026-06-24T09:32:14.745Z",
+  "gates": [
+    {
+      "program": "project-governance",
+      "id": "P0.6c-backfill",
+      "title": "qmt_live runtime readiness Graphiti backfill",
+      "node_type": "decision",
+      "owner_lane": "project-governance",
+      "parent": "P0.6c",
+      "status": "implementation-ready",
+      "source_edits_authorized": true,
+      "current_blocker": "",
+      "next_allowed": "land implementation with Git evidence",
+      "function_tree_ref": "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_2026-06-24.md",
+      "freshness": "current-head",
+      "allowed_paths": [
+        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6C_GRAPHITI_BACKFILL_2026-06-24.md",
+        "FUNCTION_TREE.md",
+        ".governance/**"
+      ],
+      "forbidden_paths": [],
+      "updated_at": "2026-06-24T09:32:14.740Z"
+    }
+  ]
 }
