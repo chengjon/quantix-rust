@@ -1,0 +1,31 @@
+task:
+  id: "P0.6"
+  title: "qmt_live runtime readiness"
+
+scope:
+  allowed_paths:
+    - "openspec/changes/qmt-live-runtime-readiness-p0-6/**"
+    - "FUNCTION_TREE.md"
+    - ".governance/**"
+    - "CHANGELOG.md"
+    - "README.md"
+    - "docs/reports/**"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify runtime source code, tests, bridge protocol, storage schema, order status semantics, miniQMT submission behavior, or unwrap cleanup in this planning slice."
+
+acceptance:
+  commit_gate:
+    - "openspec validate qmt-live-runtime-readiness-p0-6 --strict"
+    - "openspec validate --all --strict"
+    - "function-tree validate and gate must pass"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "P0.6 OpenSpec proposal, design, tasks, and spec delta are written and FUNCTION_TREE reflects the new active planning scope."
+
+evidence:
+  current_head: "325d2276bf939b261385b8fc7a1e2decfe18a946"
+  notes: []

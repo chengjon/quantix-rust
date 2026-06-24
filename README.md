@@ -110,6 +110,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - canonical Windows-side 路径固定为 `/mnt/d/mystocks/quantix/quantix_bridge`
 - qmt_live P0.4g reconciliation query refinement 已闭合：完整本地 `task_identity` 存在时使用 `task_id + client_order_id + local_submission_id` 查询并复用任务服务身份校验；legacy/partial identity 保留 task-id-only recovery；身份不匹配转人工介入；不改动 gate/diagnostics、bridge 协议、响应 shape、存储 schema、`OrderStatus`、`ExecutionAdapter` 或 submit/query/cancel 主流程。
 - qmt_live P0.5 operational safety 已完成面向 operator 的只读闭合：`quantix execution qmt audit` 提供证据视图，`quantix execution qmt manual-interventions list/show` 提供未解决人工介入报表；它们覆盖 identity mismatch、broker unknown state、missing external order id、preserved local state、bridge failure 等持久化信号，但都不修改 runtime/broker state，也不触发提交、撤单或回写。
+- qmt_live P0.6 runtime readiness 已启动正式 OpenSpec 规划：当前阶段只定义真实或测试 miniQMT/Windows Bridge 环境下的只读运行就绪验证、脱敏证据包、故障边界演练和 canary 前置决策；这不代表自动实盘交易已获批准，也不授权提交/撤单或修改 broker/runtime state。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
