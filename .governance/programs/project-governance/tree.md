@@ -63,3 +63,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.6: qmt_live runtime readiness (planning, FT: P0.5)
 - [ ] P0.6a: qmt_live environment inventory and prerequisite check (planning, FT: P0.6)
 - [ ] P0.6b: qmt_live read-only command smoke (planning, FT: P0.6)
+- [ ] P0.6b-backfill: P0.6b Graphiti backfill record (planning, FT: P0.6)

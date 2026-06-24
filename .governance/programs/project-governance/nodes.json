@@ -4259,5 +4259,69 @@
       "current_head": "da5eb259ca511790898ccff0ab5be72c74f1c92a",
       "prepared_at": "2026-06-24T04:09:43.731Z"
     }
+  },
+  {
+    "id": "P0.6b-backfill",
+    "title": "P0.6b Graphiti backfill record",
+    "node_type": "evidence",
+    "owner_lane": "project-governance",
+    "parent": "P0.6",
+    "status": "implementation-ready",
+    "function_tree_ref": "P0.6",
+    "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "baseline: Graphiti P0.6b closeout episode 9c3ca9b2 failed validationerror; retry cde99276 failed jsondecodeerror; local backfill record required",
+        "note": "P0.6b Graphiti backfill baseline",
+        "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
+        "recorded_at": "2026-06-24T04:40:29.259Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6B_GRAPHITI_BACKFILL_2026-06-24.md",
+      "FUNCTION_TREE.md",
+      ".governance/**"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify runtime source code, tests, OpenSpec task semantics, broker/runtime state, bridge protocol, or qmt_live behavior in this Graphiti backfill record."
+    ],
+    "next_gate": "land implementation with Git evidence",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-24T04:40:29.209Z",
+    "updated_at": "2026-06-24T04:40:29.402Z",
+    "track": "mainline",
+    "mainline_id": "P0.6",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "function-tree validate/gate/scope-check must pass",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "Local Graphiti backfill record exists with exact failed episode IDs and equivalent memory summary."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
+        "transitioned_at": "2026-06-24T04:40:29.355Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "7fc4235a3026e0503de52fcfb525f9f896e304d2",
+        "transitioned_at": "2026-06-24T04:40:29.402Z"
+      }
+    ]
   }
 ]
