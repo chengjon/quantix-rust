@@ -1,27 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-24T10:47:11.441Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.6d-backfill",
-      "title": "qmt_live failure boundary Graphiti backfill",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "P0.6d",
-      "status": "implementation-ready",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "land implementation with Git evidence",
-      "function_tree_ref": "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_GRAPHITI_BACKFILL_2026-06-24.md",
-        "FUNCTION_TREE.md",
-        ".governance/**"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-24T10:47:11.437Z"
-    }
-  ]
+  "updated_at": "2026-06-24T10:50:22.405Z",
+  "gates": []
 }
