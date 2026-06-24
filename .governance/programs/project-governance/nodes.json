@@ -4355,11 +4355,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "P0.6",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "openspec/changes/qmt-live-runtime-readiness-p0-6/tasks.md#3-p06c-redacted-runtime-evidence-package",
-    "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
+    "current_head": "5b8ff8c5dc3e97ea8fb1a236da257948247d1311",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -4367,6 +4367,13 @@
         "note": "Graphiti pre-read completed for quantix_rust_main and quantix_rust_docs; P0.6b remains blocked_by_environment_selection, so P0.6c must not declare runtime smoke success.",
         "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
         "recorded_at": "2026-06-24T08:53:52.315Z"
+      },
+      {
+        "kind": "verification",
+        "path": "Implementation commit 5b8ff8c adds P0.6c runtime evidence README/template/report, OpenSpec task closure, FUNCTION_TREE entry, and repo hygiene coverage. Gates passed: fmt, OpenSpec validate, diff check, function-tree validate/gate/scope-check, repo_hygiene_test, GitNexus detect_changes LOW/0 affected processes.",
+        "note": "P0.6c remains read-only docs/test hygiene; no runtime source or broker mutation.",
+        "current_head": "5b8ff8c5dc3e97ea8fb1a236da257948247d1311",
+        "recorded_at": "2026-06-24T09:11:54.897Z"
       }
     ],
     "allowed_paths": [
@@ -4381,11 +4388,11 @@
     "non_goals": [
       "Do not modify runtime source code, bridge protocol, storage schema, response shape, OrderStatus, ExecutionAdapter, qmt_live submit/cancel behavior, broker/runtime state, paper semantics, or unwrap cleanup in P0.6c."
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-24T08:53:16.838Z",
-    "updated_at": "2026-06-24T08:56:48.043Z",
+    "updated_at": "2026-06-24T09:15:03.949Z",
     "track": "mainline",
     "mainline_id": "P0.6",
     "depth": 1,
@@ -4416,6 +4423,27 @@
         "note": "Begin P0.6c implementation under authorized docs/evidence/test-hygiene scope.",
         "current_head": "321083ad1831382cfe02b29eeeb8ec4d94ab6b66",
         "transitioned_at": "2026-06-24T08:56:48.043Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Implementation landed in commit 5b8ff8c with declared gates passing.",
+        "current_head": "5b8ff8c5dc3e97ea8fb1a236da257948247d1311",
+        "transitioned_at": "2026-06-24T09:12:06.709Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "Closeout report and governance evidence prepared for P0.6c.",
+        "current_head": "5b8ff8c5dc3e97ea8fb1a236da257948247d1311",
+        "transitioned_at": "2026-06-24T09:14:54.200Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.6c closed: redacted evidence package prepared, hygiene coverage passed, no active runtime mutation or smoke success claim.",
+        "current_head": "5b8ff8c5dc3e97ea8fb1a236da257948247d1311",
+        "transitioned_at": "2026-06-24T09:15:03.948Z"
       }
     ]
   }
