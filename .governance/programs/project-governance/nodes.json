@@ -5224,5 +5224,79 @@
       "current_head": "ec8dc241bb8f956647193b8cc60910733d91eeef",
       "prepared_at": "2026-06-25T14:06:34.793Z"
     }
+  },
+  {
+    "id": "P0.7c",
+    "title": "ExecutionCapabilities preflight mode semantics",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
+    "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "structural",
+        "path": "GitNexus impact before edits: format_qmt_live_preflight_report in src/cli/handlers/execution_handler.rs LOW, direct=0, affected processes=0, modules=0. If report building is touched, build_qmt_live_preflight_report is also LOW, direct=1, affected processes=1, modules=1. Scope is human-readable qmt_live preflight text only.",
+        "note": "P0.7c pre-edit impact evidence",
+        "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
+        "recorded_at": "2026-06-25T20:43:36.775Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/cli/handlers/execution_handler.rs",
+      "src/cli/handlers/tests/strategy_bridge.rs",
+      "docs/reports/EXECUTION_CAPABILITIES_PREFLIGHT_MODE_SEMANTICS_P0_7C_2026-06-26.md",
+      ".governance/programs/project-governance/cards/P0.7c.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No JSON status response shape changes",
+      "No submit/query/cancel, daemon, reconciliation, qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper/mock semantics changes",
+      "No migration of upper-layer mode checks",
+      "No unwrap cleanup"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T20:43:25.240Z",
+    "updated_at": "2026-06-25T20:44:14.186Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
+        "transitioned_at": "2026-06-25T20:43:48.050Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
+        "transitioned_at": "2026-06-25T20:44:14.186Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD focused preflight report test RED/GREEN",
+        "cargo test test_qmt_live_preflight_report_marks_ready_and_surfaces_kill_switch_state",
+        "cargo fmt --check",
+        "cargo clippy -- -D warnings",
+        "cargo test",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.7c closed and validate passed",
+        "Graphiti memory written and ingest verified or local backfill recorded"
+      ]
+    }
   }
 ]
