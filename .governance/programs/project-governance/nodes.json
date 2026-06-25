@@ -5135,11 +5135,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
     "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "runtime",
@@ -5163,11 +5163,11 @@
       "No additional ExecutionCapabilities behavior changes",
       "No qmt_live runtime or OpenStock work"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T14:03:27.826Z",
-    "updated_at": "2026-06-25T14:04:21.758Z",
+    "updated_at": "2026-06-25T16:15:14.320Z",
     "transitions": [
       {
         "from": "evidence-prepared",
@@ -5182,6 +5182,27 @@
         "note": "",
         "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
         "transitioned_at": "2026-06-25T14:04:21.758Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "ec8dc241bb8f956647193b8cc60910733d91eeef",
+        "transitioned_at": "2026-06-25T14:06:12.565Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "ec8dc241bb8f956647193b8cc60910733d91eeef",
+        "transitioned_at": "2026-06-25T14:06:22.739Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "ec8dc241bb8f956647193b8cc60910733d91eeef",
+        "transitioned_at": "2026-06-25T16:15:14.319Z"
       }
     ],
     "acceptance": {
@@ -5193,6 +5214,15 @@
       "closeout_gate": [
         "FUNCTION_TREE P0.7b-backfill closed and validate passed"
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_GRAPHITI_BACKFILL_2026-06-25.md",
+      "compatibility": "Documentation-only Graphiti fallback record; no production code, ExecutionCapabilities behavior, qmt_live runtime, or OpenStock work changed.",
+      "gates": [
+        "Backfill report recorded Graphiti episode state and equivalent memory; scope-check passed; git diff --check passed; GitNexus detect_changes LOW."
+      ],
+      "current_head": "ec8dc241bb8f956647193b8cc60910733d91eeef",
+      "prepared_at": "2026-06-25T14:06:34.793Z"
     }
   }
 ]
