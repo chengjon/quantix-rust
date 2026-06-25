@@ -1,32 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-25T20:44:14.191Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.7c",
-      "title": "ExecutionCapabilities preflight mode semantics",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "",
-      "status": "approved-for-implementation",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "implement within allowed_paths",
-      "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "src/cli/handlers/execution_handler.rs",
-        "src/cli/handlers/tests/strategy_bridge.rs",
-        "docs/reports/EXECUTION_CAPABILITIES_PREFLIGHT_MODE_SEMANTICS_P0_7C_2026-06-26.md",
-        ".governance/programs/project-governance/cards/P0.7c.yaml",
-        ".governance/programs/project-governance/nodes.json",
-        ".governance/programs/project-governance/tree.md",
-        ".governance/active-gates.json",
-        ".governance/active-gates.md"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-25T20:44:14.186Z"
-    }
-  ]
+  "updated_at": "2026-06-25T20:54:02.665Z",
+  "gates": []
 }

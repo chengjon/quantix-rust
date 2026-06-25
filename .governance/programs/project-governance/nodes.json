@@ -5231,11 +5231,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
     "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "structural",
@@ -5262,11 +5262,11 @@
       "No migration of upper-layer mode checks",
       "No unwrap cleanup"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T20:43:25.240Z",
-    "updated_at": "2026-06-25T20:44:14.186Z",
+    "updated_at": "2026-06-25T20:54:02.661Z",
     "transitions": [
       {
         "from": "evidence-prepared",
@@ -5281,6 +5281,27 @@
         "note": "",
         "current_head": "bfc68c878b3c1ba16f3b894e5e83b2603394f467",
         "transitioned_at": "2026-06-25T20:44:14.186Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "84cecbdcc1654f4f8dad8eb0d5f7685ceb04c483",
+        "transitioned_at": "2026-06-25T20:53:33.446Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "84cecbdcc1654f4f8dad8eb0d5f7685ceb04c483",
+        "transitioned_at": "2026-06-25T20:53:41.305Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "84cecbdcc1654f4f8dad8eb0d5f7685ceb04c483",
+        "transitioned_at": "2026-06-25T20:54:02.661Z"
       }
     ],
     "acceptance": {
@@ -5297,6 +5318,15 @@
         "FUNCTION_TREE P0.7c closed and validate passed",
         "Graphiti memory written and ingest verified or local backfill recorded"
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_PREFLIGHT_MODE_SEMANTICS_P0_7C_2026-06-26.md",
+      "compatibility": "Human-readable preflight text only; qmt_live_preflight JSON payload, submit/query/cancel flow, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, and paper/mock semantics unchanged.",
+      "gates": [
+        "TDD RED/GREEN focused preflight test, cargo fmt --check, cargo clippy -- -D warnings, cargo test, git diff --check, FUNCTION_TREE scope-check, GitNexus detect_changes reviewed."
+      ],
+      "current_head": "84cecbdcc1654f4f8dad8eb0d5f7685ceb04c483",
+      "prepared_at": "2026-06-25T20:53:53.506Z"
     }
   }
 ]

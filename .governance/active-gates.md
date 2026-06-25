@@ -2,6 +2,5 @@
 
 | Program | Node | Status | Current blocker | Next allowed | FT ref |
 |---------|------|--------|-----------------|--------------|--------|
-| project-governance | P0.7c | approved-for-implementation | - | implement within allowed_paths | docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md |
 
 _Generated from `.governance/active-gates.json`._
