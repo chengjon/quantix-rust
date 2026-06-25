@@ -5335,11 +5335,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "FUNCTION_TREE.md#execution-mode-semantics-hardening",
     "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -5373,11 +5373,11 @@
       "No qmt_live runtime probing, canary, bridge protocol, storage schema, submit/query/cancel, ExecutionAdapter, OrderStatus, or request_diagnostics changes.",
       "No OpenStock implementation in this documentation sync slice."
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T21:12:01.102Z",
-    "updated_at": "2026-06-25T21:12:11.309Z",
+    "updated_at": "2026-06-25T21:15:02.921Z",
     "acceptance": {
       "commit_gate": [
         "git diff --check passes.",
@@ -5395,7 +5395,39 @@
         "note": "",
         "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
         "transitioned_at": "2026-06-25T21:12:11.309Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "cb0a2552efd12ae2c3e5248b7200459a514c2e0c",
+        "transitioned_at": "2026-06-25T21:15:02.733Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "cb0a2552efd12ae2c3e5248b7200459a514c2e0c",
+        "transitioned_at": "2026-06-25T21:15:02.784Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "cb0a2552efd12ae2c3e5248b7200459a514c2e0c",
+        "transitioned_at": "2026-06-25T21:15:02.920Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md; commit cb0a255 docs: sync execution capabilities p0.7 status; staged GitNexus detect_changes LOW with no affected processes; scope-check/validate/diff-check passed.",
+      "compatibility": "Documentation/governance-only; no production code or runtime behavior changed.",
+      "gates": [
+        "git diff --cached --check passed before commit.",
+        "FUNCTION_TREE scope-check and validate passed.",
+        "GitNexus staged detect_changes reported LOW and no affected processes."
+      ],
+      "current_head": "cb0a2552efd12ae2c3e5248b7200459a514c2e0c",
+      "prepared_at": "2026-06-25T21:15:02.829Z"
+    }
   }
 ]
