@@ -95,7 +95,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 
 ## 当前完成状态
 
-截至 2026-06-24，当前已经完成并落地的任务可概括为：
+截至 2026-06-26，当前已经完成并落地的任务可概括为：
 
 - 策略执行主线已经闭环到 `paper` / `mock_live` / `execution_request` / `execution daemon` 这一层，`runtime.db`、frozen snapshot 和 `ExecutionKernel` 边界已经稳定。
 - operator 工作流已经覆盖 `watchlist`、`screener`、`market`、`monitor`、`stop`、`trade`、`risk` 这几条主线，并且都已有 README / USER_MANUAL 级别说明。
@@ -111,6 +111,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - qmt_live P0.4g reconciliation query refinement 已闭合：完整本地 `task_identity` 存在时使用 `task_id + client_order_id + local_submission_id` 查询并复用任务服务身份校验；legacy/partial identity 保留 task-id-only recovery；身份不匹配转人工介入；不改动 gate/diagnostics、bridge 协议、响应 shape、存储 schema、`OrderStatus`、`ExecutionAdapter` 或 submit/query/cancel 主流程。
 - qmt_live P0.5 operational safety 已完成面向 operator 的只读闭合：`quantix execution qmt audit` 提供证据视图，`quantix execution qmt manual-interventions list/show` 提供未解决人工介入报表；它们覆盖 identity mismatch、broker unknown state、missing external order id、preserved local state、bridge failure 等持久化信号，但都不修改 runtime/broker state，也不触发提交、撤单或回写。
 - qmt_live P0.6 runtime readiness 已完成阶段性归档，最终决策为 `blocked_by_environment`：本地安全约束、脱敏证据包和 fail-closed 边界已记录，但缺少 operator 选定的 miniQMT Windows Bridge 运行环境、账户标签和真实只读 smoke 证据；当前禁止启动 qmt_live canary，P0.6 仅保留维护归档，开发重心转向 ExecutionCapabilities 后续抽象与 OpenStock 数据消费适配。
+- ExecutionCapabilities P0.7 显示层语义同步已闭合：P0.7a 将静态 `ExecutionCapabilities` 映射到稳定通道语义、风险提示和 storage namespace helper；P0.7b/P0.7c 分别在 qmt_live promotion checklist 与 human-readable preflight report 中输出 `risk_notice` 和 `storage_namespace`；JSON payload、bridge 协议、runtime storage、`ExecutionAdapter`、`OrderStatus`、submit/query/cancel 主流程和 qmt_live runtime probing 均未改动。`request_diagnostics.rs` 后续接线因 GitNexus impact 为 HIGH，需单独专项审批。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
