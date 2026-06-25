@@ -1,7 +1,9 @@
+use quantix_cli::execution::adapter::ExecutionChannel;
 use quantix_cli::execution::mode_semantics::{
     PAPER_IMMEDIATE_CHANNEL, PAPER_IMMEDIATE_RISK_NOTICE, PAPER_SIM_LIFECYCLE_CHANNEL,
     PAPER_SIM_LIFECYCLE_RISK_NOTICE, QMT_LIVE_CHANNEL, QMT_LIVE_RISK_NOTICE,
-    storage_binding_for_configured_execution_mode, storage_namespace_for_channel,
+    risk_notice_for_execution_channel, storage_binding_for_configured_execution_mode,
+    storage_namespace_for_channel, storage_namespace_for_execution_channel,
 };
 
 #[test]
@@ -55,6 +57,42 @@ fn execution_mode_storage_namespaces_are_stable_and_disjoint() {
     }
 
     assert!(storage_namespace_for_channel("unknown").is_none());
+}
+
+#[test]
+fn execution_channels_reuse_mode_semantics_risk_and_storage_contracts() {
+    let cases = [
+        (
+            ExecutionChannel::PaperImmediate,
+            PAPER_IMMEDIATE_RISK_NOTICE,
+            "paper-immediate",
+        ),
+        (ExecutionChannel::QmtLive, QMT_LIVE_RISK_NOTICE, "qmt-live"),
+    ];
+
+    for (channel, expected_notice, expected_namespace) in cases {
+        assert_eq!(
+            risk_notice_for_execution_channel(channel),
+            Some(expected_notice),
+            "ExecutionChannel risk notice mapping must stay aligned for {}",
+            channel.as_str()
+        );
+        assert_eq!(
+            storage_namespace_for_execution_channel(channel),
+            Some(expected_namespace),
+            "ExecutionChannel storage namespace mapping must stay aligned for {}",
+            channel.as_str()
+        );
+    }
+
+    assert_eq!(
+        risk_notice_for_execution_channel(ExecutionChannel::MockLive),
+        None
+    );
+    assert_eq!(
+        storage_namespace_for_execution_channel(ExecutionChannel::MockLive),
+        None
+    );
 }
 
 #[test]

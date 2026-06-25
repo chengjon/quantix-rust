@@ -1,3 +1,5 @@
+use crate::execution::adapter::ExecutionChannel;
+
 pub const PAPER_IMMEDIATE_CHANNEL: &str = "paper_immediate";
 pub const PAPER_SIM_LIFECYCLE_CHANNEL: &str = "paper_sim_lifecycle";
 pub const QMT_LIVE_CHANNEL: &str = "qmt_live";
@@ -32,6 +34,10 @@ pub fn risk_notice_for_channel(channel: &str) -> Option<&'static str> {
     }
 }
 
+pub fn risk_notice_for_execution_channel(channel: ExecutionChannel) -> Option<&'static str> {
+    risk_notice_for_channel(channel.as_str())
+}
+
 pub fn storage_namespace_for_channel(channel: &str) -> Option<&'static str> {
     match channel {
         PAPER_IMMEDIATE_CHANNEL => Some(PAPER_IMMEDIATE_STORAGE_NAMESPACE),
@@ -39,6 +45,10 @@ pub fn storage_namespace_for_channel(channel: &str) -> Option<&'static str> {
         QMT_LIVE_CHANNEL => Some(QMT_LIVE_STORAGE_NAMESPACE),
         _ => None,
     }
+}
+
+pub fn storage_namespace_for_execution_channel(channel: ExecutionChannel) -> Option<&'static str> {
+    storage_namespace_for_channel(channel.as_str())
 }
 
 pub fn storage_binding_for_configured_execution_mode(

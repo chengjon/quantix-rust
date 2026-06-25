@@ -1,0 +1,39 @@
+task:
+  id: "P0.7a"
+  title: "ExecutionCapabilities mode semantics bridge"
+
+scope:
+  allowed_paths:
+    - "src/execution/adapter.rs"
+    - "src/execution/mode_semantics.rs"
+    - "tests/execution_mode_semantics_test.rs"
+    - "tests/execution_adapter_capabilities_test.rs"
+    - "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/programs/project-governance/cards/P0.7a.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No submit/query/cancel behavior changes"
+  - "No upper-layer mode-check migration in this slice"
+  - "No qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes"
+
+acceptance:
+  commit_gate:
+    - "TDD focused test for ExecutionChannel to mode semantics mapping"
+    - "cargo fmt --check"
+    - "focused tests pass"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "FUNCTION_TREE P0.7a closeout and validate"
+    - "Graphiti memory written and ingest verified"
+
+evidence:
+  current_head: "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61"
+  notes: []

@@ -4815,5 +4815,116 @@
       "current_head": "81b109ffda663341f3a23c4bea8ee81e4b3aaada",
       "prepared_at": "2026-06-24T16:18:26.775Z"
     }
+  },
+  {
+    "id": "P0.7a",
+    "title": "ExecutionCapabilities mode semantics bridge",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "ExecutionCapabilities continuation",
+    "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "structural",
+        "path": "GitNexus impact LOW: ExecutionChannel enum direct=0/processes=0; ExecutionChannel impl direct=0/processes=0; risk_notice_for_channel direct=1/processes=0; storage_namespace_for_channel direct=1/processes=0. Current master f0cf8b4 clean; P0.6 archived blocked_by_environment; scope is ExecutionCapabilities continuation only.",
+        "note": "P0.7a pre-edit impact evidence",
+        "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
+        "recorded_at": "2026-06-25T09:55:57.476Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/execution/adapter.rs",
+      "src/execution/mode_semantics.rs",
+      "tests/execution_mode_semantics_test.rs",
+      "tests/execution_adapter_capabilities_test.rs",
+      "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md",
+      "FUNCTION_TREE.md",
+      ".governance/programs/project-governance/cards/P0.7a.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No submit/query/cancel behavior changes",
+      "No upper-layer mode-check migration in this slice",
+      "No qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T09:55:43.893Z",
+    "updated_at": "2026-06-25T10:07:13.418Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
+        "transitioned_at": "2026-06-25T09:56:05.854Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
+        "transitioned_at": "2026-06-25T09:56:27.564Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:06:28.679Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:06:39.244Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:07:13.418Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "TDD focused test for ExecutionChannel to mode semantics mapping",
+        "cargo fmt --check",
+        "focused tests pass",
+        "git diff --check",
+        "GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.7a closeout and validate",
+        "Graphiti memory written and ingest verified"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md",
+      "compatibility": "Preserves existing configured execution-mode semantics: mock_live is not folded into paper_sim_lifecycle; no submit/query/cancel, qmt_live runtime, bridge protocol, response shape, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes.",
+      "gates": [
+        "TDD RED/GREEN focused mapping test passed",
+        "cargo test --test execution_mode_semantics_test passed",
+        "cargo test --test execution_adapter_capabilities_test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW, affected processes 0"
+      ],
+      "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+      "prepared_at": "2026-06-25T10:06:53.444Z"
+    }
   }
 ]
