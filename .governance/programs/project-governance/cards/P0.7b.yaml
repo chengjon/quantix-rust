@@ -1,0 +1,38 @@
+task:
+  id: "P0.7b"
+  title: "ExecutionCapabilities checklist mode semantics"
+
+scope:
+  allowed_paths:
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md"
+    - ".governance/programs/project-governance/cards/P0.7b.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No JSON status response shape changes"
+  - "No submit/query/cancel, daemon, reconciliation, qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes"
+  - "No migration of upper-layer mode checks"
+
+acceptance:
+  commit_gate:
+    - "TDD focused checklist test RED/GREEN"
+    - "cargo test --test cli_handler_tests or focused strategy_bridge test passes"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "FUNCTION_TREE P0.7b closed and validate passed"
+    - "Graphiti memory written and ingest verified or local backfill recorded"
+
+evidence:
+  current_head: "e785a67fd9e1df0fbca29d3e0bda46e2cb7f9d29"
+  notes: []

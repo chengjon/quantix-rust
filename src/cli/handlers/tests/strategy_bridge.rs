@@ -7,6 +7,7 @@ use crate::execution::adapter::{
     ExecutionCancelSemantics, ExecutionCapabilities, ExecutionChannel, ExecutionFillSource,
     ExecutionStatusSource,
 };
+use crate::execution::mode_semantics::{QMT_LIVE_RISK_NOTICE, QMT_LIVE_STORAGE_NAMESPACE};
 use crate::safety::KillSwitchState;
 
 #[allow(dead_code)]
@@ -123,6 +124,10 @@ fn test_format_qmt_promotion_checklist_surfaces_live_readiness_and_next_steps() 
     assert!(checklist.contains("[ok] qmt_live status_source=broker"));
     assert!(checklist.contains("[ok] qmt_live fill_source=broker"));
     assert!(checklist.contains("[ok] qmt_live cancel_semantics=broker"));
+    assert!(checklist.contains(&format!("[ok] qmt_live risk_notice={QMT_LIVE_RISK_NOTICE}")));
+    assert!(checklist.contains(&format!(
+        "[ok] qmt_live storage_namespace={QMT_LIVE_STORAGE_NAMESPACE}"
+    )));
     assert!(checklist.contains("[ ] request target_mode=qmt_live"));
     assert!(checklist.contains("[ ] 先在 paper 路径验证策略与风控"));
     assert!(checklist.contains("[ ] 再在 mock_live 路径验证非终态与收敛"));
