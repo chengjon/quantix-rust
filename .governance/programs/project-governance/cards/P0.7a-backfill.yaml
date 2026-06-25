@@ -1,0 +1,31 @@
+task:
+  id: "P0.7a-backfill"
+  title: "P0.7a Graphiti backfill record"
+
+scope:
+  allowed_paths:
+    - "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_GRAPHITI_BACKFILL_2026-06-25.md"
+    - ".governance/programs/project-governance/cards/P0.7a-backfill.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code changes"
+  - "No additional ExecutionCapabilities behavior changes"
+  - "No qmt_live runtime or OpenStock work"
+
+acceptance:
+  commit_gate:
+    - "Graphiti processing state recorded with local fallback marker"
+    - "git diff --check"
+    - "GitNexus detect_changes docs/governance only"
+  closeout_gate:
+    - "FUNCTION_TREE backfill node closed and validate passed"
+
+evidence:
+  current_head: "42ac4f171fb5e4d2b0dd8671670413223676806f"
+  notes: []

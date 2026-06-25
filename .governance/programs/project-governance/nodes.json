@@ -4926,5 +4926,104 @@
       "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
       "prepared_at": "2026-06-25T10:06:53.444Z"
     }
+  },
+  {
+    "id": "P0.7a-backfill",
+    "title": "P0.7a Graphiti backfill record",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md",
+    "current_head": "42ac4f171fb5e4d2b0dd8671670413223676806f",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "runtime",
+        "path": "Graphiti episode 12d36617-8a3b-4a3b-8dff-d2ff91169a84 for P0.7a closeout remained processing after repeated polls; service status ok, queue_depth=0, last_error=null, attempt_count=1. Local fallback required by Graphiti workflow.",
+        "note": "P0.7a Graphiti ingest processing fallback evidence",
+        "current_head": "42ac4f171fb5e4d2b0dd8671670413223676806f",
+        "recorded_at": "2026-06-25T10:31:45.529Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_GRAPHITI_BACKFILL_2026-06-25.md",
+      ".governance/programs/project-governance/cards/P0.7a-backfill.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code changes",
+      "No additional ExecutionCapabilities behavior changes",
+      "No qmt_live runtime or OpenStock work"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T10:30:53.568Z",
+    "updated_at": "2026-06-25T10:44:39.526Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "42ac4f171fb5e4d2b0dd8671670413223676806f",
+        "transitioned_at": "2026-06-25T10:32:11.342Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "42ac4f171fb5e4d2b0dd8671670413223676806f",
+        "transitioned_at": "2026-06-25T10:33:07.511Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "9ffb9118ca3d8c59b2ac9065a7fd89eb1956deb6",
+        "transitioned_at": "2026-06-25T10:37:09.743Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "9ffb9118ca3d8c59b2ac9065a7fd89eb1956deb6",
+        "transitioned_at": "2026-06-25T10:37:20.968Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "9ffb9118ca3d8c59b2ac9065a7fd89eb1956deb6",
+        "transitioned_at": "2026-06-25T10:44:39.525Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "Graphiti processing state recorded with local fallback marker",
+        "git diff --check",
+        "GitNexus detect_changes docs/governance only"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE backfill node closed and validate passed"
+      ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_GRAPHITI_BACKFILL_2026-06-25.md",
+      "compatibility": "Docs/governance-only Graphiti fallback; no production code or behavior changes.",
+      "gates": [
+        "Graphiti episode 12d36617-8a3b-4a3b-8dff-d2ff91169a84 remained processing with queue_depth=0 and no error",
+        "Local backfill report includes exact Graphiti backfill required marker",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW, affected processes 0"
+      ],
+      "current_head": "9ffb9118ca3d8c59b2ac9065a7fd89eb1956deb6",
+      "prepared_at": "2026-06-25T10:44:22.634Z"
+    }
   }
 ]
