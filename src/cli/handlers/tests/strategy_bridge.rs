@@ -594,6 +594,8 @@ fn test_qmt_live_preflight_report_marks_ready_and_surfaces_kill_switch_state() {
     assert!(formatted.contains("QMT live preflight"));
     assert!(formatted.contains("readiness=ready"));
     assert!(formatted.contains("failure_category=none"));
+    assert!(formatted.contains(&format!("risk_notice={QMT_LIVE_RISK_NOTICE}")));
+    assert!(formatted.contains(&format!("storage_namespace={QMT_LIVE_STORAGE_NAMESPACE}")));
     assert!(formatted.contains("kill_switch=disabled"));
 }
 

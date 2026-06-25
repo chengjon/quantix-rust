@@ -314,6 +314,13 @@ pub(crate) fn format_qmt_live_preflight_report(report: &QmtLivePreflightReport) 
     } else {
         "disabled"
     };
+    let qmt_risk_notice = crate::execution::mode_semantics::risk_notice_for_execution_channel(
+        ExecutionChannel::QmtLive,
+    );
+    let qmt_storage_namespace =
+        crate::execution::mode_semantics::storage_namespace_for_execution_channel(
+            ExecutionChannel::QmtLive,
+        );
 
     [
         "QMT live preflight".to_string(),
@@ -322,6 +329,11 @@ pub(crate) fn format_qmt_live_preflight_report(report: &QmtLivePreflightReport) 
         format!("bridge_reachable={}", report.bridge_reachable),
         format!("bridge_contract_version={}", report.bridge_contract_version),
         format!("capability_source={}", report.capability_source),
+        format!("risk_notice={}", qmt_risk_notice.unwrap_or("unregistered")),
+        format!(
+            "storage_namespace={}",
+            qmt_storage_namespace.unwrap_or("unregistered")
+        ),
         format!("kill_switch={kill_switch}"),
     ]
     .join("\n")

@@ -1,0 +1,39 @@
+task:
+  id: "P0.7c"
+  title: "ExecutionCapabilities preflight mode semantics"
+
+scope:
+  allowed_paths:
+    - "src/cli/handlers/execution_handler.rs"
+    - "src/cli/handlers/tests/strategy_bridge.rs"
+    - "docs/reports/EXECUTION_CAPABILITIES_PREFLIGHT_MODE_SEMANTICS_P0_7C_2026-06-26.md"
+    - ".governance/programs/project-governance/cards/P0.7c.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No JSON status response shape changes"
+  - "No submit/query/cancel, daemon, reconciliation, qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper/mock semantics changes"
+  - "No migration of upper-layer mode checks"
+  - "No unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "TDD focused preflight report test RED/GREEN"
+    - "cargo test test_qmt_live_preflight_report_marks_ready_and_surfaces_kill_switch_state"
+    - "cargo fmt --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test"
+    - "git diff --check"
+    - "GitNexus detect_changes before commit"
+  closeout_gate:
+    - "FUNCTION_TREE P0.7c closed and validate passed"
+    - "Graphiti memory written and ingest verified or local backfill recorded"
+
+evidence:
+  current_head: "bfc68c878b3c1ba16f3b894e5e83b2603394f467"
+  notes: []
