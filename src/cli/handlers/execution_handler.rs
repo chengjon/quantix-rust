@@ -103,6 +103,13 @@ pub(crate) fn format_qmt_promotion_checklist(
     let broker_fill_source = qmt_live_capabilities.fill_source == ExecutionFillSource::Broker;
     let broker_cancel_semantics =
         qmt_live_capabilities.cancel_semantics == ExecutionCancelSemantics::Broker;
+    let qmt_risk_notice = crate::execution::mode_semantics::risk_notice_for_execution_channel(
+        qmt_live_capabilities.channel,
+    );
+    let qmt_storage_namespace =
+        crate::execution::mode_semantics::storage_namespace_for_execution_channel(
+            qmt_live_capabilities.channel,
+        );
 
     [
         "QMT promotion checklist".to_string(),
@@ -131,6 +138,16 @@ pub(crate) fn format_qmt_promotion_checklist(
             "{} qmt_live cancel_semantics={}",
             status_mark(broker_cancel_semantics),
             qmt_live_capabilities.cancel_semantics.as_str()
+        ),
+        format!(
+            "{} qmt_live risk_notice={}",
+            status_mark(qmt_risk_notice.is_some()),
+            qmt_risk_notice.unwrap_or("unregistered")
+        ),
+        format!(
+            "{} qmt_live storage_namespace={}",
+            status_mark(qmt_storage_namespace.is_some()),
+            qmt_storage_namespace.unwrap_or("unregistered")
         ),
         "[ ] request target_mode=qmt_live".to_string(),
         "[ ] 先在 paper 路径验证策略与风控".to_string(),
