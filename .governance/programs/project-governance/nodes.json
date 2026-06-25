@@ -5436,11 +5436,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md",
     "current_head": "c9efd9c7ad667b17dd35504df5db675b49d73279",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -5464,11 +5464,11 @@
       "No additional Graphiti memory write from this fallback node.",
       "No changes to P0.7d implementation docs beyond a local backfill record."
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T21:29:56.136Z",
-    "updated_at": "2026-06-25T21:29:56.282Z",
+    "updated_at": "2026-06-25T21:32:20.272Z",
     "acceptance": {
       "commit_gate": [
         "git diff --check passes.",
@@ -5486,7 +5486,39 @@
         "note": "",
         "current_head": "c9efd9c7ad667b17dd35504df5db675b49d73279",
         "transitioned_at": "2026-06-25T21:29:56.281Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.093Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.142Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.272Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_GRAPHITI_BACKFILL_2026-06-26.md; commit 5d2459b docs: add p0.7d graphiti backfill record; Graphiti episode a7be5422-a926-416d-8c27-dea7f772d7e5 remained processing despite searchable nodes.",
+      "compatibility": "Documentation/governance-only; no code or runtime behavior changed.",
+      "gates": [
+        "git diff --cached --check passed.",
+        "FUNCTION_TREE scope-check and validate passed.",
+        "GitNexus staged detect_changes reported LOW with no affected processes."
+      ],
+      "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+      "prepared_at": "2026-06-25T21:32:20.190Z"
+    }
   }
 ]
