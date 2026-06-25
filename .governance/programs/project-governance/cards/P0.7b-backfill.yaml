@@ -1,0 +1,31 @@
+task:
+  id: "P0.7b-backfill"
+  title: "P0.7b Graphiti backfill record"
+
+scope:
+  allowed_paths:
+    - "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_GRAPHITI_BACKFILL_2026-06-25.md"
+    - ".governance/programs/project-governance/cards/P0.7b-backfill.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code changes"
+  - "No additional ExecutionCapabilities behavior changes"
+  - "No qmt_live runtime or OpenStock work"
+
+acceptance:
+  commit_gate:
+    - "Backfill report records Graphiti episode state and equivalent memory"
+    - "FUNCTION_TREE scope-check passes"
+    - "git diff --check passes"
+  closeout_gate:
+    - "FUNCTION_TREE P0.7b-backfill closed and validate passed"
+
+evidence:
+  current_head: "90b3ad6407d18f387b9d24f3580797461a1c0d9a"
+  notes: []

@@ -5128,5 +5128,71 @@
       "current_head": "3ed3a98274030963803752af2f82c40bc301ea77",
       "prepared_at": "2026-06-25T13:47:25.951Z"
     }
+  },
+  {
+    "id": "P0.7b-backfill",
+    "title": "P0.7b Graphiti backfill record",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
+    "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "runtime",
+        "path": "Graphiti episode b8c58837-afd9-4810-a3e4-1d9b3eba837f for P0.7b closeout remained processing after repeated polls; queue_depth=0, last_error=null, attempt_count=1, processed_at=null. Local fallback required by Graphiti workflow.",
+        "note": "P0.7b Graphiti ingest processing fallback evidence",
+        "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
+        "recorded_at": "2026-06-25T14:03:40.161Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_GRAPHITI_BACKFILL_2026-06-25.md",
+      ".governance/programs/project-governance/cards/P0.7b-backfill.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code changes",
+      "No additional ExecutionCapabilities behavior changes",
+      "No qmt_live runtime or OpenStock work"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T14:03:27.826Z",
+    "updated_at": "2026-06-25T14:04:21.758Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
+        "transitioned_at": "2026-06-25T14:03:53.913Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "90b3ad6407d18f387b9d24f3580797461a1c0d9a",
+        "transitioned_at": "2026-06-25T14:04:21.758Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "Backfill report records Graphiti episode state and equivalent memory",
+        "FUNCTION_TREE scope-check passes",
+        "git diff --check passes"
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE P0.7b-backfill closed and validate passed"
+      ]
+    }
   }
 ]
