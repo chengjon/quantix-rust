@@ -4822,11 +4822,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "ExecutionCapabilities continuation",
     "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "structural",
@@ -4855,11 +4855,11 @@
       "No upper-layer mode-check migration in this slice",
       "No qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T09:55:43.893Z",
-    "updated_at": "2026-06-25T09:56:27.565Z",
+    "updated_at": "2026-06-25T10:07:13.418Z",
     "transitions": [
       {
         "from": "evidence-prepared",
@@ -4874,6 +4874,27 @@
         "note": "",
         "current_head": "f0cf8b4d847357c8d4c748ddc3c5d6e9384e4e61",
         "transitioned_at": "2026-06-25T09:56:27.564Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:06:28.679Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:06:39.244Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+        "transitioned_at": "2026-06-25T10:07:13.418Z"
       }
     ],
     "acceptance": {
@@ -4888,6 +4909,22 @@
         "FUNCTION_TREE P0.7a closeout and validate",
         "Graphiti memory written and ingest verified"
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md",
+      "compatibility": "Preserves existing configured execution-mode semantics: mock_live is not folded into paper_sim_lifecycle; no submit/query/cancel, qmt_live runtime, bridge protocol, response shape, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes.",
+      "gates": [
+        "TDD RED/GREEN focused mapping test passed",
+        "cargo test --test execution_mode_semantics_test passed",
+        "cargo test --test execution_adapter_capabilities_test passed",
+        "cargo fmt --check passed",
+        "cargo clippy -- -D warnings passed",
+        "cargo test passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW, affected processes 0"
+      ],
+      "current_head": "f8d4333dc575ac0d8e6fb94acd3135e5ce9db9e0",
+      "prepared_at": "2026-06-25T10:06:53.444Z"
     }
   }
 ]
