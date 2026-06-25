@@ -1,0 +1,31 @@
+task:
+  id: "P0.7d-backfill"
+  title: "P0.7d Graphiti backfill record"
+
+scope:
+  allowed_paths:
+    - "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_GRAPHITI_BACKFILL_2026-06-26.md"
+    - ".governance/programs/project-governance/cards/P0.7d-backfill.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code changes."
+  - "No additional Graphiti memory write from this fallback node."
+  - "No changes to P0.7d implementation docs beyond a local backfill record."
+
+acceptance:
+  commit_gate:
+    - "git diff --check passes."
+    - "FUNCTION_TREE scope-check and validate pass."
+    - "GitNexus detect_changes reports documentation/governance-only scope."
+  closeout_gate:
+    - "P0.7d-backfill node closed with active gates none."
+
+evidence:
+  current_head: "c9efd9c7ad667b17dd35504df5db675b49d73279"
+  notes: []

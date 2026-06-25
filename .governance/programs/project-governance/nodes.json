@@ -5429,5 +5429,96 @@
       "current_head": "cb0a2552efd12ae2c3e5248b7200459a514c2e0c",
       "prepared_at": "2026-06-25T21:15:02.829Z"
     }
+  },
+  {
+    "id": "P0.7d-backfill",
+    "title": "P0.7d Graphiti backfill record",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md",
+    "current_head": "c9efd9c7ad667b17dd35504df5db675b49d73279",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "Graphiti episode a7be5422-a926-416d-8c27-dea7f772d7e5 for P0.7d remained processing with queue_depth=0, attempt_count=1, no last_error after repeated polling, although search found extracted nodes. Local backfill required by workflow because ingest status did not reach completed.",
+        "note": "Backfill node records equivalent memory only; no code changes.",
+        "current_head": "c9efd9c7ad667b17dd35504df5db675b49d73279",
+        "recorded_at": "2026-06-25T21:29:56.188Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_GRAPHITI_BACKFILL_2026-06-26.md",
+      ".governance/programs/project-governance/cards/P0.7d-backfill.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code changes.",
+      "No additional Graphiti memory write from this fallback node.",
+      "No changes to P0.7d implementation docs beyond a local backfill record."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T21:29:56.136Z",
+    "updated_at": "2026-06-25T21:32:20.272Z",
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check passes.",
+        "FUNCTION_TREE scope-check and validate pass.",
+        "GitNexus detect_changes reports documentation/governance-only scope."
+      ],
+      "closeout_gate": [
+        "P0.7d-backfill node closed with active gates none."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "c9efd9c7ad667b17dd35504df5db675b49d73279",
+        "transitioned_at": "2026-06-25T21:29:56.281Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.093Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.142Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+        "transitioned_at": "2026-06-25T21:32:20.272Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_GRAPHITI_BACKFILL_2026-06-26.md; commit 5d2459b docs: add p0.7d graphiti backfill record; Graphiti episode a7be5422-a926-416d-8c27-dea7f772d7e5 remained processing despite searchable nodes.",
+      "compatibility": "Documentation/governance-only; no code or runtime behavior changed.",
+      "gates": [
+        "git diff --cached --check passed.",
+        "FUNCTION_TREE scope-check and validate passed.",
+        "GitNexus staged detect_changes reported LOW with no affected processes."
+      ],
+      "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
+      "prepared_at": "2026-06-25T21:32:20.190Z"
+    }
   }
 ]
