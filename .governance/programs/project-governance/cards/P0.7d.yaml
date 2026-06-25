@@ -1,0 +1,34 @@
+task:
+  id: "P0.7d"
+  title: "ExecutionCapabilities P0.7 documentation sync"
+
+scope:
+  allowed_paths:
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md"
+    - ".governance/programs/project-governance/cards/P0.7d.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production code changes."
+  - "No qmt_live runtime probing, canary, bridge protocol, storage schema, submit/query/cancel, ExecutionAdapter, OrderStatus, or request_diagnostics changes."
+  - "No OpenStock implementation in this documentation sync slice."
+
+acceptance:
+  commit_gate:
+    - "git diff --check passes."
+    - "FUNCTION_TREE scope-check and validate pass."
+    - "GitNexus detect_changes reports documentation/governance-only scope."
+  closeout_gate:
+    - "P0.7d node closed with active gates none."
+
+evidence:
+  current_head: "f9778d5e039db483be996f33198d77df50fe12e9"
+  notes: []

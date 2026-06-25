@@ -74,3 +74,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.7b: ExecutionCapabilities checklist mode semantics (planning, FT: docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md)
 - [ ] P0.7b-backfill: P0.7b Graphiti backfill record (planning, FT: docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md)
 - [ ] P0.7c: ExecutionCapabilities preflight mode semantics (planning, FT: docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md)
+- [ ] P0.7d: ExecutionCapabilities P0.7 documentation sync (planning, FT: FUNCTION_TREE.md#execution-mode-semantics-hardening)

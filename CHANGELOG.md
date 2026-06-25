@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-26
+
+### Docs
+- **ExecutionCapabilities P0.7 documentation sync** (`docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md`, `README.md`, `CHANGELOG.md`, `FUNCTION_TREE.md`)
+  - 同步 P0.7a/P0.7b/P0.7c 已合并状态：ExecutionCapabilities 静态语义 helper 已接入 qmt_live promotion checklist 和 human-readable preflight report，显示 `risk_notice` 与 `storage_namespace`
+  - 明确本阶段未改动 JSON payload、bridge 协议、runtime storage、`ExecutionAdapter`、`OrderStatus`、submit/query/cancel 主流程或 qmt_live runtime probing；`request_diagnostics.rs` 后续接线因 GitNexus impact 为 HIGH，必须另行专项审批
+
 ## 2026-06-25
 
 ### Docs

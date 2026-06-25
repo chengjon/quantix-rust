@@ -5328,5 +5328,74 @@
       "current_head": "84cecbdcc1654f4f8dad8eb0d5f7685ceb04c483",
       "prepared_at": "2026-06-25T20:53:53.506Z"
     }
+  },
+  {
+    "id": "P0.7d",
+    "title": "ExecutionCapabilities P0.7 documentation sync",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "FUNCTION_TREE.md#execution-mode-semantics-hardening",
+    "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "P0.7a PR #290, P0.7b PR #292, and P0.7c PR #294 are merged; P0.7c Graphiti episode 0a75af01-4a3e-4d88-ab98-65291e798894 completed.",
+        "note": "Global docs need synchronization after the display-only mode semantics slices.",
+        "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
+        "recorded_at": "2026-06-25T21:12:01.155Z"
+      },
+      {
+        "kind": "evidence",
+        "path": "GitNexus impact for request_diagnostics qmt_live diagnostic constructors returned HIGH; no production-code follow-up will be included in this node.",
+        "note": "This node is docs/governance only.",
+        "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
+        "recorded_at": "2026-06-25T21:12:01.203Z"
+      }
+    ],
+    "allowed_paths": [
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      "docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md",
+      ".governance/programs/project-governance/cards/P0.7d.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production code changes.",
+      "No qmt_live runtime probing, canary, bridge protocol, storage schema, submit/query/cancel, ExecutionAdapter, OrderStatus, or request_diagnostics changes.",
+      "No OpenStock implementation in this documentation sync slice."
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-25T21:12:01.102Z",
+    "updated_at": "2026-06-25T21:12:11.309Z",
+    "acceptance": {
+      "commit_gate": [
+        "git diff --check passes.",
+        "FUNCTION_TREE scope-check and validate pass.",
+        "GitNexus detect_changes reports documentation/governance-only scope."
+      ],
+      "closeout_gate": [
+        "P0.7d node closed with active gates none."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "f9778d5e039db483be996f33198d77df50fe12e9",
+        "transitioned_at": "2026-06-25T21:12:11.309Z"
+      }
+    ]
   }
 ]
