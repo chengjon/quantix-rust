@@ -5032,11 +5032,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "implementation-ready",
+    "status": "closed",
     "function_tree_ref": "docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md",
     "current_head": "e785a67fd9e1df0fbca29d3e0bda46e2cb7f9d29",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "structural",
@@ -5062,11 +5062,11 @@
       "No submit/query/cancel, daemon, reconciliation, qmt_live runtime probing, bridge protocol, storage schema, OrderStatus, ExecutionAdapter signature, or paper semantics changes",
       "No migration of upper-layer mode checks"
     ],
-    "next_gate": "land implementation with Git evidence",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-25T13:24:35.627Z",
-    "updated_at": "2026-06-25T13:46:12.508Z",
+    "updated_at": "2026-06-25T13:47:37.733Z",
     "transitions": [
       {
         "from": "evidence-prepared",
@@ -5088,6 +5088,20 @@
         "note": "",
         "current_head": "e785a67fd9e1df0fbca29d3e0bda46e2cb7f9d29",
         "transitioned_at": "2026-06-25T13:46:12.507Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "3ed3a98274030963803752af2f82c40bc301ea77",
+        "transitioned_at": "2026-06-25T13:47:14.616Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "3ed3a98274030963803752af2f82c40bc301ea77",
+        "transitioned_at": "2026-06-25T13:47:37.732Z"
       }
     ],
     "acceptance": {
@@ -5104,6 +5118,15 @@
         "FUNCTION_TREE P0.7b closed and validate passed",
         "Graphiti memory written and ingest verified or local backfill recorded"
       ]
+    },
+    "closeout": {
+      "summary": "docs/reports/EXECUTION_CAPABILITIES_CHECKLIST_MODE_SEMANTICS_P0_7B_2026-06-25.md",
+      "compatibility": "Display-only checklist change; no JSON response shape, submit/query/cancel flow, storage schema, bridge protocol, OrderStatus, ExecutionAdapter signature, or paper semantics changed.",
+      "gates": [
+        "TDD RED/GREEN focused checklist test, cargo fmt --check, cargo clippy -- -D warnings, cargo test, git diff --check, FUNCTION_TREE scope-check, GitNexus detect_changes reviewed."
+      ],
+      "current_head": "3ed3a98274030963803752af2f82c40bc301ea77",
+      "prepared_at": "2026-06-25T13:47:25.951Z"
     }
   }
 ]
