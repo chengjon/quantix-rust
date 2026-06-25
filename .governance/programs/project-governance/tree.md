@@ -70,3 +70,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.6d-backfill: qmt_live failure boundary Graphiti backfill (planning, FT: docs/reports/QMT_LIVE_RUNTIME_READINESS_P0_6D_2026-06-24.md)
 - [ ] P0.6e: qmt_live runtime readiness decision report (planning, FT: openspec/changes/archive/2026-06-24-qmt-live-runtime-readiness-p0-6/tasks.md#5-p06e-readiness-decision-report)
 - [ ] P0.7a: ExecutionCapabilities mode semantics bridge (planning, FT: ExecutionCapabilities continuation)
+- [ ] P0.7a-backfill: P0.7a Graphiti backfill record (planning, FT: docs/reports/EXECUTION_CAPABILITIES_MODE_SEMANTICS_P0_7A_2026-06-25.md)
