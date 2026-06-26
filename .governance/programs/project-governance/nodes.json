@@ -5828,5 +5828,99 @@
       "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
       "prepared_at": "2026-06-26T04:32:42.056Z"
     }
+  },
+  {
+    "id": "P0.8a-backfill",
+    "title": "OpenStock P0.8a Graphiti backfill",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "sources",
+    "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "PR #299 merged as 4779a76; master CI 28217484616 passed; Graphiti episode 914a72e6-369e-4100-9a28-7ae0d2846834 remained processing with queue_depth=0 and last_error=null after repeated polling",
+        "note": "Record local equivalent memory because ingest completion could not be verified.",
+        "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+        "recorded_at": "2026-06-26T04:45:12.191Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_GRAPHITI_BACKFILL_2026-06-26.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8a-backfill.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify production Rust code, tests, OpenSpec task semantics, OpenStock parser/provider behavior, live network behavior, ClickHouse persistence, qmt_live behavior, miniQMT market-manifest behavior, tdx_api behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup in this Graphiti backfill record."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T04:44:52.992Z",
+    "updated_at": "2026-06-26T04:48:23.052Z",
+    "acceptance": {
+      "commit_gate": [
+        "function-tree scope-check/validate/gate must pass",
+        "git diff --check must pass",
+        "GitNexus detect_changes before commit must report documentation/governance-only expected scope"
+      ],
+      "closeout_gate": [
+        "Local Graphiti backfill record exists with episode UUID, observed stuck ingest state, equivalent memory summary, and Graphiti backfill required marker."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+        "transitioned_at": "2026-06-26T04:45:41.136Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+        "transitioned_at": "2026-06-26T04:47:37.498Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+        "transitioned_at": "2026-06-26T04:47:47.162Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+        "transitioned_at": "2026-06-26T04:48:23.051Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_GRAPHITI_BACKFILL_2026-06-26.md",
+      "compatibility": "Documentation/governance-only Graphiti fallback record; no production Rust code, tests, OpenSpec task semantics, OpenStock parser/provider behavior, live network behavior, ClickHouse persistence, qmt_live behavior, miniQMT market-manifest behavior, tdx_api behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup changed.",
+      "gates": [
+        "FUNCTION_TREE scope-check passed for 9 changed files within active authorization",
+        "FUNCTION_TREE validate passed",
+        "openspec validate --all --strict passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW with 0 affected processes and documentation/config-only classes"
+      ],
+      "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
+      "prepared_at": "2026-06-26T04:48:08.095Z"
+    }
   }
 ]

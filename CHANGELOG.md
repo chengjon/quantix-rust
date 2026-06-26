@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-26
 
 ### Docs
+- **OpenStock P0.8a Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_GRAPHITI_BACKFILL_2026-06-26.md`, `FUNCTION_TREE.md`, `README.md`)
+  - 记录 P0.8a closeout memory episode `914a72e6-369e-4100-9a28-7ae0d2846834` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
+  - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #299 / merge commit `4779a76` 的 P0.8a inventory closeout 结论
 - **OpenStock data consumption P0.8a inventory** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_INVENTORY_2026-06-26.md`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
   - 完成 OpenStock 数据消费第一片 inventory，映射当前 `Kline` / `StockQuote` / `StockInfo` 形状、`tdx_api` / `bridge_tdx` / `eastmoney` / miniQMT manifest 边界、ClickHouse 读写路径和 backtest 消费入口
   - 建议 P0.8b 从 fixture-owned daily-kline parser/normalizer 开始，目标先输出 `Vec<Kline>`；继续禁止 live OpenStock CI 请求、ClickHouse 写入、数据源路由替换和 qmt_live/miniQMT 行为改动
