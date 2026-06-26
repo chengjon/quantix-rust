@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-26
 
 ### Docs
+- **OpenStock data consumption P0.8 OpenSpec** (`openspec/changes/openstock-data-consumption-p0-8/`, `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md`, `README.md`, `FUNCTION_TREE.md`)
+  - 新增 OpenStock 数据消费正式规划，作为 qmt_live 环境阻塞后的 broker-independent 数据主线，按 inventory、fixture parser、只读 CLI/local artifact validation、analysis/backtest fixture loop、persistence/shadow validation 分阶段推进
+  - 明确本规划片不改生产 Rust 代码、不做 live OpenStock CI 请求、不写 ClickHouse、不改变 qmt_live、miniQMT market-manifest、`tdx_api` 或其他既有数据源行为
 - **ExecutionCapabilities P0.7 documentation sync** (`docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md`, `README.md`, `CHANGELOG.md`, `FUNCTION_TREE.md`)
   - 同步 P0.7a/P0.7b/P0.7c 已合并状态：ExecutionCapabilities 静态语义 helper 已接入 qmt_live promotion checklist 和 human-readable preflight report，显示 `risk_notice` 与 `storage_namespace`
   - 明确本阶段未改动 JSON payload、bridge 协议、runtime storage、`ExecutionAdapter`、`OrderStatus`、submit/query/cancel 主流程或 qmt_live runtime probing；`request_diagnostics.rs` 后续接线因 GitNexus impact 为 HIGH，必须另行专项审批

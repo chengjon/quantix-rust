@@ -5520,5 +5520,115 @@
       "current_head": "5d2459b3b6fc7b04f37426a3bc073522e279a178",
       "prepared_at": "2026-06-25T21:32:20.190Z"
     }
+  },
+  {
+    "id": "P0.8",
+    "title": "OpenStock data consumption OpenSpec",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "openspec/changes/openstock-data-consumption-p0-8",
+    "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "Graphiti reads completed for OpenStock/data-source context: prior facts show miniQMT market-manifest dry-run consumer exists, tdx_api is configured separately, and AKShare/TDX kline fetch gaps remain documented.",
+        "note": "Planning slice only; no production code edit.",
+        "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
+        "recorded_at": "2026-06-26T00:27:24.938Z"
+      },
+      {
+        "kind": "evidence",
+        "path": "GitNexus overview identifies Sources, Market, Io, Analysis, Strategy, and Execution clusters; detect_changes before edits reports no uncommitted changes. OpenStock symbol is not yet a code entry, so P0.8 first formalizes scope before implementation.",
+        "note": "Avoids accidental qmt_live/miniQMT coupling.",
+        "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
+        "recorded_at": "2026-06-26T00:27:39.806Z"
+      }
+    ],
+    "allowed_paths": [
+      "openspec/changes/openstock-data-consumption-p0-8/proposal.md",
+      "openspec/changes/openstock-data-consumption-p0-8/design.md",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "openspec/changes/openstock-data-consumption-p0-8/specs/openstock-data-consumption/spec.md",
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md",
+      "FUNCTION_TREE.md",
+      "README.md",
+      "CHANGELOG.md",
+      ".governance/programs/project-governance/cards/P0.8.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust code changes in this planning slice.",
+      "No qmt_live runtime probing, canary, submit/query/cancel, bridge protocol, storage schema, ExecutionAdapter, or OrderStatus changes.",
+      "No ClickHouse writes or external OpenStock runtime calls in this slice.",
+      "No miniQMT registry or market-manifest behavior changes."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T00:27:12.688Z",
+    "updated_at": "2026-06-26T00:32:12.749Z",
+    "acceptance": {
+      "commit_gate": [
+        "openspec validate openstock-data-consumption-p0-8 --strict passes.",
+        "openspec validate --all --strict passes or any unrelated pre-existing failure is documented.",
+        "git diff --check passes.",
+        "FUNCTION_TREE scope-check and validate pass.",
+        "GitNexus detect_changes reports documentation/governance-only scope."
+      ],
+      "closeout_gate": [
+        "P0.8 node closed with active gates none."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
+        "transitioned_at": "2026-06-26T00:28:04.456Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.518Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.579Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.749Z"
+      }
+    ],
+    "closeout": {
+      "summary": "openspec/changes/openstock-data-consumption-p0-8/; docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md; commit 6d712ff docs: add openstock data consumption openspec; OpenSpec strict validations passed; GitNexus staged detect_changes LOW with no affected processes.",
+      "compatibility": "Planning/docs/governance only; no production code or runtime behavior changed.",
+      "gates": [
+        "openspec validate openstock-data-consumption-p0-8 --strict passed.",
+        "openspec validate --all --strict passed.",
+        "git diff --cached --check passed.",
+        "FUNCTION_TREE scope-check and validate passed.",
+        "GitNexus staged detect_changes reported LOW with no affected processes."
+      ],
+      "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+      "prepared_at": "2026-06-26T00:32:12.641Z"
+    }
   }
 ]
