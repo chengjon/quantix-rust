@@ -1,0 +1,34 @@
+task:
+  id: "P0.8b"
+  title: "OpenStock daily kline fixture parser"
+
+scope:
+  allowed_paths:
+    - "src/sources/openstock.rs"
+    - "src/sources/mod.rs"
+    - "tests/openstock_fixture_parser_test.rs"
+    - "tests/fixtures/openstock/daily_kline.json"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8b.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No live network access, provider runtime, CLI command, ClickHouse persistence, schema migration, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact before source edits; TDD RED/GREEN for parser contract; cargo fmt --check; cargo clippy -- -D warnings; targeted parser test; cargo test; openspec validate --all --strict; function-tree scope/validate; git diff --check; GitNexus detect_changes before commit"
+  closeout_gate:
+    - "PR CI and master CI pass; P0.8b Graphiti memory written or local backfill recorded if ingest stalls"
+
+evidence:
+  current_head: "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9"
+  notes: []

@@ -21,10 +21,10 @@
 
 ## 2. P0.8b Provider Contract And Fixture Parser
 
-- [ ] 2.1 Define the smallest OpenStock fixture-owned input shape.
-- [ ] 2.2 Add RED parser/normalization tests from committed fixtures.
-- [ ] 2.3 Implement only the minimal parser/normalizer required for GREEN.
-- [ ] 2.4 Preserve existing `tdx_api`, `bridge_tdx`, `eastmoney`, and miniQMT behavior.
+- [x] 2.1 Define the smallest OpenStock fixture-owned input shape.
+- [x] 2.2 Add RED parser/normalization tests from committed fixtures.
+- [x] 2.3 Implement only the minimal parser/normalizer required for GREEN.
+- [x] 2.4 Preserve existing `tdx_api`, `bridge_tdx`, `eastmoney`, and miniQMT behavior.
 
 ## 3. P0.8c CLI Status And Fixture Validation
 

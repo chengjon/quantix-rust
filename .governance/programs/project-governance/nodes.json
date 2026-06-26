@@ -5922,5 +5922,100 @@
       "current_head": "4779a76e084c7f5d6673f6eb491f56b9fdc688f0",
       "prepared_at": "2026-06-26T04:48:08.095Z"
     }
+  },
+  {
+    "id": "P0.8b",
+    "title": "OpenStock daily kline fixture parser",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "sources",
+    "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "baseline: branch feat/openstock-p0-8b-fixture-parser at 6c9f703, clean worktree before edits; P0.8a inventory recommends fixture-owned daily Kline parser/normalizer; Graphiti reads completed; GitNexus overview/query completed",
+        "note": "P0.8b baseline and prior evidence captured",
+        "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+        "recorded_at": "2026-06-26T05:03:30.901Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/sources/openstock.rs",
+      "src/sources/mod.rs",
+      "tests/openstock_fixture_parser_test.rs",
+      "tests/fixtures/openstock/daily_kline.json",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8b.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No live network access, provider runtime, CLI command, ClickHouse persistence, schema migration, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T05:03:20.051Z",
+    "updated_at": "2026-06-26T05:23:05.925Z",
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact before source edits; TDD RED/GREEN for parser contract; cargo fmt --check; cargo clippy -- -D warnings; targeted parser test; cargo test; openspec validate --all --strict; function-tree scope/validate; git diff --check; GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "PR CI and master CI pass; P0.8b Graphiti memory written or local backfill recorded if ingest stalls"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+        "transitioned_at": "2026-06-26T05:03:52.609Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+        "transitioned_at": "2026-06-26T05:22:26.526Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+        "transitioned_at": "2026-06-26T05:22:36.527Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+        "transitioned_at": "2026-06-26T05:23:05.925Z"
+      }
+    ],
+    "closeout": {
+      "summary": "P0.8b landed OpenStock fixture-owned daily kline parser: src/sources/openstock.rs parses committed JSON fixture into existing Vec<Kline>, exposes parse_daily_kline_json and OpenStockKlineParseError, and adds contract tests for fixture success plus empty records, missing code, invalid date, invalid decimal, high-below-low, unsupported period, mixed code, and numeric JSON values.",
+      "compatibility": "No Kline struct change, no live OpenStock network call, no CLI wiring, no ClickHouse persistence, no source routing replacement, no qmt_live/miniQMT/ExecutionAdapter/OrderStatus/unwrap-cleanup changes.",
+      "gates": [
+        "GitNexus impact: Kline CRITICAL so definition left untouched; src/sources/mod.rs LOW/0 processes; GitNexus detect_changes LOW/0 affected processes.",
+        "TDD RED observed: cargo test --test openstock_fixture_parser_test failed with missing src/sources/openstock.rs; GREEN target test passed 9/9.",
+        "cargo fmt --check passed; cargo clippy -- -D warnings passed; openspec validate openstock-data-consumption-p0-8 --strict passed; openspec validate --all --strict passed; git diff --check passed; function-tree scope-check/validate passed.",
+        "cargo test first run hit existing cli::tests::risk::run_risk_rule_set_dispatches_to_handler env flaky, exact test passed, second full cargo test passed including doc-tests."
+      ],
+      "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
+      "prepared_at": "2026-06-26T05:22:55.005Z"
+    }
   }
 ]

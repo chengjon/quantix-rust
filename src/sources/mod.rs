@@ -3,6 +3,7 @@ pub mod auction_collector;
 pub mod bridge_tdx;
 pub mod eastmoney;
 pub mod kline_aggregator;
+pub mod openstock;
 pub mod quote_collector;
 /// 数据源适配器
 ///
@@ -19,6 +20,7 @@ pub use eastmoney::{
     Board, EastMoneySource, FinancialData, MoneyFlowData, Quote, StockInfo as EastMoneyStockInfo,
 };
 pub use kline_aggregator::{KlineAggregator, KlineData, KlinePeriod, KlineWindow};
+pub use openstock::{OpenStockKlineParseError, parse_daily_kline_json};
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use tdx::{StockQuote, TdxSource};
 pub use tdx_api::{

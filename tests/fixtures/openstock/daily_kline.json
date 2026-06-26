@@ -1,0 +1,27 @@
+{
+  "provider": "openstock",
+  "period": "daily",
+  "adjust_type": "none",
+  "records": [
+    {
+      "code": "600000",
+      "date": "2026-06-22",
+      "open": "9.80",
+      "high": "10.15",
+      "low": "9.70",
+      "close": "10.05",
+      "volume": 1234567,
+      "amount": "12345678.90"
+    },
+    {
+      "code": "600000",
+      "date": "2026-06-23",
+      "open": "10.05",
+      "high": "10.30",
+      "low": "9.95",
+      "close": "10.20",
+      "volume": 2345678,
+      "amount": "23456789.01"
+    }
+  ]
+}
