@@ -13,13 +13,13 @@ pub use command_types::{
     ExecutionQmtCommands, FactorCommands, FactorOutputFormat, FundamentalCommands, ImportCommands,
     MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
     MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
-    RiskImportCommands, RiskLockCommands, RiskRebuildCommands, RiskRuleCommands, RiskSyncCommands,
-    SafetyCommands, SafetyKillSwitchCommands, ScreenerCommands, SentimentCommands, StopCommands,
-    StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrengthStockMetric, TaskCommands, TdxApiCommands, TradeCommands, WatchlistCommands,
-    WatchlistGroupCommands, WatchlistTagCommands,
+    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, OpenStockCommands,
+    PerformanceCommands, RiskCommands, RiskImportCommands, RiskLockCommands, RiskRebuildCommands,
+    RiskRuleCommands, RiskSyncCommands, SafetyCommands, SafetyKillSwitchCommands, ScreenerCommands,
+    SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
+    TdxApiCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 pub use commands::{Cli, Commands};
 

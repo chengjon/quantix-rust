@@ -28,10 +28,10 @@
 
 ## 3. P0.8c CLI Status And Fixture Validation
 
-- [ ] 3.1 Add read-only CLI/status design for OpenStock configuration and local fixture validation.
-- [ ] 3.2 Fail closed when no fixture/config is supplied.
-- [ ] 3.3 Do not call live OpenStock endpoints in CI.
-- [ ] 3.4 Do not write ClickHouse.
+- [x] 3.1 Add read-only CLI/status design for OpenStock configuration and local fixture validation.
+- [x] 3.2 Fail closed when no fixture/config is supplied.
+- [x] 3.3 Do not call live OpenStock endpoints in CI.
+- [x] 3.4 Do not write ClickHouse.
 
 ## 4. P0.8d Analysis/Backtest Fixture Loop
 

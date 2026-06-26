@@ -4,12 +4,12 @@ pub(crate) use super::command_types::{
     ExecutionDaemonCommands, ExecutionQmtCommands, FactorCommands, FactorOutputFormat,
     FundamentalCommands, ImportCommands, MarketCommands, MonitorAlertCommands, MonitorCommands,
     MonitorConfigCommands, MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
-    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, PerformanceCommands, RiskCommands,
-    RiskLockCommands, RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands,
-    StrategyCommands, StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrengthStockMetric, TaskCommands, TdxApiCommands, TradeCommands, WatchlistCommands,
-    WatchlistGroupCommands, WatchlistTagCommands,
+    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, OpenStockCommands,
+    PerformanceCommands, RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands,
+    SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
+    TdxApiCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::core::Result;
 
@@ -31,6 +31,7 @@ mod monitor_handler;
 mod monitor_output;
 mod news;
 mod notify;
+mod openstock_handler;
 mod performance_handler;
 mod risk;
 mod safety;
@@ -125,6 +126,7 @@ use self::monitor_output::{
 };
 pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
+use self::openstock_handler::validate_openstock_fixture;
 pub(crate) use self::performance_handler::run_performance_command;
 pub use self::risk::run_risk_command;
 #[cfg(test)]

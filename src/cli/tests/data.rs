@@ -156,6 +156,26 @@ fn parses_data_tdx_api_kline_command() {
 }
 
 #[test]
+fn parses_data_openstock_validate_fixture_command() {
+    let cli = Cli::try_parse_from([
+        "quantix",
+        "data",
+        "openstock",
+        "validate-fixture",
+        "--file",
+        "tests/fixtures/openstock/daily_kline.json",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Data(DataCommands::OpenStock(OpenStockCommands::ValidateFixture { file })) => {
+            assert_eq!(file, "tests/fixtures/openstock/daily_kline.json");
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_data_tdx_api_import_klines_code_command() {
     let cli = Cli::try_parse_from([
         "quantix",
