@@ -17,8 +17,8 @@ All notable changes to this project are documented here.
 
 ### Docs
 - **OpenStock P0.8c Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md`, `FUNCTION_TREE.md`, `README.md`)
-  - 记录 P0.8c closeout memory episode `6192a37c-4d9a-461c-8d98-a4823de08cda` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
-  - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #304 / merge commit `44b43f4` 的 P0.8c local fixture CLI closeout 结论
+  - 记录 P0.8c closeout memory episode `6192a37c-4d9a-461c-8d98-a4823de08cda` 初始轮询时停留 `processing`、`queue_depth=0`、`last_error=null`，后续已验证达到 `completed`
+  - 保留本地 fallback 报告作为临时等待窗口的审计记录，并确认 P0.8c 当前无需额外 Graphiti 回填
 - **OpenStock P0.8b Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8B_GRAPHITI_BACKFILL_2026-06-26.md`, `FUNCTION_TREE.md`, `README.md`)
   - 记录 P0.8b closeout memory episode `3cd46c5b-3c6e-44ab-91b0-896af306753e` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
   - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #301 / merge commit `0256897` 的 P0.8b fixture parser closeout 结论

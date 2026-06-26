@@ -4,22 +4,23 @@ Date: 2026-06-27
 
 ## Summary
 
-P0.8c OpenStock local fixture validation CLI was completed, merged, and verified in PR #304. The required Graphiti closeout memory was submitted, but ingest did not reach `completed` during the closeout window.
+P0.8c OpenStock local fixture validation CLI was completed, merged, and verified in PR #304. The required Graphiti closeout memory was submitted and initially did not reach `completed` during the closeout window, so this local fallback record was created.
 
-This file is the local fallback record required by `docs/guides/GRAPHITI_MCP_WORKFLOW.md`.
+The Graphiti episode was later verified as `completed`, so no remaining backfill action is required for P0.8c. This file remains as an audit record for the temporary fallback window.
 
-Graphiti backfill required
+Graphiti backfill completed
 
 ## Graphiti Episode
 
 - Group: `quantix_rust_main`
 - Episode UUID: `6192a37c-4d9a-461c-8d98-a4823de08cda`
 - Episode name: `P0.8c OpenStock local fixture validation CLI closeout`
-- Observed state: `processing`
+- Initial observed state: `processing`
+- Final observed state: `completed`
 - Queue depth: `0`
 - Attempt count: `1`
 - Last error: `null`
-- Processed at: `null`
+- Processed at: `2026-06-26T17:48:14.726558+00:00`
 
 ## Equivalent Memory
 
@@ -57,4 +58,4 @@ Verification:
 
 ## Backfill Action
 
-When Graphiti ingest resumes normally, backfill this memory into `quantix_rust_main` or confirm episode `6192a37c-4d9a-461c-8d98-a4823de08cda` reached `completed`.
+No action remains. Episode `6192a37c-4d9a-461c-8d98-a4823de08cda` reached `completed` in `quantix_rust_main`.
