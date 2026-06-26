@@ -73,6 +73,7 @@
 - [x] P0.8b: OpenStock daily kline fixture parser [decision] (closed, FT: sources)
 - [x] P0.8b-backfill: OpenStock P0.8b Graphiti backfill [decision] (closed, FT: sources)
 - [x] P0.8c: OpenStock local fixture validation CLI [decision] (closed, FT: sources)
+- [x] P0.8c-backfill: OpenStock P0.8c Graphiti backfill [closeout] (closed, FT: sources/)
 
 
 ## Evidence Ledger
@@ -139,6 +140,7 @@
 | P0.8b | baseline: branch feat/openstock-p0-8b-fixture-parser at 6c9f703, clean worktree before edits; P0.8a inventory recommends fixture-owned daily Kline parser/normalizer; Graphiti reads completed; GitNexus overview/query completed | `6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9` | P0.8b baseline and prior evidence captured |
 | P0.8b-backfill | Graphiti episode 3cd46c5b-3c6e-44ab-91b0-896af306753e for P0.8b closeout remained processing after repeated get_ingest_status polls: queue_depth=0, attempt_count=1, last_error=null, processed_at=null. | `02568972ac442b98168d5614bfff1b9c947fdae2` | Graphiti ingest stalled; local backfill required |
 | P0.8c | HEAD eb83a4a on branch feat/openstock-p0-8c-fixture-validation; master clean before worktree creation; P0.8b parser baseline command running in worktree; OpenSpec tasks 3.1-3.4 define read-only local fixture validation, fail closed without fixture/config, no live OpenStock in CI, no ClickHouse writes; Graphiti read completed for quantix_rust_main/docs; GitNexus impact LOW for DataCommands and run_data_command | `eb83a4a208a46a7acea533566832f55908e39fbb` | P0.8c baseline and impact context |
+| P0.8c-backfill | Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda remained processing after repeated get_ingest_status polling; PR #304 merged as 44b43f4 and master CI run 28254792250 passed | `44b43f43e56548d5e37a48df7e4156fb98dc0bae` | P0.8c closeout memory needs local fallback record |
 
 ## Active Gates
 

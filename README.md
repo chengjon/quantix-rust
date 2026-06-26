@@ -117,6 +117,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - OpenStock 数据消费 P0.8b fixture parser 已落地：新增 `sources::openstock::parse_daily_kline_json`，从 committed JSON fixture 解析并归一化为既有 `Vec<Kline>`；覆盖空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period、混合 code 等 fail-closed 契约。该片仍不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、数据源路由替换、qmt_live/miniQMT 行为改动或 `Kline` 结构变更。
 - OpenStock P0.8b closeout Graphiti episode `3cd46c5b-3c6e-44ab-91b0-896af306753e` 未达到 `completed`，已按项目规则记录本地 backfill 报告。
 - OpenStock 数据消费 P0.8c local fixture CLI 已落地：新增 `quantix data openstock validate-fixture --file <fixture.json>` 只读入口，读取本地 fixture 并复用 `parse_daily_kline_json` 输出记录数、代码、日期范围和 `local_fixture` 来源标记；缺少 `--file` 时由 clap fail-closed。本片不访问 live OpenStock endpoint、不写 ClickHouse、不替换既有数据源路由，也不改动 qmt_live/miniQMT、`Kline`、`ExecutionAdapter` 或 `OrderStatus`。
+- OpenStock P0.8c closeout Graphiti episode `6192a37c-4d9a-461c-8d98-a4823de08cda` 未达到 `completed`，已按项目规则记录本地 backfill 报告。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)

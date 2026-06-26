@@ -1,0 +1,32 @@
+task:
+  id: "P0.8c-backfill"
+  title: "OpenStock P0.8c Graphiti backfill"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8c-backfill.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust code changes"
+  - "No OpenStock live network, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+
+acceptance:
+  commit_gate:
+    - "function-tree validate passes"
+    - "git diff --check passes"
+  closeout_gate:
+    - "PR merged and master CI passed for docs-only backfill"
+
+evidence:
+  current_head: "44b43f43e56548d5e37a48df7e4156fb98dc0bae"
+  notes: []
