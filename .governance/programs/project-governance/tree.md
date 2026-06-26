@@ -78,3 +78,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.7d-backfill: P0.7d Graphiti backfill record (planning, FT: docs/reports/EXECUTION_CAPABILITIES_P0_7_DOC_SYNC_2026-06-26.md)
 - [ ] P0.8: OpenStock data consumption OpenSpec (planning, FT: openspec/changes/openstock-data-consumption-p0-8)
 - [ ] P0.8-backfill: OpenStock P0.8 Graphiti backfill (planning, FT: sources)
+- [ ] P0.8a: OpenStock data consumption inventory (planning, FT: sources)

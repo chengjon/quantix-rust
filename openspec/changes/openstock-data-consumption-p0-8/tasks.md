@@ -14,10 +14,10 @@
 
 ## 1. P0.8a Inventory And Contract Map
 
-- [ ] 1.1 Map current stock identity, kline, quote, market foundation, analysis, backtest, and paper/mock data consumers.
-- [ ] 1.2 Identify current source modules and classify each as existing, external-runtime-dependent, fixture-testable, or persistence-related.
-- [ ] 1.3 Produce a report with the first implementation candidate and GitNexus impact targets.
-- [ ] 1.4 Do not change production code unless a separate P0.8a implementation node authorizes it.
+- [x] 1.1 Map current stock identity, kline, quote, market foundation, analysis, backtest, and paper/mock data consumers.
+- [x] 1.2 Identify current source modules and classify each as existing, external-runtime-dependent, fixture-testable, or persistence-related.
+- [x] 1.3 Produce a report with the first implementation candidate and GitNexus impact targets.
+- [x] 1.4 Do not change production code unless a separate P0.8a implementation node authorizes it.
 
 ## 2. P0.8b Provider Contract And Fixture Parser
 

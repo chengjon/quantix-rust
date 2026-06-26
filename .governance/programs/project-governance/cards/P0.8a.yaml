@@ -1,0 +1,34 @@
+task:
+  id: "P0.8a"
+  title: "OpenStock data consumption inventory"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_INVENTORY_2026-06-26.md"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8a.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify production Rust code, tests, parser/provider behavior, live OpenStock network behavior, ClickHouse persistence, qmt_live runtime readiness, miniQMT market-manifest behavior, tdx_api behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup in this inventory slice."
+
+acceptance:
+  commit_gate:
+    - "function-tree scope-check/validate/gate must pass"
+    - "openspec validate openstock-data-consumption-p0-8 --strict and openspec validate --all --strict must pass"
+    - "git diff --check must pass"
+    - "GitNexus detect_changes before commit must report documentation/governance-only expected scope"
+  closeout_gate:
+    - "P0.8a report maps current data models, source modules, storage paths, CLI consumers, analysis/backtest consumers, OpenStock candidate artifact shape, and explicit non-goals before parser/provider implementation."
+
+evidence:
+  current_head: "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368"
+  notes: []

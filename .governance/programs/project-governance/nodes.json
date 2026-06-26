@@ -5724,5 +5724,109 @@
       "current_head": "821e72302a3df0cfa5dd6e113d618b248a48777d",
       "prepared_at": "2026-06-26T01:30:20.572Z"
     }
+  },
+  {
+    "id": "P0.8a",
+    "title": "OpenStock data consumption inventory",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "sources",
+    "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "master HEAD 543ac7a clean before P0.8a; active gates none before node creation; Graphiti reads completed for OpenStock/TDX/miniQMT data boundaries",
+        "note": "No production code edits authorized yet.",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "recorded_at": "2026-06-26T04:26:48.306Z"
+      },
+      {
+        "kind": "baseline",
+        "path": "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+        "note": "P0.8a scope is inventory-only before parser/provider implementation.",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "recorded_at": "2026-06-26T04:26:48.335Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_INVENTORY_2026-06-26.md",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8a.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not modify production Rust code, tests, parser/provider behavior, live OpenStock network behavior, ClickHouse persistence, qmt_live runtime readiness, miniQMT market-manifest behavior, tdx_api behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup in this inventory slice."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T04:26:32.377Z",
+    "updated_at": "2026-06-26T04:32:52.167Z",
+    "acceptance": {
+      "commit_gate": [
+        "function-tree scope-check/validate/gate must pass",
+        "openspec validate openstock-data-consumption-p0-8 --strict and openspec validate --all --strict must pass",
+        "git diff --check must pass",
+        "GitNexus detect_changes before commit must report documentation/governance-only expected scope"
+      ],
+      "closeout_gate": [
+        "P0.8a report maps current data models, source modules, storage paths, CLI consumers, analysis/backtest consumers, OpenStock candidate artifact shape, and explicit non-goals before parser/provider implementation."
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "transitioned_at": "2026-06-26T04:29:09.837Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "transitioned_at": "2026-06-26T04:32:18.268Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "transitioned_at": "2026-06-26T04:32:29.220Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+        "transitioned_at": "2026-06-26T04:32:52.167Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_INVENTORY_2026-06-26.md",
+      "compatibility": "Documentation/governance-only inventory; no production Rust code, tests, parser/provider behavior, live OpenStock calls, ClickHouse persistence, qmt_live behavior, miniQMT market-manifest behavior, tdx_api behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup changed.",
+      "gates": [
+        "FUNCTION_TREE scope-check passed for 10 changed files within active authorization",
+        "FUNCTION_TREE validate passed",
+        "openspec validate openstock-data-consumption-p0-8 --strict passed",
+        "openspec validate --all --strict passed",
+        "git diff --check passed",
+        "GitNexus detect_changes LOW with 0 affected processes and documentation/config/governance-only classes"
+      ],
+      "current_head": "543ac7a7b6ea1be8ce2e1e6ab332f559bb1ca368",
+      "prepared_at": "2026-06-26T04:32:42.056Z"
+    }
   }
 ]
