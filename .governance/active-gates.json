@@ -1,37 +1,5 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-26T00:28:04.459Z",
-  "gates": [
-    {
-      "program": "project-governance",
-      "id": "P0.8",
-      "title": "OpenStock data consumption OpenSpec",
-      "node_type": "decision",
-      "owner_lane": "project-governance",
-      "parent": "",
-      "status": "approved-for-implementation",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "implement within allowed_paths",
-      "function_tree_ref": "openspec/changes/openstock-data-consumption-p0-8",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "openspec/changes/openstock-data-consumption-p0-8/proposal.md",
-        "openspec/changes/openstock-data-consumption-p0-8/design.md",
-        "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
-        "openspec/changes/openstock-data-consumption-p0-8/specs/openstock-data-consumption/spec.md",
-        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md",
-        "FUNCTION_TREE.md",
-        "README.md",
-        "CHANGELOG.md",
-        ".governance/programs/project-governance/cards/P0.8.yaml",
-        ".governance/programs/project-governance/nodes.json",
-        ".governance/programs/project-governance/tree.md",
-        ".governance/active-gates.json",
-        ".governance/active-gates.md"
-      ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-26T00:28:04.456Z"
-    }
-  ]
+  "updated_at": "2026-06-26T00:32:12.754Z",
+  "gates": []
 }

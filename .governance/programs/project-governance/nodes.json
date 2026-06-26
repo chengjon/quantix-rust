@@ -5527,11 +5527,11 @@
     "node_type": "decision",
     "owner_lane": "project-governance",
     "parent": "",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "openspec/changes/openstock-data-consumption-p0-8",
     "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -5570,11 +5570,11 @@
       "No ClickHouse writes or external OpenStock runtime calls in this slice.",
       "No miniQMT registry or market-manifest behavior changes."
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-26T00:27:12.688Z",
-    "updated_at": "2026-06-26T00:28:04.456Z",
+    "updated_at": "2026-06-26T00:32:12.749Z",
     "acceptance": {
       "commit_gate": [
         "openspec validate openstock-data-consumption-p0-8 --strict passes.",
@@ -5594,7 +5594,41 @@
         "note": "",
         "current_head": "4c9c7a6edc203ffa36d666eab78e399714d95128",
         "transitioned_at": "2026-06-26T00:28:04.456Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.518Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.579Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+        "transitioned_at": "2026-06-26T00:32:12.749Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "openspec/changes/openstock-data-consumption-p0-8/; docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md; commit 6d712ff docs: add openstock data consumption openspec; OpenSpec strict validations passed; GitNexus staged detect_changes LOW with no affected processes.",
+      "compatibility": "Planning/docs/governance only; no production code or runtime behavior changed.",
+      "gates": [
+        "openspec validate openstock-data-consumption-p0-8 --strict passed.",
+        "openspec validate --all --strict passed.",
+        "git diff --cached --check passed.",
+        "FUNCTION_TREE scope-check and validate passed.",
+        "GitNexus staged detect_changes reported LOW with no affected processes."
+      ],
+      "current_head": "6d712ffb88d72a06c652af92116464742c025f13",
+      "prepared_at": "2026-06-26T00:32:12.641Z"
+    }
   }
 ]
