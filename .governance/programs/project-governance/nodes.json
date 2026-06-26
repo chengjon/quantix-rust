@@ -6105,5 +6105,159 @@
       "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
       "prepared_at": "2026-06-26T05:37:25.032Z"
     }
+  },
+  {
+    "id": "P0.8c",
+    "title": "OpenStock local fixture validation CLI",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "sources",
+    "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "baseline",
+        "path": "HEAD eb83a4a on branch feat/openstock-p0-8c-fixture-validation; master clean before worktree creation; P0.8b parser baseline command running in worktree; OpenSpec tasks 3.1-3.4 define read-only local fixture validation, fail closed without fixture/config, no live OpenStock in CI, no ClickHouse writes; Graphiti read completed for quantix_rust_main/docs; GitNexus impact LOW for DataCommands and run_data_command",
+        "note": "P0.8c baseline and impact context",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "recorded_at": "2026-06-26T10:03:10.184Z"
+      }
+    ],
+    "allowed_paths": [
+      "src/cli/commands/data.rs",
+      "src/cli/command_types.rs",
+      "src/cli/mod.rs",
+      "src/cli/commands/mod.rs",
+      "src/cli/handlers/mod.rs",
+      "src/cli/handlers/app_shell.rs",
+      "src/cli/handlers/openstock_handler.rs",
+      "src/cli/tests/data.rs",
+      "tests/openstock_fixture_validation_cli_test.rs",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "Do not call live OpenStock endpoints or add network-backed CI behavior.",
+      "Do not write ClickHouse or replace existing data source routing.",
+      "Do not modify qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup debt."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T10:02:33.793Z",
+    "updated_at": "2026-06-26T17:27:15.726Z",
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T10:03:18.080Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T10:03:42.888Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "blocked",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T10:12:32.327Z"
+      },
+      {
+        "from": "blocked",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T10:12:42.335Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T10:13:09.457Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "blocked",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:15:44.184Z"
+      },
+      {
+        "from": "blocked",
+        "to": "decision-prepared",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:15:53.437Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:16:23.993Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:26:37.252Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:26:47.867Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+        "transitioned_at": "2026-06-26T17:27:15.726Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "GitNexus impact completed before source edits: DataCommands LOW, run_data_command LOW; rerun detect_changes before commit and explicitly record any central CLI dispatch impact.",
+        "TDD RED/GREEN for OpenStock fixture validation CLI behavior.",
+        "cargo fmt --check, cargo clippy -- -D warnings, targeted tests, cargo test, openspec validate, git diff --check, function-tree scope/validate/gate."
+      ],
+      "closeout_gate": [
+        "FUNCTION_TREE/OpenSpec/README/CHANGELOG record P0.8c local-only status.",
+        "Graphiti memory or local Graphiti backfill is written after durable conclusion."
+      ]
+    },
+    "closeout": {
+      "summary": "P0.8c landed OpenStock local fixture validation CLI: quantix data openstock validate-fixture --file <fixture.json>. It reads only a local JSON fixture, reuses parse_daily_kline_json, reports records/code/date range/local_fixture, and fails closed when --file is missing. No live OpenStock endpoint, ClickHouse write, source route replacement, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, Kline, or unwrap cleanup changes. GitNexus pre-edit impact: DataCommands LOW and run_data_command LOW. Final detect_changes: HIGH because central run_data_command affects 9 existing data CLI processes; false-positive data_handler touches were removed by splitting src/cli/handlers/openstock_handler.rs; remaining HIGH is expected CLI dispatch fan-out and is covered by full gates.",
+      "compatibility": "Existing tdx_api, data source list/add/set-default/test, import/export/query, qmt_live/miniQMT, and OpenStock parser behavior preserved; P0.8c adds only a read-only local OpenStock fixture CLI path.",
+      "gates": [
+        "TDD RED: missing DataCommands::OpenStock/OpenStockCommands and unrecognized subcommand openstock.",
+        "TDD GREEN: cargo test cli::tests::data::parses_data_openstock_validate_fixture_command; cargo test --test openstock_fixture_validation_cli_test; cargo test --test openstock_fixture_parser_test.",
+        "cargo fmt --check passed.",
+        "cargo clippy -- -D warnings passed.",
+        "openspec validate openstock-data-consumption-p0-8 --strict passed; openspec validate --all --strict passed.",
+        "git diff --check passed; function-tree scope-check and validate passed.",
+        "cargo test final rerun passed with EXIT=0.",
+        "GitNexus detect_changes recorded HIGH dispatch fan-out only after handler split; no data_handler production helper touch remains."
+      ],
+      "current_head": "eb83a4a208a46a7acea533566832f55908e39fbb",
+      "prepared_at": "2026-06-26T17:27:05.628Z"
+    }
   }
 ]

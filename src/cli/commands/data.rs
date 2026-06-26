@@ -6,6 +6,10 @@ pub enum DataCommands {
     #[command(subcommand)]
     Source(DataSourceCommands),
 
+    /// OpenStock 本地只读校验
+    #[command(name = "openstock", subcommand)]
+    OpenStock(OpenStockCommands),
+
     /// tdx-api Docker 服务查询
     #[command(subcommand)]
     TdxApi(TdxApiCommands),
@@ -319,4 +323,14 @@ impl DataSourceKind {
             Self::Akshare => "akshare",
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum OpenStockCommands {
+    /// 校验本地 OpenStock K 线 fixture
+    ValidateFixture {
+        /// 本地 fixture JSON 文件路径
+        #[arg(long)]
+        file: String,
+    },
 }

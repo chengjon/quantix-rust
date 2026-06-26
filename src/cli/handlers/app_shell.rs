@@ -304,6 +304,11 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 test_data_source(&config_dir, name).await?;
             }
         },
+        DataCommands::OpenStock(subcommand) => match subcommand {
+            OpenStockCommands::ValidateFixture { file } => {
+                validate_openstock_fixture(&file)?;
+            }
+        },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;
         }

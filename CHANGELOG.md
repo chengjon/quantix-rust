@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-26
 
 ### Added
+- **OpenStock data consumption P0.8c local fixture CLI** (`src/cli/commands/data.rs`, `src/cli/handlers/app_shell.rs`, `src/cli/handlers/data_handler.rs`, `tests/openstock_fixture_validation_cli_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`)
+  - 新增 `quantix data openstock validate-fixture --file <fixture.json>` 只读入口，复用 P0.8b `parse_daily_kline_json` 校验本地 OpenStock fixture，并输出记录数、代码、日期范围、`local_fixture` 来源标记
+  - 增加 clap 解析契约与二进制行为测试，覆盖有效 fixture 摘要和缺少 `--file` 的 fail-closed；本片不做 live OpenStock 请求、ClickHouse 写入、数据源路由替换、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理
 - **OpenStock data consumption P0.8b fixture parser** (`src/sources/openstock.rs`, `tests/openstock_fixture_parser_test.rs`, `tests/fixtures/openstock/daily_kline.json`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
   - 新增 fixture-owned `parse_daily_kline_json`，将 OpenStock daily-kline JSON 解析并归一化为既有 `Vec<Kline>`，不改动 `Kline` 定义或既有数据源路由
   - 增加 RED/GREEN 契约测试，覆盖 committed fixture、空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period 和混合 code fail-closed 场景；本片不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理

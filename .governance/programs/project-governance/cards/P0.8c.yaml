@@ -1,0 +1,40 @@
+task:
+  id: "P0.8c"
+  title: "OpenStock local fixture validation CLI"
+
+scope:
+  allowed_paths:
+    - "src/cli/commands/data.rs"
+    - "src/cli/command_types.rs"
+    - "src/cli/mod.rs"
+    - "src/cli/commands/mod.rs"
+    - "src/cli/handlers/mod.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/tests/data.rs"
+    - "tests/openstock_fixture_validation_cli_test.rs"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not call live OpenStock endpoints or add network-backed CI behavior."
+  - "Do not write ClickHouse or replace existing data source routing."
+  - "Do not modify qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup debt."
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact completed before source edits: DataCommands LOW, run_data_command LOW; rerun detect_changes before commit and explicitly record any central CLI dispatch impact."
+    - "TDD RED/GREEN for OpenStock fixture validation CLI behavior."
+    - "cargo fmt --check, cargo clippy -- -D warnings, targeted tests, cargo test, openspec validate, git diff --check, function-tree scope/validate/gate."
+  closeout_gate:
+    - "FUNCTION_TREE/OpenSpec/README/CHANGELOG record P0.8c local-only status."
+    - "Graphiti memory or local Graphiti backfill is written after durable conclusion."
+
+evidence:
+  current_head: "eb83a4a208a46a7acea533566832f55908e39fbb"
+  notes: []
