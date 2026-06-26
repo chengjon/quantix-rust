@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-26
 
 ### Docs
+- **OpenStock P0.8 Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_GRAPHITI_BACKFILL_2026-06-26.md`, `FUNCTION_TREE.md`, `README.md`)
+  - 记录 P0.8 closeout memory episode `fb126253-d46e-41eb-98fd-924083015af3` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
+  - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #297 / merge commit `821e723` 的 P0.8 OpenSpec closeout 结论
 - **OpenStock data consumption P0.8 OpenSpec** (`openspec/changes/openstock-data-consumption-p0-8/`, `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_OPENSPEC_2026-06-26.md`, `README.md`, `FUNCTION_TREE.md`)
   - 新增 OpenStock 数据消费正式规划，作为 qmt_live 环境阻塞后的 broker-independent 数据主线，按 inventory、fixture parser、只读 CLI/local artifact validation、analysis/backtest fixture loop、persistence/shadow validation 分阶段推进
   - 明确本规划片不改生产 Rust 代码、不做 live OpenStock CI 请求、不写 ClickHouse、不改变 qmt_live、miniQMT market-manifest、`tdx_api` 或其他既有数据源行为

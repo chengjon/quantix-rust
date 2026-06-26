@@ -1,0 +1,32 @@
+task:
+  id: "P0.8-backfill"
+  title: "OpenStock P0.8 Graphiti backfill"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8_GRAPHITI_BACKFILL_2026-06-26.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8-backfill.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "Do not modify production Rust code, tests, OpenSpec semantics, OpenStock provider behavior, ClickHouse persistence, qmt_live runtime readiness, bridge/runtime state, miniQMT market-manifest behavior, ExecutionAdapter, OrderStatus, or unwrap cleanup in this Graphiti backfill record."
+
+acceptance:
+  commit_gate:
+    - "function-tree scope-check/validate/gate must pass"
+    - "git diff --check must pass"
+    - "GitNexus detect_changes before commit must report documentation/governance-only expected scope"
+  closeout_gate:
+    - "Local Graphiti backfill record exists with episode UUID, observed stuck ingest state, equivalent memory summary, and Graphiti backfill required marker."
+
+evidence:
+  current_head: "821e72302a3df0cfa5dd6e113d618b248a48777d"
+  notes: []
