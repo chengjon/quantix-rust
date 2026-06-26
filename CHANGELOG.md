@@ -7,6 +7,11 @@ All notable changes to this project are documented here.
 
 ## 2026-06-26
 
+### Added
+- **OpenStock data consumption P0.8b fixture parser** (`src/sources/openstock.rs`, `tests/openstock_fixture_parser_test.rs`, `tests/fixtures/openstock/daily_kline.json`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
+  - 新增 fixture-owned `parse_daily_kline_json`，将 OpenStock daily-kline JSON 解析并归一化为既有 `Vec<Kline>`，不改动 `Kline` 定义或既有数据源路由
+  - 增加 RED/GREEN 契约测试，覆盖 committed fixture、空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period 和混合 code fail-closed 场景；本片不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理
+
 ### Docs
 - **OpenStock P0.8a Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8A_GRAPHITI_BACKFILL_2026-06-26.md`, `FUNCTION_TREE.md`, `README.md`)
   - 记录 P0.8a closeout memory episode `914a72e6-369e-4100-9a28-7ae0d2846834` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
