@@ -1,0 +1,32 @@
+task:
+  id: "P0.8c-graphiti-completion-sync"
+  title: "OpenStock P0.8c Graphiti completion sync"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8c-graphiti-completion-sync.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust code changes"
+  - "No OpenStock live network, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+
+acceptance:
+  commit_gate:
+    - "function-tree validate passes"
+    - "git diff --check passes"
+  closeout_gate:
+    - "PR merged and master CI passed for docs-only Graphiti completion sync"
+
+evidence:
+  current_head: "760aec5390859e68322ff61f2e4a9ec16a7b5e8e"
+  notes: []

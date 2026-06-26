@@ -74,6 +74,7 @@
 - [x] P0.8b-backfill: OpenStock P0.8b Graphiti backfill [decision] (closed, FT: sources)
 - [x] P0.8c: OpenStock local fixture validation CLI [decision] (closed, FT: sources)
 - [x] P0.8c-backfill: OpenStock P0.8c Graphiti backfill [closeout] (closed, FT: sources/)
+- [x] P0.8c-graphiti-completion-sync: OpenStock P0.8c Graphiti completion sync [closeout] (closed, FT: sources/)
 
 
 ## Evidence Ledger
@@ -141,6 +142,7 @@
 | P0.8b-backfill | Graphiti episode 3cd46c5b-3c6e-44ab-91b0-896af306753e for P0.8b closeout remained processing after repeated get_ingest_status polls: queue_depth=0, attempt_count=1, last_error=null, processed_at=null. | `02568972ac442b98168d5614bfff1b9c947fdae2` | Graphiti ingest stalled; local backfill required |
 | P0.8c | HEAD eb83a4a on branch feat/openstock-p0-8c-fixture-validation; master clean before worktree creation; P0.8b parser baseline command running in worktree; OpenSpec tasks 3.1-3.4 define read-only local fixture validation, fail closed without fixture/config, no live OpenStock in CI, no ClickHouse writes; Graphiti read completed for quantix_rust_main/docs; GitNexus impact LOW for DataCommands and run_data_command | `eb83a4a208a46a7acea533566832f55908e39fbb` | P0.8c baseline and impact context |
 | P0.8c-backfill | Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda remained processing after repeated get_ingest_status polling; PR #304 merged as 44b43f4 and master CI run 28254792250 passed | `44b43f43e56548d5e37a48df7e4156fb98dc0bae` | P0.8c closeout memory needs local fallback record |
+| P0.8c-graphiti-completion-sync | Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda get_ingest_status returned completed with processed_at 2026-06-26T17:48:14.726558Z after PR #305 had been merged | `760aec5390859e68322ff61f2e4a9ec16a7b5e8e` | Correct P0.8c fallback docs to avoid stale backfill-required status |
 
 ## Active Gates
 

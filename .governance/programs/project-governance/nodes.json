@@ -6355,5 +6355,102 @@
       "current_head": "44b43f43e56548d5e37a48df7e4156fb98dc0bae",
       "prepared_at": "2026-06-26T17:47:41.260Z"
     }
+  },
+  {
+    "id": "P0.8c-graphiti-completion-sync",
+    "title": "OpenStock P0.8c Graphiti completion sync",
+    "node_type": "closeout",
+    "node_type_input": "closeout",
+    "owner_lane": "docs",
+    "parent": "P0.8c-backfill",
+    "status": "closed",
+    "function_tree_ref": "sources/",
+    "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "runtime",
+        "path": "Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda get_ingest_status returned completed with processed_at 2026-06-26T17:48:14.726558Z after PR #305 had been merged",
+        "note": "Correct P0.8c fallback docs to avoid stale backfill-required status",
+        "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+        "recorded_at": "2026-06-26T17:58:30.606Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8c-graphiti-completion-sync.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust code changes",
+      "No OpenStock live network, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T17:58:30.518Z",
+    "updated_at": "2026-06-26T18:00:34.517Z",
+    "track": "mainline",
+    "mainline_id": "P0.8",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "function-tree validate passes",
+        "git diff --check passes"
+      ],
+      "closeout_gate": [
+        "PR merged and master CI passed for docs-only Graphiti completion sync"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+        "transitioned_at": "2026-06-26T17:58:30.759Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+        "transitioned_at": "2026-06-26T18:00:34.276Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+        "transitioned_at": "2026-06-26T18:00:34.351Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+        "transitioned_at": "2026-06-26T18:00:34.516Z"
+      }
+    ],
+    "closeout": {
+      "summary": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md",
+      "compatibility": "Documentation/governance-only Graphiti status correction; production Rust code and runtime behavior unchanged",
+      "gates": [
+        "git diff --check passed",
+        "function-tree scope-check passed",
+        "function-tree validate passed",
+        "GitNexus detect_changes LOW / 0 affected processes"
+      ],
+      "current_head": "760aec5390859e68322ff61f2e4a9ec16a7b5e8e",
+      "prepared_at": "2026-06-26T18:00:34.432Z"
+    }
   }
 ]
