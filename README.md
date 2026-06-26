@@ -115,6 +115,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - OpenStock 数据消费 P0.8 已建立 OpenSpec 规划：该主线将作为 broker-independent 行情消费方向推进，先做现有模型/来源/消费者 inventory，再做 fixture-owned provider parser 和只读 CLI/本地 artifact 验证；本规划片不改生产 Rust 代码、不做 live OpenStock CI 请求、不写 ClickHouse，也不改变 qmt_live、miniQMT market-manifest、`tdx_api` 或其他既有数据源行为。P0.8 closeout Graphiti episode `fb126253-d46e-41eb-98fd-924083015af3` 未达到 `completed`，已按项目规则记录本地 backfill 报告。
 - OpenStock 数据消费 P0.8a inventory 已完成：已映射当前 `Kline` / `StockQuote` / `StockInfo` 形状、`tdx_api` / `bridge_tdx` / `eastmoney` / miniQMT manifest 边界、ClickHouse kline/quote 路径和 backtest 消费入口；建议 P0.8b 从 committed fixture 的 daily-kline parser/normalizer 开始，先输出 `Vec<Kline>`，仍不做 live network、ClickHouse 写入或既有数据源路由替换。P0.8a closeout Graphiti episode `914a72e6-369e-4100-9a28-7ae0d2846834` 未达到 `completed`，已按项目规则记录本地 backfill 报告。
 - OpenStock 数据消费 P0.8b fixture parser 已落地：新增 `sources::openstock::parse_daily_kline_json`，从 committed JSON fixture 解析并归一化为既有 `Vec<Kline>`；覆盖空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period、混合 code 等 fail-closed 契约。该片仍不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、数据源路由替换、qmt_live/miniQMT 行为改动或 `Kline` 结构变更。
+- OpenStock P0.8b closeout Graphiti episode `3cd46c5b-3c6e-44ab-91b0-896af306753e` 未达到 `completed`，已按项目规则记录本地 backfill 报告。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
