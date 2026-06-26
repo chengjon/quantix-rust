@@ -81,3 +81,4 @@ Generated summary lives in `.governance/active-gates.md`.
 - [ ] P0.8a: OpenStock data consumption inventory (planning, FT: sources)
 - [ ] P0.8a-backfill: OpenStock P0.8a Graphiti backfill (planning, FT: sources)
 - [ ] P0.8b: OpenStock daily kline fixture parser (planning, FT: sources)
+- [ ] P0.8b-backfill: OpenStock P0.8b Graphiti backfill (planning, FT: sources)

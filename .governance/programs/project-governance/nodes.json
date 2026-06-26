@@ -6017,5 +6017,93 @@
       "current_head": "6c9f703d5a6a809d89c4d5c29a9e8cf63d85dfc9",
       "prepared_at": "2026-06-26T05:22:55.005Z"
     }
+  },
+  {
+    "id": "P0.8b-backfill",
+    "title": "OpenStock P0.8b Graphiti backfill",
+    "node_type": "decision",
+    "owner_lane": "project-governance",
+    "parent": "",
+    "status": "closed",
+    "function_tree_ref": "sources",
+    "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "runtime",
+        "path": "Graphiti episode 3cd46c5b-3c6e-44ab-91b0-896af306753e for P0.8b closeout remained processing after repeated get_ingest_status polls: queue_depth=0, attempt_count=1, last_error=null, processed_at=null.",
+        "note": "Graphiti ingest stalled; local backfill required",
+        "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+        "recorded_at": "2026-06-26T05:35:32.416Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8B_GRAPHITI_BACKFILL_2026-06-26.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8b-backfill.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust code, tests, fixtures, OpenStock parser behavior, CLI wiring, persistence, qmt_live, miniQMT, or unwrap cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-26T05:35:18.303Z",
+    "updated_at": "2026-06-26T05:37:38.530Z",
+    "acceptance": {
+      "commit_gate": [
+        "Docs/governance only; function-tree scope-check/validate; openspec validate --all --strict; git diff --check; GitNexus detect_changes before commit"
+      ],
+      "closeout_gate": [
+        "Backfill report records Graphiti episode UUID and stalled ingest state; PR CI and master CI pass"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+        "transitioned_at": "2026-06-26T05:35:58.761Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+        "transitioned_at": "2026-06-26T05:36:58.790Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+        "transitioned_at": "2026-06-26T05:37:11.955Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+        "transitioned_at": "2026-06-26T05:37:38.530Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Recorded local Graphiti fallback for P0.8b closeout episode 3cd46c5b-3c6e-44ab-91b0-896af306753e remaining processing with queue_depth=0, attempt_count=1, last_error=null, processed_at=null.",
+      "compatibility": "Documentation/governance-only backfill; no production Rust code, tests, fixtures, parser behavior, CLI, persistence, qmt_live, miniQMT, or unwrap cleanup changes.",
+      "gates": [
+        "function-tree scope-check/validate/gate passed; openspec validate --all --strict passed; git diff --check passed; GitNexus detect_changes LOW/0 affected processes."
+      ],
+      "current_head": "02568972ac442b98168d5614bfff1b9c947fdae2",
+      "prepared_at": "2026-06-26T05:37:25.032Z"
+    }
   }
 ]
