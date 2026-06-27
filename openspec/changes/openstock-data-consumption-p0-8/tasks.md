@@ -35,9 +35,9 @@
 
 ## 4. P0.8d Analysis/Backtest Fixture Loop
 
-- [ ] 4.1 Select one downstream path: indicator calculation, backtest, or paper/mock simulation input.
-- [ ] 4.2 Use fixture/local artifact data to prove an end-to-end local loop.
-- [ ] 4.3 Keep execution adapters unchanged.
+- [x] 4.1 Select one downstream path: indicator calculation, backtest, or paper/mock simulation input.
+- [x] 4.2 Use fixture/local artifact data to prove an end-to-end local loop.
+- [x] 4.3 Keep execution adapters unchanged.
 
 ## 5. P0.8e Persistence Or Shadow Validation
 
