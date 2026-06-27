@@ -6559,5 +6559,99 @@
       "current_head": "c5f8b1330921821983904af3e5032e3d783cd633",
       "prepared_at": "2026-06-27T00:09:05.940Z"
     }
+  },
+  {
+    "id": "P0.8d-backfill",
+    "title": "OpenStock P0.8d Graphiti backfill",
+    "node_type": "closeout",
+    "node_type_input": "closeout",
+    "owner_lane": "docs",
+    "parent": "P0.8d",
+    "status": "closed",
+    "function_tree_ref": "sources/",
+    "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "P0.8d closeout Graphiti episode fe2a3fd5-6b08-4f79-95a1-6723ce4985c4 remained processing after repeated get_ingest_status checks; queue_depth=0, last_error=null, attempt_count=1",
+        "note": "",
+        "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+        "recorded_at": "2026-06-27T00:24:22.695Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8D_GRAPHITI_BACKFILL_2026-06-27.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8d-backfill.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust source changes",
+      "No OpenStock parser, analysis, CLI, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-27T00:24:00.251Z",
+    "updated_at": "2026-06-27T00:27:12.494Z",
+    "track": "mainline",
+    "mainline_id": "P0.8",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "Graphiti ingest status captured as processing with queue_depth=0 and last_error=null",
+        "Docs-only validation: git diff --check, FUNCTION_TREE validate/gate, GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.8d-backfill FUNCTION_TREE node closed"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "Docs-only Graphiti fallback report scope approved",
+        "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+        "transitioned_at": "2026-06-27T00:26:43.230Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "P0.8d Graphiti fallback report and docs sync complete",
+        "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+        "transitioned_at": "2026-06-27T00:27:12.248Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Docs-only backfill changes landed locally",
+        "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+        "transitioned_at": "2026-06-27T00:27:12.336Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.8d Graphiti fallback report closed",
+        "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+        "transitioned_at": "2026-06-27T00:27:12.494Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Recorded local Graphiti fallback for P0.8d episode fe2a3fd5-6b08-4f79-95a1-6723ce4985c4 remaining processing",
+      "compatibility": "Docs/governance only; no production code, OpenStock parser, analysis, CLI, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes",
+      "gates": [
+        "git diff --check, FUNCTION_TREE validate/gate, GitNexus detect_changes"
+      ],
+      "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
+      "prepared_at": "2026-06-27T00:27:12.418Z"
+    }
   }
 ]

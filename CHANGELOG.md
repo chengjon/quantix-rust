@@ -19,6 +19,9 @@ All notable changes to this project are documented here.
   - 增加 RED/GREEN 契约测试，覆盖 committed fixture、空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period 和混合 code fail-closed 场景；本片不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理
 
 ### Docs
+- **OpenStock P0.8d Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8D_GRAPHITI_BACKFILL_2026-06-27.md`, `FUNCTION_TREE.md`, `README.md`)
+  - 记录 P0.8d closeout memory episode `fe2a3fd5-6b08-4f79-95a1-6723ce4985c4` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
+  - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #307 / merge commit `c756548` 的 P0.8d analysis fixture loop closeout 结论
 - **OpenStock P0.8c Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8C_GRAPHITI_BACKFILL_2026-06-27.md`, `FUNCTION_TREE.md`, `README.md`)
   - 记录 P0.8c closeout memory episode `6192a37c-4d9a-461c-8d98-a4823de08cda` 初始轮询时停留 `processing`、`queue_depth=0`、`last_error=null`，后续已验证达到 `completed`
   - 保留本地 fallback 报告作为临时等待窗口的审计记录，并确认 P0.8c 当前无需额外 Graphiti 回填

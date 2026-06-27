@@ -119,6 +119,7 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
 - OpenStock 数据消费 P0.8c local fixture CLI 已落地：新增 `quantix data openstock validate-fixture --file <fixture.json>` 只读入口，读取本地 fixture 并复用 `parse_daily_kline_json` 输出记录数、代码、日期范围和 `local_fixture` 来源标记；缺少 `--file` 时由 clap fail-closed。本片不访问 live OpenStock endpoint、不写 ClickHouse、不替换既有数据源路由，也不改动 qmt_live/miniQMT、`Kline`、`ExecutionAdapter` 或 `OrderStatus`。
 - OpenStock P0.8c closeout Graphiti episode `6192a37c-4d9a-461c-8d98-a4823de08cda` 初始等待期间曾触发本地 fallback 报告，随后已验证达到 `completed`；当前无需额外回填。
 - OpenStock 数据消费 P0.8d analysis fixture loop 已落地：新增本地集成测试，使用 committed OpenStock daily fixture 经 `parse_daily_kline_json` 归一化为 `Vec<Kline>` 后提取 close 序列，并调用既有 `analysis::sma` 指标路径验证 `[None, Some(10.125)]` 输出；本片不改 `src/` 生产代码、不访问 live OpenStock、不写 ClickHouse、不替换数据源路由，也不触碰 qmt_live/miniQMT、执行适配器、`OrderStatus` 或 `.unwrap()` 清理。
+- OpenStock P0.8d closeout Graphiti episode `fe2a3fd5-6b08-4f79-95a1-6723ce4985c4` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`，已按项目规则记录本地 backfill 报告。
 - **股票异常检测模块**已完成 Isolation Forest 算法迁移与东方财富 API 集成：
   - 基于 Surpriver 项目的 Isolation Forest 算法
   - 支持真实东方财富 API 数据源 (`EastMoneyAnomalySource`)
