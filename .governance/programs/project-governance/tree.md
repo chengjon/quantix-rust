@@ -76,6 +76,7 @@
 - [x] P0.8c-backfill: OpenStock P0.8c Graphiti backfill [closeout] (closed, FT: sources/)
 - [x] P0.8c-graphiti-completion-sync: OpenStock P0.8c Graphiti completion sync [closeout] (closed, FT: sources/)
 - [x] P0.8d: OpenStock analysis fixture loop [task/decision] (closed, FT: sources/)
+- [x] P0.8d-backfill: OpenStock P0.8d Graphiti backfill [closeout] (closed, FT: sources/)
 
 
 ## Evidence Ledger
@@ -145,6 +146,7 @@
 | P0.8c-backfill | Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda remained processing after repeated get_ingest_status polling; PR #304 merged as 44b43f4 and master CI run 28254792250 passed | `44b43f43e56548d5e37a48df7e4156fb98dc0bae` | P0.8c closeout memory needs local fallback record |
 | P0.8c-graphiti-completion-sync | Graphiti episode 6192a37c-4d9a-461c-8d98-a4823de08cda get_ingest_status returned completed with processed_at 2026-06-26T17:48:14.726558Z after PR #305 had been merged | `760aec5390859e68322ff61f2e4a9ec16a7b5e8e` | Correct P0.8c fallback docs to avoid stale backfill-required status |
 | P0.8d | P0.8d RED missing test target; GREEN openstock_analysis_fixture_loop_test 1/1; parser 9/9; CLI 2/2; cargo fmt --check; clippy -D warnings; cargo test; OpenSpec single/all strict; git diff --check; GitNexus detect_changes LOW 0 affected processes | `c5f8b1330921821983904af3e5032e3d783cd633` |  |
+| P0.8d-backfill | P0.8d closeout Graphiti episode fe2a3fd5-6b08-4f79-95a1-6723ce4985c4 remained processing after repeated get_ingest_status checks; queue_depth=0, last_error=null, attempt_count=1 | `c7565485bab26fca5f3f6f18e005c44c7bb6e6a6` |  |
 
 ## Active Gates
 
