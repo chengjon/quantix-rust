@@ -1,0 +1,38 @@
+task:
+  id: "P0.8d"
+  title: "OpenStock analysis fixture loop"
+
+scope:
+  allowed_paths:
+    - "tests/openstock_analysis_fixture_loop_test.rs"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8d.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust source changes in src/"
+  - "No OpenStock live network, ClickHouse writes, data source route replacement, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+  - "Do not modify src/analysis/indicators.rs because GitNexus impact for sma is HIGH"
+
+acceptance:
+  commit_gate:
+    - "TDD RED/GREEN for OpenStock fixture to analysis indicator loop"
+    - "cargo fmt --check passes"
+    - "targeted P0.8 parser/CLI/analysis tests pass"
+    - "openspec validate openstock-data-consumption-p0-8 --strict passes"
+    - "git diff --check passes"
+    - "GitNexus detect_changes completed before commit"
+  closeout_gate:
+    - "FUNCTION_TREE P0.8d closed and Graphiti memory ingest completed or fallback recorded"
+
+evidence:
+  current_head: "c5f8b1330921821983904af3e5032e3d783cd633"
+  notes: []

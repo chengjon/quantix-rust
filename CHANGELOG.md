@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 ## 2026-06-26
 
 ### Added
+- **OpenStock data consumption P0.8d analysis fixture loop** (`tests/openstock_analysis_fixture_loop_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`)
+  - 新增 test-only 本地 fixture 到指标链路验证：committed OpenStock daily fixture 经 `parse_daily_kline_json` 归一化为 `Vec<Kline>`，提取 close 序列后调用既有 `analysis::sma` 并断言 `[None, Some(10.125)]`
+  - 选择 indicator calculation 作为 P0.8d 下游路径，保持 execution adapters 不变；本片不改 `src/` 生产代码、不访问 live OpenStock、不写 ClickHouse、不替换数据源路由、不触碰 qmt_live/miniQMT 或 `.unwrap()` 清理
 - **OpenStock data consumption P0.8c local fixture CLI** (`src/cli/commands/data.rs`, `src/cli/handlers/app_shell.rs`, `src/cli/handlers/data_handler.rs`, `tests/openstock_fixture_validation_cli_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`)
   - 新增 `quantix data openstock validate-fixture --file <fixture.json>` 只读入口，复用 P0.8b `parse_daily_kline_json` 校验本地 OpenStock fixture，并输出记录数、代码、日期范围、`local_fixture` 来源标记
   - 增加 clap 解析契约与二进制行为测试，覆盖有效 fixture 摘要和缺少 `--file` 的 fail-closed；本片不做 live OpenStock 请求、ClickHouse 写入、数据源路由替换、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理
