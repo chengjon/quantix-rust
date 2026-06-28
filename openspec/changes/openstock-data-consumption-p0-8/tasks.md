@@ -56,6 +56,15 @@
 - [x] 5f.7 CLI integration tests: valid, drift, fail-closed, missing-file failure.
 - [x] 5f.8 Run cargo fmt --check, clippy -D warnings, full test suite, git diff --check, GitNexus detect_changes.
 
+## 5g. P0.8g Shadow Persistence Opt-in Design Gate
+
+- [x] 5g.1 Consume P0.8f `LiveShadowReport` as input contract; reject persistence on any drift or fail-closed.
+- [x] 5g.2 Document shadow namespace (`quantix_shadow`), table (`openstock_daily_kline_shadow`), full schema, batch identity (`batch_id` + `artifact_hash`), and deduplication key (`source + period + code + date + adjust_type`).
+- [x] 5g.3 Document two-stage write model (dry-run preview + `--apply` with `QUANTIX_SHADOW_PERSIST_CONFIRM=yes`), rollback command (`shadow-rollback --batch-id`), partial-write failure behavior, and operator runbook.
+- [x] 5g.4 Document CI non-write proof obligations (default tests do not touch ClickHouse; opt-in gates).
+- [x] 5g.5 Record GitNexus impact targets for the future implementation slice; explicitly forbid reuse of `ControlledPersistencePolicy` (HIGH) and modification of `Kline` (CRITICAL hub, read-only).
+- [x] 5g.6 Pure design gate — no production Rust source changes, no ClickHouse writes, no live network.
+
 ## 6. Closure
 
 - [ ] 6.1 Update README, CHANGELOG, and FUNCTION_TREE for any completed slices.

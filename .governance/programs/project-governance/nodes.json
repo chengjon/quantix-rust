@@ -6942,5 +6942,80 @@
       "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
       "prepared_at": "2026-06-29T00:00:00.000Z"
     }
+  },
+  {
+    "id": "P0.8g",
+    "title": "OpenStock shadow persistence opt-in design",
+    "node_type": "decision",
+    "node_type_input": "decision",
+    "owner_lane": "data",
+    "parent": "P0.8",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "sources/",
+    "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "P0.8e design (65d34ef) + P0.8f PR #313 dry-run contract + live NAS /data/bars envelope observation",
+        "note": "Baseline: P0.8e rollback requirements checklist, P0.8f LiveShadowReport fields, NAS service drift behavior",
+        "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+        "recorded_at": "2026-06-28T17:59:44.083Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8g.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust source changes (design gate only)",
+      "No ClickHouse writes; no live OpenStock network; no production data-source route replacement",
+      "No qmt_live/miniQMT/ExecutionAdapter/OrderStatus changes",
+      "Do not modify or reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH)",
+      "Do not modify Kline definition (CRITICAL hub, read-only)",
+      "No .unwrap() cleanup; no shadow-to-production promotion (deferred to P0.8h+)"
+    ],
+    "next_gate": "implement within allowed_paths",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-28T17:46:36.752Z",
+    "updated_at": "2026-06-28T18:06:28.975Z",
+    "track": "mainline",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "Decision: pure design gate; consume P0.8f LiveShadowReport as input; defer all writes to P0.8g-impl",
+        "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+        "transitioned_at": "2026-06-28T17:59:44.247Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+        "transitioned_at": "2026-06-28T18:06:28.975Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "Design report documents shadow namespace/table schema, dedup keys, batch identity, rollback command, dry-run preview, partial-write behavior, CI non-write proof, GitNexus impact targets, and explicit approval requirements",
+        "Docs-only gates pass: git diff --check, OpenSpec single/all strict, FUNCTION_TREE validate/gate, GitNexus detect_changes docs-only scope"
+      ],
+      "closeout_gate": [
+        "P0.8g FUNCTION_TREE node approved-for-implementation; README/CHANGELOG/FUNCTION_TREE/OpenSpec/report updated; PR CI passed; Graphiti memory or local backfill recorded"
+      ]
+    }
   }
 ]
