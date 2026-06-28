@@ -45,6 +45,17 @@
 - [x] 5.2 Include schema, deduplication, rollback, and dry-run gates before any write path.
 - [x] 5.3 Require fresh GitNexus impact and explicit approval.
 
+## 5f. P0.8f Executable Live Shadow Validation
+
+- [x] 5f.1 Authorize slice via FUNCTION_TREE P0.8f node (status: approved-for-implementation).
+- [x] 5f.2 Capture live baseline evidence: service address, X-API-Key requirement, /data/bars 100-row return shape, start/end/limit not honored by service.
+- [x] 5f.3 Run GitNexus impact on Kline (CRITICAL) and confirm slice only reads it.
+- [x] 5f.4 TDD RED tests for validate_live_shadow_payload (valid mapping, limit drift, out-of-window drift, missing symbol, bad time, non-daily period, mixed symbol, invalid envelope, empty envelope, Display impl).
+- [x] 5f.5 Implement read-only validator and report type; never call network, never write ClickHouse.
+- [x] 5f.6 Wire `quantix data openstock validate-live` CLI reading captured payload from file or stdin.
+- [x] 5f.7 CLI integration tests: valid, drift, fail-closed, missing-file failure.
+- [x] 5f.8 Run cargo fmt --check, clippy -D warnings, full test suite, git diff --check, GitNexus detect_changes.
+
 ## 6. Closure
 
 - [ ] 6.1 Update README, CHANGELOG, and FUNCTION_TREE for any completed slices.

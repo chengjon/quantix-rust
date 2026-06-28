@@ -20,7 +20,11 @@ pub use eastmoney::{
     Board, EastMoneySource, FinancialData, MoneyFlowData, Quote, StockInfo as EastMoneyStockInfo,
 };
 pub use kline_aggregator::{KlineAggregator, KlineData, KlinePeriod, KlineWindow};
-pub use openstock::{OpenStockKlineParseError, parse_daily_kline_json};
+pub use openstock::{
+    LiveShadowDrift, LiveShadowReport, LiveShadowRequest, LiveShadowStatus,
+    OpenStockKlineParseError, live_shadow_error_into_quantix, parse_daily_kline_json,
+    validate_live_shadow_payload,
+};
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use tdx::{StockQuote, TdxSource};
 pub use tdx_api::{

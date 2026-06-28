@@ -333,4 +333,31 @@ pub enum OpenStockCommands {
         #[arg(long)]
         file: String,
     },
+
+    /// 校验通过外部捕获的 OpenStock /data/bars 线上响应（dry-run，不联网，不写库）
+    ValidateLive {
+        /// 已捕获的响应 JSON 文件路径；使用 `-` 从 stdin 读取
+        #[arg(long)]
+        payload: String,
+
+        /// 请求时使用的代码（symbol/code）
+        #[arg(long)]
+        symbol: String,
+
+        /// 请求时使用的周期（必须为 daily）
+        #[arg(long, default_value = "daily")]
+        r#period: String,
+
+        /// 请求时使用的开始日期 (YYYY-MM-DD)
+        #[arg(long)]
+        start: String,
+
+        /// 请求时使用的结束日期 (YYYY-MM-DD)
+        #[arg(long)]
+        end: String,
+
+        /// 请求时声明的 limit（如填写将与返回条数对比，检测服务端是否裁剪）
+        #[arg(long)]
+        limit: Option<u32>,
+    },
 }

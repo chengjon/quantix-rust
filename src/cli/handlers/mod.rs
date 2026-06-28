@@ -126,7 +126,7 @@ use self::monitor_output::{
 };
 pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
-use self::openstock_handler::validate_openstock_fixture;
+use self::openstock_handler::{validate_openstock_fixture, validate_openstock_live};
 pub(crate) use self::performance_handler::run_performance_command;
 pub use self::risk::run_risk_command;
 #[cfg(test)]
