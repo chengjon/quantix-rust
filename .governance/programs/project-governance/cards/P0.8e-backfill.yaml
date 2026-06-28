@@ -1,0 +1,32 @@
+task:
+  id: "P0.8e-backfill"
+  title: "OpenStock P0.8e Graphiti backfill"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8E_GRAPHITI_BACKFILL_2026-06-28.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8e-backfill.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust source changes"
+  - "No OpenStock parser, analysis, CLI, ClickHouse, qmt_live, miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+
+acceptance:
+  commit_gate:
+    - "Graphiti ingest status captured as processing with queue_depth=0 and last_error=null"
+    - "Docs-only validation: git diff --check, FUNCTION_TREE validate/gate, GitNexus detect_changes"
+  closeout_gate:
+    - "P0.8e-backfill FUNCTION_TREE node closed"
+
+evidence:
+  current_head: "db443324741f4859cdd829e1322ef72c72ad6226"
+  notes: []
