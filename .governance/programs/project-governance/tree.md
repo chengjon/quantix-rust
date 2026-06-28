@@ -79,7 +79,7 @@
 - [x] P0.8d-backfill: OpenStock P0.8d Graphiti backfill [closeout] (closed, FT: sources/)
 - [x] P0.8e: OpenStock shadow validation design gate [decision] (closed, FT: sources/)
 - [x] P0.8e-backfill: OpenStock P0.8e Graphiti backfill [closeout] (closed, FT: sources/)
-- [ ] P0.8f: OpenStock live shadow validation [task/decision] (approved-for-implementation, FT: sources/)
+- [x] P0.8f: OpenStock live shadow validation [task/decision] (closed, FT: sources/)
 
 
 ## Evidence Ledger

@@ -6858,11 +6858,11 @@
     "node_type_input": "task",
     "owner_lane": "sources",
     "parent": "P0.8",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "sources/",
     "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "baseline",
@@ -6879,11 +6879,11 @@
     "non_goals": [
       "No ClickHouse writes; no production data-source route replacement; no qmt_live or miniQMT changes; no ExecutionAdapter or OrderStatus changes; no live network calls in default CI tests; no API key committed to repo; no unwrap cleanup"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T12:18:20.557Z",
-    "updated_at": "2026-06-28T12:20:01.947Z",
+    "updated_at": "2026-06-28T16:47:36.940Z",
     "track": "mainline",
     "mainline_id": "P0.8",
     "depth": 1,
@@ -6902,7 +6902,45 @@
         "note": "",
         "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
         "transitioned_at": "2026-06-28T12:20:01.946Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "Implementation complete: 14 tests + 5 real-envelope tests green; cargo fmt/clippy/test (1363 passed) clean",
+        "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
+        "transitioned_at": "2026-06-28T16:46:53.834Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Real envelope adaptation committed (62e06b2); governance card allowed_paths expanded (c7c1afb)",
+        "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
+        "transitioned_at": "2026-06-28T16:46:53.904Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "PR-ready: full gate suite green, awaiting PR creation",
+        "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
+        "transitioned_at": "2026-06-28T16:46:53.971Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "All closeout gates satisfied: tests green, card allowed_paths fixed, GitNexus risk assessed (no regression), PR-ready",
+        "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
+        "transitioned_at": "2026-06-28T16:47:36.939Z"
       }
-    ]
+    ],
+    "closeout": {
+      "summary": "OpenStock live shadow validation landed. Read-only /data/bars envelope validator produces a dry-run report (record count, normalized symbol, received_date_range, mapped_count, drift rules, fail-closed errors). Adapted to real NAS production envelope shape ({data:[...]}, sh/sz/bj prefixes, period=day, RFC3339 time). 14 tests (10 unit + 4 CLI) + 5 real-envelope tests all green. cargo fmt/clippy -D warnings/test (1363 passed) clean. Governance card allowed_paths expanded to cover plumbing files.",
+      "compatibility": "No ClickHouse writes; no production data-source route replacement; qmt_live/miniQMT/ExecutionAdapter/OrderStatus untouched; no live network calls in default CI; no API key committed.",
+      "gates": [
+        "README/CHANGELOG/FUNCTION_TREE/OpenSpec/report updated",
+        "PR CI pending"
+      ],
+      "current_head": "62e06b24afde5fe65c7da5dd7f841da6d9838ec6",
+      "prepared_at": "2026-06-29T00:00:00.000Z"
+    }
   }
 ]
