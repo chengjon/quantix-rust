@@ -41,9 +41,9 @@
 
 ## 5. P0.8e Persistence Or Shadow Validation
 
-- [ ] 5.1 Design ClickHouse shadow validation or opt-in persistence separately.
-- [ ] 5.2 Include schema, deduplication, rollback, and dry-run gates before any write path.
-- [ ] 5.3 Require fresh GitNexus impact and explicit approval.
+- [x] 5.1 Design ClickHouse shadow validation or opt-in persistence separately.
+- [x] 5.2 Include schema, deduplication, rollback, and dry-run gates before any write path.
+- [x] 5.3 Require fresh GitNexus impact and explicit approval.
 
 ## 6. Closure
 

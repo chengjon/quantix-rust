@@ -1,0 +1,34 @@
+task:
+  id: "P0.8e"
+  title: "OpenStock shadow validation design gate"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8E_SHADOW_VALIDATION_DESIGN_2026-06-28.md"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8e.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust source changes"
+  - "No live OpenStock network, ClickHouse writes, data-source route replacement, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes"
+  - "Do not modify or reuse miniQMT ControlledPersistencePolicy because GitNexus impact for ControlledPersistencePolicy.parse is HIGH"
+
+acceptance:
+  commit_gate:
+    - "Design report documents schema, deduplication, rollback, dry-run gates, GitNexus impact targets, and explicit approval requirements"
+    - "Docs-only gates pass: git diff --check, OpenSpec single/all strict, FUNCTION_TREE validate/gate, GitNexus detect_changes"
+  closeout_gate:
+    - "P0.8e FUNCTION_TREE node closed and Graphiti memory completed or local fallback recorded"
+
+evidence:
+  current_head: "2cd55ef0cd200362610a11071ab5bee25c9d3705"
+  notes: []

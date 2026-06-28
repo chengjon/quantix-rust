@@ -6653,5 +6653,108 @@
       "current_head": "c7565485bab26fca5f3f6f18e005c44c7bb6e6a6",
       "prepared_at": "2026-06-27T00:27:12.418Z"
     }
+  },
+  {
+    "id": "P0.8e",
+    "title": "OpenStock shadow validation design gate",
+    "node_type": "decision",
+    "node_type_input": "decision",
+    "owner_lane": "data",
+    "parent": "P0.8",
+    "status": "closed",
+    "function_tree_ref": "sources/",
+    "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "evidence",
+        "path": "OpenSpec P0.8 section 5 requires shadow validation or opt-in persistence design with schema, deduplication, rollback, dry-run gates, fresh GitNexus impact, and explicit approval; GitNexus impact: write_klines_to_clickhouse LOW, validate_clickhouse_table_identifier LOW, validate_clickhouse_column_identifier LOW, ControlledPersistencePolicy.parse HIGH and must not be reused or modified",
+        "note": "",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "recorded_at": "2026-06-28T05:54:00.028Z"
+      },
+      {
+        "kind": "verification",
+        "path": "P0.8e docs-only design gate implemented; no src/ changes; OpenSpec single/all strict passed; git diff --check passed; FUNCTION_TREE scope/validate passed; GitNexus pre-design impact: write_klines_to_clickhouse LOW, clickhouse identifier validators LOW, ControlledPersistencePolicy.parse HIGH and explicitly excluded",
+        "note": "",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "recorded_at": "2026-06-28T05:57:33.162Z"
+      }
+    ],
+    "allowed_paths": [
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8E_SHADOW_VALIDATION_DESIGN_2026-06-28.md",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8e.yaml"
+    ],
+    "forbidden_paths": [],
+    "non_goals": [
+      "No production Rust source changes",
+      "No live OpenStock network, ClickHouse writes, data-source route replacement, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes",
+      "Do not modify or reuse miniQMT ControlledPersistencePolicy because GitNexus impact for ControlledPersistencePolicy.parse is HIGH"
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-28T05:53:48.313Z",
+    "updated_at": "2026-06-28T05:57:33.852Z",
+    "track": "mainline",
+    "mainline_id": "P0.8",
+    "depth": 2,
+    "acceptance": {
+      "commit_gate": [
+        "Design report documents schema, deduplication, rollback, dry-run gates, GitNexus impact targets, and explicit approval requirements",
+        "Docs-only gates pass: git diff --check, OpenSpec single/all strict, FUNCTION_TREE validate/gate, GitNexus detect_changes"
+      ],
+      "closeout_gate": [
+        "P0.8e FUNCTION_TREE node closed and Graphiti memory completed or local fallback recorded"
+      ]
+    },
+    "transitions": [
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "P0.8e shadow validation design gate approved as docs-only slice",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "transitioned_at": "2026-06-28T05:54:28.560Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "P0.8e shadow validation design report and docs sync complete",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "transitioned_at": "2026-06-28T05:57:33.352Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "Docs-only P0.8e design changes landed locally",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "transitioned_at": "2026-06-28T05:57:33.537Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "P0.8e shadow validation design gate closed",
+        "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+        "transitioned_at": "2026-06-28T05:57:33.852Z"
+      }
+    ],
+    "closeout": {
+      "summary": "Added OpenStock P0.8e shadow validation design gate with schema mapping, dedup key, rollback prerequisites, dry-run gates, and impact targets; no write path approved",
+      "compatibility": "Docs/governance only; no production Rust source, live OpenStock, ClickHouse writes, data-source route replacement, qmt_live/miniQMT, ExecutionAdapter, OrderStatus, or unwrap cleanup changes",
+      "gates": [
+        "OpenSpec single/all strict, git diff --check, FUNCTION_TREE validate/gate, GitNexus detect_changes before commit"
+      ],
+      "current_head": "2cd55ef0cd200362610a11071ab5bee25c9d3705",
+      "prepared_at": "2026-06-28T05:57:33.705Z"
+    }
   }
 ]

@@ -19,6 +19,9 @@ All notable changes to this project are documented here.
   - 增加 RED/GREEN 契约测试，覆盖 committed fixture、空记录、缺字段、日期格式、Decimal、`high < low`、非 daily period 和混合 code fail-closed 场景；本片不做 live OpenStock 请求、CLI 接线、ClickHouse 写入、qmt_live/miniQMT 行为改动或 `.unwrap()` 清理
 
 ### Docs
+- **OpenStock data consumption P0.8e shadow validation design gate** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8E_SHADOW_VALIDATION_DESIGN_2026-06-28.md`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `FUNCTION_TREE.md`, `README.md`)
+  - 明确 OpenStock shadow validation 与 opt-in persistence 分阶段推进，本片仅固化 schema mapping、dedup key、rollback 前置条件、dry-run report gates 和 GitNexus impact targets
+  - 记录未来实现边界：不改 `src/` 生产代码、不访问 live OpenStock、不写 ClickHouse、不替换数据源路由，并禁止复用 GitNexus impact 为 HIGH 的 miniQMT `ControlledPersistencePolicy`
 - **OpenStock P0.8d Graphiti backfill** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8D_GRAPHITI_BACKFILL_2026-06-27.md`, `FUNCTION_TREE.md`, `README.md`)
   - 记录 P0.8d closeout memory episode `fe2a3fd5-6b08-4f79-95a1-6723ce4985c4` 在多轮 ingest status 轮询后仍停留 `processing`、`queue_depth=0`、`last_error=null`
   - 按项目 Graphiti fallback 规则保留 `Graphiti backfill required` 本地回填记录，等价固化 PR #307 / merge commit `c756548` 的 P0.8d analysis fixture loop closeout 结论
