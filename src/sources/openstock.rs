@@ -309,10 +309,10 @@ impl fmt::Display for LiveShadowReport {
 
 #[derive(Debug, Deserialize)]
 struct LiveShadowEnvelope {
-    #[serde(default)]
-    period: Option<String>,
-    #[serde(default)]
-    adjust_type: Option<String>,
+    /// Records field. Real `/data/bars` envelopes use `data`; the
+    /// `records` alias is retained for symmetry with the local fixture
+    /// shape used by `parse_daily_kline_json`.
+    #[serde(default, alias = "data")]
     records: Vec<LiveShadowRecord>,
 }
 
@@ -357,11 +357,11 @@ pub fn validate_live_shadow_payload(
     }
 
     let envelope_period = envelope
-        .period
-        .or_else(|| envelope.records.first().and_then(|r| r.period.clone()))
+        .records
+        .first()
+        .and_then(|r| r.period.clone())
         .unwrap_or_else(|| request.period.clone());
-
-    let adjust_type = parse_adjust_type(envelope.adjust_type.as_deref())?;
+    let adjust_type = AdjustType::None;
     let requested_start = parse_date(&request.start_date).ok();
     let requested_end = parse_date(&request.end_date).ok();
 
@@ -452,22 +452,23 @@ fn map_live_record(
     requested_symbol: &str,
 ) -> std::result::Result<Kline, OpenStockKlineParseError> {
     let record_period = record.period.as_deref().unwrap_or(envelope_period);
-    if record_period != "daily" {
+    if !is_daily_period(record_period) {
         return Err(OpenStockKlineParseError::UnsupportedPeriod(
             record_period.to_string(),
         ));
     }
 
-    let symbol = required_string(record.symbol, "symbol")?;
-    if symbol != requested_symbol {
+    let raw_symbol = required_string(record.symbol, "symbol")?;
+    let normalized_symbol = normalize_symbol(&raw_symbol);
+    if normalized_symbol != normalize_symbol(requested_symbol) {
         return Err(OpenStockKlineParseError::MixedCode {
             expected: requested_symbol.to_string(),
-            actual: symbol,
+            actual: raw_symbol.clone(),
         });
     }
 
     let time_text = required_string(record.time, "time")?;
-    let date = parse_date(&time_text)?;
+    let date = parse_live_time(&time_text)?;
 
     let open = parse_decimal(required_value(record.open, "open")?, "open")?;
     let high = parse_decimal(required_value(record.high, "high")?, "high")?;
@@ -481,7 +482,7 @@ fn map_live_record(
 
     if high < low {
         return Err(OpenStockKlineParseError::HighBelowLow {
-            code: symbol.clone(),
+            code: normalized_symbol.clone(),
             date: time_text,
             high,
             low,
@@ -489,7 +490,7 @@ fn map_live_record(
     }
 
     Ok(Kline {
-        code: symbol,
+        code: normalized_symbol,
         date,
         open,
         high,
@@ -498,6 +499,43 @@ fn map_live_record(
         volume,
         amount,
         adjust_type,
+    })
+}
+
+/// Accept `daily` (fixture shape) and `day` (real `/data/bars` shape)
+/// as equivalent. Anything else is unsupported for the daily shadow lane.
+fn is_daily_period(period: &str) -> bool {
+    matches!(period, "daily" | "day")
+}
+
+/// Strip a leading exchange prefix (`sh`/`sz`/`bj`) so that request-side
+/// symbol `600000` and record-side symbol `sh600000` compare equal. The
+/// numeric form is the canonical `Kline.code` shape used elsewhere in
+/// the codebase, so the normalized value is what we store.
+fn normalize_symbol(symbol: &str) -> String {
+    let lower = symbol.to_ascii_lowercase();
+    for prefix in ["sh", "sz", "bj"] {
+        if let Some(rest) = lower.strip_prefix(prefix) {
+            return rest.to_string();
+        }
+    }
+    symbol.to_string()
+}
+
+/// Parse the `time` field of a live `/data/bars` record. Real envelopes
+/// send RFC3339 with a timezone offset (e.g. `2026-01-23T15:00:00+08:00`);
+/// local fixtures use `YYYY-MM-DD`. Both forms are accepted, and the
+/// resulting [`NaiveDate`] is the canonical `Kline.date` shape.
+fn parse_live_time(value: &str) -> std::result::Result<NaiveDate, OpenStockKlineParseError> {
+    if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+        return Ok(date);
+    }
+    if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(value) {
+        return Ok(timestamp.naive_local().date());
+    }
+    Err(OpenStockKlineParseError::InvalidDate {
+        value: value.to_string(),
+        expected_format: "%Y-%m-%d or RFC3339",
     })
 }
 

@@ -174,3 +174,83 @@ fn report_implements_display_for_dry_run_log() {
     assert!(rendered.contains("symbol: 600000"));
     assert!(rendered.contains("status: ok"));
 }
+
+// ============================================================
+// Real-envelope shape (observed 2026-06-28 against NAS openstock service)
+// Top-level: {"data": [...], "source": ..., "data_category": ...}
+// Record:    symbol=`sh600000`, time=`2026-01-23T15:00:00+08:00`, period=`day`
+// ============================================================
+
+fn real_envelope(records: &[&str]) -> String {
+    let body = records.join(",");
+    format!(r#"{{"data":[{body}],"source":"eltdx","data_category":"KLINES"}}"#)
+}
+
+const REAL_RECORD_DAY1: &str = r#"{"symbol":"sh600000","time":"2026-06-22T15:00:00+08:00","open":10.5,"high":10.66,"low":10.47,"close":10.51,"volume":132324400,"amount":1394174208.0,"period":"day"}"#;
+const REAL_RECORD_DAY2: &str = r#"{"symbol":"sh600000","time":"2026-06-23T15:00:00+08:00","open":10.49,"high":10.53,"low":10.34,"close":10.35,"volume":149077100,"amount":1552120320.0,"period":"day"}"#;
+
+#[test]
+fn accepts_real_envelope_with_data_field_and_normalizes_symbol_prefix() {
+    let raw = real_envelope(&[REAL_RECORD_DAY1, REAL_RECORD_DAY2]);
+    let report =
+        validate_live_shadow_payload(&raw, &request("600000", "2026-06-22", "2026-06-23", None))
+            .expect("real envelope should parse");
+
+    assert_eq!(report.status, LiveShadowStatus::Ok);
+    assert_eq!(report.record_count, 2);
+    assert_eq!(report.mapped_count, 2);
+    assert_eq!(report.symbol.as_deref(), Some("600000"));
+    assert_eq!(report.period.as_deref(), Some("day"));
+    assert_eq!(
+        report.received_date_range,
+        Some((
+            NaiveDate::from_ymd_opt(2026, 6, 22).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 6, 23).unwrap()
+        ))
+    );
+}
+
+#[test]
+fn accepts_request_symbol_with_exchange_prefix_against_bare_record_symbol() {
+    let raw = real_envelope(&[REAL_RECORD_DAY1, REAL_RECORD_DAY2]);
+    let req = request("sh600000", "2026-06-22", "2026-06-23", None);
+    let report = validate_live_shadow_payload(&raw, &req).expect("prefix-form request ok");
+    assert_eq!(report.status, LiveShadowStatus::Ok);
+    assert_eq!(report.symbol.as_deref(), Some("600000"));
+}
+
+#[test]
+fn fail_closes_when_record_symbol_resolves_to_different_bare_code() {
+    let mismatch = r#"{"symbol":"sh000001","time":"2026-06-22T15:00:00+08:00","open":10.5,"high":10.66,"low":10.47,"close":10.51,"volume":132324400,"period":"day"}"#;
+    let raw = real_envelope(&[mismatch]);
+    let report =
+        validate_live_shadow_payload(&raw, &request("600000", "2026-06-22", "2026-06-23", None))
+            .expect("mismatch should fail-closed");
+    assert_eq!(report.status, LiveShadowStatus::FailClosed);
+}
+
+#[test]
+fn rejects_minute_period_in_real_envelope() {
+    let broken = r#"{"symbol":"sh600000","time":"2026-06-22T15:00:00+08:00","open":10.5,"high":10.66,"low":10.47,"close":10.51,"volume":132324400,"period":"minute"}"#;
+    let raw = real_envelope(&[broken]);
+    let report =
+        validate_live_shadow_payload(&raw, &request("600000", "2026-06-22", "2026-06-23", None))
+            .expect("non-daily period should fail-closed");
+    assert_eq!(report.status, LiveShadowStatus::FailClosed);
+}
+
+#[test]
+fn rejects_invalid_rfc3339_time() {
+    let broken = r#"{"symbol":"sh600000","time":"2026-06-22 15:00","open":10.5,"high":10.66,"low":10.47,"close":10.51,"volume":132324400,"period":"day"}"#;
+    let raw = real_envelope(&[broken]);
+    let report =
+        validate_live_shadow_payload(&raw, &request("600000", "2026-06-22", "2026-06-23", None))
+            .expect("bad time should fail-closed");
+    assert_eq!(report.status, LiveShadowStatus::FailClosed);
+    assert!(
+        report
+            .fail_closed_errors
+            .iter()
+            .any(|e| e.to_string().contains("RFC3339"))
+    );
+}
