@@ -5,6 +5,15 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-28
+
+### Added
+- **OpenStock data consumption P0.8f live shadow validation** (`src/sources/openstock.rs`, `src/cli/commands/data.rs`, `src/cli/handlers/openstock_handler.rs`, `src/cli/handlers/app_shell.rs`, `src/cli/handlers/mod.rs`, `src/sources/mod.rs`, `tests/openstock_live_shadow_validation_test.rs`, `tests/openstock_live_validation_cli_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`, `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8F_LIVE_SHADOW_VALIDATION_2026-06-28.md`, `.governance/programs/project-governance/cards/P0.8f.yaml`)
+  - 第一条可执行 OpenStock shadow validation：新增 `sources::openstock::validate_live_shadow_payload` 与 `LiveShadowReport/LiveShadowStatus/LiveShadowRequest/LiveShadowDrift` 类型，消费「外部捕获的 OpenStock `/data/bars` 响应 envelope」并产出 dry-run 报告
+  - 服务端不裁剪 `start/end/limit` 与请求/响应日期窗口漂移已被 drift 检测编码化（`received_count_exceeds_limit`、`out_of_requested_window`）；缺 `symbol`、坏 `time`、非 daily `period`、symbol 不匹配等记录被收集为 fail-closed 错误，不中止整批
+  - 新增只读 CLI `quantix data openstock validate-live --payload/- --symbol --period --start --end [--limit]`，支持从文件或 stdin 读取 payload；不发起 live 网络请求、不写 ClickHouse、不替换数据源路由，也不触碰 qmt_live/miniQMT/`ExecutionAdapter`/`OrderStatus`，仅只读消费既有 `Kline`
+  - 上线前完成首轮/第二轮安全探测（无密钥 401 边界 + stdin 注入密钥批量场景），固化 evidence baseline 至 P0.8f 治理节点
+
 ## 2026-06-26
 
 ### Added

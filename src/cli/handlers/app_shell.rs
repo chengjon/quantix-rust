@@ -308,6 +308,16 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             OpenStockCommands::ValidateFixture { file } => {
                 validate_openstock_fixture(&file)?;
             }
+            OpenStockCommands::ValidateLive {
+                payload,
+                symbol,
+                period,
+                start,
+                end,
+                limit,
+            } => {
+                validate_openstock_live(&payload, &symbol, &period, &start, &end, limit)?;
+            }
         },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;

@@ -1,0 +1,35 @@
+task:
+  id: "P0.8f"
+  title: "OpenStock live shadow validation"
+
+scope:
+  allowed_paths:
+    - "src/sources/openstock.rs"
+    - "src/sources/mod.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "src/cli/handlers/mod.rs"
+    - "tests/openstock_live_shadow_validation_test.rs"
+    - "tests/openstock_live_validation_cli_test.rs"
+    - "tests/openstock_fixture_validation_cli_test.rs"
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8F_LIVE_SHADOW_VALIDATION_2026-06-28.md"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No ClickHouse writes; no production data-source route replacement; no qmt_live or miniQMT changes; no ExecutionAdapter or OrderStatus changes; no live network calls in default CI tests; no API key committed to repo; no unwrap cleanup"
+
+acceptance:
+  commit_gate:
+    - "GitNexus impact before source edits; TDD RED/GREEN for live shadow validation contract; cargo fmt --check; focused OpenStock tests; cargo clippy -- -D warnings; cargo test; git diff --check; FUNCTION_TREE gate/validate; GitNexus detect_changes before commit"
+  closeout_gate:
+    - "README/CHANGELOG/FUNCTION_TREE/OpenSpec/report updated; PR CI passed; Graphiti memory written or local backfill recorded if ingest fails"
+
+evidence:
+  current_head: "45c03127f76720193ab7b70b906daaee8c588c0d"
+  notes: []

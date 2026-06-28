@@ -79,6 +79,7 @@
 - [x] P0.8d-backfill: OpenStock P0.8d Graphiti backfill [closeout] (closed, FT: sources/)
 - [x] P0.8e: OpenStock shadow validation design gate [decision] (closed, FT: sources/)
 - [x] P0.8e-backfill: OpenStock P0.8e Graphiti backfill [closeout] (closed, FT: sources/)
+- [x] P0.8f: OpenStock live shadow validation [task/decision] (closed, FT: sources/)
 
 
 ## Evidence Ledger
@@ -151,6 +152,7 @@
 | P0.8d-backfill | P0.8d closeout Graphiti episode fe2a3fd5-6b08-4f79-95a1-6723ce4985c4 remained processing after repeated get_ingest_status checks; queue_depth=0, last_error=null, attempt_count=1 | `c7565485bab26fca5f3f6f18e005c44c7bb6e6a6` |  |
 | P0.8e | P0.8e docs-only design gate implemented; no src/ changes; OpenSpec single/all strict passed; git diff --check passed; FUNCTION_TREE scope/validate passed; GitNexus pre-design impact: write_klines_to_clickhouse LOW, clickhouse identifier validators LOW, ControlledPersistencePolicy.parse HIGH and explicitly excluded | `2cd55ef0cd200362610a11071ab5bee25c9d3705` |  |
 | P0.8e-backfill | P0.8e closeout Graphiti episode 99018b0d-25be-4d9f-b763-38519f58e942 remained processing after repeated get_ingest_status checks; queue_depth=0, last_error=null, attempt_count=1 | `db443324741f4859cdd829e1322ef72c72ad6226` |  |
+| P0.8f | OpenStock runtime live at http://192.168.123.109:8000; health live/ready 200; business endpoints require X-API-Key and return 401 without it; /data/bars POST with symbol+period returns 100 KLINES rows from eltdx with symbol/time/open/high/low/close/volume/amount/period; start/end/limit not currently honored by service response, so P0.8f must validate requested-vs-received drift in dry-run output. | `45c03127f76720193ab7b70b906daaee8c588c0d` |  |
 
 ## Active Gates
 
