@@ -4,7 +4,20 @@ task:
 
 scope:
   allowed_paths:
-    - "src/sources/openstock.rs; src/cli/commands/data.rs; src/cli/handlers/data_handler.rs; tests/openstock_live_shadow_validation_test.rs; tests/openstock_fixture_validation_cli_test.rs; docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8F_LIVE_SHADOW_VALIDATION_2026-06-28.md; openspec/changes/openstock-data-consumption-p0-8/tasks.md; README.md; CHANGELOG.md; FUNCTION_TREE.md"
+    - "src/sources/openstock.rs"
+    - "src/sources/mod.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "src/cli/handlers/mod.rs"
+    - "tests/openstock_live_shadow_validation_test.rs"
+    - "tests/openstock_live_validation_cli_test.rs"
+    - "tests/openstock_fixture_validation_cli_test.rs"
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8F_LIVE_SHADOW_VALIDATION_2026-06-28.md"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
   forbidden_paths:
     []
 
