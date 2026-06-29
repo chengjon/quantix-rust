@@ -5,14 +5,15 @@ task:
 scope:
   allowed_paths:
     # Production source — new modules + appended methods only
-    - "src/sources/openstock/shadow_persistence.rs"
+    - "src/sources/openstock_shadow.rs"
     - "src/sources/openstock.rs"
-    - "src/sources/openstock/mod.rs"
     - "src/sources/mod.rs"
     - "src/db/clickhouse/shadow_kline.rs"
     - "src/db/clickhouse/mod.rs"
     - "src/cli/commands/data.rs"
     - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "src/cli/handlers/mod.rs"
     # SQL schema artifact
     - "db/schema/quantix_shadow_init.sql"
     # Tests

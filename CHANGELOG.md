@@ -19,6 +19,13 @@ All notable changes to this project are documented here.
   - Docs-only 设计门禁：消费 P0.8f `LiveShadowReport` 作为输入契约，回答 P0.8e §"Rollback Requirements Before Any Write Path" 全部 10 项设计要素 — shadow database/表 schema、batch identity（`batch_id` + `artifact_hash`）、deduplication key、两阶段写入模式（dry-run preview + `--apply` 双保险）、`shadow-rollback` 命令、partial-write 失败行为、operator runbook、CI 非写入证明、GitNexus impact targets
   - 本片不改生产 Rust 代码、不写 ClickHouse、不访问 live OpenStock、不替换数据源路由、不触碰 qmt_live/miniQMT/`ExecutionAdapter`/`OrderStatus`/`Kline`/`ControlledPersistencePolicy`
 
+- **OpenStock data consumption P0.8g-impl shadow persistence write path** (`src/sources/openstock_shadow.rs`, `src/sources/openstock.rs`, `src/sources/mod.rs`, `src/db/clickhouse/shadow_kline.rs`, `src/db/clickhouse/mod.rs`, `src/cli/commands/data.rs`, `src/cli/handlers/openstock_handler.rs`, `src/cli/handlers/app_shell.rs`, `src/cli/handlers/mod.rs`, `db/schema/quantix_shadow_init.sql`, `tests/openstock_shadow_persistence_test.rs`, `tests/openstock_shadow_persistence_cli_test.rs`, `tests/openstock_shadow_persistence_integration_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`, `.governance/programs/project-governance/cards/P0.8g-impl.yaml`)
+  - 第一条可写 shadow persistence 落地：新增 `sources::openstock_shadow` 纯函数（`artifact_hash` SHA-256、`ShadowKlineRow`、`ShadowWriteReport`、`ShadowWriteError`、`build_shadow_rows_from_report` dry-run gate、`write_shadow_klines` 双保险写入、`rollback_shadow_batch` 幂等回滚、`verify_shadow_batch` 计数）
+  - ClickHouseClient append-only 扩展（`insert_shadow_klines`/`delete_shadow_batch`/`count_shadow_batch`）写入 `quantix_shadow.openstock_daily_kline_shadow`（ReplacingMergeTree，dedup key = `source+period+code+date+adjust_type`）
+  - 新增 CLI `quantix data openstock persist-live`（默认 dry-run；`--apply` + `QUANTIX_SHADOW_PERSIST_CONFIRM=yes` 双保险才真正写入）、`shadow-rollback --batch-id`（幂等）、`shadow-verify --batch-id`
+  - Dry-run gate 拒绝 drift 非空 / fail-closed 非空 / duplicate keys / 空 payload / `record_count != mapped_count`；CI 默认不连 ClickHouse，2 个 integration test 由 `#[ignore]` + `QUANTIX_SHADOW_INTEGRATION=1` 把守
+  - 本片 additive-only：仅只读消费 `LiveShadowReport`/`Kline`（CRITICAL hub）；不修改 `ControlledPersistencePolicy`、`BacktestEngine`、`src/db/clickhouse/kline.rs`、`Cargo.toml`；不发起 live OpenStock 网络请求
+
 ## 2026-06-28
 
 ### Added

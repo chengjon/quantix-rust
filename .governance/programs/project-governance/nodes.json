@@ -6952,7 +6952,7 @@
     "parent": "P0.8",
     "status": "approved-for-implementation",
     "function_tree_ref": "sources/",
-    "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+    "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
     "freshness": "current-head",
     "source_edits_authorized": true,
     "evidence": [
@@ -6960,7 +6960,7 @@
         "kind": "evidence",
         "path": "P0.8e design (65d34ef) + P0.8f PR #313 dry-run contract + live NAS /data/bars envelope observation",
         "note": "Baseline: P0.8e rollback requirements checklist, P0.8f LiveShadowReport fields, NAS service drift behavior",
-        "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+        "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
         "recorded_at": "2026-06-28T17:59:44.083Z"
       }
     ],
@@ -6989,7 +6989,7 @@
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T17:46:36.752Z",
-    "updated_at": "2026-06-28T18:06:28.975Z",
+    "updated_at": "2026-06-29T14:49:15.667Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7021,13 +7021,13 @@
   {
     "id": "P0.8h",
     "title": "OpenStock analysis wider fixture loop (indicators + strategy)",
-    "node_type": "task",
+    "node_type": "decision",
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
-    "status": "implemented",
+    "status": "implementation-landed",
     "function_tree_ref": "sources/",
-    "current_head": "01196773d57e09a098c4b22cb5b1e62f24b3b81d",
+    "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
     "freshness": "current-head",
     "source_edits_authorized": false,
     "evidence": [
@@ -7041,7 +7041,8 @@
         "kind": "fixture-committed",
         "ref": "tests/fixtures/openstock/daily_kline_30d.json",
         "note": "30 daily records, code 600000; rise->fall->rise close pattern to trigger MA(2)xMA(5) crossover and populate indicator windows",
-        "recorded_at": "2026-06-29T09:09:37.087Z"
+        "recorded_at": "2026-06-29T09:09:37.087Z",
+        "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981"
       }
     ],
     "allowed_paths": [
@@ -7076,7 +7077,7 @@
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T17:46:36.752Z",
-    "updated_at": "2026-06-29T09:09:37.087Z",
+    "updated_at": "2026-06-29T14:49:15.667Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7122,25 +7123,33 @@
   {
     "id": "P0.8g-impl",
     "title": "OpenStock shadow persistence write path (production-code)",
-    "node_type": "task",
+    "node_type": "decision",
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
     "status": "approved-for-implementation",
     "function_tree_ref": "sources/",
-    "current_head": "5e9a669b70e14ef9ac8337b65495b16eee2fbc02",
+    "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
     "freshness": "current-head",
     "source_edits_authorized": true,
-    "evidence": [],
+    "evidence": [
+      {
+        "kind": "implementation-landed",
+        "note": "P0.8g-impl write path complete: openstock_shadow.rs + shadow_kline.rs + 3 CLI subcommands + 8 default-CI tests + 2 #[ignore] integration tests. fmt/clippy/test/OpenSpec/scope-check all green.",
+        "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
+        "recorded_at": "2026-06-29T14:49:15.667Z"
+      }
+    ],
     "allowed_paths": [
-      "src/sources/openstock/shadow_persistence.rs",
+      "src/sources/openstock_shadow.rs",
       "src/sources/openstock.rs",
-      "src/sources/openstock/mod.rs",
       "src/sources/mod.rs",
       "src/db/clickhouse/shadow_kline.rs",
       "src/db/clickhouse/mod.rs",
       "src/cli/commands/data.rs",
       "src/cli/handlers/openstock_handler.rs",
+      "src/cli/handlers/app_shell.rs",
+      "src/cli/handlers/mod.rs",
       "db/schema/quantix_shadow_init.sql",
       "tests/openstock_shadow_persistence_test.rs",
       "tests/openstock_shadow_persistence_cli_test.rs",
@@ -7181,7 +7190,7 @@
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-29T10:02:33.656Z",
-    "updated_at": "2026-06-29T10:02:33.656Z",
+    "updated_at": "2026-06-29T14:49:15.667Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [

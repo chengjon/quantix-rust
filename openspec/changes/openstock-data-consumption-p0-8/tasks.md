@@ -77,18 +77,18 @@
 
 ## 5g-impl. P0.8g-impl Shadow Persistence Write Path (Production-Code)
 
-- [ ] 5g-impl.1 Authorize production-code slice via FUNCTION_TREE P0.8g-impl node (status: approved-for-implementation, `source_edits_authorized: true`); fresh GitNexus impact captured.
-- [ ] 5g-impl.2 Add pure-function `artifact_hash(raw: &str) -> String` (SHA-256 hex) + unit test for determinism.
-- [ ] 5g-impl.3 Add `ShadowKlineRow` struct and `ShadowWriteReport` / `ShadowWriteError` / `ShadowVerifyReport` types in new `src/sources/openstock/shadow_persistence.rs`.
-- [ ] 5g-impl.4 Add `write_shadow_klines(client, report, raw_payload, apply, env_confirmed, ingested_by)` with dry-run gate (rejects on drift/fail_closed/duplicates/empty/mismatch) and double-gate opt-in (`apply && env_confirmed`).
-- [ ] 5g-impl.5 Add `rollback_shadow_batch(client, batch_id)` and `verify_shadow_batch(client, batch_id)`; rollback must be idempotent.
-- [ ] 5g-impl.6 Extend `ClickHouseClient` (append-only) with `insert_shadow_klines`, `delete_shadow_batch`, `count_shadow_batch` in new `src/db/clickhouse/shadow_kline.rs`.
-- [ ] 5g-impl.7 Add CLI subcommands `persist-live` (with `--apply` flag and `--dry-run` default), `shadow-rollback`, `shadow-verify` in `src/cli/commands/data.rs` and handlers in `src/cli/handlers/openstock_handler.rs`.
-- [ ] 5g-impl.8 Default-CI tests (no ClickHouse connection) for all 8 design §8 assertions: dry-run no-connect, requires-apply-flag, requires-env-confirm, rejects-drift, rejects-fail-closed, rejects-duplicates, artifact-hash-deterministic, rollback-idempotent.
-- [ ] 5g-impl.9 Integration tests with `#[ignore]` and `QUANTIX_SHADOW_INTEGRATION=1` gate for `persist_live_apply_writes_rows` and `rollback_removes_batch`.
-- [ ] 5g-impl.10 Provide `db/schema/quantix_shadow_init.sql` (CREATE DATABASE + CREATE TABLE) for operator manual execution; document in runbook.
-- [ ] 5g-impl.11 Run `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace`; verify GitNexus `detect_changes` only touches §7 listed symbols; `ControlledPersistencePolicy`/`Kline`/`BacktestEngine` touches = 0.
-- [ ] 5g-impl.12 Run OpenSpec single/all strict, FUNCTION_TREE validate/gate, `git diff --check`; PR CI green.
+- [x] 5g-impl.1 Authorize production-code slice via FUNCTION_TREE P0.8g-impl node (status: approved-for-implementation, `source_edits_authorized: true`); fresh GitNexus impact captured.
+- [x] 5g-impl.2 Add pure-function `artifact_hash(raw: &str) -> String` (SHA-256 hex) + unit test for determinism.
+- [x] 5g-impl.3 Add `ShadowKlineRow` struct and `ShadowWriteReport` / `ShadowWriteError` / `ShadowVerifyReport` types in new `src/sources/openstock_shadow.rs`.
+- [x] 5g-impl.4 Add `write_shadow_klines(client, report, raw_payload, apply, env_confirmed, ingested_by)` with dry-run gate (rejects on drift/fail_closed/duplicates/empty/mismatch) and double-gate opt-in (`apply && env_confirmed`).
+- [x] 5g-impl.5 Add `rollback_shadow_batch(client, batch_id)` and `verify_shadow_batch(client, batch_id)`; rollback must be idempotent.
+- [x] 5g-impl.6 Extend `ClickHouseClient` (append-only) with `insert_shadow_klines`, `delete_shadow_batch`, `count_shadow_batch` in new `src/db/clickhouse/shadow_kline.rs`.
+- [x] 5g-impl.7 Add CLI subcommands `persist-live` (with `--apply` flag and `--dry-run` default), `shadow-rollback`, `shadow-verify` in `src/cli/commands/data.rs` and handlers in `src/cli/handlers/openstock_handler.rs`.
+- [x] 5g-impl.8 Default-CI tests (no ClickHouse connection) for all 8 design §8 assertions: dry-run no-connect, requires-apply-flag, requires-env-confirm, rejects-drift, rejects-fail-closed, rejects-duplicates, artifact-hash-deterministic, rollback-idempotent.
+- [x] 5g-impl.9 Integration tests with `#[ignore]` and `QUANTIX_SHADOW_INTEGRATION=1` gate for `persist_live_apply_writes_rows` and `rollback_removes_batch`.
+- [x] 5g-impl.10 Provide `db/schema/quantix_shadow_init.sql` (CREATE DATABASE + CREATE TABLE) for operator manual execution; document in runbook.
+- [x] 5g-impl.11 Run `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace` (1378 passed, 8 ignored); verify GitNexus `detect_changes` only touches §7 listed symbols; `ControlledPersistencePolicy`/`Kline`/`BacktestEngine` touches = 0.
+- [x] 5g-impl.12 Run OpenSpec single/all strict, FUNCTION_TREE validate/gate, `git diff --check`; PR CI green.
 
 
 ## 6. Closure

@@ -258,7 +258,7 @@ impl fmt::Display for LiveShadowStatus {
 
 /// Result of validating one captured live payload. Carries enough
 /// information for a dry-run report without retaining the raw bytes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct LiveShadowReport {
     pub dry_run: bool,
     pub source: &'static str,
@@ -270,6 +270,7 @@ pub struct LiveShadowReport {
     pub received_date_range: Option<(NaiveDate, NaiveDate)>,
     pub drifts: Vec<LiveShadowDrift>,
     pub fail_closed_errors: Vec<OpenStockKlineParseError>,
+    pub klines: Vec<Kline>,
 }
 
 impl fmt::Display for LiveShadowReport {
@@ -442,6 +443,7 @@ pub fn validate_live_shadow_payload(
         received_date_range,
         drifts,
         fail_closed_errors,
+        klines: mapped,
     })
 }
 

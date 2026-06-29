@@ -4,6 +4,7 @@ pub mod bridge_tdx;
 pub mod eastmoney;
 pub mod kline_aggregator;
 pub mod openstock;
+pub mod openstock_shadow;
 pub mod quote_collector;
 /// 数据源适配器
 ///
