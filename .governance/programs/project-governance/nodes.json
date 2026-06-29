@@ -6950,11 +6950,11 @@
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "sources/",
-    "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
+    "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "evidence",
@@ -6962,6 +6962,20 @@
         "note": "Baseline: P0.8e rollback requirements checklist, P0.8f LiveShadowReport fields, NAS service drift behavior",
         "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
         "recorded_at": "2026-06-28T17:59:44.083Z"
+      },
+      {
+        "kind": "closeout-prepared",
+        "ref": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md",
+        "note": "Design gate consumed by P0.8g-impl (PR #319 merged as e5639ac). Closeout captured in PR #320 (8ad62a1).",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf"
+      },
+      {
+        "kind": "closed",
+        "ref": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_IMPL_GRAPHITI_BACKFILL_2026-06-29.md",
+        "note": "Design gate closed after P0.8g-impl implementation landed.",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf"
       }
     ],
     "allowed_paths": [
@@ -6985,11 +6999,11 @@
       "Do not modify Kline definition (CRITICAL hub, read-only)",
       "No .unwrap() cleanup; no shadow-to-production promotion (deferred to P0.8h+)"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T17:46:36.752Z",
-    "updated_at": "2026-06-29T14:49:15.667Z",
+    "updated_at": "2026-06-29T16:53:26.913Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7006,6 +7020,34 @@
         "note": "",
         "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
         "transitioned_at": "2026-06-28T18:06:28.975Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:26.655Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:26.736Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:26.829Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:26.912Z"
       }
     ],
     "acceptance": {
@@ -7025,9 +7067,9 @@
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
-    "status": "implementation-landed",
+    "status": "closed",
     "function_tree_ref": "sources/",
-    "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
+    "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
     "freshness": "current-head",
     "source_edits_authorized": false,
     "evidence": [
@@ -7043,6 +7085,20 @@
         "note": "30 daily records, code 600000; rise->fall->rise close pattern to trigger MA(2)xMA(5) crossover and populate indicator windows",
         "recorded_at": "2026-06-29T09:09:37.087Z",
         "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981"
+      },
+      {
+        "kind": "closeout-prepared",
+        "ref": "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8H_GRAPHITI_BACKFILL_2026-06-30.md",
+        "note": "P0.8h analysis wider fixture loop closed and merged via PR (5e9a669). Test-only slice: 1 wider analysis test + 30d fixture committed. cargo fmt/clippy/test green; OpenSpec strict pass; FUNCTION_TREE validate/gate pass; GitNexus detect_changes confirmed 0 src/ symbols touched.",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf"
+      },
+      {
+        "kind": "closed",
+        "ref": "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+        "note": "Node closed. §5h.1-5h.7 all complete; §5h.7 explicitly defers BacktestEngine feed to a separate production-code slice. Slice delivered end-to-end local fixture loop for indicators + strategy without production code changes.",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf"
       }
     ],
     "allowed_paths": [
@@ -7073,11 +7129,11 @@
       "Do not modify Kline definition (CRITICAL hub, read-only)",
       "No .unwrap() cleanup"
     ],
-    "next_gate": "PR merge to master",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T17:46:36.752Z",
-    "updated_at": "2026-06-29T14:49:15.667Z",
+    "updated_at": "2026-06-29T16:53:27.082Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7101,6 +7157,20 @@
         "note": "Implementation: 30-day fixture + indicator fan-out + MACrossStrategy signal loop; fmt/clippy/targeted test all green; 0 src/ symbols touched",
         "current_head": "01196773d57e09a098c4b22cb5b1e62f24b3b81d",
         "transitioned_at": "2026-06-29T09:09:37.087Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:26.999Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "",
+        "current_head": "8ad62a12e5a0c1842eb45d4bf690d370428273bf",
+        "transitioned_at": "2026-06-29T16:53:27.082Z"
       }
     ],
     "acceptance": {
