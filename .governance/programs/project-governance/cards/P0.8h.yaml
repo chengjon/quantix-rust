@@ -1,0 +1,49 @@
+task:
+  id: "P0.8h"
+  title: "OpenStock analysis wider fixture loop (indicators + strategy)"
+
+scope:
+  allowed_paths:
+    - "tests/openstock_analysis_wider_loop_test.rs"
+    - "tests/fixtures/openstock/daily_kline_30d.json"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8h.yaml"
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8H_ANALYSIS_LOOP_2026-06-29.md"
+  forbidden_paths:
+    - "src/**"
+    - "Cargo.toml"
+    - "Cargo.lock"
+
+non_goals:
+  - "No production Rust source changes (test-only slice)"
+  - "No backtest engine drive (BacktestEngine has no public run/feed method; deferred to a separate slice with its own production-code governance)"
+  - "No ClickHouse writes; no live OpenStock network; no production data-source route replacement"
+  - "No qmt_live/miniQMT/ExecutionAdapter/OrderStatus changes"
+  - "Do not modify or reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH)"
+  - "Do not modify Kline definition (CRITICAL hub, read-only)"
+  - "No .unwrap() cleanup"
+
+acceptance:
+  commit_gate:
+    - "New committed fixture tests/fixtures/openstock/daily_kline_30d.json parses via parse_daily_kline_json into ~30 canonical Kline records"
+    - "Wider indicator loop test fans fixture OHLCV/volume through sma, ema, wma, bollinger_bands, atr, obv, cci, williams_r without panic and asserts last-window Some(...) outputs"
+    - "Strategy loop test feeds each fixture Kline into MACrossStrategy::new(short, long) via Strategy::on_bar and asserts a non-empty signal sequence"
+    - "Tests pass: cargo fmt --check, cargo clippy -D warnings, cargo test --test openstock_analysis_wider_loop_test"
+    - "git diff --check clean; OpenSpec single/all strict pass; FUNCTION_TREE validate/gate pass"
+    - "GitNexus detect_changes confirms test-only scope (0 src/ symbols touched)"
+  closeout_gate:
+    - "P0.8h FUNCTION_TREE node closed; README/CHANGELOG/FUNCTION_TREE/OpenSpec updated; PR CI passed; Graphiti memory or local backfill recorded"
+
+evidence:
+  current_head: "258c3a29cf99f4fafd91ffa242fc931bf4f0030e"
+  notes:
+    - "Public API used (read-only): quantix_cli::sources::parse_daily_kline_json, quantix_cli::analysis::{sma, ema, wma, bollinger_bands, atr, obv, cci, williams_r}, quantix_cli::strategy::MACrossStrategy::new + Strategy trait on_bar"
+    - "Signal enum {Buy, Sell, Hold} from quantix_cli::core::signal"
+    - "Backtest option deferred: BacktestEngine (analysis/backtest.rs) only exposes new/with_default_config/portfolio_snapshot publicly; feeding it requires a production-code change, excluded by the test-only non-goal"
