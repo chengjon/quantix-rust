@@ -8,6 +8,13 @@ All notable changes to this project are documented here.
 ## 2026-06-29
 
 ### Added
+- **OpenStock data consumption P0.8h analysis wider fixture loop** (`tests/fixtures/openstock/daily_kline_30d.json`, `tests/openstock_analysis_wider_loop_test.rs`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`, `.governance/programs/project-governance/cards/P0.8h.yaml`)
+  - Test-only 切片：新增 ~30 个交易日、code `600000` 的合成 OHLCV fixture，通过 `parse_daily_kline_json` 解析为 `Vec<Kline>`
+  - 指标扇出：fixture 的 close/high/low/volume 序列送入 `analysis::{sma, ema, wma, bollinger_bands, atr, obv, cci, williams_r}`，断言所有指标在最后窗口输出 `Some(...)`，无 panic
+  - 策略驱动：`MACrossStrategy::new(2, 5)` 通过 `Strategy::on_bar` 逐 bar 消费 fixture，断言 `Vec<Signal>` 长度 == 30 且至少触发一次 `Buy` 或 `Sell`
+  - 本片不改生产 Rust 代码（`src/**` 禁止）、不写 ClickHouse、不访问 live OpenStock、不替换数据源路由、不触碰 qmt_live/miniQMT/`ExecutionAdapter`/`OrderStatus`/`Kline`/`ControlledPersistencePolicy`
+  - Backtest 路径显式推迟：`BacktestEngine` 当前仅暴露 `new`/`with_default_config`/`portfolio_snapshot`，喂 fixture 需新增公共 `run`/`feed_bar`，留待独立 production-code 切片 `P0.8h-bt`
+
 - **OpenStock data consumption P0.8g shadow persistence opt-in design gate** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`, `.governance/programs/project-governance/cards/P0.8g.yaml`)
   - Docs-only 设计门禁：消费 P0.8f `LiveShadowReport` 作为输入契约，回答 P0.8e §"Rollback Requirements Before Any Write Path" 全部 10 项设计要素 — shadow database/表 schema、batch identity（`batch_id` + `artifact_hash`）、deduplication key、两阶段写入模式（dry-run preview + `--apply` 双保险）、`shadow-rollback` 命令、partial-write 失败行为、operator runbook、CI 非写入证明、GitNexus impact targets
   - 本片不改生产 Rust 代码、不写 ClickHouse、不访问 live OpenStock、不替换数据源路由、不触碰 qmt_live/miniQMT/`ExecutionAdapter`/`OrderStatus`/`Kline`/`ControlledPersistencePolicy`

@@ -9,10 +9,10 @@
       "node_type": "task",
       "owner_lane": "data",
       "parent": "P0.8",
-      "status": "approved-for-implementation",
+      "status": "implemented",
       "source_edits_authorized": false,
       "current_blocker": "",
-      "next_allowed": "implement test-only slice within allowed_paths",
+      "next_allowed": "PR merge to master; close out node + CHANGELOG/README/FUNCTION_TREE already synced",
       "function_tree_ref": "sources/",
       "freshness": "current-head",
       "allowed_paths": [
