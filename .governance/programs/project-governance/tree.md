@@ -81,8 +81,8 @@
 - [x] P0.8e-backfill: OpenStock P0.8e Graphiti backfill [closeout] (closed, FT: sources/)
 - [x] P0.8f: OpenStock live shadow validation [task/decision] (closed, FT: sources/)
 - [ ] P0.8g: OpenStock shadow persistence opt-in design [decision] (approved-for-implementation, FT: sources/)
-- [x] P0.8h: OpenStock analysis wider fixture loop (indicators + strategy) [task] (implemented, FT: sources/)
-- [ ] P0.8g-impl: OpenStock shadow persistence write path (production-code) [task] (approved-for-implementation, FT: sources/)
+- [ ] P0.8h: OpenStock analysis wider fixture loop (indicators + strategy) [decision] (implementation-landed, FT: sources/)
+- [x] P0.8g-impl: OpenStock shadow persistence write path (production-code) [decision] (closed, FT: sources/)
 
 
 ## Evidence Ledger
@@ -156,7 +156,9 @@
 | P0.8e | P0.8e docs-only design gate implemented; no src/ changes; OpenSpec single/all strict passed; git diff --check passed; FUNCTION_TREE scope/validate passed; GitNexus pre-design impact: write_klines_to_clickhouse LOW, clickhouse identifier validators LOW, ControlledPersistencePolicy.parse HIGH and explicitly excluded | `2cd55ef0cd200362610a11071ab5bee25c9d3705` |  |
 | P0.8e-backfill | P0.8e closeout Graphiti episode 99018b0d-25be-4d9f-b763-38519f58e942 remained processing after repeated get_ingest_status checks; queue_depth=0, last_error=null, attempt_count=1 | `db443324741f4859cdd829e1322ef72c72ad6226` |  |
 | P0.8f | OpenStock runtime live at http://192.168.123.109:8000; health live/ready 200; business endpoints require X-API-Key and return 401 without it; /data/bars POST with symbol+period returns 100 KLINES rows from eltdx with symbol/time/open/high/low/close/volume/amount/period; start/end/limit not currently honored by service response, so P0.8f must validate requested-vs-received drift in dry-run output. | `45c03127f76720193ab7b70b906daaee8c588c0d` |  |
-| P0.8g | P0.8e design (65d34ef) + P0.8f PR #313 dry-run contract + live NAS /data/bars envelope observation | `45c03127f76720193ab7b70b906daaee8c588c0d` | Baseline: P0.8e rollback requirements checklist, P0.8f LiveShadowReport fields, NAS service drift behavior |
+| P0.8g | P0.8e design (65d34ef) + P0.8f PR #313 dry-run contract + live NAS /data/bars envelope observation | `bb5067fbd92e2e8c9291b6ff391cdfd4256b7981` | Baseline: P0.8e rollback requirements checklist, P0.8f LiveShadowReport fields, NAS service drift behavior |
+| P0.8h | 30 daily records, code 600000; rise->fall->rise close pattern to trigger MA(2)xMA(5) crossover and populate indicator windows | `bb5067fbd92e2e8c9291b6ff391cdfd4256b7981` | 30 daily records, code 600000; rise->fall->rise close pattern to trigger MA(2)xMA(5) crossover and populate indicator windows |
+| P0.8g-impl | P0.8g-impl write path complete: openstock_shadow.rs + shadow_kline.rs + 3 CLI subcommands + 8 default-CI tests + 2 #[ignore] integration tests. fmt/clippy/test/OpenSpec/scope-check all green. | `bb5067fbd92e2e8c9291b6ff391cdfd4256b7981` | P0.8g-impl write path complete: openstock_shadow.rs + shadow_kline.rs + 3 CLI subcommands + 8 default-CI tests + 2 #[ignore] integration tests. fmt/clippy/test/OpenSpec/scope-check all green. |
 
 ## Active Gates
 

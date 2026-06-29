@@ -93,6 +93,6 @@
 
 ## 6. Closure
 
-- [ ] 6.1 Update README, CHANGELOG, and FUNCTION_TREE for any completed slices.
-- [ ] 6.2 Run full slice gates and PR CI.
-- [ ] 6.3 Write Graphiti memory or local backfill if ingest does not complete.
+- [x] 6.1 Update README, CHANGELOG, and FUNCTION_TREE for any completed slices.
+- [x] 6.2 Run full slice gates and PR CI.
+- [x] 6.3 Write Graphiti memory or local backfill if ingest does not complete.

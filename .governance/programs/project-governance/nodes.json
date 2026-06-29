@@ -7127,11 +7127,11 @@
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
-    "status": "approved-for-implementation",
+    "status": "closed",
     "function_tree_ref": "sources/",
     "current_head": "bb5067fbd92e2e8c9291b6ff391cdfd4256b7981",
     "freshness": "current-head",
-    "source_edits_authorized": true,
+    "source_edits_authorized": false,
     "evidence": [
       {
         "kind": "implementation-landed",
@@ -7186,11 +7186,11 @@
       "Do not implement shadow -> production promote",
       "Do not implement shadow_audit_log table writes (deferred to P0.8g-audit)"
     ],
-    "next_gate": "implement within allowed_paths (additive: new modules + appended methods only)",
+    "next_gate": "none",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-29T10:02:33.656Z",
-    "updated_at": "2026-06-29T14:49:15.667Z",
+    "updated_at": "2026-06-29T15:46:15.912Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7207,6 +7207,34 @@
         "note": "",
         "current_head": "5e9a669b70e14ef9ac8337b65495b16eee2fbc02",
         "transitioned_at": "2026-06-29T10:02:33.656Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implementation-ready",
+        "note": "PR #319 merged as e5639ac",
+        "current_head": "b6f243965b0c9e2fa760d62ceb8f3b09e1278162",
+        "transitioned_at": "2026-06-29T15:46:15.633Z"
+      },
+      {
+        "from": "implementation-ready",
+        "to": "implementation-landed",
+        "note": "PR #319 merged as e5639ac",
+        "current_head": "b6f243965b0c9e2fa760d62ceb8f3b09e1278162",
+        "transitioned_at": "2026-06-29T15:46:15.740Z"
+      },
+      {
+        "from": "implementation-landed",
+        "to": "closeout-prepared",
+        "note": "PR #319 merged as e5639ac",
+        "current_head": "b6f243965b0c9e2fa760d62ceb8f3b09e1278162",
+        "transitioned_at": "2026-06-29T15:46:15.819Z"
+      },
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "PR #319 merged as e5639ac",
+        "current_head": "b6f243965b0c9e2fa760d62ceb8f3b09e1278162",
+        "transitioned_at": "2026-06-29T15:46:15.911Z"
       }
     ],
     "acceptance": {

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-29T14:42:13.861Z",
+  "updated_at": "2026-06-29T15:46:15.924Z",
   "gates": [
     {
       "program": "project-governance",
@@ -63,57 +63,6 @@
         "Cargo.lock"
       ],
       "updated_at": "2026-06-29T09:09:37.087Z"
-    },
-    {
-      "program": "project-governance",
-      "id": "P0.8g-impl",
-      "title": "OpenStock shadow persistence write path (production-code)",
-      "node_type": "decision",
-      "owner_lane": "data",
-      "parent": "P0.8",
-      "status": "approved-for-implementation",
-      "source_edits_authorized": true,
-      "current_blocker": "",
-      "next_allowed": "implement within allowed_paths (additive: new modules + appended methods only)",
-      "function_tree_ref": "sources/",
-      "freshness": "current-head",
-      "allowed_paths": [
-        "src/sources/openstock_shadow.rs",
-        "src/sources/openstock.rs",
-        "src/sources/mod.rs",
-        "src/db/clickhouse/shadow_kline.rs",
-        "src/db/clickhouse/mod.rs",
-        "src/cli/commands/data.rs",
-        "src/cli/handlers/openstock_handler.rs",
-        "src/cli/handlers/app_shell.rs",
-        "src/cli/handlers/mod.rs",
-        "db/schema/quantix_shadow_init.sql",
-        "tests/openstock_shadow_persistence_test.rs",
-        "tests/openstock_shadow_persistence_cli_test.rs",
-        "tests/openstock_shadow_persistence_integration_test.rs",
-        "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
-        "README.md",
-        "CHANGELOG.md",
-        "FUNCTION_TREE.md",
-        ".governance/active-gates.json",
-        ".governance/active-gates.md",
-        ".governance/programs/project-governance/nodes.json",
-        ".governance/programs/project-governance/tree.md",
-        ".governance/programs/project-governance/cards/P0.8g-impl.yaml",
-        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_IMPL_SHADOW_PERSISTENCE_2026-06-29.md"
-      ],
-      "forbidden_paths": [
-        "src/data/models.rs::Kline",
-        "src/miniqmt_market.rs::ControlledPersistencePolicy",
-        "src/analysis/backtest.rs::BacktestEngine",
-        "src/db/clickhouse/kline.rs",
-        "src/sync/etl.rs",
-        "Cargo.toml",
-        "Cargo.lock",
-        "src/execution/**",
-        "src/miniqmt*"
-      ],
-      "updated_at": "2026-06-29T10:02:33.656Z"
     }
   ]
 }
