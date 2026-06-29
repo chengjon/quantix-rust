@@ -1,0 +1,37 @@
+task:
+  id: "P0.8g"
+  title: "OpenStock shadow persistence opt-in design"
+
+scope:
+  allowed_paths:
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md"
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8g.yaml"
+  forbidden_paths:
+    []
+
+non_goals:
+  - "No production Rust source changes (design gate only)"
+  - "No ClickHouse writes; no live OpenStock network; no production data-source route replacement"
+  - "No qmt_live/miniQMT/ExecutionAdapter/OrderStatus changes"
+  - "Do not modify or reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH)"
+  - "Do not modify Kline definition (CRITICAL hub, read-only)"
+  - "No .unwrap() cleanup; no shadow-to-production promotion (deferred to P0.8h+)"
+
+acceptance:
+  commit_gate:
+    - "Design report documents shadow namespace/table schema, dedup keys, batch identity, rollback command, dry-run preview, partial-write behavior, CI non-write proof, GitNexus impact targets, and explicit approval requirements"
+    - "Docs-only gates pass: git diff --check, OpenSpec single/all strict, FUNCTION_TREE validate/gate, GitNexus detect_changes docs-only scope"
+  closeout_gate:
+    - "P0.8g FUNCTION_TREE node approved-for-implementation; README/CHANGELOG/FUNCTION_TREE/OpenSpec/report updated; PR CI passed; Graphiti memory or local backfill recorded"
+
+evidence:
+  current_head: "45c03127f76720193ab7b70b906daaee8c588c0d"
+  notes: []

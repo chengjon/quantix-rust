@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-06-29
+
+### Added
+- **OpenStock data consumption P0.8g shadow persistence opt-in design gate** (`docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md`, `openspec/changes/openstock-data-consumption-p0-8/tasks.md`, `README.md`, `FUNCTION_TREE.md`, `.governance/programs/project-governance/cards/P0.8g.yaml`)
+  - Docs-only 设计门禁：消费 P0.8f `LiveShadowReport` 作为输入契约，回答 P0.8e §"Rollback Requirements Before Any Write Path" 全部 10 项设计要素 — shadow database/表 schema、batch identity（`batch_id` + `artifact_hash`）、deduplication key、两阶段写入模式（dry-run preview + `--apply` 双保险）、`shadow-rollback` 命令、partial-write 失败行为、operator runbook、CI 非写入证明、GitNexus impact targets
+  - 本片不改生产 Rust 代码、不写 ClickHouse、不访问 live OpenStock、不替换数据源路由、不触碰 qmt_live/miniQMT/`ExecutionAdapter`/`OrderStatus`/`Kline`/`ControlledPersistencePolicy`
+
 ## 2026-06-28
 
 ### Added
