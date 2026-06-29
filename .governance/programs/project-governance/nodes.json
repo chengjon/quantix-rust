@@ -7025,12 +7025,25 @@
     "node_type_input": "decision",
     "owner_lane": "data",
     "parent": "P0.8",
-    "status": "approved-for-implementation",
+    "status": "implemented",
     "function_tree_ref": "sources/",
-    "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
+    "current_head": "01196773d57e09a098c4b22cb5b1e62f24b3b81d",
     "freshness": "current-head",
     "source_edits_authorized": false,
-    "evidence": [],
+    "evidence": [
+      {
+        "kind": "tests-pass",
+        "ref": "tests/openstock_analysis_wider_loop_test.rs",
+        "note": "cargo test --test openstock_analysis_wider_loop_test 1 passed; cargo fmt --check clean; cargo clippy --tests -D warnings clean",
+        "recorded_at": "2026-06-29T09:09:37.087Z"
+      },
+      {
+        "kind": "fixture-committed",
+        "ref": "tests/fixtures/openstock/daily_kline_30d.json",
+        "note": "30 daily records, code 600000; rise->fall->rise close pattern to trigger MA(2)xMA(5) crossover and populate indicator windows",
+        "recorded_at": "2026-06-29T09:09:37.087Z"
+      }
+    ],
     "allowed_paths": [
       "tests/openstock_analysis_wider_loop_test.rs",
       "tests/fixtures/openstock/daily_kline_30d.json",
@@ -7052,17 +7065,18 @@
     ],
     "non_goals": [
       "No production Rust source changes (test-only slice)",
-      "No backtest engine drive (deferred)",
-      "No ClickHouse writes; no live OpenStock network",
+      "No backtest engine drive (BacktestEngine has no public run/feed method; deferred to a separate slice with its own production-code governance)",
+      "No ClickHouse writes; no live OpenStock network; no production data-source route replacement",
       "No qmt_live/miniQMT/ExecutionAdapter/OrderStatus changes",
-      "Do not modify or reuse miniQMT ControlledPersistencePolicy (HIGH)",
-      "Do not modify Kline definition (CRITICAL hub)"
+      "Do not modify or reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH)",
+      "Do not modify Kline definition (CRITICAL hub, read-only)",
+      "No .unwrap() cleanup"
     ],
-    "next_gate": "implement within allowed_paths",
+    "next_gate": "PR merge to master",
     "blocker_reason": null,
     "unblock_target_state": null,
     "created_at": "2026-06-28T17:46:36.752Z",
-    "updated_at": "2026-06-28T18:06:28.975Z",
+    "updated_at": "2026-06-29T09:09:37.087Z",
     "track": "mainline",
     "depth": 2,
     "transitions": [
@@ -7079,19 +7093,30 @@
         "note": "",
         "current_head": "45c03127f76720193ab7b70b906daaee8c588c0d",
         "transitioned_at": "2026-06-28T18:06:28.975Z"
+      },
+      {
+        "from": "approved-for-implementation",
+        "to": "implemented",
+        "note": "Implementation: 30-day fixture + indicator fan-out + MACrossStrategy signal loop; fmt/clippy/targeted test all green; 0 src/ symbols touched",
+        "current_head": "01196773d57e09a098c4b22cb5b1e62f24b3b81d",
+        "transitioned_at": "2026-06-29T09:09:37.087Z"
       }
     ],
     "acceptance": {
       "commit_gate": [
-        "Design report documents shadow namespace/table schema, dedup keys, batch identity, rollback command, dry-run preview, partial-write behavior, CI non-write proof, GitNexus impact targets, and explicit approval requirements",
-        "Docs-only gates pass: git diff --check, OpenSpec single/all strict, FUNCTION_TREE validate/gate, GitNexus detect_changes docs-only scope"
+        "New committed fixture tests/fixtures/openstock/daily_kline_30d.json parses via parse_daily_kline_json into ~30 canonical Kline records",
+        "Wider indicator loop test fans fixture OHLCV/volume through sma, ema, wma, bollinger_bands, atr, obv, cci, williams_r without panic and asserts last-window Some(...) outputs",
+        "Strategy loop test feeds each fixture Kline into MACrossStrategy::new(short, long) via Strategy::on_bar and asserts a non-empty signal sequence",
+        "Tests pass: cargo fmt --check, cargo clippy -D warnings, cargo test --test openstock_analysis_wider_loop_test",
+        "git diff --check clean; OpenSpec single/all strict pass; FUNCTION_TREE validate/gate pass",
+        "GitNexus detect_changes confirms test-only scope (0 src/ symbols touched)"
       ],
       "closeout_gate": [
-        "P0.8g FUNCTION_TREE node approved-for-implementation; README/CHANGELOG/FUNCTION_TREE/OpenSpec/report updated; PR CI passed; Graphiti memory or local backfill recorded"
+        "P0.8h FUNCTION_TREE node closed; README/CHANGELOG/FUNCTION_TREE/OpenSpec updated; PR CI passed; Graphiti memory or local backfill recorded"
       ]
     },
     "status_history": [],
     "current_blocker": "",
-    "next_allowed": "implement test-only slice within allowed_paths"
+    "next_allowed": "PR merge to master; slice complete"
   }
 ]

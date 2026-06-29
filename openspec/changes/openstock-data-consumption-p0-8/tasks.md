@@ -67,11 +67,11 @@
 
 ## 5h. P0.8h Analysis Wider Fixture Loop (Indicators + Strategy)
 
-- [ ] 5h.1 Authorize slice via FUNCTION_TREE P0.8h node (status: approved-for-implementation, test-only).
-- [ ] 5h.2 Commit a larger fixture `tests/fixtures/openstock/daily_kline_30d.json` (~30 trading days, code 600000) that parses via `parse_daily_kline_json`.
-- [ ] 5h.3 Indicator loop test: extract close/high/low/volume from fixture `Vec<Kline>` and fan through `sma`, `ema`, `wma`, `bollinger_bands`, `atr`, `obv`, `cci`, `williams_r`; assert no panic and `Some(...)` present in last-window outputs.
-- [ ] 5h.4 Strategy loop test: feed each `Kline` into `MACrossStrategy::new(short, long)` via `Strategy::on_bar`; assert non-empty signal sequence from `{Buy, Sell, Hold}`.
-- [ ] 5h.5 Run `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --test openstock_analysis_wider_loop_test`, full test suite.
+- [x] 5h.1 Authorize slice via FUNCTION_TREE P0.8h node (status: approved-for-implementation, test-only).
+- [x] 5h.2 Commit a larger fixture `tests/fixtures/openstock/daily_kline_30d.json` (~30 trading days, code 600000) that parses via `parse_daily_kline_json`.
+- [x] 5h.3 Indicator loop test: extract close/high/low/volume from fixture `Vec<Kline>` and fan through `sma`, `ema`, `wma`, `bollinger_bands`, `atr`, `obv`, `cci`, `williams_r`; assert no panic and `Some(...)` present in last-window outputs.
+- [x] 5h.4 Strategy loop test: feed each `Kline` into `MACrossStrategy::new(short, long)` via `Strategy::on_bar`; assert non-empty signal sequence from `{Buy, Sell, Hold}`.
+- [x] 5h.5 Run `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --test openstock_analysis_wider_loop_test`, full test suite.
 - [ ] 5h.6 Run OpenSpec single/all strict, FUNCTION_TREE validate/gate, `git diff --check`, GitNexus `detect_changes` (confirm test-only scope, 0 src/ symbols touched).
 - [ ] 5h.7 Backtest option explicitly deferred: `BacktestEngine` has no public `run`/`feed` method; will require a separate production-code slice with its own governance card.
 
