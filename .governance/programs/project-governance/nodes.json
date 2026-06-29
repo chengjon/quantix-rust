@@ -7118,5 +7118,104 @@
     "status_history": [],
     "current_blocker": "",
     "next_allowed": "PR merge to master; slice complete"
+  },
+  {
+    "id": "P0.8g-impl",
+    "title": "OpenStock shadow persistence write path (production-code)",
+    "node_type": "task",
+    "node_type_input": "decision",
+    "owner_lane": "data",
+    "parent": "P0.8",
+    "status": "approved-for-implementation",
+    "function_tree_ref": "sources/",
+    "current_head": "5e9a669b70e14ef9ac8337b65495b16eee2fbc02",
+    "freshness": "current-head",
+    "source_edits_authorized": true,
+    "evidence": [],
+    "allowed_paths": [
+      "src/sources/openstock/shadow_persistence.rs",
+      "src/sources/openstock.rs",
+      "src/sources/openstock/mod.rs",
+      "src/sources/mod.rs",
+      "src/db/clickhouse/shadow_kline.rs",
+      "src/db/clickhouse/mod.rs",
+      "src/cli/commands/data.rs",
+      "src/cli/handlers/openstock_handler.rs",
+      "db/schema/quantix_shadow_init.sql",
+      "tests/openstock_shadow_persistence_test.rs",
+      "tests/openstock_shadow_persistence_cli_test.rs",
+      "tests/openstock_shadow_persistence_integration_test.rs",
+      "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.8g-impl.yaml",
+      "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_IMPL_SHADOW_PERSISTENCE_2026-06-29.md"
+    ],
+    "forbidden_paths": [
+      "src/data/models.rs::Kline",
+      "src/miniqmt_market.rs::ControlledPersistencePolicy",
+      "src/analysis/backtest.rs::BacktestEngine",
+      "src/db/clickhouse/kline.rs",
+      "src/sync/etl.rs",
+      "Cargo.toml",
+      "Cargo.lock",
+      "src/execution/**",
+      "src/miniqmt*"
+    ],
+    "non_goals": [
+      "Do not reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH)",
+      "Do not modify Kline definition (CRITICAL hub, read-only)",
+      "Do not modify BacktestEngine",
+      "Do not modify existing kline_data write path (insert_kline_data*)",
+      "Do not introduce new ClickHouse client crate dependency",
+      "Do not perform live OpenStock network calls",
+      "Do not implement shadow -> production promote",
+      "Do not implement shadow_audit_log table writes (deferred to P0.8g-audit)"
+    ],
+    "next_gate": "implement within allowed_paths (additive: new modules + appended methods only)",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-29T10:02:33.656Z",
+    "updated_at": "2026-06-29T10:02:33.656Z",
+    "track": "mainline",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "evidence-prepared",
+        "to": "decision-prepared",
+        "note": "Production-code slice: shadow persistence write path. P0.8g design doc is authoritative contract. Additive-only edits to ClickHouseClient (impact LOW). Fresh GitNexus captured.",
+        "current_head": "5e9a669b70e14ef9ac8337b65495b16eee2fbc02",
+        "transitioned_at": "2026-06-29T10:02:33.656Z"
+      },
+      {
+        "from": "authorization-prepared",
+        "to": "approved-for-implementation",
+        "note": "",
+        "current_head": "5e9a669b70e14ef9ac8337b65495b16eee2fbc02",
+        "transitioned_at": "2026-06-29T10:02:33.656Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "New src/sources/openstock/shadow_persistence.rs + src/db/clickhouse/shadow_kline.rs with all §3-§5 types and functions",
+        "ClickHouseClient extended (append-only) with insert_shadow_klines/delete_shadow_batch/count_shadow_batch",
+        "CLI subcommands persist-live + shadow-rollback + shadow-verify with double-gate opt-in",
+        "All 8 default-CI safety assertions pass without ClickHouse connection",
+        "Integration tests #[ignore] + QUANTIX_SHADOW_INTEGRATION=1 gate",
+        "cargo fmt --check, cargo clippy -D warnings, cargo test --workspace all green",
+        "GitNexus detect_changes: only §7 symbols touched; ControlledPersistencePolicy/Kline/BacktestEngine touches = 0"
+      ],
+      "closeout_gate": [
+        "P0.8g-impl FUNCTION_TREE node closed; README/CHANGELOG/FUNCTION_TREE/OpenSpec updated; PR CI passed; Graphiti memory or local backfill recorded"
+      ]
+    },
+    "status_history": [],
+    "current_blocker": "",
+    "next_allowed": "implement within allowed_paths"
   }
 ]

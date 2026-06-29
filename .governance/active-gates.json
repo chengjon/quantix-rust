@@ -1,24 +1,33 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-29T04:17:06.412Z",
+  "updated_at": "2026-06-29T09:40:00.000Z",
   "gates": [
     {
       "program": "project-governance",
-      "id": "P0.8h",
-      "title": "OpenStock analysis wider fixture loop (indicators + strategy)",
+      "id": "P0.8g-impl",
+      "title": "OpenStock shadow persistence write path (production-code)",
       "node_type": "task",
       "owner_lane": "data",
       "parent": "P0.8",
-      "status": "implemented",
-      "source_edits_authorized": false,
+      "status": "approved-for-implementation",
+      "source_edits_authorized": true,
       "current_blocker": "",
-      "next_allowed": "PR merge to master; close out node + CHANGELOG/README/FUNCTION_TREE already synced",
+      "next_allowed": "implement within allowed_paths (additive: new modules + appended methods only)",
       "function_tree_ref": "sources/",
       "freshness": "current-head",
       "allowed_paths": [
-        "tests/openstock_analysis_wider_loop_test.rs",
-        "tests/fixtures/openstock/daily_kline_30d.json",
-        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8H_ANALYSIS_LOOP_2026-06-29.md",
+        "src/sources/openstock/shadow_persistence.rs",
+        "src/sources/openstock.rs",
+        "src/sources/openstock/mod.rs",
+        "src/sources/mod.rs",
+        "src/db/clickhouse/shadow_kline.rs",
+        "src/db/clickhouse/mod.rs",
+        "src/cli/commands/data.rs",
+        "src/cli/handlers/openstock_handler.rs",
+        "db/schema/quantix_shadow_init.sql",
+        "tests/openstock_shadow_persistence_test.rs",
+        "tests/openstock_shadow_persistence_cli_test.rs",
+        "tests/openstock_shadow_persistence_integration_test.rs",
         "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
         "README.md",
         "CHANGELOG.md",
@@ -27,14 +36,21 @@
         ".governance/active-gates.md",
         ".governance/programs/project-governance/nodes.json",
         ".governance/programs/project-governance/tree.md",
-        ".governance/programs/project-governance/cards/P0.8h.yaml"
+        ".governance/programs/project-governance/cards/P0.8g-impl.yaml",
+        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_IMPL_SHADOW_PERSISTENCE_2026-06-29.md"
       ],
       "forbidden_paths": [
-        "src/**",
+        "src/data/models.rs::Kline",
+        "src/miniqmt_market.rs::ControlledPersistencePolicy",
+        "src/analysis/backtest.rs::BacktestEngine",
+        "src/db/clickhouse/kline.rs",
+        "src/sync/etl.rs",
         "Cargo.toml",
-        "Cargo.lock"
+        "Cargo.lock",
+        "src/execution/**",
+        "src/miniqmt*"
       ],
-      "updated_at": "2026-06-29T04:17:06.412Z"
+      "updated_at": "2026-06-29T09:40:00.000Z"
     }
   ]
 }

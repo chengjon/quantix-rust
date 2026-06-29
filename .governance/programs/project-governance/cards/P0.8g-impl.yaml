@@ -1,0 +1,102 @@
+task:
+  id: "P0.8g-impl"
+  title: "OpenStock shadow persistence write path (production-code)"
+
+scope:
+  allowed_paths:
+    # Production source — new modules + appended methods only
+    - "src/sources/openstock/shadow_persistence.rs"
+    - "src/sources/openstock.rs"
+    - "src/sources/openstock/mod.rs"
+    - "src/sources/mod.rs"
+    - "src/db/clickhouse/shadow_kline.rs"
+    - "src/db/clickhouse/mod.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    # SQL schema artifact
+    - "db/schema/quantix_shadow_init.sql"
+    # Tests
+    - "tests/openstock_shadow_persistence_test.rs"
+    - "tests/openstock_shadow_persistence_cli_test.rs"
+    - "tests/openstock_shadow_persistence_integration_test.rs"
+    # Docs / governance
+    - "openspec/changes/openstock-data-consumption-p0-8/tasks.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "FUNCTION_TREE.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/programs/project-governance/cards/P0.8g-impl.yaml"
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_IMPL_SHADOW_PERSISTENCE_2026-06-29.md"
+
+  forbidden_paths:
+    # CRITICAL / HIGH hubs — read-only or untouched
+    - "src/data/models.rs::Kline"
+    - "src/miniqmt_market.rs::ControlledPersistencePolicy"
+    - "src/analysis/backtest.rs::BacktestEngine"
+    # Existing production write paths — do not modify existing methods
+    - "src/db/clickhouse/kline.rs"
+    - "src/sync/etl.rs"
+    # Cargo
+    - "Cargo.toml"
+    - "Cargo.lock"
+    # Existing live data paths
+    - "src/execution/**"
+    - "src/miniqmt*"
+
+non_goals:
+  - "Do not reuse miniQMT ControlledPersistencePolicy (GitNexus impact HIGH; governance rule)"
+  - "Do not modify Kline definition (CRITICAL hub, read-only)"
+  - "Do not modify BacktestEngine"
+  - "Do not modify existing kline_data write path (insert_kline_data* in src/db/clickhouse/kline.rs)"
+  - "Do not introduce new ClickHouse client crate dependency"
+  - "Do not perform live OpenStock network calls (payload is externally captured)"
+  - "Do not implement shadow → production promote (deferred)"
+  - "Do not implement shadow_audit_log table writes (deferred to P0.8g-audit)"
+  - "No .unwrap() cleanup outside the new module"
+
+authorization:
+  source_edits_authorized: true
+  rationale: "First production-code slice touching shadow persistence write path. All edits are additive: new modules, new methods on existing ClickHouseClient impl (not modifications), new CLI subcommand variants. GitNexus impact LOW for ClickHouseClient (d=1: 0 upstream)."
+
+acceptance:
+  commit_gate:
+    - "New module src/sources/openstock/shadow_persistence.rs with artifact_hash, ShadowWriteReport, ShadowWriteError, write_shadow_klines, rollback_shadow_batch, verify_shadow_batch"
+    - "New module src/db/clickhouse/shadow_kline.rs with ShadowKlineRow and ClickHouseClient impl extensions (insert_shadow_klines, delete_shadow_batch, count_shadow_batch)"
+    - "New CLI subcommands: persist-live (dry-run default, --apply opt-in), shadow-rollback, shadow-verify"
+    - "Double-gate enforced: --apply flag AND QUANTIX_SHADOW_PERSIST_CONFIRM=yes env var both required for any write"
+    - "Dry-run gate rejects on: drift non-empty, fail_closed non-empty, duplicate_key_count > 0, row_count == 0, mapped_count != row_count"
+    - "Default CI tests (no ClickHouse connection): all 8 assertions in design §8 pass"
+    - "Integration tests exist with #[ignore] and QUANTIX_SHADOW_INTEGRATION=1 gate"
+    - "cargo fmt --check, cargo clippy -D warnings, cargo test --workspace all green"
+    - "OpenSpec validate --all --strict passes; FUNCTION_TREE validate/gate passes"
+    - "git diff --check clean"
+    - "GitNexus detect_changes confirms: only §7 listed symbols touched; ControlledPersistencePolicy/Kline/BacktestEngine touches = 0"
+  closeout_gate:
+    - "P0.8g-impl FUNCTION_TREE node closed; README/CHANGELOG/FUNCTION_TREE/OpenSpec updated; PR CI passed; Graphiti memory or local backfill recorded"
+
+evidence:
+  current_head: "5e9a669b70e14ef9ac8337b65495b16eee2fbc02"
+  gitnexus_impact:
+    captured_at: "2026-06-29T09:35:00Z"
+    fresh: true
+    targets:
+      - symbol: "Struct:src/db/clickhouse/mod.rs:ClickHouseClient"
+        direction: "upstream"
+        risk: "LOW"
+        impacted_count: 0
+        decision: "Add new methods only (insert_shadow_klines, delete_shadow_batch, count_shadow_batch); do not modify existing methods"
+      - symbol: "validate_live_shadow_payload"
+        direction: "upstream"
+        risk: "LOW"
+        decision: "Read-only consumption of LiveShadowReport"
+      - symbol: "OpenStockCommands"
+        direction: "upstream"
+        risk: "LOW"
+        decision: "Add 3 new variants; existing match arms still cover their cases (variant exhaustiveness handled by handler)"
+  notes:
+    - "Design gate PR (this card): scope only the design report + governance setup"
+    - "Implementation will start on the same branch after this design gate merges"
+    - "P0.8g design doc (PR #314) is the authoritative contract for schema/dedup/runbook"
