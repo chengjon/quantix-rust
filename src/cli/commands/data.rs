@@ -360,4 +360,51 @@ pub enum OpenStockCommands {
         #[arg(long)]
         limit: Option<u32>,
     },
+
+    /// 将已校验的 live shadow 载荷写入 `quantix_shadow.openstock_daily_kline_shadow`。
+    /// 默认为 dry-run；如需真正写入，必须同时传 `--apply` 与
+    /// 环境变量 `QUANTIX_SHADOW_PERSIST_CONFIRM=yes`。
+    PersistLive {
+        /// 已捕获的响应 JSON 文件路径；使用 `-` 从 stdin 读取
+        #[arg(long)]
+        payload: String,
+
+        /// 请求时使用的代码（symbol/code）
+        #[arg(long)]
+        symbol: String,
+
+        /// 请求时使用的周期（必须为 daily）
+        #[arg(long, default_value = "daily")]
+        r#period: String,
+
+        /// 请求时使用的开始日期 (YYYY-MM-DD)
+        #[arg(long)]
+        start: String,
+
+        /// 请求时使用的结束日期 (YYYY-MM-DD)
+        #[arg(long)]
+        end: String,
+
+        /// 请求时声明的 limit
+        #[arg(long)]
+        limit: Option<u32>,
+
+        /// 真正执行写入；不传则只跑 dry-run gate
+        #[arg(long)]
+        apply: bool,
+    },
+
+    /// 按 `batch_id` 回滚（删除）shadow 行，幂等。
+    ShadowRollback {
+        /// `persist-live --apply` 返回的 batch_id
+        #[arg(long)]
+        batch_id: String,
+    },
+
+    /// 校验某 `batch_id` 在 shadow 表中的当前行数。
+    ShadowVerify {
+        /// `persist-live --apply` 返回的 batch_id
+        #[arg(long)]
+        batch_id: String,
+    },
 }

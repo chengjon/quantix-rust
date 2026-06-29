@@ -318,6 +318,24 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             } => {
                 validate_openstock_live(&payload, &symbol, &period, &start, &end, limit)?;
             }
+            OpenStockCommands::PersistLive {
+                payload,
+                symbol,
+                period,
+                start,
+                end,
+                limit,
+                apply,
+            } => {
+                persist_openstock_live(&payload, &symbol, &period, &start, &end, limit, apply)
+                    .await?;
+            }
+            OpenStockCommands::ShadowRollback { batch_id } => {
+                shadow_rollback(&batch_id).await?;
+            }
+            OpenStockCommands::ShadowVerify { batch_id } => {
+                shadow_verify(&batch_id).await?;
+            }
         },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;

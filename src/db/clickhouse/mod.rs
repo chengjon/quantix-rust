@@ -3,6 +3,7 @@ mod gbbq;
 mod kline;
 mod models;
 mod schema;
+mod shadow_kline;
 
 #[cfg(test)]
 mod tests;
