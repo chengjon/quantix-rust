@@ -1,22 +1,24 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-06-28T18:06:28.983Z",
+  "updated_at": "2026-06-29T04:17:06.412Z",
   "gates": [
     {
       "program": "project-governance",
-      "id": "P0.8g",
-      "title": "OpenStock shadow persistence opt-in design",
-      "node_type": "decision",
+      "id": "P0.8h",
+      "title": "OpenStock analysis wider fixture loop (indicators + strategy)",
+      "node_type": "task",
       "owner_lane": "data",
       "parent": "P0.8",
       "status": "approved-for-implementation",
-      "source_edits_authorized": true,
+      "source_edits_authorized": false,
       "current_blocker": "",
-      "next_allowed": "implement within allowed_paths",
+      "next_allowed": "implement test-only slice within allowed_paths",
       "function_tree_ref": "sources/",
       "freshness": "current-head",
       "allowed_paths": [
-        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8G_SHADOW_PERSISTENCE_DESIGN_2026-06-29.md",
+        "tests/openstock_analysis_wider_loop_test.rs",
+        "tests/fixtures/openstock/daily_kline_30d.json",
+        "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_8H_ANALYSIS_LOOP_2026-06-29.md",
         "openspec/changes/openstock-data-consumption-p0-8/tasks.md",
         "README.md",
         "CHANGELOG.md",
@@ -25,10 +27,14 @@
         ".governance/active-gates.md",
         ".governance/programs/project-governance/nodes.json",
         ".governance/programs/project-governance/tree.md",
-        ".governance/programs/project-governance/cards/P0.8g.yaml"
+        ".governance/programs/project-governance/cards/P0.8h.yaml"
       ],
-      "forbidden_paths": [],
-      "updated_at": "2026-06-28T18:06:28.975Z"
+      "forbidden_paths": [
+        "src/**",
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "updated_at": "2026-06-29T04:17:06.412Z"
     }
   ]
 }
