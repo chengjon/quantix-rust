@@ -6,11 +6,11 @@
 - [x] 0.2 Run Graphiti reads for `quantix_rust_main` and `quantix_rust_docs`.
 - [x] 0.3 Run GitNexus overview/detect_changes before edits.
 - [x] 0.4 Create a dedicated FUNCTION_TREE P0.8 node before editing planning files.
-- [ ] 0.5 Create this OpenSpec change as the governing scope for OpenStock data consumption.
-- [ ] 0.6 Run `openspec validate openstock-data-consumption-p0-8 --strict`.
-- [ ] 0.7 Run `openspec validate --all --strict`.
-- [ ] 0.8 Run FUNCTION_TREE scope-check, validate, and gate.
-- [ ] 0.9 Run GitNexus detect_changes before committing.
+- [x] 0.5 Create this OpenSpec change as the governing scope for OpenStock data consumption.
+- [x] 0.6 Run `openspec validate openstock-data-consumption-p0-8 --strict`.
+- [x] 0.7 Run `openspec validate --all --strict`.
+- [x] 0.8 Run FUNCTION_TREE scope-check, validate, and gate.
+- [x] 0.9 Run GitNexus detect_changes before committing.
 
 ## 1. P0.8a Inventory And Contract Map
 
