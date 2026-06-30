@@ -64,7 +64,7 @@
 | 方法 | 当前 CLI | 数据能力 | 优先级建议 |
 |---|---|---|---|
 | `get_minute` | `minute` | 分时图（日内 1 分钟价格序列） | 中 |
-| `get_trades` | `import-ticks` (写入 TDengine) | 逐笔成交（价/量/买卖盘标记） | 中（TDengine 路径已废弃，见 §3） |
+| `get_trades` | `import-ticks` (写入 TDengine) | 逐笔成交（价/量/买卖盘标记） | 中（数据源切换见 §3，入仓选型属 quantix-rust 内部决策） |
 
 #### E. 财务与市场统计
 
@@ -94,11 +94,13 @@
 
 **本节为接收方（openstock）实现上述能力后，quantix-rust 这边的消费侧改造指引，不属于本次 handoff 的承诺时间表。**
 
-### 3.1 必须废弃
+### 3.1 数据源切换（不规定入仓选型）
 
-- `import-ticks` + TDengine 路径：**TDengine 配置不可达**（`localhost:6041`，预检 BLOCKED），且 openstock 不会承接 TDengine；该路径应整体废弃。
-  - 影响：`src/db/tdengine.rs`、`src/cli/handlers/tdx_api_handler.rs::ImportTicks`、`openspec/changes/tdx-api-import-e2e-hardening/` §3。
-- `import-klines` + ClickHouse 直写路径：同样不推荐保留，因为 K 线应通过 openstock → shadow persistence（已落地于 P0.8g-impl）统一入仓，而非 tdx-api → ClickHouse。
+**前提**：openstock 是数据生产端；**入仓到哪个数据库（TDengine / ClickHouse / PostgreSQL）是 quantix-rust 的内部决策，不属本 handoff 范围**。本节只描述数据来源切换，不规定存储后端。
+
+- `import-ticks`：当前数据源为 `tdx-api`，待 openstock 提供逐笔 API（P3）后切换数据源；`src/db/tdengine.rs` 客户端本身不废弃，是否使用由 quantix-rust 自行决定。
+  - 影响：`src/cli/handlers/tdx_api_handler.rs::ImportTicks`、`openspec/changes/tdx-api-import-e2e-hardening/` §3。
+- `import-klines`：当前数据源为 `tdx-api` 直写 ClickHouse，待 openstock 提供全 K 线周期 API（P0/P1）后切换为 openstock → 入仓（具体入仓路径由 quantix-rust 决定，shadow persistence 已落地于 P0.8g-impl，是可选项之一但不强制）。
   - 影响：`src/cli/handlers/tdx_api_handler.rs::ImportKlines`、上述 OpenSpec §2。
 
 ### 3.2 可以保留为"兼容回退"直到 openstock 完全覆盖
@@ -110,7 +112,7 @@
 `openspec/changes/tdx-api-import-e2e-hardening/`（8/27 任务，停摆 23 天）的原始假设——"证明 tdx-api → ClickHouse / TDengine 真实链路可发布"——**已与本项目数据消费定位不符**。建议：
 
 - **方案 A（推荐）**：归档该 OpenSpec change，理由：依赖路径已被 openstock 接管，本切片不再 releasable。
-- **方案 B**：缩减为只验证 tdx-api 只读路径作为过渡消费端，删除 §2（ClickHouse 入仓）和 §3（TDengine 入仓）。
+- **方案 B**：缩减为只验证 tdx-api 只读路径作为过渡消费端，删除 §2（ClickHouse 直写）和 §3（TDengine 直写）的入仓链路验证（入仓后端选型不属本 handoff 范围）。
 - 由 openstock 团队决定后告知 quantix-rust 维护者。
 
 ---
@@ -129,7 +131,7 @@
 | **P1** | 不复权 K 线（adjust_type=none） | 在现有日 K 线 payload 上扩展 `adjust_type` 字段 | openstock 已有 adjust_type 字段，扩展支持即可 |
 | **P2** | 实时行情（单股 + 批量） | REST `GET /quote?code=` / `GET /quotes?codes=` → JSON | 看量化策略是否需要盘中 |
 | **P2** | 分时图（日内分钟价格序列） | REST `GET /minute?code=&date=` → JSON | |
-| **P3** | 逐笔成交 | REST `GET /trades?code=&date=` → JSON | 入仓由 quantix-rust 决定（不再走 TDengine） |
+| **P3** | 逐笔成交 | REST `GET /trades?code=&date=` → JSON | 入仓由 quantix-rust 决定（存储选型不属 handoff 范围） |
 | **P3** | 财务数据（收入/利润/ OHLCV 附字段） | REST `GET /income?code=` → JSON | |
 | **P3** | 市场统计（涨跌停、成交额分布） | REST `GET /market_stats?date=` → JSON | |
 | **P3** | 代码/名称搜索 | REST `GET /search?q=` → JSON | |
@@ -163,7 +165,7 @@
 
 1. 收到 openstock 接管时间表后，将本 handoff 中的接管清单条目逐项从"tdx-api 提供"迁移到"openstock 提供"，删除 `TdxApiClient` 对应方法。
 2. 归档 `openspec/changes/tdx-api-import-e2e-hardening/`（方案 A）或缩减范围（方案 B）。
-3. `src/db/tdengine.rs` 与 `import-ticks` 路径废弃决策需要在 openstock 提供逐笔 API 后再执行（避免窗口期无数据可消费）。
+3. `import-ticks` 的数据源切换（tdx-api → openstock）需在 openstock 提供逐笔 API（P3）后执行；TDengine 客户端 `src/db/tdengine.rs` 是否保留由 quantix-rust 内部决定，不属本 handoff 范围。
 4. 在 `FUNCTION_TREE.md` 中记录"数据消费统一从 openstock"的边界决策。
 
 ---
