@@ -473,4 +473,18 @@ pub enum OpenStockCommands {
         #[arg(long)]
         end: Option<String>,
     },
+
+    /// 实时拉取 ALL_STOCKS 类目（baostock 全市场快照，联网，只读，不写库）
+    FetchAllStocks {
+        /// 可选日期 (YYYY-MM-DD)；缺省时服务端回退到最近交易日
+        #[arg(long)]
+        day: Option<String>,
+    },
+
+    /// 实时拉取 WORKDAYS 类目（eltdx union calendar，联网，只读，不写库）
+    FetchWorkdays {
+        /// 年份（如 2026）
+        #[arg(long)]
+        year: u32,
+    },
 }

@@ -270,6 +270,68 @@ pub(crate) async fn fetch_openstock_index(
     Ok(())
 }
 
+pub(crate) async fn fetch_openstock_all_stocks(day: Option<&str>) -> Result<()> {
+    let client = OpenStockClient::from_env()?;
+    let resp = client.fetch_all_stocks(day).await?;
+    let source = if resp.source.is_empty() {
+        "(unknown)".to_string()
+    } else {
+        resp.source.clone()
+    };
+    println!("OpenStock live fetch (ALL_STOCKS, day={:?})", day);
+    println!("  来源: {}", source);
+    println!("  记录数: {}", resp.records.len());
+    if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
+        println!("  首条: code={:?} market={:?}", first.code, first.market);
+        println!("  末条: code={:?} market={:?}", last.code, last.market);
+    }
+    println!("  artifact_hash: {}", resp.artifact_hash);
+    println!(
+        "  latency_ms:    {}",
+        resp.latency_ms
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "(not reported)".to_string())
+    );
+    Ok(())
+}
+
+pub(crate) async fn fetch_openstock_workdays(year: u32) -> Result<()> {
+    let client = OpenStockClient::from_env()?;
+    let resp = client.fetch_workdays(year).await?;
+    let source = if resp.source.is_empty() {
+        "(unknown)".to_string()
+    } else {
+        resp.source.clone()
+    };
+    let trading = resp
+        .records
+        .iter()
+        .filter(|w| w.is_trading_day.unwrap_or(false))
+        .count();
+    println!("OpenStock live fetch (WORKDAYS, year={})", year);
+    println!("  来源: {}", source);
+    println!("  记录数: {}", resp.records.len());
+    println!("  其中交易日: {}", trading);
+    if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
+        println!(
+            "  首条: {:?} is_trading_day={:?}",
+            first.date, first.is_trading_day
+        );
+        println!(
+            "  末条: {:?} is_trading_day={:?}",
+            last.date, last.is_trading_day
+        );
+    }
+    println!("  artifact_hash: {}", resp.artifact_hash);
+    println!(
+        "  latency_ms:    {}",
+        resp.latency_ms
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "(not reported)".to_string())
+    );
+    Ok(())
+}
+
 fn read_payload(payload_path: &str) -> Result<String> {
     if payload_path == "-" {
         let mut buffer = String::new();

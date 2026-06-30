@@ -179,6 +179,30 @@ impl OpenStockClient {
         }
         self.fetch("INDEX_KLINES", params).await
     }
+
+    /// Convenience: fetch `ALL_STOCKS` (baostock full-market snapshot).
+    /// `day` is optional (`YYYY-MM-DD`); when omitted, the server falls
+    /// back to the most recent trading day and reports it via
+    /// `quality_flags.fallback_day`.
+    pub async fn fetch_all_stocks(
+        &self,
+        day: Option<&str>,
+    ) -> Result<OpenStockResponse<crate::sources::openstock_codes::StockListRecord>> {
+        let mut params = serde_json::json!({});
+        if let Some(day) = day {
+            params["day"] = Value::String(day.to_string());
+        }
+        self.fetch("ALL_STOCKS", params).await
+    }
+
+    /// Convenience: fetch `WORKDAYS` (eltdx union calendar) for a year.
+    pub async fn fetch_workdays(
+        &self,
+        year: u32,
+    ) -> Result<OpenStockResponse<crate::sources::openstock_calendar::WorkdayRecord>> {
+        self.fetch("WORKDAYS", serde_json::json!({ "year": year }))
+            .await
+    }
 }
 
 /// Public post-parse view of a `/data/fetch` success response.

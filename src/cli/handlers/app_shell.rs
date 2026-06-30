@@ -359,6 +359,12 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             OpenStockCommands::FetchIndex { symbol, start, end } => {
                 fetch_openstock_index(&symbol, start.as_deref(), end.as_deref()).await?;
             }
+            OpenStockCommands::FetchAllStocks { day } => {
+                fetch_openstock_all_stocks(day.as_deref()).await?;
+            }
+            OpenStockCommands::FetchWorkdays { year } => {
+                fetch_openstock_workdays(year).await?;
+            }
         },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;
