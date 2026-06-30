@@ -213,7 +213,7 @@ pub struct OpenStockResponse<T> {
     pub source: String,
     pub artifact_hash: String,
     pub received_at: Option<String>,
-    pub latency_ms: Option<u64>,
+    pub latency_ms: Option<f64>,
 }
 
 impl<T> OpenStockResponse<T> {

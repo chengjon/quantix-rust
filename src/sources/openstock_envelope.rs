@@ -59,9 +59,9 @@ pub struct OpenStockEnvelope<T> {
     #[serde(default)]
     pub circuit_state: Option<String>,
 
-    /// Server-side latency in milliseconds.
+    /// Server-side latency in milliseconds (sub-ms precision as float).
     #[serde(default)]
-    pub latency_ms: Option<u64>,
+    pub latency_ms: Option<f64>,
 
     /// Server-side receive timestamp (RFC3339 or `%Y-%m-%dT%H:%M:%S`).
     #[serde(default)]
@@ -147,7 +147,7 @@ mod tests {
             "quality_flags": ["partial"],
             "cache_state": "hit",
             "circuit_state": "closed",
-            "latency_ms": 12,
+            "latency_ms": 12.5,
             "received_at": "2026-06-30T10:00:00+08:00"
         }"#;
         let env: OpenStockEnvelope<Record> = serde_json::from_str(raw).unwrap();
@@ -160,7 +160,7 @@ mod tests {
         assert_eq!(env.quality_flags, vec!["partial".to_string()]);
         assert_eq!(env.cache_state.as_deref(), Some("hit"));
         assert_eq!(env.circuit_state.as_deref(), Some("closed"));
-        assert_eq!(env.latency_ms, Some(12));
+        assert_eq!(env.latency_ms, Some(12.5));
         assert!(env.received_at.is_some());
         assert_eq!(env.data[0].code, "600000");
     }
