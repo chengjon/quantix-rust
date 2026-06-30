@@ -407,4 +407,45 @@ pub enum OpenStockCommands {
         #[arg(long)]
         batch_id: String,
     },
+
+    /// 校验 STOCK_CODES / ALL_STOCKS 类目捕获载荷（dry-run，不联网，不写库）
+    ValidateCodes {
+        /// 已捕获的响应 JSON 文件路径；使用 `-` 从 stdin 读取
+        #[arg(long)]
+        payload: String,
+
+        /// 类目：`codes` 或 `all_stocks`，缺省按 `codes` 处理
+        #[arg(long)]
+        kind: Option<String>,
+    },
+
+    /// 校验 TRADE_DATES / WORKDAYS 类目捕获载荷（dry-run，不联网，不写库）
+    ValidateCalendar {
+        /// 已捕获的响应 JSON 文件路径；使用 `-` 从 stdin 读取
+        #[arg(long)]
+        payload: String,
+
+        /// 类目：`trade_dates` 或 `workdays`
+        #[arg(long)]
+        kind: String,
+    },
+
+    /// 校验 INDEX_KLINES 类目捕获载荷（dry-run，不联网，不写库）
+    ValidateIndex {
+        /// 已捕获的响应 JSON 文件路径；使用 `-` 从 stdin 读取
+        #[arg(long)]
+        payload: String,
+
+        /// 请求时使用的指数代码（如 sh000001）
+        #[arg(long)]
+        symbol: String,
+
+        /// 请求时使用的开始日期 (YYYY-MM-DD)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// 请求时使用的结束日期 (YYYY-MM-DD)
+        #[arg(long)]
+        end: Option<String>,
+    },
 }

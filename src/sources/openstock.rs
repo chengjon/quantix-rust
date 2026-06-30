@@ -514,7 +514,7 @@ fn is_daily_period(period: &str) -> bool {
 /// symbol `600000` and record-side symbol `sh600000` compare equal. The
 /// numeric form is the canonical `Kline.code` shape used elsewhere in
 /// the codebase, so the normalized value is what we store.
-fn normalize_symbol(symbol: &str) -> String {
+pub(crate) fn normalize_symbol(symbol: &str) -> String {
     let lower = symbol.to_ascii_lowercase();
     for prefix in ["sh", "sz", "bj"] {
         if let Some(rest) = lower.strip_prefix(prefix) {
@@ -528,7 +528,9 @@ fn normalize_symbol(symbol: &str) -> String {
 /// send RFC3339 with a timezone offset (e.g. `2026-01-23T15:00:00+08:00`);
 /// local fixtures use `YYYY-MM-DD`. Both forms are accepted, and the
 /// resulting [`NaiveDate`] is the canonical `Kline.date` shape.
-fn parse_live_time(value: &str) -> std::result::Result<NaiveDate, OpenStockKlineParseError> {
+pub(crate) fn parse_live_time(
+    value: &str,
+) -> std::result::Result<NaiveDate, OpenStockKlineParseError> {
     if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
         return Ok(date);
     }

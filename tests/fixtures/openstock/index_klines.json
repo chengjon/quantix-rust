@@ -1,0 +1,10 @@
+{
+  "data": [
+    {"symbol": "sh000001", "time": "2026-01-02", "open": "3000", "high": "3050", "low": "2990", "close": "3040", "volume": "100000000", "amount": "1500000000"},
+    {"symbol": "sh000001", "time": "2026-01-05", "open": "3040", "high": "3080", "low": "3030", "close": "3070", "volume": "90000000", "amount": "1400000000"},
+    {"symbol": "sh000001", "time": "2026-01-06", "open": "3070", "high": "3100", "low": "3065", "close": "3095", "volume": "95000000", "amount": "1450000000"}
+  ],
+  "source": "baostock",
+  "data_category": "INDEX_KLINES",
+  "latency_ms": 5200
+}

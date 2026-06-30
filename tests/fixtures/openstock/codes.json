@@ -1,0 +1,12 @@
+{
+  "data": [
+    {"code": "600000", "name": "浦发银行"},
+    {"code": "000001", "name": "平安银行"},
+    {"code": "000002", "name": "万科A"}
+  ],
+  "source": "eltdx",
+  "data_category": "STOCK_CODES",
+  "cache_state": "hit",
+  "latency_ms": 12,
+  "received_at": "2026-06-30T10:00:00+08:00"
+}

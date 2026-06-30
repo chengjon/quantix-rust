@@ -127,7 +127,8 @@ use self::monitor_output::{
 pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
 use self::openstock_handler::{
-    persist_openstock_live, shadow_rollback, shadow_verify, validate_openstock_fixture,
+    persist_openstock_live, shadow_rollback, shadow_verify, validate_openstock_calendar,
+    validate_openstock_codes, validate_openstock_fixture, validate_openstock_index,
     validate_openstock_live,
 };
 pub(crate) use self::performance_handler::run_performance_command;

@@ -336,6 +336,20 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             OpenStockCommands::ShadowVerify { batch_id } => {
                 shadow_verify(&batch_id).await?;
             }
+            OpenStockCommands::ValidateCodes { payload, kind } => {
+                validate_openstock_codes(&payload, kind.as_deref())?;
+            }
+            OpenStockCommands::ValidateCalendar { payload, kind } => {
+                validate_openstock_calendar(&payload, &kind)?;
+            }
+            OpenStockCommands::ValidateIndex {
+                payload,
+                symbol,
+                start,
+                end,
+            } => {
+                validate_openstock_index(&payload, &symbol, start.as_deref(), end.as_deref())?;
+            }
         },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;

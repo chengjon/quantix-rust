@@ -1,0 +1,9 @@
+{
+  "data": [
+    {"code": "600000", "name": "浦发银行", "market": "sh", "listing_date": "1999-11-10"},
+    {"code": "000001", "name": "平安银行", "market": "sz", "listing_date": "1991-04-03"},
+    {"code": "688981", "name": "中芯国际", "market": "sh", "listing_date": "2020-07-16"}
+  ],
+  "source": "eltdx",
+  "data_category": "ALL_STOCKS"
+}
