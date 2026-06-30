@@ -7324,5 +7324,183 @@
     "status_history": [],
     "current_blocker": "",
     "next_allowed": "implement within allowed_paths"
+  },
+  {
+    "id": "P0.9",
+    "title": "OpenStock fixture-driven parsers + generic client skeleton",
+    "node_type": "decision",
+    "node_type_input": "decision",
+    "owner_lane": "data",
+    "parent": "P0.8",
+    "status": "closed",
+    "function_tree_ref": "sources/",
+    "current_head": "2571003c87fbe545ee189edd63238e356802046e",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "closed",
+        "ref": "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0.9/tasks.md",
+        "note": "Retroactive governance node. Slice shipped (commit 2571003). OpenSpec change archived 2026-06-30. All task checkboxes complete; cargo fmt/clippy/test green; openspec validate strict pass; GitNexus detect_changes reported LOW risk on edited paths.",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "2571003c87fbe545ee189edd63238e356802046e"
+      }
+    ],
+    "allowed_paths": [
+      "src/sources/openstock_envelope.rs",
+      "src/sources/openstock_client.rs",
+      "src/sources/openstock_codes.rs",
+      "src/sources/openstock_calendar.rs",
+      "src/sources/openstock_index.rs",
+      "src/sources/openstock.rs",
+      "src/sources/mod.rs",
+      "src/cli/commands/data.rs",
+      "src/cli/handlers/openstock_handler.rs",
+      "src/cli/handlers/mod.rs",
+      "src/cli/handlers/app_shell.rs",
+      "tests/openstock_codes.rs",
+      "tests/openstock_calendar.rs",
+      "tests/openstock_index.rs",
+      "tests/openstock_client.rs",
+      "tests/fixtures/openstock/*",
+      "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-9/*",
+      "README.md",
+      "CHANGELOG.md",
+      "FUNCTION_TREE.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/programs/project-governance/cards/P0.9.yaml"
+    ],
+    "forbidden_paths": [
+      "src/data/models.rs",
+      "src/backtest/**",
+      "src/execution/**"
+    ],
+    "non_goals": [
+      "No live /data/fetch calls in CI or default CLI behavior.",
+      "No ClickHouse or shadow persistence writes.",
+      "No replacement of existing parse_daily_kline_json (legacy local-fixture parser stays untouched).",
+      "No refactor of openstock_shadow.rs (only re-exports its artifact_hash).",
+      "No change to existing validate-live/persist-live daily-kline paths.",
+      "No new traits — OpenStockClient is a struct (single backend expected)."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-30T00:00:00.000Z",
+    "updated_at": "2026-06-30T00:00:00.000Z",
+    "track": "mainline",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "Backfill: P0.9 retrospective close — openspec archived, code merged.",
+        "current_head": "2571003c87fbe545ee189edd63238e356802046e",
+        "transitioned_at": "2026-06-30T00:00:00.000Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "cargo fmt --all -- --check passes.",
+        "cargo clippy --all-targets --workspace -- -D warnings passes.",
+        "cargo test --workspace passes.",
+        "openspec validate openstock-data-consumption-p0-9 --strict passes.",
+        "openspec validate --all --strict passes.",
+        "git diff --check passes."
+      ],
+      "closeout_gate": [
+        "P0.9 node closed with active gates none."
+      ]
+    },
+    "status_history": [],
+    "current_blocker": "",
+    "next_allowed": "none"
+  },
+  {
+    "id": "P0.10",
+    "title": "OpenStock live HTTP wiring (3 P0 categories)",
+    "node_type": "decision",
+    "node_type_input": "decision",
+    "owner_lane": "data",
+    "parent": "P0.8",
+    "status": "closed",
+    "function_tree_ref": "sources/",
+    "current_head": "6f77efe6ca5c5770e825e86564ee74a7d847f1e4",
+    "freshness": "current-head",
+    "source_edits_authorized": false,
+    "evidence": [
+      {
+        "kind": "closed",
+        "ref": "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0.10/tasks.md",
+        "note": "Retroactive governance node. Slice shipped (commit 6f77efe). OpenSpec change archived 2026-06-30. All task checkboxes complete; cargo fmt/clippy/test green; openspec validate strict pass; GitNexus detect_changes reported LOW risk on edited paths.",
+        "recorded_at": "2026-06-30T00:00:00.000Z",
+        "current_head": "6f77efe6ca5c5770e825e86564ee74a7d847f1e4"
+      }
+    ],
+    "allowed_paths": [
+      "src/sources/openstock_client.rs",
+      "src/cli/commands/data.rs",
+      "src/cli/handlers/openstock_handler.rs",
+      "src/cli/handlers/mod.rs",
+      "src/cli/handlers/app_shell.rs",
+      "tests/openstock_live_codes.rs",
+      "tests/openstock_live_calendar.rs",
+      "tests/openstock_live_index.rs",
+      "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-10/*",
+      "FUNCTION_TREE.md",
+      "CHANGELOG.md",
+      ".governance/programs/project-governance/cards/P0.10.yaml",
+      ".governance/programs/project-governance/nodes.json",
+      ".governance/programs/project-governance/tree.md",
+      ".governance/active-gates.json",
+      ".governance/active-gates.md"
+    ],
+    "forbidden_paths": [
+      "src/data/models.rs",
+      "src/backtest/**",
+      "src/execution/**"
+    ],
+    "non_goals": [
+      "No ALL_STOCKS / WORKDAYS live fetchers this slice.",
+      "No ClickHouse writes or shadow persistence integration.",
+      "No retry / circuit breaker / quality-flags surfacing.",
+      "No CliRuntime / settings.rs refactor — env-only configuration for this slice."
+    ],
+    "next_gate": "none",
+    "blocker_reason": null,
+    "unblock_target_state": null,
+    "created_at": "2026-06-30T00:00:00.000Z",
+    "updated_at": "2026-06-30T00:00:00.000Z",
+    "track": "mainline",
+    "depth": 2,
+    "transitions": [
+      {
+        "from": "closeout-prepared",
+        "to": "closed",
+        "note": "Backfill: P0.10 retrospective close — openspec archived, code merged.",
+        "current_head": "6f77efe6ca5c5770e825e86564ee74a7d847f1e4",
+        "transitioned_at": "2026-06-30T00:00:00.000Z"
+      }
+    ],
+    "acceptance": {
+      "commit_gate": [
+        "cargo fmt --all -- --check passes.",
+        "cargo clippy --all-targets --workspace -- -D warnings passes.",
+        "cargo test --workspace passes (live tests skipped via #[ignore]).",
+        "openspec validate openstock-data-consumption-p0-10 --strict passes.",
+        "openspec validate --all --strict passes.",
+        "git diff --check passes.",
+        "GitNexus detect_changes reports LOW risk on client + handlers."
+      ],
+      "closeout_gate": [
+        "P0.10 node closed with active gates none."
+      ]
+    },
+    "status_history": [],
+    "current_blocker": "",
+    "next_allowed": "none"
   }
 ]

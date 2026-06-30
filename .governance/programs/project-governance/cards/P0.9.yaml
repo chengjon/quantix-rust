@@ -1,0 +1,69 @@
+task:
+  id: "P0.9"
+  title: "OpenStock fixture-driven parsers + generic client skeleton"
+
+scope:
+  allowed_paths:
+    - "src/sources/openstock_envelope.rs"
+    - "src/sources/openstock_client.rs"
+    - "src/sources/openstock_codes.rs"
+    - "src/sources/openstock_calendar.rs"
+    - "src/sources/openstock_index.rs"
+    - "src/sources/openstock.rs"
+    - "src/sources/mod.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/mod.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "tests/openstock_codes.rs"
+    - "tests/openstock_calendar.rs"
+    - "tests/openstock_index.rs"
+    - "tests/openstock_client.rs"
+    - "tests/fixtures/openstock/codes.json"
+    - "tests/fixtures/openstock/codes_empty.json"
+    - "tests/fixtures/openstock/all_stocks.json"
+    - "tests/fixtures/openstock/trade_dates.json"
+    - "tests/fixtures/openstock/trade_dates_empty.json"
+    - "tests/fixtures/openstock/workdays.json"
+    - "tests/fixtures/openstock/index_klines.json"
+    - "tests/fixtures/openstock/index_klines_empty.json"
+    - "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-9/proposal.md"
+    - "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-9/design.md"
+    - "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-9/tasks.md"
+    - "openspec/changes/archive/2026-06-30-openstock-data-consumption-p0-9/specs/openstock-data-consumption/spec.md"
+    - "FUNCTION_TREE.md"
+    - "CHANGELOG.md"
+    - ".governance/programs/project-governance/cards/P0.9.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    - "src/data/models.rs"
+    - "src/backtest/**"
+    - "src/execution/**"
+
+non_goals:
+  - "No live /data/fetch calls in CI or default CLI behavior."
+  - "No ClickHouse or shadow persistence writes."
+  - "No replacement of existing parse_daily_kline_json (legacy local-fixture parser stays untouched)."
+  - "No refactor of openstock_shadow.rs (only re-exports its artifact_hash)."
+  - "No change to existing validate-live/persist-live daily-kline paths."
+  - "No new traits — OpenStockClient is a struct (single backend expected)."
+
+acceptance:
+  commit_gate:
+    - "cargo fmt --all -- --check passes."
+    - "cargo clippy --all-targets --workspace -- -D warnings passes."
+    - "cargo test --workspace passes."
+    - "openspec validate openstock-data-consumption-p0-9 --strict passes."
+    - "openspec validate --all --strict passes."
+    - "git diff --check passes."
+  closeout_gate:
+    - "P0.9 node closed with active gates none."
+
+evidence:
+  current_head: "2571003"
+  notes:
+    - "Retroactive card created during P0.10 closeout to clear R-DEBT-1. Slice shipped via commit 2571003 (P0.9) — see archive/2026-06-30-openstock-data-consumption-p0-9/tasks.md for full evidence."
+    - "OpenStock P0.9 deliverables: openstock_envelope/openstock_client/openstock_codes/openstock_calendar/openstock_index modules, 3 Validate* CLI subcommands, 4 integration tests, 8 fixture files."
