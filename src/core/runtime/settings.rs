@@ -20,6 +20,9 @@ pub const DEFAULT_BRIDGE_CONTRACT_VERSION: &str = "miniqmt.v1";
 pub const DEFAULT_BRIDGE_TIMEOUT_MS: u64 = 30_000;
 pub const DEFAULT_BRIDGE_POLL_INTERVAL_MS: u64 = 1_000;
 pub const DEFAULT_BRIDGE_POLL_TIMEOUT_MS: u64 = 30_000;
+pub const OPENSTOCK_BASE_URL_ENV: &str = "OPENSTOCK_BASE_URL";
+pub const OPENSTOCK_API_KEY_ENV: &str = "OPENSTOCK_API_KEY";
+pub const DEFAULT_OPENSTOCK_TIMEOUT_SECS: u64 = 30;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClickHouseSettings {
@@ -42,6 +45,7 @@ pub struct CliRuntime {
     pub clickhouse: ClickHouseSettings,
     pub bridge: BridgeRuntimeSettings,
     pub upstream_mysql: UpstreamMySqlSettings,
+    pub openstock: OpenStockSettings,
     pub watchlist_path: PathBuf,
     pub trade_path: PathBuf,
     pub risk_path: PathBuf,
@@ -64,4 +68,11 @@ pub struct BridgeRuntimeSettings {
     pub poll_timeout_ms: u64,
     pub tdx_enabled: bool,
     pub qmt_preview_enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenStockSettings {
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub timeout_secs: u64,
 }

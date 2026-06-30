@@ -3,8 +3,9 @@ use super::settings::{
     BRIDGE_POLL_INTERVAL_MS_ENV, BRIDGE_POLL_TIMEOUT_MS_ENV, BRIDGE_TIMEOUT_MS_ENV,
     BridgeRuntimeSettings, CliRuntime, ClickHouseSettings, DEFAULT_BRIDGE_BASE_URL,
     DEFAULT_BRIDGE_CONTRACT_VERSION, DEFAULT_BRIDGE_POLL_INTERVAL_MS,
-    DEFAULT_BRIDGE_POLL_TIMEOUT_MS, DEFAULT_BRIDGE_TIMEOUT_MS, EXECUTION_CONFIG_PATH_ENV,
-    MONITOR_CONFIG_PATH_ENV, MONITOR_DB_PATH_ENV, RISK_PATH_ENV, STRATEGY_CONFIG_PATH_ENV,
+    DEFAULT_BRIDGE_POLL_TIMEOUT_MS, DEFAULT_BRIDGE_TIMEOUT_MS, DEFAULT_OPENSTOCK_TIMEOUT_SECS,
+    EXECUTION_CONFIG_PATH_ENV, MONITOR_CONFIG_PATH_ENV, MONITOR_DB_PATH_ENV, OPENSTOCK_API_KEY_ENV,
+    OPENSTOCK_BASE_URL_ENV, OpenStockSettings, RISK_PATH_ENV, STRATEGY_CONFIG_PATH_ENV,
     STRATEGY_RUNTIME_DB_PATH_ENV, TRADE_PATH_ENV, UpstreamMySqlSettings, WATCHLIST_PATH_ENV,
 };
 use crate::core::config::{
@@ -55,6 +56,7 @@ impl CliRuntime {
             clickhouse: ClickHouseSettings::from_env(),
             bridge: BridgeRuntimeSettings::from_env(),
             upstream_mysql: UpstreamMySqlSettings::from_env(),
+            openstock: OpenStockSettings::from_env(),
             watchlist_path: resolve_watchlist_path(),
             trade_path: resolve_trade_path(),
             risk_path: resolve_risk_path(),
@@ -91,6 +93,17 @@ impl BridgeRuntimeSettings {
             ),
             tdx_enabled: true,
             qmt_preview_enabled: true,
+        }
+    }
+}
+
+impl OpenStockSettings {
+    pub fn from_env() -> Self {
+        load_dotenv_if_present();
+        Self {
+            base_url: optional_env(OPENSTOCK_BASE_URL_ENV),
+            api_key: optional_env(OPENSTOCK_API_KEY_ENV),
+            timeout_secs: DEFAULT_OPENSTOCK_TIMEOUT_SECS,
         }
     }
 }

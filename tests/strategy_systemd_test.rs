@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use quantix_cli::core::runtime::OpenStockSettings;
 use quantix_cli::core::{
     BridgeRuntimeSettings, CliRuntime, ClickHouseSettings, UpstreamMySqlSettings,
 };
@@ -34,6 +35,11 @@ fn sample_runtime() -> CliRuntime {
             database: "mystocks".to_string(),
             user: "root".to_string(),
             password: "".to_string(),
+        },
+        openstock: OpenStockSettings {
+            base_url: None,
+            api_key: None,
+            timeout_secs: 30,
         },
         watchlist_path: PathBuf::from("/tmp/quantix/watchlist/watchlist.json"),
         trade_path: PathBuf::from("/tmp/quantix/trade/paper_trade.json"),
