@@ -453,10 +453,22 @@ pub enum OpenStockCommands {
     FetchCodes,
 
     /// 实时拉取 TRADE_DATES 类目（联网，只读，不写库）
+    ///
+    /// runtime 实际接受 `start_date`/`end_date`（YYYY-MM-DD），忽略
+    /// `year`。为便于使用，`--year` 仍保留并自动展开为当年 1-1..12-31
+    /// 范围；与 `--start/--end` 二选一。
     FetchCalendar {
-        /// 年份（如 2026）
-        #[arg(long)]
-        year: u32,
+        /// 年份（如 2026），展开为 `<year>-01-01`..`<year>-12-31`
+        #[arg(long, group = "range")]
+        year: Option<u32>,
+
+        /// 起始日期 (YYYY-MM-DD)，与 --end 同时使用
+        #[arg(long, group = "range")]
+        start: Option<String>,
+
+        /// 结束日期 (YYYY-MM-DD)，与 --start 同时使用
+        #[arg(long, group = "range")]
+        end: Option<String>,
     },
 
     /// 实时拉取 INDEX_KLINES 类目（联网，只读，不写库）

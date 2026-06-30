@@ -213,20 +213,59 @@ pub(crate) async fn fetch_openstock_codes() -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn fetch_openstock_calendar(year: u32) -> Result<()> {
+pub(crate) async fn fetch_openstock_calendar(
+    year: Option<u32>,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<()> {
+    // 解析互斥组：clap group 保证三者只可能出现 (a) year=Some 或 (b) start/end 任一组合
+    let (effective_start, effective_end, hint) = match (year, start, end) {
+        (Some(y), None, None) => (
+            Some(format!("{:04}-01-01", y)),
+            Some(format!("{:04}-12-31", y)),
+            format!("year={} → 展开为 {:04}-01-01..{:04}-12-31", y, y, y),
+        ),
+        (None, s, e) => {
+            let hint = match (s, e) {
+                (Some(s), Some(e)) => format!("start={}, end={}", s, e),
+                (Some(s), None) => format!("start={} (end 开放)", s),
+                (None, Some(e)) => format!("(start 开放), end={}", e),
+                (None, None) => "(无范围，runtime 会返回全历史且可能截断)".to_string(),
+            };
+            (s.map(|x| x.to_string()), e.map(|x| x.to_string()), hint)
+        }
+        _ => {
+            return Err(QuantixError::Other(
+                "fetch-calendar: --year 与 --start/--end 互斥（clap 应已阻止）".to_string(),
+            ));
+        }
+    };
+
     let client = OpenStockClient::from_env()?;
-    let resp = client.fetch_trade_dates(year).await?;
+    let resp = client
+        .fetch_trade_dates(effective_start.as_deref(), effective_end.as_deref())
+        .await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()
     } else {
         resp.source.clone()
     };
-    println!("OpenStock live fetch (TRADE_DATES, year={})", year);
+    println!("OpenStock live fetch (TRADE_DATES)");
+    println!("  范围: {}", hint);
     println!("  来源: {}", source);
     println!("  记录数: {}", resp.records.len());
     if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
         println!("  首条: {:?}", first.date);
         println!("  末条: {:?}", last.date);
+    }
+    if let (Some(req_end), Some(last)) = (effective_end.as_deref(), resp.records.last())
+        && let Some(last_date) = last.date.as_deref()
+        && last_date != req_end
+    {
+        println!(
+            "  ⚠️ 末条 {} 早于请求 end={}（可能被 runtime 截断，建议分段拉取）",
+            last_date, req_end
+        );
     }
     println!("  artifact_hash: {}", resp.artifact_hash);
     println!(

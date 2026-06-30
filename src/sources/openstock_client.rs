@@ -154,13 +154,26 @@ impl OpenStockClient {
         self.fetch("STOCK_CODES", serde_json::json!({})).await
     }
 
-    /// Convenience: fetch `TRADE_DATES` for a year.
+    /// Convenience: fetch `TRADE_DATES` for an optional date range.
+    ///
+    /// Runtime contract (`baostock._fetch_trade_dates`): accepts
+    /// `start_date` / `end_date` as `YYYY-MM-DD` strings. When both are
+    /// `None`, baostock returns the full history (which the runtime
+    /// truncates). The legacy `year` parameter is **ignored** by the
+    /// runtime — callers should pass `start`/`end` instead.
     pub async fn fetch_trade_dates(
         &self,
-        year: u32,
+        start: Option<&str>,
+        end: Option<&str>,
     ) -> Result<OpenStockResponse<crate::sources::openstock_calendar::TradeDateRecord>> {
-        self.fetch("TRADE_DATES", serde_json::json!({ "year": year }))
-            .await
+        let mut params = serde_json::json!({});
+        if let Some(start) = start {
+            params["start_date"] = Value::String(start.to_string());
+        }
+        if let Some(end) = end {
+            params["end_date"] = Value::String(end.to_string());
+        }
+        self.fetch("TRADE_DATES", params).await
     }
 
     /// Convenience: fetch `INDEX_KLINES` for a symbol with optional date range.

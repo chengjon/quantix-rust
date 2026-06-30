@@ -353,8 +353,8 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             OpenStockCommands::FetchCodes => {
                 fetch_openstock_codes().await?;
             }
-            OpenStockCommands::FetchCalendar { year } => {
-                fetch_openstock_calendar(year).await?;
+            OpenStockCommands::FetchCalendar { year, start, end } => {
+                fetch_openstock_calendar(year, start.as_deref(), end.as_deref()).await?;
             }
             OpenStockCommands::FetchIndex { symbol, start, end } => {
                 fetch_openstock_index(&symbol, start.as_deref(), end.as_deref()).await?;
