@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::Read;
 
+use crate::core::runtime::OpenStockSettings;
 use crate::core::{QuantixError, Result};
 use crate::db::clickhouse::ClickHouseClient;
 use crate::sources::openstock::{
@@ -188,8 +189,8 @@ pub(crate) fn validate_openstock_index(
     Ok(())
 }
 
-pub(crate) async fn fetch_openstock_codes() -> Result<()> {
-    let client = OpenStockClient::from_env()?;
+pub(crate) async fn fetch_openstock_codes(settings: &OpenStockSettings) -> Result<()> {
+    let client = OpenStockClient::from_settings(settings)?;
     let resp = client.fetch_stock_codes().await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()
@@ -214,6 +215,7 @@ pub(crate) async fn fetch_openstock_codes() -> Result<()> {
 }
 
 pub(crate) async fn fetch_openstock_calendar(
+    settings: &OpenStockSettings,
     year: Option<u32>,
     start: Option<&str>,
     end: Option<&str>,
@@ -241,7 +243,7 @@ pub(crate) async fn fetch_openstock_calendar(
         }
     };
 
-    let client = OpenStockClient::from_env()?;
+    let client = OpenStockClient::from_settings(settings)?;
     let resp = client
         .fetch_trade_dates(effective_start.as_deref(), effective_end.as_deref())
         .await?;
@@ -278,11 +280,12 @@ pub(crate) async fn fetch_openstock_calendar(
 }
 
 pub(crate) async fn fetch_openstock_index(
+    settings: &OpenStockSettings,
     symbol: &str,
     start: Option<&str>,
     end: Option<&str>,
 ) -> Result<()> {
-    let client = OpenStockClient::from_env()?;
+    let client = OpenStockClient::from_settings(settings)?;
     let resp = client.fetch_index_klines(symbol, start, end).await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()
@@ -312,8 +315,11 @@ pub(crate) async fn fetch_openstock_index(
     Ok(())
 }
 
-pub(crate) async fn fetch_openstock_all_stocks(day: Option<&str>) -> Result<()> {
-    let client = OpenStockClient::from_env()?;
+pub(crate) async fn fetch_openstock_all_stocks(
+    settings: &OpenStockSettings,
+    day: Option<&str>,
+) -> Result<()> {
+    let client = OpenStockClient::from_settings(settings)?;
     let resp = client.fetch_all_stocks(day).await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()
@@ -338,12 +344,13 @@ pub(crate) async fn fetch_openstock_all_stocks(day: Option<&str>) -> Result<()> 
 }
 
 pub(crate) async fn fetch_openstock_workdays(
+    settings: &OpenStockSettings,
     action: &str,
     date: Option<&str>,
     start: Option<&str>,
     end: Option<&str>,
 ) -> Result<()> {
-    let client = OpenStockClient::from_env()?;
+    let client = OpenStockClient::from_settings(settings)?;
     let resp = client.fetch_workdays(action, date, start, end).await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()

@@ -351,16 +351,22 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 validate_openstock_index(&payload, &symbol, start.as_deref(), end.as_deref())?;
             }
             OpenStockCommands::FetchCodes => {
-                fetch_openstock_codes().await?;
+                let rt = CliRuntime::load();
+                fetch_openstock_codes(&rt.openstock).await?;
             }
             OpenStockCommands::FetchCalendar { year, start, end } => {
-                fetch_openstock_calendar(year, start.as_deref(), end.as_deref()).await?;
+                let rt = CliRuntime::load();
+                fetch_openstock_calendar(&rt.openstock, year, start.as_deref(), end.as_deref())
+                    .await?;
             }
             OpenStockCommands::FetchIndex { symbol, start, end } => {
-                fetch_openstock_index(&symbol, start.as_deref(), end.as_deref()).await?;
+                let rt = CliRuntime::load();
+                fetch_openstock_index(&rt.openstock, &symbol, start.as_deref(), end.as_deref())
+                    .await?;
             }
             OpenStockCommands::FetchAllStocks { day } => {
-                fetch_openstock_all_stocks(day.as_deref()).await?;
+                let rt = CliRuntime::load();
+                fetch_openstock_all_stocks(&rt.openstock, day.as_deref()).await?;
             }
             OpenStockCommands::FetchWorkdays {
                 action,
@@ -368,7 +374,9 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 start,
                 end,
             } => {
+                let rt = CliRuntime::load();
                 fetch_openstock_workdays(
+                    &rt.openstock,
                     &action,
                     date.as_deref(),
                     start.as_deref(),

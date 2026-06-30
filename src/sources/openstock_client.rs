@@ -13,6 +13,7 @@ use reqwest::header::HeaderValue;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use crate::core::runtime::OpenStockSettings;
 use crate::core::{QuantixError, Result};
 use crate::sources::openstock_envelope::{
     OpenStockEnvelope, OpenStockErrorEnvelope, artifact_hash,
@@ -134,6 +135,32 @@ impl OpenStockClient {
     /// (`OPENSTOCK_BASE_URL` + `OPENSTOCK_API_KEY`), with default timeout.
     pub fn from_env() -> Result<Self> {
         Self::new(OpenStockClientConfig::default())
+    }
+
+    /// Build a client from [`OpenStockSettings`] loaded into `CliRuntime`.
+    ///
+    /// Preferred over [`from_env`](Self::from_env) when a `CliRuntime` is
+    /// already constructed — keeps env-var reads at the runtime boundary
+    /// (matching the `BridgeRuntimeSettings` pattern at
+    /// `src/core/runtime/settings.rs:60`).
+    ///
+    /// Returns `QuantixError::Config` if `base_url` or `api_key` are
+    /// missing (env vars not set).
+    pub fn from_settings(settings: &OpenStockSettings) -> Result<Self> {
+        let base_url = settings
+            .base_url
+            .clone()
+            .ok_or_else(|| QuantixError::Config("OPENSTOCK_BASE_URL not set".to_string()))?;
+        let api_key = settings
+            .api_key
+            .clone()
+            .ok_or_else(|| QuantixError::Config("OPENSTOCK_API_KEY not set".to_string()))?;
+        Self::new(OpenStockClientConfig {
+            base_url,
+            api_key,
+            timeout: Duration::from_secs(settings.timeout_secs),
+            ..OpenStockClientConfig::default()
+        })
     }
 
     /// Generic envelope-aware fetch. POST `/data/fetch` with body
@@ -441,6 +468,47 @@ mod tests {
         let resp_a = OpenStockResponse::from_envelope(env.clone(), raw);
         let resp_b = OpenStockResponse::from_envelope(env, raw);
         assert_eq!(resp_a.artifact_hash, resp_b.artifact_hash);
+    }
+
+    // -----------------------------------------------------------------
+    // from_settings tests
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn from_settings_builds_client_when_credentials_present() {
+        use crate::core::runtime::OpenStockSettings;
+        let settings = OpenStockSettings {
+            base_url: Some("http://example.test:8040".to_string()),
+            api_key: Some("sk-test".to_string()),
+            timeout_secs: 5,
+        };
+        let client = OpenStockClient::from_settings(&settings).expect("client build");
+        assert_eq!(client.config.timeout, Duration::from_secs(5));
+        assert_eq!(client.config.max_retries, DEFAULT_MAX_RETRIES);
+    }
+
+    #[test]
+    fn from_settings_errors_when_base_url_missing() {
+        use crate::core::runtime::OpenStockSettings;
+        let settings = OpenStockSettings {
+            base_url: None,
+            api_key: Some("sk-test".to_string()),
+            timeout_secs: 30,
+        };
+        let result = OpenStockClient::from_settings(&settings);
+        assert!(matches!(result, Err(QuantixError::Config(_))));
+    }
+
+    #[test]
+    fn from_settings_errors_when_api_key_missing() {
+        use crate::core::runtime::OpenStockSettings;
+        let settings = OpenStockSettings {
+            base_url: Some("http://example.test:8040".to_string()),
+            api_key: None,
+            timeout_secs: 30,
+        };
+        let result = OpenStockClient::from_settings(&settings);
+        assert!(matches!(result, Err(QuantixError::Config(_))));
     }
 
     // -----------------------------------------------------------------
