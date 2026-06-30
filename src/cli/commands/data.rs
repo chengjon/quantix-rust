@@ -448,4 +448,29 @@ pub enum OpenStockCommands {
         #[arg(long)]
         end: Option<String>,
     },
+
+    /// 实时拉取 STOCK_CODES 类目（联网，只读，不写库）
+    FetchCodes,
+
+    /// 实时拉取 TRADE_DATES 类目（联网，只读，不写库）
+    FetchCalendar {
+        /// 年份（如 2026）
+        #[arg(long)]
+        year: u32,
+    },
+
+    /// 实时拉取 INDEX_KLINES 类目（联网，只读，不写库）
+    FetchIndex {
+        /// 指数代码（如 sh000001）
+        #[arg(long)]
+        symbol: String,
+
+        /// 开始日期 (YYYY-MM-DD)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYY-MM-DD)
+        #[arg(long)]
+        end: Option<String>,
+    },
 }

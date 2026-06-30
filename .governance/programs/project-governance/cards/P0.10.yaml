@@ -1,0 +1,53 @@
+task:
+  id: "P0.10"
+  title: "OpenStock live HTTP wiring (3 P0 categories)"
+
+scope:
+  allowed_paths:
+    - "openspec/changes/openstock-data-consumption-p0-10/proposal.md"
+    - "openspec/changes/openstock-data-consumption-p0-10/design.md"
+    - "openspec/changes/openstock-data-consumption-p0-10/tasks.md"
+    - "openspec/changes/openstock-data-consumption-p0-10/specs/openstock-data-consumption/spec.md"
+    - "src/sources/openstock_client.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/mod.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "tests/openstock_live_codes.rs"
+    - "tests/openstock_live_calendar.rs"
+    - "tests/openstock_live_index.rs"
+    - "FUNCTION_TREE.md"
+    - "CHANGELOG.md"
+    - ".governance/programs/project-governance/cards/P0.10.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    - "src/data/models.rs"
+    - "src/backtest/**"
+    - "src/execution/**"
+
+non_goals:
+  - "No ALL_STOCKS / WORKDAYS live fetchers this slice."
+  - "No ClickHouse writes or shadow persistence integration."
+  - "No retry / circuit breaker / quality-flags surfacing."
+  - "No P0.9 governance debt cleanup (P0.8i / P0.9.yaml never created; carried as risk)."
+  - "No CliRuntime / settings.rs refactor — env-only configuration for this slice."
+
+acceptance:
+  commit_gate:
+    - "cargo fmt --all -- --check passes."
+    - "cargo clippy --all-targets --workspace -- -D warnings passes."
+    - "cargo test --workspace passes (live tests skipped via #[ignore])."
+    - "openspec validate openstock-data-consumption-p0-10 --strict passes."
+    - "openspec validate --all --strict passes."
+    - "git diff --check passes."
+    - "GitNexus detect_changes reports LOW risk on client + handlers."
+  closeout_gate:
+    - "P0.10 node closed with active gates none."
+
+evidence:
+  current_head: "2571003"
+  notes:
+    - "P0.9 governance debt (P0.8i / P0.9.yaml) acknowledged in design.md Risks; not retroactively fixed per user direction."

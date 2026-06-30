@@ -350,6 +350,15 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             } => {
                 validate_openstock_index(&payload, &symbol, start.as_deref(), end.as_deref())?;
             }
+            OpenStockCommands::FetchCodes => {
+                fetch_openstock_codes().await?;
+            }
+            OpenStockCommands::FetchCalendar { year } => {
+                fetch_openstock_calendar(year).await?;
+            }
+            OpenStockCommands::FetchIndex { symbol, start, end } => {
+                fetch_openstock_index(&symbol, start.as_deref(), end.as_deref()).await?;
+            }
         },
         DataCommands::TdxApi(subcommand) => {
             super::tdx_api_handler::run_tdx_api_command(subcommand).await?;

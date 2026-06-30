@@ -9,13 +9,14 @@ use crate::sources::openstock::{
 use crate::sources::openstock_calendar::{
     TradeDateRecord, WorkdayRecord, calendar_error_into_quantix, parse_trade_dates, parse_workdays,
 };
+use crate::sources::openstock_client::OpenStockClient;
 use crate::sources::openstock_codes::{
     StockCodeRecord, StockListRecord, parse_all_stocks, parse_stock_codes,
     stock_code_error_into_quantix,
 };
 use crate::sources::openstock_envelope::OpenStockEnvelope;
 use crate::sources::openstock_index::{
-    IndexKlineParseError, IndexKlineRecord, index_kline_error_into_quantix, parse_index_klines,
+    IndexKlineRecord, index_kline_error_into_quantix, parse_index_klines,
 };
 use crate::sources::openstock_shadow::{
     ShadowWriteError, new_batch_id, rollback_shadow_batch, verify_shadow_batch, write_shadow_klines,
@@ -181,7 +182,91 @@ pub(crate) fn validate_openstock_index(
         );
     }
     // _start/_end unused for now — kept for symmetry with validate-live.
-    let _ = (IndexKlineParseError::EmptyRecords,); // silence unused import if enum unused
+    Ok(())
+}
+
+pub(crate) async fn fetch_openstock_codes() -> Result<()> {
+    let client = OpenStockClient::from_env()?;
+    let resp = client.fetch_stock_codes().await?;
+    let source = if resp.source.is_empty() {
+        "(unknown)".to_string()
+    } else {
+        resp.source.clone()
+    };
+    println!("OpenStock live fetch (STOCK_CODES)");
+    println!("  来源: {}", source);
+    println!("  记录数: {}", resp.records.len());
+    if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
+        println!("  首条: code={:?} name={:?}", first.code, first.name);
+        println!("  末条: code={:?} name={:?}", last.code, last.name);
+    }
+    println!("  artifact_hash: {}", resp.artifact_hash);
+    println!(
+        "  latency_ms:    {}",
+        resp.latency_ms
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "(not reported)".to_string())
+    );
+    Ok(())
+}
+
+pub(crate) async fn fetch_openstock_calendar(year: u32) -> Result<()> {
+    let client = OpenStockClient::from_env()?;
+    let resp = client.fetch_trade_dates(year).await?;
+    let source = if resp.source.is_empty() {
+        "(unknown)".to_string()
+    } else {
+        resp.source.clone()
+    };
+    println!("OpenStock live fetch (TRADE_DATES, year={})", year);
+    println!("  来源: {}", source);
+    println!("  记录数: {}", resp.records.len());
+    if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
+        println!("  首条: {:?}", first.date);
+        println!("  末条: {:?}", last.date);
+    }
+    println!("  artifact_hash: {}", resp.artifact_hash);
+    println!(
+        "  latency_ms:    {}",
+        resp.latency_ms
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "(not reported)".to_string())
+    );
+    Ok(())
+}
+
+pub(crate) async fn fetch_openstock_index(
+    symbol: &str,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<()> {
+    let client = OpenStockClient::from_env()?;
+    let resp = client.fetch_index_klines(symbol, start, end).await?;
+    let source = if resp.source.is_empty() {
+        "(unknown)".to_string()
+    } else {
+        resp.source.clone()
+    };
+    println!("OpenStock live fetch (INDEX_KLINES, symbol={})", symbol);
+    println!("  来源: {}", source);
+    println!("  记录数: {}", resp.records.len());
+    if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
+        println!(
+            "  首条: symbol={:?} time={:?} close={:?}",
+            first.symbol, first.time, first.close
+        );
+        println!(
+            "  末条: symbol={:?} time={:?} close={:?}",
+            last.symbol, last.time, last.close
+        );
+    }
+    println!("  artifact_hash: {}", resp.artifact_hash);
+    println!(
+        "  latency_ms:    {}",
+        resp.latency_ms
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "(not reported)".to_string())
+    );
     Ok(())
 }
 

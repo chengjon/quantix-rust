@@ -47,7 +47,8 @@ pub struct OpenStockClient {
 
 impl OpenStockClient {
     /// Build a client from explicit config. If `api_key` is empty,
-    /// falls back to `OPENSTOCK_API_KEY` env var.
+    /// falls back to `OPENSTOCK_API_KEY` env var. If `base_url` is
+    /// empty, falls back to `OPENSTOCK_BASE_URL` env var.
     pub fn new(cfg: OpenStockClientConfig) -> Result<Self> {
         let api_key_raw = if cfg.api_key.is_empty() {
             std::env::var("OPENSTOCK_API_KEY").map_err(|_| {
@@ -58,10 +59,19 @@ impl OpenStockClient {
         } else {
             cfg.api_key
         };
+        let base_url_raw = if cfg.base_url.is_empty() {
+            std::env::var("OPENSTOCK_BASE_URL").map_err(|_| {
+                QuantixError::Config(
+                    "OPENSTOCK_BASE_URL not set and no base_url in config".to_string(),
+                )
+            })?
+        } else {
+            cfg.base_url
+        };
         let api_key = HeaderValue::from_str(&api_key_raw)
             .map_err(|e| QuantixError::Config(format!("invalid api_key header: {}", e)))?;
-        let base_url = Url::parse(&cfg.base_url).map_err(|e| {
-            QuantixError::Config(format!("invalid base_url {}: {}", cfg.base_url, e))
+        let base_url = Url::parse(&base_url_raw).map_err(|e| {
+            QuantixError::Config(format!("invalid base_url {}: {}", base_url_raw, e))
         })?;
         let http = reqwest::Client::builder()
             .timeout(cfg.timeout)
@@ -72,6 +82,12 @@ impl OpenStockClient {
             api_key,
             http,
         })
+    }
+
+    /// Convenience: build a client entirely from environment variables
+    /// (`OPENSTOCK_BASE_URL` + `OPENSTOCK_API_KEY`), with default timeout.
+    pub fn from_env() -> Result<Self> {
+        Self::new(OpenStockClientConfig::default())
     }
 
     /// Generic envelope-aware fetch. POST `/data/fetch` with body
@@ -92,36 +108,43 @@ impl OpenStockClient {
             "data_category": category,
             "params": params,
         });
-        let raw = self
+        let resp = self
             .http
             .post(endpoint)
             .header("X-API-Key", self.api_key.clone())
             .json(&body)
             .send()
             .await
-            .map_err(|e| QuantixError::Network(format!("openstock request failed: {}", e)))?
+            .map_err(|e| QuantixError::Network(format!("openstock request failed: {}", e)))?;
+        let status = resp.status();
+        let raw = resp
             .text()
             .await
             .map_err(|e| QuantixError::Network(format!("openstock body read failed: {}", e)))?;
 
-        // Try success envelope first. We rely on HTTP status being
-        // embedded in the response wrapper — for the skeleton, if
-        // `data` is present we treat it as success; otherwise try the
-        // error envelope.
-        let success: std::result::Result<OpenStockEnvelope<T>, _> = serde_json::from_str(&raw);
-        match success {
-            Ok(env) => Ok(OpenStockResponse::from_envelope(env, &raw)),
-            Err(_) => {
-                let err_env: OpenStockErrorEnvelope = serde_json::from_str(&raw).map_err(|e| {
-                    QuantixError::Other(format!(
-                        "openstock: cannot parse success or error envelope: {} | body: {}",
-                        e,
-                        raw.chars().take(200).collect::<String>()
-                    ))
-                })?;
-                Err(QuantixError::Other(err_env.to_summary()))
-            }
+        if !status.is_success() {
+            // Try to parse the uniform error envelope; if that fails,
+            // surface status + body snippet so the caller sees the
+            // actual upstream error rather than a generic JSON failure.
+            let summary = match serde_json::from_str::<OpenStockErrorEnvelope>(&raw) {
+                Ok(env) => env.to_summary(),
+                Err(_) => format!(
+                    "openstock: HTTP {} | body: {}",
+                    status,
+                    raw.chars().take(200).collect::<String>()
+                ),
+            };
+            return Err(QuantixError::Other(summary));
         }
+
+        let env: OpenStockEnvelope<T> = serde_json::from_str(&raw).map_err(|e| {
+            QuantixError::Other(format!(
+                "openstock: cannot parse success envelope: {} | body: {}",
+                e,
+                raw.chars().take(200).collect::<String>()
+            ))
+        })?;
+        Ok(OpenStockResponse::from_envelope(env, &raw))
     }
 
     /// Convenience: fetch `STOCK_CODES`.
@@ -159,13 +182,14 @@ impl OpenStockClient {
 }
 
 /// Public post-parse view of a `/data/fetch` success response.
-/// Flattened to `(records, source, artifact_hash, received_at)`.
+/// Flattened to `(records, source, artifact_hash, received_at, latency_ms)`.
 #[derive(Debug, Clone)]
 pub struct OpenStockResponse<T> {
     pub records: Vec<T>,
     pub source: String,
     pub artifact_hash: String,
     pub received_at: Option<String>,
+    pub latency_ms: Option<u64>,
 }
 
 impl<T> OpenStockResponse<T> {
@@ -178,6 +202,7 @@ impl<T> OpenStockResponse<T> {
             source: env.source.unwrap_or_default(),
             artifact_hash: artifact_hash(raw_body),
             received_at: env.received_at,
+            latency_ms: env.latency_ms,
         }
     }
 }
