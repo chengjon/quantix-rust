@@ -39,22 +39,48 @@ pub fn calendar_error_into_quantix(error: CalendarParseError) -> QuantixError {
 }
 
 /// Raw record shape for `TRADE_DATES` payloads.
+///
+/// Runtime (baostock provider) returns `{calendar_date, is_trading_day}`
+/// where `is_trading_day` is a string `"0"`/`"1"`. We accept both
+/// `calendar_date` (runtime) and `date` (legacy fixtures) via serde alias,
+/// and tolerate `is_trading_day` as either string or bool.
 #[derive(Debug, Deserialize)]
 pub struct TradeDateRecord {
-    #[serde(default)]
+    #[serde(default, alias = "calendar_date")]
     pub date: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_bool_loose")]
+    pub is_trading_day: Option<bool>,
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
 
-/// Raw record shape for `WORKDAYS` payloads. `WORKDAYS` is union-shaped:
-/// it carries both trading and non-trading days, with `is_trading_day`
-/// indicating which.
+/// Raw record shape for `WORKDAYS` payloads. `WORKDAYS` is action-driven
+/// (eltdx provider); runtime returns `{action, date, ...}` where the
+/// extra fields depend on the action value:
+/// - `today` -> `{action, date}`
+/// - `today_is_workday` -> `{action, today_is_workday: bool}`
+/// - `is_workday` (date param) -> `{action, date, is_workday: bool}`
+/// - `range` (start/end) -> `{action, date}` × N
+/// - `next_workday`/`previous_workday` (date param) -> `{action, date, next_workday|previous_workday}`
+///
+/// We tolerate every optional field; consumers branch on `action`.
 #[derive(Debug, Deserialize)]
 pub struct WorkdayRecord {
     #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default, alias = "calendar_date")]
     pub date: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_bool_loose")]
+    pub is_workday: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_bool_loose")]
+    pub today_is_workday: Option<bool>,
     #[serde(default)]
+    pub next_workday: Option<String>,
+    #[serde(default)]
+    pub previous_workday: Option<String>,
+    /// Legacy field kept for back-compat with P0.9 fixtures that used
+    /// the union-calendar shape. Runtime does not populate this today.
+    #[serde(default, deserialize_with = "deserialize_bool_loose")]
     pub is_trading_day: Option<bool>,
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
@@ -64,13 +90,21 @@ pub struct WorkdayRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeDate {
     pub date: NaiveDate,
+    pub is_trading_day: bool,
 }
 
-/// Parsed workday entry — a date plus its trading-day flag.
+/// Parsed workday entry. Reflects runtime's action-driven shape —
+/// `is_workday`/`today_is_workday` carry the boolean signal when the
+/// action provides one; `date`/`next_workday`/`previous_workday` carry
+/// the date payload when present.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Workday {
-    pub date: NaiveDate,
-    pub is_trading_day: bool,
+    pub action: Option<String>,
+    pub date: Option<NaiveDate>,
+    pub is_workday: Option<bool>,
+    pub today_is_workday: Option<bool>,
+    pub next_workday: Option<NaiveDate>,
+    pub previous_workday: Option<NaiveDate>,
 }
 
 /// Parse the `TRADE_DATES` category envelope into typed trade dates.
@@ -89,7 +123,10 @@ pub fn parse_trade_dates(
                 .filter(|text| !text.trim().is_empty())
                 .ok_or(CalendarParseError::MissingField("date"))?;
             let date = parse_calendar_date(&raw)?;
-            Ok(TradeDate { date })
+            Ok(TradeDate {
+                date,
+                is_trading_day: record.is_trading_day.unwrap_or(false),
+            })
         })
         .collect()
 }
@@ -105,18 +142,51 @@ pub fn parse_workdays(
         .data
         .into_iter()
         .map(|record| {
-            let raw = record
+            let date = record
                 .date
                 .filter(|text| !text.trim().is_empty())
-                .ok_or(CalendarParseError::MissingField("date"))?;
-            let date = parse_calendar_date(&raw)?;
-            let is_trading_day = record.is_trading_day.unwrap_or(false);
+                .map(|raw| parse_calendar_date(&raw))
+                .transpose()?;
+            let next_workday = record
+                .next_workday
+                .filter(|text| !text.trim().is_empty())
+                .map(|raw| parse_calendar_date(&raw))
+                .transpose()?;
+            let previous_workday = record
+                .previous_workday
+                .filter(|text| !text.trim().is_empty())
+                .map(|raw| parse_calendar_date(&raw))
+                .transpose()?;
             Ok(Workday {
+                action: record.action,
                 date,
-                is_trading_day,
+                is_workday: record.is_workday,
+                today_is_workday: record.today_is_workday,
+                next_workday,
+                previous_workday,
             })
         })
         .collect()
+}
+
+/// Deserialize a boolean that may arrive as `true`/`false` or as the
+/// string `"1"`/`"0"` (the latter is what baostock emits for
+/// `is_trading_day`). Returns `None` for empty/unrecognized strings.
+fn deserialize_bool_loose<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+    Ok(opt.and_then(|v| match v {
+        serde_json::Value::Bool(b) => Some(b),
+        serde_json::Value::String(s) => match s.trim() {
+            "1" | "true" => Some(true),
+            "0" | "false" => Some(false),
+            _ => None,
+        },
+        serde_json::Value::Number(n) if n.is_i64() => Some(n.as_i64() != Some(0)),
+        _ => None,
+    }))
 }
 
 /// Parse the calendar date string. Accepts both `%Y-%m-%d` (e.g.
@@ -155,6 +225,43 @@ mod tests {
         assert_eq!(dates.len(), 3);
         assert_eq!(dates[0].date.to_string(), "2026-01-02");
         assert_eq!(dates[2].date.to_string(), "2026-01-06");
+        // Missing is_trading_day defaults to false.
+        assert!(!dates[0].is_trading_day);
+    }
+
+    #[test]
+    fn parse_trade_dates_accepts_runtime_calendar_date_alias() {
+        // Real runtime (baostock) returns `calendar_date` + `is_trading_day`
+        // as the string "0"/"1".
+        let raw = r#"{
+            "data": [
+                {"calendar_date": "2015-01-01", "is_trading_day": "0"},
+                {"calendar_date": "2015-01-05", "is_trading_day": "1"}
+            ],
+            "source": "baostock"
+        }"#;
+        let env: OpenStockEnvelope<TradeDateRecord> = serde_json::from_str(raw).unwrap();
+        let dates = parse_trade_dates(env).unwrap();
+        assert_eq!(dates.len(), 2);
+        assert_eq!(dates[0].date.to_string(), "2015-01-01");
+        assert!(!dates[0].is_trading_day);
+        assert!(dates[1].is_trading_day);
+    }
+
+    #[test]
+    fn parse_trade_dates_tolerates_string_and_bool_flags() {
+        let raw = r#"{
+            "data": [
+                {"date": "2026-01-02", "is_trading_day": true},
+                {"date": "2026-01-03", "is_trading_day": "0"},
+                {"date": "2026-01-06", "is_trading_day": "1"}
+            ]
+        }"#;
+        let env: OpenStockEnvelope<TradeDateRecord> = serde_json::from_str(raw).unwrap();
+        let dates = parse_trade_dates(env).unwrap();
+        assert!(dates[0].is_trading_day);
+        assert!(!dates[1].is_trading_day);
+        assert!(dates[2].is_trading_day);
     }
 
     #[test]
@@ -190,36 +297,103 @@ mod tests {
     }
 
     #[test]
-    fn parse_workdays_happy() {
+    fn parse_workdays_today_action_matches_runtime_shape() {
+        // Real runtime (eltdx) returns action="today" with just a date.
         let raw = r#"{
-            "data": [
-                {"date": "2026-01-02", "is_trading_day": true},
-                {"date": "2026-01-03", "is_trading_day": false},
-                {"date": "2026-01-04", "is_trading_day": true}
-            ],
+            "data": [{"action": "today", "date": "2026-06-30"}],
             "source": "eltdx"
         }"#;
         let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
         let workdays = parse_workdays(env).unwrap();
-        assert_eq!(workdays.len(), 3);
-        assert!(workdays[0].is_trading_day);
-        assert!(!workdays[1].is_trading_day);
+        assert_eq!(workdays.len(), 1);
+        assert_eq!(workdays[0].action.as_deref(), Some("today"));
+        assert_eq!(workdays[0].date.unwrap().to_string(), "2026-06-30");
+        assert!(workdays[0].is_workday.is_none());
     }
 
     #[test]
-    fn parse_workdays_defaults_missing_flag_to_false() {
+    fn parse_workdays_today_is_workday_action() {
+        let raw = r#"{
+            "data": [{"action": "today_is_workday", "today_is_workday": true}],
+            "source": "eltdx"
+        }"#;
+        let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
+        let workdays = parse_workdays(env).unwrap();
+        assert_eq!(workdays[0].today_is_workday, Some(true));
+    }
+
+    #[test]
+    fn parse_workdays_is_workday_action() {
+        let raw = r#"{
+            "data": [{"action": "is_workday", "date": "2026-06-30", "is_workday": true}],
+            "source": "eltdx"
+        }"#;
+        let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
+        let workdays = parse_workdays(env).unwrap();
+        assert_eq!(workdays[0].is_workday, Some(true));
+        assert_eq!(workdays[0].date.unwrap().to_string(), "2026-06-30");
+    }
+
+    #[test]
+    fn parse_workdays_next_and_previous_actions() {
+        let raw = r#"{
+            "data": [
+                {"action": "next_workday", "date": "2026-06-30", "next_workday": "2026-07-01"},
+                {"action": "previous_workday", "date": "2026-06-30", "previous_workday": "2026-06-27"}
+            ]
+        }"#;
+        let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
+        let workdays = parse_workdays(env).unwrap();
+        assert_eq!(workdays[0].next_workday.unwrap().to_string(), "2026-07-01");
+        assert_eq!(
+            workdays[1].previous_workday.unwrap().to_string(),
+            "2026-06-27"
+        );
+    }
+
+    #[test]
+    fn parse_workdays_range_action_emits_multiple_dates() {
+        let raw = r#"{
+            "data": [
+                {"action": "range", "date": "2026-06-30"},
+                {"action": "range", "date": "2026-07-01"}
+            ]
+        }"#;
+        let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
+        let workdays = parse_workdays(env).unwrap();
+        assert_eq!(workdays.len(), 2);
+        assert_eq!(workdays[0].action.as_deref(), Some("range"));
+    }
+
+    #[test]
+    fn parse_workdays_legacy_union_calendar_shape_still_works() {
+        // P0.9 fixtures used {date, is_trading_day: bool} — keep tolerating.
+        let raw = r#"{
+            "data": [
+                {"date": "2026-01-02", "is_trading_day": true},
+                {"date": "2026-01-03", "is_trading_day": false}
+            ]
+        }"#;
+        let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
+        let workdays = parse_workdays(env).unwrap();
+        assert_eq!(workdays.len(), 2);
+        assert!(workdays[0].date.is_some());
+    }
+
+    #[test]
+    fn parse_workdays_defaults_missing_action_to_none() {
         let raw = r#"{"data": [{"date": "2026-01-02"}]}"#;
         let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();
         let workdays = parse_workdays(env).unwrap();
         assert_eq!(workdays.len(), 1);
-        assert!(!workdays[0].is_trading_day);
+        assert!(workdays[0].action.is_none());
     }
 
     #[test]
     fn parse_workdays_tolerates_extra_fields() {
         let raw = r#"{
             "data": [
-                {"date": "2026-01-02", "is_trading_day": true, "note": "holiday-eve", "provider_meta": 42}
+                {"action": "today", "date": "2026-01-02", "note": "holiday-eve", "provider_meta": 42}
             ]
         }"#;
         let env: OpenStockEnvelope<WorkdayRecord> = serde_json::from_str(raw).unwrap();

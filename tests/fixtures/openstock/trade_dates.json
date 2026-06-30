@@ -1,11 +1,11 @@
 {
   "data": [
-    {"date": "2026-01-02"},
-    {"date": "2026-01-05"},
-    {"date": "2026-01-06"},
-    {"date": "2026-01-07"},
-    {"date": "2026-01-08"}
+    {"calendar_date": "2026-01-02", "is_trading_day": "1"},
+    {"calendar_date": "2026-01-03", "is_trading_day": "0"},
+    {"calendar_date": "2026-01-04", "is_trading_day": "0"},
+    {"calendar_date": "2026-01-05", "is_trading_day": "1"},
+    {"calendar_date": "2026-01-06", "is_trading_day": "1"}
   ],
-  "source": "eltdx",
+  "source": "baostock",
   "data_category": "TRADE_DATES"
 }

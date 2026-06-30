@@ -15,6 +15,9 @@ fn parse_trade_dates_fixture() {
     let dates = parse_trade_dates(env).unwrap();
     assert_eq!(dates.len(), 5);
     assert_eq!(dates[0].date.to_string(), "2026-01-02");
+    assert!(dates[0].is_trading_day);
+    assert!(!dates[1].is_trading_day);
+    assert!(dates[3].is_trading_day);
 }
 
 #[test]
@@ -31,6 +34,9 @@ fn parse_workdays_fixture() {
     let env: OpenStockEnvelope<_> = serde_json::from_str(WORKDAYS_FIXTURE).unwrap();
     let workdays = parse_workdays(env).unwrap();
     assert_eq!(workdays.len(), 4);
-    assert!(workdays[0].is_trading_day);
-    assert!(!workdays[1].is_trading_day);
+    assert_eq!(workdays[0].action.as_deref(), Some("today"));
+    assert_eq!(workdays[0].date.unwrap().to_string(), "2026-06-30");
+    assert_eq!(workdays[1].today_is_workday, Some(true));
+    assert_eq!(workdays[2].is_workday, Some(true));
+    assert_eq!(workdays[3].action.as_deref(), Some("range"));
 }

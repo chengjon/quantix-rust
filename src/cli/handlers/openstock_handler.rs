@@ -136,7 +136,10 @@ pub(crate) fn validate_openstock_calendar(payload_path: &str, kind: &str) -> Res
                     QuantixError::Other(format!("workdays envelope 反序列化失败: {}", e))
                 })?;
             let workdays = parse_workdays(env).map_err(calendar_error_into_quantix)?;
-            let trading = workdays.iter().filter(|w| w.is_trading_day).count();
+            let trading = workdays
+                .iter()
+                .filter(|w| w.is_workday.unwrap_or(false) || w.today_is_workday.unwrap_or(false))
+                .count();
             println!("OpenStock calendar 校验 (WORKDAYS)");
             println!("  记录数: {}", workdays.len());
             println!("  其中交易日: {}", trading);
@@ -306,7 +309,7 @@ pub(crate) async fn fetch_openstock_workdays(year: u32) -> Result<()> {
     let trading = resp
         .records
         .iter()
-        .filter(|w| w.is_trading_day.unwrap_or(false))
+        .filter(|w| w.is_workday.unwrap_or(false) || w.today_is_workday.unwrap_or(false))
         .count();
     println!("OpenStock live fetch (WORKDAYS, year={})", year);
     println!("  来源: {}", source);
@@ -314,12 +317,12 @@ pub(crate) async fn fetch_openstock_workdays(year: u32) -> Result<()> {
     println!("  其中交易日: {}", trading);
     if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
         println!(
-            "  首条: {:?} is_trading_day={:?}",
-            first.date, first.is_trading_day
+            "  首条: action={:?} date={:?} is_workday={:?} today_is_workday={:?}",
+            first.action, first.date, first.is_workday, first.today_is_workday
         );
         println!(
-            "  末条: {:?} is_trading_day={:?}",
-            last.date, last.is_trading_day
+            "  末条: action={:?} date={:?} is_workday={:?} today_is_workday={:?}",
+            last.action, last.date, last.is_workday, last.today_is_workday
         );
     }
     println!("  artifact_hash: {}", resp.artifact_hash);

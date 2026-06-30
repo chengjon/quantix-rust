@@ -1,9 +1,9 @@
 {
   "data": [
-    {"date": "2026-01-02", "is_trading_day": true},
-    {"date": "2026-01-03", "is_trading_day": false},
-    {"date": "2026-01-04", "is_trading_day": false},
-    {"date": "2026-01-05", "is_trading_day": true}
+    {"action": "today", "date": "2026-06-30"},
+    {"action": "today_is_workday", "today_is_workday": true},
+    {"action": "is_workday", "date": "2026-06-30", "is_workday": true},
+    {"action": "range", "date": "2026-07-01"}
   ],
   "source": "eltdx",
   "data_category": "WORKDAYS"
