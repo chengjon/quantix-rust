@@ -4,8 +4,8 @@
 
 - [x] 0.1 Baseline: P0.9 shipped at commit `2571003`; `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace`, `openspec validate --all --strict` all green on master.
 - [x] 0.2 Create `.governance/programs/project-governance/cards/P0.10.yaml` scoped to `openstock-data-consumption-p0-10/*` + the 5 in-tree paths being edited + the 3 new test files.
-- [ ] 0.3 `openspec validate openstock-data-consumption-p0-10 --strict` passes.
-- [ ] 0.4 (Deferred) `ft:new-node`/`ft:transition` for P0.10 — governance flow invocation deferred to closeout per P0.9 precedent.
+- [x] 0.3 `openspec validate openstock-data-consumption-p0-10 --strict` passes.
+- [x] 0.4 (Deferred) `ft:new-node`/`ft:transition` for P0.10 — governance flow invocation deferred to closeout per P0.9 precedent.
 
 ## 1. Client G1 — HTTP Status Check In `fetch`
 
@@ -55,21 +55,21 @@
 
 ## 9. Verification
 
-- [ ] 9.1 `cargo fmt --all -- --check`.
-- [ ] 9.2 `cargo clippy --all-targets --workspace -- -D warnings`.
-- [ ] 9.3 `cargo test --lib --package quantix-cli openstock`.
-- [ ] 9.4 `cargo test --test openstock_codes --test openstock_calendar --test openstock_index --test openstock_client`.
-- [ ] 9.5 `cargo test --workspace` (new live tests skipped via `#[ignore]`).
-- [ ] 9.6 `openspec validate openstock-data-consumption-p0-10 --strict`.
-- [ ] 9.7 `openspec validate --all --strict`.
-- [ ] 9.8 `gitnexus detect_changes` — expect LOW risk on edited paths.
-- [ ] 9.9 `git diff --check`.
-- [ ] 9.10 Manual live smoke (when runtime is reachable):
+- [x] 9.1 `cargo fmt --all -- --check`.
+- [x] 9.2 `cargo clippy --all-targets --workspace -- -D warnings`.
+- [x] 9.3 `cargo test --lib --package quantix-cli openstock`.
+- [x] 9.4 `cargo test --test openstock_codes --test openstock_calendar --test openstock_index --test openstock_client`.
+- [x] 9.5 `cargo test --workspace` (new live tests skipped via `#[ignore]`).
+- [x] 9.6 `openspec validate openstock-data-consumption-p0-10 --strict`.
+- [x] 9.7 `openspec validate --all --strict`.
+- [x] 9.8 `gitnexus detect_changes` — expect LOW risk on edited paths.
+- [x] 9.9 `git diff --check`.
+- [x] 9.10 Manual live smoke (when runtime is reachable):
   ```
   OPENSTOCK_BASE_URL=http://192.168.123.104:8040 OPENSTOCK_API_KEY=<key> \
     cargo run -q -- openstock fetch-calendar --year 2026
   ```
-- [ ] 9.11 Manual live tests:
+- [x] 9.11 Manual live tests:
   ```
   QUANTIX_OPENSTOCK_LIVE=1 OPENSTOCK_BASE_URL=... OPENSTOCK_API_KEY=... \
     cargo test --test openstock_live_codes --test openstock_live_calendar --test openstock_live_index -- --ignored
