@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782717195991,
+  "lastUpdate": 1782801256493,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -4175,6 +4175,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 921009.172168835,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "2571003c87fbe545ee189edd63238e356802046e",
+          "message": "feat(openstock): add p0.9 consumer-side parsers + generic client skeleton\n\nAdds three fixture-driven parsers for OpenStock `/data/fetch` P0\ncategories (STOCK_CODES/ALL_STOCKS, TRADE_DATES/WORKDAYS, INDEX_KLINES)\nplus a generic `OpenStockClient` skeleton and uniform envelope types.\nNo live network in CI, no ClickHouse writes, no Kline/BacktestEngine\nchanges — pure additive slice enabling live wiring in a follow-up.\n\n- src/sources/openstock_envelope.rs: uniform success/error envelopes,\n  re-exports canonical `artifact_hash` from openstock_shadow (single\n  SHA-256 source of truth per CONNECTION_GUIDE §migration)\n- src/sources/openstock_client.rs: reqwest-based generic client with\n  envelope-aware `fetch<T>()` and three convenience wrappers\n- src/sources/openstock_codes.rs: STOCK_CODES + ALL_STOCKS parsers\n- src/sources/openstock_calendar.rs: TRADE_DATES + WORKDAYS parsers\n  (accepts both %Y-%m-%d and %Y%m%d date formats)\n- src/sources/openstock_index.rs: INDEX_KLINES parser reusing canonical\n  Kline with AdjustType::None; consumes pub(crate) normalize_symbol +\n  parse_live_time helpers (visibility-only widen, no signature change)\n- src/cli/commands/data.rs + handlers/app_shell.rs + handlers/mod.rs:\n  3 new ValidateCodes/ValidateCalendar/ValidateIndex subcommands wired\n  through dispatcher; sync fixture-only handlers, no network\n- 8 fixture files under tests/fixtures/openstock/ (positive + empty)\n- 4 integration test files under tests/ (flat, matching convention)\n- openspec/changes/openstock-data-consumption-p0-9/: proposal, tasks,\n  design (D1-D7 decisions documented), spec deltas with 6 requirements\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-06-30T05:03:19Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/2571003c87fbe545ee189edd63238e356802046e"
+        },
+        "date": 1782801255485,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 300019.0200749632,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 2896259.223956916,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 35968500.20215079,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1929463.9485098522,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 8563474.52438889,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 108609955.35422619,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 4797512.757035273,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 32153175.639511906,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 168121436.36873016,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 10938.655773559396,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 112767.14697904793,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1195791.191134575,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 11092.932101758108,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 113317.47155618733,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1209669.8590843708,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 26894.94890659115,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 274067.0676319724,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 2876848.62900295,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 16136.931439239961,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 185827.08897420697,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 2082205.9398451615,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 27935.27167839534,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 434119.43191708444,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 4977457.467499998,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 4015.6886299664393,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 44184.765474337895,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 847670.9002322466,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 4573.283618158079,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 60579.53377387752,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 30634.149519011797,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 12290.436917265219,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 106950.26272331683,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 54005.29486477352,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 31.090381704612227,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 29.294839592537848,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 46.30837669511207,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 626.320140914887,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 6282.074130116398,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 60224.28104164,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 4882.579954795728,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 49973.10323876542,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 499749.5978676136,
             "unit": "ns"
           }
         ]
