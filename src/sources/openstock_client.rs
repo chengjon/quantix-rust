@@ -195,13 +195,29 @@ impl OpenStockClient {
         self.fetch("ALL_STOCKS", params).await
     }
 
-    /// Convenience: fetch `WORKDAYS` (eltdx union calendar) for a year.
+    /// Convenience: fetch `WORKDAYS` (eltdx action-driven calendar).
+    /// `action` is one of `today` / `today_is_workday` / `is_workday` /
+    /// `range` / `next_workday` / `previous_workday`. `date` is required
+    /// for `is_workday`/`next_workday`/`previous_workday`; `start`+`end`
+    /// are required for `range`. Other actions ignore the date params.
     pub async fn fetch_workdays(
         &self,
-        year: u32,
+        action: &str,
+        date: Option<&str>,
+        start: Option<&str>,
+        end: Option<&str>,
     ) -> Result<OpenStockResponse<crate::sources::openstock_calendar::WorkdayRecord>> {
-        self.fetch("WORKDAYS", serde_json::json!({ "year": year }))
-            .await
+        let mut params = serde_json::json!({ "action": action });
+        if let Some(date) = date {
+            params["date"] = Value::String(date.to_string());
+        }
+        if let Some(start) = start {
+            params["start"] = Value::String(start.to_string());
+        }
+        if let Some(end) = end {
+            params["end"] = Value::String(end.to_string());
+        }
+        self.fetch("WORKDAYS", params).await
     }
 }
 

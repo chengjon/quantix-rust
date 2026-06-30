@@ -481,10 +481,22 @@ pub enum OpenStockCommands {
         day: Option<String>,
     },
 
-    /// 实时拉取 WORKDAYS 类目（eltdx union calendar，联网，只读，不写库）
+    /// 实时拉取 WORKDAYS 类目（eltdx action 驱动，联网，只读，不写库）
     FetchWorkdays {
-        /// 年份（如 2026）
+        /// 操作类型：today / today_is_workday / is_workday / range / next_workday / previous_workday
+        #[arg(long, default_value = "today")]
+        action: String,
+
+        /// YYYY-MM-DD，用于 is_workday / next_workday / previous_workday
         #[arg(long)]
-        year: u32,
+        date: Option<String>,
+
+        /// YYYY-MM-DD，range 起始（含），与 --end 同时使用
+        #[arg(long)]
+        start: Option<String>,
+
+        /// YYYY-MM-DD，range 结束（含），与 --start 同时使用
+        #[arg(long)]
+        end: Option<String>,
     },
 }

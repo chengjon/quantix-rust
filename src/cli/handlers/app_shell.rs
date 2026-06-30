@@ -362,8 +362,19 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
             OpenStockCommands::FetchAllStocks { day } => {
                 fetch_openstock_all_stocks(day.as_deref()).await?;
             }
-            OpenStockCommands::FetchWorkdays { year } => {
-                fetch_openstock_workdays(year).await?;
+            OpenStockCommands::FetchWorkdays {
+                action,
+                date,
+                start,
+                end,
+            } => {
+                fetch_openstock_workdays(
+                    &action,
+                    date.as_deref(),
+                    start.as_deref(),
+                    end.as_deref(),
+                )
+                .await?;
             }
         },
         DataCommands::TdxApi(subcommand) => {

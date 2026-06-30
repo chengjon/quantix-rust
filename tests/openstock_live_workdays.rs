@@ -6,22 +6,26 @@ use quantix_cli::sources::openstock_client::OpenStockClient;
 
 #[tokio::test]
 #[ignore = "live OpenStock HTTP; set QUANTIX_OPENSTOCK_LIVE=1 to run"]
-async fn fetch_workdays_live() {
+async fn fetch_workdays_today_live() {
     if std::env::var("QUANTIX_OPENSTOCK_LIVE").ok().as_deref() != Some("1") {
         eprintln!("skipping: QUANTIX_OPENSTOCK_LIVE not set");
         return;
     }
-    let year: u32 = std::env::var("OPENSTOCK_LIVE_YEAR")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(2026);
+    let action =
+        std::env::var("OPENSTOCK_LIVE_WORKDAY_ACTION").unwrap_or_else(|_| "today".to_string());
+    let date = std::env::var("OPENSTOCK_LIVE_WORKDAY_DATE").ok();
+    let start = std::env::var("OPENSTOCK_LIVE_WORKDAY_START").ok();
+    let end = std::env::var("OPENSTOCK_LIVE_WORKDAY_END").ok();
     let client = OpenStockClient::from_env().expect("OPENSTOCK_BASE_URL + OPENSTOCK_API_KEY");
-    let resp = client.fetch_workdays(year).await.expect("fetch ok");
+    let resp = client
+        .fetch_workdays(&action, date.as_deref(), start.as_deref(), end.as_deref())
+        .await
+        .expect("fetch ok");
     assert!(!resp.records.is_empty(), "WORKDAYS should return records");
     assert_eq!(resp.artifact_hash.len(), 64);
     println!(
-        "WORKDAYS live (year={}): {} records, source={}, latency_ms={:?}",
-        year,
+        "WORKDAYS live (action={}): {} records, source={}, latency_ms={:?}",
+        action,
         resp.records.len(),
         resp.source,
         resp.latency_ms

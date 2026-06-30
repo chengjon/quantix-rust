@@ -298,9 +298,14 @@ pub(crate) async fn fetch_openstock_all_stocks(day: Option<&str>) -> Result<()> 
     Ok(())
 }
 
-pub(crate) async fn fetch_openstock_workdays(year: u32) -> Result<()> {
+pub(crate) async fn fetch_openstock_workdays(
+    action: &str,
+    date: Option<&str>,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<()> {
     let client = OpenStockClient::from_env()?;
-    let resp = client.fetch_workdays(year).await?;
+    let resp = client.fetch_workdays(action, date, start, end).await?;
     let source = if resp.source.is_empty() {
         "(unknown)".to_string()
     } else {
@@ -311,18 +316,43 @@ pub(crate) async fn fetch_openstock_workdays(year: u32) -> Result<()> {
         .iter()
         .filter(|w| w.is_workday.unwrap_or(false) || w.today_is_workday.unwrap_or(false))
         .count();
-    println!("OpenStock live fetch (WORKDAYS, year={})", year);
+    let params_hint = match action {
+        "range" => format!("range={}..{}", start.unwrap_or("?"), end.unwrap_or("?")),
+        "is_workday" | "next_workday" | "previous_workday" => {
+            format!("date={}", date.unwrap_or("?"))
+        }
+        _ => String::new(),
+    };
+    println!(
+        "OpenStock live fetch (WORKDAYS, action={}{})",
+        action,
+        if params_hint.is_empty() {
+            String::new()
+        } else {
+            format!(", {}", params_hint)
+        }
+    );
     println!("  来源: {}", source);
     println!("  记录数: {}", resp.records.len());
     println!("  其中交易日: {}", trading);
     if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
         println!(
-            "  首条: action={:?} date={:?} is_workday={:?} today_is_workday={:?}",
-            first.action, first.date, first.is_workday, first.today_is_workday
+            "  首条: action={:?} date={:?} is_workday={:?} today_is_workday={:?} next_workday={:?} previous_workday={:?}",
+            first.action,
+            first.date,
+            first.is_workday,
+            first.today_is_workday,
+            first.next_workday,
+            first.previous_workday
         );
         println!(
-            "  末条: action={:?} date={:?} is_workday={:?} today_is_workday={:?}",
-            last.action, last.date, last.is_workday, last.today_is_workday
+            "  末条: action={:?} date={:?} is_workday={:?} today_is_workday={:?} next_workday={:?} previous_workday={:?}",
+            last.action,
+            last.date,
+            last.is_workday,
+            last.today_is_workday,
+            last.next_workday,
+            last.previous_workday
         );
     }
     println!("  artifact_hash: {}", resp.artifact_hash);
