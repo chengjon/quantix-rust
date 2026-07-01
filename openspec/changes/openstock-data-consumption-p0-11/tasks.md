@@ -98,15 +98,17 @@ Sub-slice status legend:
 - [x] 3c.12 ~~修改 `import_ticks` openstock 分支：写入 `direction` 列~~ — **无需修改**：P0.11b openstock 分支已映射 `TradeDirection::{Buy=1, Sell=-1, Neutral=0}` 写入 `direction` 列（`tdx_api_handler.rs:351-361`，Phase 1 已迁出至 `openstock_handler.rs::import_openstock_ticks`）。schema 与写入语义已一致。
 - [x] 3c.13 `cargo test --workspace` 全绿 — schema 无改动，Phase 1 已验证 (commit `d73f860` 已含 765 lib + 681 integration tests 全绿)。Phase 2 视为 no-op，进入 Phase 3。
 
-### 3c. Phase 3 — scheduler reroute（Decision 1 = A 时；实为 P0.11d 规模独立切片）
+### 3c. Phase 3 — scheduler reroute（Decision 1 = B：直接删除 fallback 字段）
 
-> ⚠️ 审计文档 §二 Decision 1 标注：Option A 工作量「高（需 P0.11d 规模新 parser 切片）」，3-5 天。如 Decision 1 = B，跳过本 phase，直接进 Phase 4；总计估时降到 2.5 天，但失去 fallback 兜底（见风险 R7）。
+> **2026-07-01 现场发现（r2）**：`set_tdx_api_fallback` 在生产代码中**零 caller**（全仓 grep 仅 1 处定义,无调用点),意味着 `tdx_api_fallback` 字段在生产运行中**永远是 `None`**。原审计 §二 Decision 1 的 Option A 估时(3-5 天,live-verify REALTIME_QUOTES + 新建 parser + rewire)建立在错误前提上:既然 fallback 从未启用过,rewire 到 OpenStock 是**净新增功能**而非"迁移已有兜底"。经与用户确认,D1 由 A 改为 **B**(直接删除 fallback 字段)。
+>
+> 影响:Phase 3 从 3-5 天压缩到 ~0.2 天;无新增 parser 模块;`collect_once` 主采集器(TDX 协议)失败时直接返回错误(与现状一致,因 fallback 本就是 None)。风险 R7(无兜底)在改动前已存在,非新增。
 
-- [ ] 3c.14 Live-verify OpenStock `REALTIME_QUOTES` category（design.md R5 标注未 live-verified）。
-- [ ] 3c.15 新增 `OpenStockClient::fetch_realtime_quotes(&self, codes: &[&str])` wrapper。
-- [ ] 3c.16 新建 `src/sources/openstock_quotes.rs` parser 模块（对标 `openstock_ticks.rs` 297 行规模），含 `parse_realtime_quotes` + fixture 单元测试。
-- [ ] 3c.17 Rewire `collect_scheduler.rs:83,136` 从 `TdxApiClient` 改持有 `OpenStockClient`。字段改名 `tdx_api_fallback` → `openstock_fallback`；方法改名 `set_tdx_api_fallback` → `set_openstock_fallback`。需要 adapter 层转换 `TdxApiClient::collect_all_quotes` 返回类型为 OpenStock category-based fetch 语义。
-- [ ] 3c.18 `cargo test --workspace` 全绿（含 scheduler 测试套件）。
+- [x] ~~3c.14 Live-verify OpenStock `REALTIME_QUOTES` category~~ — D1=B 后跳过,无需 live-verify(不再引入 OpenStock realtime 消费)。
+- [x] ~~3c.15 新增 `OpenStockClient::fetch_realtime_quotes` wrapper~~ — D1=B 后跳过。
+- [x] ~~3c.16 新建 `src/sources/openstock_quotes.rs` parser 模块~~ — D1=B 后跳过(留待 P0.11d 或后续 realtime slice,如确实需要 OpenStock fallback,可作为独立切片落地)。
+- [x] 3c.17 ~~Rewire `collect_scheduler.rs` 改持有 `OpenStockClient`~~ → **改为删除**:移除 `tdx_api_fallback` 字段(L83)、`new()`/`with_config()` 中的初始化(L104/L121)、`set_tdx_api_fallback` 方法(L136-140)、`collect_once` 中 L262-269 fallback 消费分支(主采集器失败时 `map_err` 记 warn 后直接返回错误)。✅ commit (本次)
+- [x] 3c.18 `cargo test --workspace` 全绿 — ✅ 1446 passed, 16 ignored;含 scheduler 测试套件(`test_scheduler_state_display`、`test_scheduler_creation` 全绿)。
 
 ### 3c. Phase 4 — 删除（此时 legacy 已无生产引用）
 

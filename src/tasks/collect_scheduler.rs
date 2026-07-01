@@ -79,8 +79,6 @@ pub struct CollectScheduler {
     config: SchedulerConfig,
     /// 行情采集器
     collector: Arc<QuoteCollector>,
-    /// tdx-api 备用采集器 (HTTP bridge)
-    tdx_api_fallback: Arc<RwLock<Option<crate::sources::tdx_api::TdxApiClient>>>,
     /// 股票列表
     stock_list: Arc<RwLock<Vec<QuoteStockInfo>>>,
     /// 采集回调
@@ -101,7 +99,6 @@ impl CollectScheduler {
             calendar,
             config,
             collector: Arc::new(collector),
-            tdx_api_fallback: Arc::new(RwLock::new(None)),
             stock_list: Arc::new(RwLock::new(Vec::new())),
             on_quotes_collected: Arc::new(RwLock::new(None)),
             running: Arc::new(RwLock::new(false)),
@@ -118,7 +115,6 @@ impl CollectScheduler {
             calendar,
             config,
             collector: Arc::new(collector),
-            tdx_api_fallback: Arc::new(RwLock::new(None)),
             stock_list: Arc::new(RwLock::new(Vec::new())),
             on_quotes_collected: Arc::new(RwLock::new(None)),
             running: Arc::new(RwLock::new(false)),
@@ -130,13 +126,6 @@ impl CollectScheduler {
         let mut list = self.stock_list.write().await;
         *list = stocks;
         info!("股票列表已更新：{} 只股票", list.len());
-    }
-
-    /// 设置 tdx-api 备用采集器
-    pub async fn set_tdx_api_fallback(&self, client: crate::sources::tdx_api::TdxApiClient) {
-        let mut fb = self.tdx_api_fallback.write().await;
-        *fb = Some(client);
-        info!("已设置 tdx-api 备用采集器");
     }
 
     /// 设置采集回调
@@ -255,19 +244,12 @@ impl CollectScheduler {
 
         info!("开始采集 {} 只股票的实时行情", stocks.len());
 
-        let quotes = match self.collector.collect_all(&stocks).await {
-            Ok(q) => q,
-            Err(e) => {
-                warn!("TDX 协议采集失败: {e}, 尝试 tdx-api 备用");
-                let fb = self.tdx_api_fallback.read().await;
-                if let Some(ref api) = *fb {
-                    let codes: Vec<String> = stocks.iter().map(|s| s.code.clone()).collect();
-                    api.collect_all_quotes(&codes).await?
-                } else {
-                    return Err(e);
-                }
-            }
-        };
+        let quotes = self.collector.collect_all(&stocks).await.map_err(|e| {
+            warn!(
+                "TDX 协议采集失败: {e} (P0.11c Phase 3 已移除 tdx-api fallback, 主采集器失败即报错)"
+            );
+            e
+        })?;
 
         info!("采集完成：获取 {} 只股票的行情数据", quotes.len());
 

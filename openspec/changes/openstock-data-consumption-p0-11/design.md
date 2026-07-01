@@ -20,7 +20,7 @@ A single mega-slice would either (i) block P0.11a on the TICK_DATA smoke (slow) 
 |-----------|-------|--------|
 | `src/cli/handlers/tdx_api_handler.rs` (entire file, ~726 lines; grew during P0.11a/b when openstock branches were added) | All 18 CLI subcommand handlers | P0.11c delete |
 | `src/cli/handlers/data_handler.rs:348` | `DataSourceKind::TdxApi` health-check branch — `TdxApiClient::from_env()?; client.health().await?` | P0.11c reroute: remove variant, or alias to `OpenStock` and call `OpenStockClient::from_env()` with a `health()` ping (TBD: openstock has no `/health` endpoint today; simplest is remove the variant) |
-| `src/tasks/collect_scheduler.rs:83,136` | `tdx_api_fallback: Arc<RwLock<Option<TdxApiClient>>>` field + `set_tdx_api_fallback` method — runtime quote collector fallback | P0.11c Option A: rewire to `OpenStockClient`; requires `fetch_realtime_quotes` wrapper + `parse_realtime_quotes` parser. Option B: delete the fallback (judge by whether `collect_scheduler` is in any active automation today) |
+| `src/tasks/collect_scheduler.rs:83,136` | `tdx_api_fallback: Arc<RwLock<Option<TdxApiClient>>>` field + `set_tdx_api_fallback` method — runtime quote collector fallback | **2026-07-01 现场审计**: `set_tdx_api_fallback` 全仓零 caller,字段永远 `None`,fallback 从未生产启用。**Decision 1 = B**(直接删除字段 + 方法 + L262-269 消费分支),主采集器失败即报错(与现状一致)。详见 D1 / tasks.md Phase 3 r2 修订。 |
 | `src/sources/tdx_api.rs` (entire file, 1309 lines) | The client itself, plus 33 methods | P0.11c delete |
 | `src/sources/mod.rs` | `pub mod tdx_api;` re-export | P0.11c delete |
 
