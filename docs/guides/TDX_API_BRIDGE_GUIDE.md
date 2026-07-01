@@ -1,4 +1,6 @@
-# TDX-API Bridge 使用指南
+# TDX-API Bridge 使用指南 [DEPRECATED]
+
+> ⚠️ **DEPRECATED in P0.11c (2026-07-01).** `TdxApiClient`、`tdx-api` Docker 服务块及全部 18 个 `data tdx-api` 子命令已在 OpenSpec change `openstock-data-consumption-p0-11` 中移除。OpenStock 现为 canonical 行情数据源；对应 CLI 入口 `data import-ticks` / `data import-klines`（顶层）、`data openstock fetch-*` 系列。本指南保留为历史参考，不再反映当前二进制能力。
 
 > quantix-rust 通过 HTTP 桥接 tdx-api Docker 服务，获取通达信行情数据。
 

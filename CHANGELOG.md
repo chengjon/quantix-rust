@@ -5,6 +5,17 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-07-02
+
+### Removed
+- **TdxApiClient bridge adapter and legacy `data tdx-api` CLI** (`src/sources/tdx_api.rs`, `src/cli/handlers/tdx_api_handler.rs`, `src/cli/commands/data.rs`, `src/cli/command_types.rs`, `src/cli/handlers/app_shell.rs`, `src/cli/handlers/data_handler.rs`, `src/cli/handlers/mod.rs`, `src/cli/mod.rs`, `src/cli/tests/data.rs`, `src/core/config.rs`, `src/core/trading_calendar.rs`, `src/sources/mod.rs`, `src/tasks/collect_scheduler.rs`, `tests/openstock_tick_data_live_test.rs`, `tests/openstock_import_klines_live_test.rs`, `docker-compose.yml`, `FUNCTION_TREE.md`, `docs/CLI_COMMAND_MANUAL.html`, `README.md`, `docs/guides/TDX_API_BRIDGE_GUIDE.md`)
+  - OpenSpec change `openstock-data-consumption-p0-11` P0.11c 收尾切片：删除 `TdxApiClient` REST 客户端（`src/sources/tdx_api.rs`，1309 行）及其 726 行 handler（`src/cli/handlers/tdx_api_handler.rs`），共 2,656 行删除
+  - 删除 18 个 `quantix data tdx-api <subcommand>` CLI 子命令、`TdxApiCommands` 枚举、`DataSourceKind::TdxApi` 变体、`TdxApiConfig` + 6 个 `default_tdx_api_*` 函数、`PersistedTdxApiConfig` + 8 个 tdx_api_* helper、4 个 tdx-api CLI parse 测试
+  - `DataCommands::ImportTicks` / `ImportKlines` 提升为顶层命令（Decision 4 = A），collect_scheduler 删除 dead-code `tdx_api_fallback` 字段（Decision 1 = B），Phase 2 确认 TDengine `tick_data` schema 已用 `direction TINYINT` 无需迁移（Decision 3 = B audit no-op）
+  - `docker-compose.yml` 中 tdx-api 服务块注释保留以便回滚；TDX_API_URL 环境变量从 quantix 服务移除
+  - OpenStock 为 canonical 行情数据源（P0.8-P0.10 全链路完成）；historical entry（见下文 2026-06-09）保留为变更记录
+  - 验证：`cargo fmt --check`、`cargo clippy --all-targets --workspace -- -D warnings`、`cargo test --workspace` (1431 passed, 16 ignored)、`openspec validate openstock-data-consumption-p0-11 --strict`、`grep -rn "tdx_api|TdxApi|tdx-api" src/ tests/ --include="*.rs"` 为空
+
 ## 2026-06-29
 
 ### Added

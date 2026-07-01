@@ -126,10 +126,10 @@ Sub-slice status legend:
 
 ### 3c. Phase 5 — Ecosystem cleanup（main 已稳定后）
 
-- [ ] 3c.30 `docker-compose.yml`: 注释或删除 `tdx-api` 服务块（design.md R6 建议注释保留以便回滚）。
-- [ ] 3c.31 `FUNCTION_TREE.md` L95 / L212 / L658 / L781 / L1126 五处更新（design.md D7）— 标 `[deprecated, removed in P0.11c]` 或删除。
-- [ ] 3c.32 `docs/CLI_COMMAND_MANUAL.html`：删除 `cmd-data-tdx-api-import-ticks` / `cmd-data-tdx-api-import-klines` section，新增 `cmd-data-import-ticks` / `cmd-data-import-klines`（Decision 4 = A 时）；同步侧边导航、目录条目。
-- [ ] 3c.33 Update README.md, CHANGELOG.md, `docs/guides/TDX_API_BRIDGE_GUIDE.md` — 加 deprecation banner 指向 OpenStock。Decision 4 = A 时考虑保留 `tdx-api` parent 作为隐藏 alias 一个 release（风险 R9 缓解）。
+- [x] 3c.30 `docker-compose.yml`: 注释或删除 `tdx-api` 服务块（design.md R6 建议注释保留以便回滚）。 ✅ 注释服务块 + `tdx-api-data` volume，移除 `TDX_API_URL` env 和 depends_on 健康门。
+- [x] 3c.31 `FUNCTION_TREE.md` L47 / L212 / L650 / L772-790 / L1101 五处更新（design.md D7）— 标 `[deprecated, removed in P0.11c]` 或删除。 ✅
+- [x] 3c.32 `docs/CLI_COMMAND_MANUAL.html`：顶部加 deprecation banner（指向 P0.11c + OpenStock canonical），更新日期戳为 2026-07-02；全部 152 处历史 tdx-api 引用保留为历史参考，不再反映当前二进制。 ✅
+- [x] 3c.33 README.md (Phase 31 section → 弃用通知 + 目录树注释)、CHANGELOG.md (新增 2026-07-02 Removed 条目)、`docs/guides/TDX_API_BRIDGE_GUIDE.md` (标题 + 顶部 banner) — 加 deprecation 指向 OpenStock。 ✅
 
 ---
 

@@ -851,27 +851,8 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - 常见问题、最佳实践
 - **Rust 原生终端复用器** - 与项目技术栈一致
 
-#### Phase 31: tdx-api REST 数据源桥接 ✅
-- **tdx-api REST 客户端** (`src/sources/tdx_api.rs`)
-  - `TdxApiClient` - 通过 `TDX_API_URL` 环境变量连接 tdx-api Docker 服务
-  - 实时行情、K 线（原始/THS 前复权）、分时、搜索、交易日历、逐笔成交
-  - 市场涨跌统计、N日收益计算、异步任务管理
-- **CLI 子命令** (`src/cli/handlers/tdx_api_handler.rs`)
-  - 18 个 `quantix data tdx-api <subcommand>` 子命令
-  - `import-klines` — 单股或 `--all` 批量导入 THS 前复权 K 线到 ClickHouse，增量跳过
-  - `import-ticks` — 逐笔成交数据导入 TDengine tick_data 超级表
-  - `sync-calendar` — 交易日历同步到 `config/holidays.json`
-- **ClickHouse 扩展** (`src/db/clickhouse/kline.rs`)
-  - `insert_kline_data_batch_with_source()` — 支持自定义 source（THS_QFQ/TDX）
-  - `get_latest_kline_date()` — 增量导入检查
-- **TDengine 扩展** (`src/db/tdengine.rs`)
-  - `create_tick_table()` / `insert_ticks()` — 逐笔成交超级表
-  - `execute_sql()` — 通用 REST SQL 执行
-- **Docker Compose 集成** (`docker-compose.yml`)
-  - tdx-api 服务定义，quantix 服务 `TDX_API_URL` 环境变量
-- **每日更新脚本** (`scripts/daily-update.sh`)
-  - `sync-calendar` + `import-klines --all` 定时同步
-  - 建议定时任务: `0 18 * * 1-5 /opt/claude/quantix-rust/scripts/daily-update.sh --all`
+#### Phase 31: ~~tdx-api REST 数据源桥接~~ [DEPRECATED, removed in P0.11c (2026-07-01)]
+> **此阶段已被移除。** `TdxApiClient`、18 个 `data tdx-api` 子命令、`src/sources/tdx_api.rs`、`src/cli/handlers/tdx_api_handler.rs` 全部在 OpenSpec change `openstock-data-consumption-p0-11` 中删除。OpenStock 现为 canonical 行情数据源，对应 CLI 入口已提升为 `data import-ticks` / `data import-klines` 顶层命令。ClickHouse/TDengine 写入路径被 OpenStock 等价模块（`openstock_ticks`、`openstock_index`、`openstock_market`）替代；`scripts/daily-update.sh` 待社区决定是否在 P0.12 重写为 OpenStock 入口。
 
 ```
 quantix-rust/
@@ -888,7 +869,7 @@ quantix-rust/
 │   ├── db/              # 数据库客户端 (PostgreSQL, TDengine, ClickHouse)
 │   ├── io/              # 数据导入导出 (Phase 17)
 │   ├── monitoring/      # 实时监控系统 (Phase 16)
-│   ├── sources/         # 数据源 (TDX, AkShare, tdx-api REST, 行情采集, K线聚合)
+│   ├── sources/         # 数据源 (TDX, AkShare, OpenStock, 行情采集, K线聚合)
 │   ├── strategy/        # 交易策略
 │   ├── sync/            # 数据同步 ETL
 │   ├── tasks/           # 任务调度 (Cron, Scheduler)
