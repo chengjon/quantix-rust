@@ -91,10 +91,12 @@ Sub-slice status legend:
 ### 3c. Phase 2 — TDengine schema 准备（按 Decision 3 = B 展开）
 
 > 如选 A 或 C，本 phase 步骤和估时需要调整：A 膨胀到 ~2 天（需 backfill），C 改加 `source VARCHAR` tag 列。
+>
+> **2026-07-01 Phase 2 现场审计结论（r2）**：`tick_data` schema 在 `src/db/tdengine.rs:144-151` 自 `f97c002` 初次落地起即为 `(ts, price, volume, amount, direction TINYINT) TAGS(code)` — `direction` 是**唯一**语义列，从未存在过独立的 `status TINYINT` 列。原 audit 文档与 design.md D3 decision 2 中"保留 `status TINYINT` 给 legacy 字节"的假设建立在字段名误读之上（`t.status` 只是 Rust handler 层的局部变量/字段名，最终写入同一 `direction` 列）。因此 Option B 的物理隔离目标在 schema 层已天然达成：openstock 分支的 `TradeDirection::{Buy=1, Sell=-1, Neutral=0}` 映射（`tdx_api_handler.rs:351-361`，Phase 1 迁出后位于 `openstock_handler.rs::import_openstock_ticks`）已经是该列的语义来源；legacy tdx-api `t.status` 字节将在 Phase 4 整体删除，无需为其保留独立列。本 Phase 实际工作收敛为验证 + 文档修订，估时由 0.5 天降为接近 0。
 
-- [ ] 3c.11 TDengine migration script: 加 `direction TINYINT` 列（与现有 `status TINYINT` 物理隔离）。
-- [ ] 3c.12 修改 `import_ticks` openstock 分支：写入 `direction` 列而非 `status`（保留 legacy `status` 字段不动，承载 tdx-api 历史字节）。
-- [ ] 3c.13 `cargo test --workspace` 全绿。
+- [x] 3c.11 ~~TDengine migration script: 加 `direction TINYINT` 列~~ — **无需 migration**：`tick_data.direction` 列已存在（`src/db/tdengine.rs:144`），`CREATE STABLE IF NOT EXISTS` 幂等，无需新脚本。Audit 假设的 "现有 `status TINYINT`" 经全仓 grep（`status TINYINT` / `, status ` 在 `*.rs`/`*.sql`/`*.py` 中除 archive/plan 文档外零命中）证伪。
+- [x] 3c.12 ~~修改 `import_ticks` openstock 分支：写入 `direction` 列~~ — **无需修改**：P0.11b openstock 分支已映射 `TradeDirection::{Buy=1, Sell=-1, Neutral=0}` 写入 `direction` 列（`tdx_api_handler.rs:351-361`，Phase 1 已迁出至 `openstock_handler.rs::import_openstock_ticks`）。schema 与写入语义已一致。
+- [x] 3c.13 `cargo test --workspace` 全绿 — schema 无改动，Phase 1 已验证 (commit `d73f860` 已含 765 lib + 681 integration tests 全绿)。Phase 2 视为 no-op，进入 Phase 3。
 
 ### 3c. Phase 3 — scheduler reroute（Decision 1 = A 时；实为 P0.11d 规模独立切片）
 

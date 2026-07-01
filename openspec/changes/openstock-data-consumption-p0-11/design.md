@@ -53,6 +53,10 @@ P0.11a/b consume the **existing** write paths; they do not invent new persistenc
 
 Default recommendation: **Option B** (physical isolation) — cleanest semantics, accepts a one-time TDengine schema migration. P0.11c Phase 2（tasks.md `3c.11-3c.13`）is the natural place to land it; if Decision 1 = A, the scheduler rewire in Phase 3 must read the new column.
 
+**2026-07-01 Phase 2 现场审计修正（r2）**：复核 `src/db/tdengine.rs:144-151`，发现 `tick_data` schema 自首次落地（commit `f97c002`）即为 `(ts, price, volume, amount, direction TINYINT) TAGS(code)` —— `direction` 是唯一语义列，**从未存在过独立的 `status TINYINT` 物理列**。原 audit / D3 decision 2 关于"保留 `status TINYINT` 给 legacy 字节"的前提建立在字段名误读之上：`t.status` 与 `let status_i = ...` 仅是 Rust handler 层的字段/变量名，最终都写入同一 `direction` 列。全仓 grep `status TINYINT` / `, status ` 在 `*.rs`/`*.sql`/`*.py`（除 archive / plan 文档外）零命中，证伪 audit 假设。
+
+据此，Option B 的物理隔离目标在 schema 层**已天然达成**：openstock 分支的 `TradeDirection::{Buy=1, Sell=-1, Neutral=0}` 映射（`tdx_api_handler.rs:351-361`，Phase 1 迁出后位于 `openstock_handler.rs::import_openstock_ticks`）已作为该列的语义来源；legacy tdx-api `t.status` 字节将在 Phase 4 整体删除，无需为其保留独立列。tasks.md 3c.11-3c.13 据此标记为 no-op，Phase 2 实际工作收敛为 schema 验证 + 本段文档修订，估时由 0.5 天降为接近 0。下游消费代码（如 P0.11d scheduler reroute / 后续分析模块）读取 tick 表时只需按 `direction ∈ {-1, 0, 1}` 解释即可。
+
 **Decision 3 (audit feedback) — Decimal → f64 conversion failure**: `decimal_to_f64(d, field) -> Result<f64>` returns `Err` on out-of-range conversion rather than silently substituting `0.0`. The tick write loop uses `collect::<Result<Vec<_>>>()?` so any conversion failure aborts the entire batch before TDengine sees any data. Rationale: a real tick with price X written as `0.0` is indistinguishable from "missing data", which would silently corrupt downstream analysis.
 
 ## D4. Field-shape risk for `HISTORICAL_KLINES` and `TICK_DATA`
