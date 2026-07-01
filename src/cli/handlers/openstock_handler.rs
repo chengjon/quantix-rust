@@ -201,8 +201,34 @@ pub(crate) async fn fetch_openstock_codes(settings: &OpenStockSettings) -> Resul
     println!("  来源: {}", source);
     println!("  记录数: {}", resp.records.len());
     if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
-        println!("  首条: code={:?} name={:?}", first.code, first.name);
-        println!("  末条: code={:?} name={:?}", last.code, last.name);
+        let first_sym = first
+            .extra
+            .get("symbol")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let first_mkt = first
+            .extra
+            .get("market")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let last_sym = last
+            .extra
+            .get("symbol")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let last_mkt = last
+            .extra
+            .get("market")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        println!(
+            "  首条: code={:?} name={:?} symbol={:?} market={:?}",
+            first.code, first.name, first_sym, first_mkt
+        );
+        println!(
+            "  末条: code={:?} name={:?} symbol={:?} market={:?}",
+            last.code, last.name, last_sym, last_mkt
+        );
     }
     println!("  artifact_hash: {}", resp.artifact_hash);
     println!(
@@ -330,8 +356,14 @@ pub(crate) async fn fetch_openstock_all_stocks(
     println!("  来源: {}", source);
     println!("  记录数: {}", resp.records.len());
     if let (Some(first), Some(last)) = (resp.records.first(), resp.records.last()) {
-        println!("  首条: code={:?} market={:?}", first.code, first.market);
-        println!("  末条: code={:?} market={:?}", last.code, last.market);
+        println!(
+            "  首条: code={:?} name={:?} market={:?} trade_status={:?}",
+            first.code, first.name, first.market, first.trade_status
+        );
+        println!(
+            "  末条: code={:?} name={:?} market={:?} trade_status={:?}",
+            last.code, last.name, last.market, last.trade_status
+        );
     }
     println!("  artifact_hash: {}", resp.artifact_hash);
     println!(

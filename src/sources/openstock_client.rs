@@ -347,6 +347,12 @@ impl OpenStockClient {
     }
 
     /// Convenience: fetch `INDEX_KLINES` for a symbol with optional date range.
+    ///
+    /// Runtime contract (`baostock._fetch_index_klines`): accepts
+    /// `start_date` / `end_date` as `YYYY-MM-DD` strings — same as
+    /// [`fetch_trade_dates`](Self::fetch_trade_dates). The legacy
+    /// `start` / `end` parameter names are ignored by the runtime
+    /// (verified 2026-07-01 against live `http://192.168.123.104:8040`).
     pub async fn fetch_index_klines(
         &self,
         code: &str,
@@ -355,12 +361,41 @@ impl OpenStockClient {
     ) -> Result<OpenStockResponse<crate::sources::openstock_index::IndexKlineRecord>> {
         let mut params = serde_json::json!({ "code": code });
         if let Some(start) = start {
-            params["start"] = Value::String(start.to_string());
+            params["start_date"] = Value::String(start.to_string());
         }
         if let Some(end) = end {
-            params["end"] = Value::String(end.to_string());
+            params["end_date"] = Value::String(end.to_string());
         }
         self.fetch("INDEX_KLINES", params).await
+    }
+
+    /// Convenience: fetch `HISTORICAL_KLINES` for an A-share stock code
+    /// with optional date range.
+    ///
+    /// Runtime contract: `HISTORICAL_KLINES` is documented in
+    /// `DATA_CAPABILITY_SCOPE.md` §"Long-history A-share K-lines" but
+    /// has not yet been live-verified from quantix-rust (P0.11a defers
+    /// the live smoke to fixture-driven parser tests; field shape may
+    /// differ from `INDEX_KLINES`). Parameters mirror
+    /// [`fetch_index_klines`](Self::fetch_index_klines): `code` plus
+    /// optional `start_date` / `end_date` as `YYYY-MM-DD` strings.
+    /// Record type reuses `IndexKlineRecord` since its fields are all
+    /// `Option<serde_json::Value>`, absorbing shape drift via the parser
+    /// layer (per P0.11 design.md D4).
+    pub async fn fetch_historical_klines(
+        &self,
+        code: &str,
+        start: Option<&str>,
+        end: Option<&str>,
+    ) -> Result<OpenStockResponse<crate::sources::openstock_index::IndexKlineRecord>> {
+        let mut params = serde_json::json!({ "code": code });
+        if let Some(start) = start {
+            params["start_date"] = Value::String(start.to_string());
+        }
+        if let Some(end) = end {
+            params["end_date"] = Value::String(end.to_string());
+        }
+        self.fetch("HISTORICAL_KLINES", params).await
     }
 
     /// Convenience: fetch `ALL_STOCKS` (baostock full-market snapshot).

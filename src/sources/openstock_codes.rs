@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::core::QuantixError;
+use crate::sources::openstock::normalize_symbol;
 use crate::sources::openstock_calendar::parse_calendar_date;
 use crate::sources::openstock_envelope::OpenStockEnvelope;
 
@@ -45,16 +46,34 @@ pub struct StockCodeRecord {
 }
 
 /// Raw record shape for `ALL_STOCKS` payloads.
+///
+/// Runtime (baostock provider) returns `{code:"sh.000001",
+/// code_name:"上证综合指数", tradeStatus:"1"}`. We use
+/// `#[serde(rename_all = "camelCase")]` so `trade_status` matches the
+/// runtime's `tradeStatus` automatically. `name` carries both
+/// `code_name` (snake, identical in camel) and the legacy `name` field
+/// via alias for back-compat with P0.9 fixtures. `market` and
+/// `listing_date` remain `Option` — runtime does not populate them
+/// today, but keeping the fields means the parser is forward-compatible
+/// if baostock adds them.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StockListRecord {
     #[serde(default)]
     pub code: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "code_name")]
     pub name: Option<String>,
     #[serde(default)]
     pub market: Option<String>,
-    #[serde(default)]
+    // `rename_all = "camelCase"` renames this to `listingDate`; add an
+    // explicit alias so the snake_case `listing_date` shape from
+    // legacy fixtures and `STOCK_BASIC` still deserializes.
+    #[serde(default, alias = "listing_date")]
     pub listing_date: Option<String>,
+    /// Runtime emits `tradeStatus:"1"|"0"` (1=正常交易, 0=停牌/退市).
+    /// Distinct from `listing_date` — never alias the two.
+    #[serde(default)]
+    pub trade_status: Option<String>,
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
@@ -73,6 +92,7 @@ pub struct StockListEntry {
     pub name: Option<String>,
     pub market: Option<String>,
     pub listing_date: Option<NaiveDate>,
+    pub trade_status: Option<String>,
 }
 
 /// Parse the `STOCK_CODES` category envelope.
@@ -86,7 +106,7 @@ pub fn parse_stock_codes(
         .data
         .into_iter()
         .map(|record| {
-            let code = require_code(record.code)?;
+            let code = normalize_code(record.code)?;
             Ok(StockCode {
                 code,
                 name: record.name.filter(|text| !text.trim().is_empty()),
@@ -106,7 +126,7 @@ pub fn parse_all_stocks(
         .data
         .into_iter()
         .map(|record| {
-            let code = require_code(record.code)?;
+            let code = normalize_code(record.code)?;
             let listing_date = match record.listing_date {
                 Some(text) if !text.trim().is_empty() => Some(parse_listing_date(&text)?),
                 _ => None,
@@ -116,27 +136,43 @@ pub fn parse_all_stocks(
                 name: record.name.filter(|text| !text.trim().is_empty()),
                 market: record.market.filter(|text| !text.trim().is_empty()),
                 listing_date,
+                trade_status: record.trade_status.filter(|text| !text.trim().is_empty()),
             })
         })
         .collect()
 }
 
-fn require_code(raw: Option<String>) -> Result<String, StockCodeParseError> {
+/// Validate and normalize a stock code.
+///
+/// Accepts both bare (`"600000"`, `"000001"`) and prefixed
+/// (`"sh.000001"`, `"sz000001"`, `"bj920193"`) shapes. The prefix
+/// variants are what baostock's `ALL_STOCKS` actually returns; the
+/// bare variants are what eltdx's `STOCK_CODES` returns. Prefixes
+/// (`sh`/`sz`/`bj`) and the separator (`.`, or none) are stripped
+/// before the digit-only + length check.
+fn normalize_code(raw: Option<String>) -> Result<String, StockCodeParseError> {
     let text = raw
         .filter(|text| !text.trim().is_empty())
         .ok_or(StockCodeParseError::MissingField("code"))?;
     let trimmed = text.trim();
-    if !trimmed.chars().all(|c| c.is_ascii_digit()) {
+    let stripped = normalize_symbol(trimmed);
+    // baostock emits `sh.000001` — normalize_symbol strips `sh` but
+    // keeps the `.`, so trim a single leading separator here.
+    let stripped = stripped
+        .strip_prefix('.')
+        .map(|s| s.to_string())
+        .unwrap_or(stripped);
+    if !stripped.chars().all(|c| c.is_ascii_digit()) {
         return Err(StockCodeParseError::InvalidCode {
             value: text.clone(),
         });
     }
-    if !(4..=8).contains(&trimmed.len()) {
+    if !(4..=8).contains(&stripped.len()) {
         return Err(StockCodeParseError::InvalidCode {
             value: text.clone(),
         });
     }
-    Ok(trimmed.to_string())
+    Ok(stripped.to_string())
 }
 
 /// Parse `ALL_STOCKS` `listing_date` field. Mirrors the calendar date
@@ -189,14 +225,33 @@ mod tests {
 
     #[test]
     fn parse_stock_codes_non_numeric_code_errors() {
-        let raw = r#"{"data": [{"code": "sh600", "name": "x"}]}"#;
+        // "XYZ" has no recognized exchange prefix → normalize_symbol
+        // returns it unchanged → fails the digit-only check.
+        let raw = r#"{"data": [{"code": "XYZ", "name": "x"}]}"#;
         let env: OpenStockEnvelope<StockCodeRecord> = serde_json::from_str(raw).unwrap();
         match parse_stock_codes(env) {
             Err(StockCodeParseError::InvalidCode { value }) => {
-                assert_eq!(value, "sh600");
+                assert_eq!(value, "XYZ");
             }
             other => panic!("expected InvalidCode, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn parse_stock_codes_strips_exchange_prefix() {
+        // eltdx STOCK_CODES returns prefixed shapes like "sh689009".
+        let raw = r#"{
+            "data": [
+                {"code": "sh689009", "symbol": "sh689009", "market": "a_share"},
+                {"code": "bj920193", "symbol": "bj920193", "market": "a_share"}
+            ],
+            "source": "eltdx"
+        }"#;
+        let env: OpenStockEnvelope<StockCodeRecord> = serde_json::from_str(raw).unwrap();
+        let codes = parse_stock_codes(env).unwrap();
+        assert_eq!(codes.len(), 2);
+        assert_eq!(codes[0].code, "689009");
+        assert_eq!(codes[1].code, "920193");
     }
 
     #[test]
@@ -235,6 +290,38 @@ mod tests {
         let entries = parse_all_stocks(env).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].code, "600000");
+    }
+
+    /// Real runtime (baostock) shape, captured during live integration on
+    /// 2026-07-01. Records use prefixed codes (`"sh.000001"`),
+    /// `code_name` (snake, not camelCase), and `tradeStatus` (camelCase).
+    /// Verifies the `#[serde(rename_all = "camelCase")]` + `alias =
+    /// "code_name"` + `normalize_symbol` chain handles this end-to-end.
+    #[test]
+    fn parse_all_stocks_runtime_shape_from_baostock() {
+        let raw = r#"{
+            "data": [
+                {"code": "sh.000001", "tradeStatus": "1", "code_name": "上证综合指数"},
+                {"code": "sh.600000", "tradeStatus": "1", "code_name": "浦发银行"}
+            ],
+            "source": "baostock",
+            "quality_flags": ["fallback_day:2021-05-14"]
+        }"#;
+        let env: OpenStockEnvelope<StockListRecord> = serde_json::from_str(raw).unwrap();
+        let entries = parse_all_stocks(env).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].code, "000001");
+        assert_eq!(entries[0].name.as_deref(), Some("上证综合指数"));
+        assert_eq!(entries[0].trade_status.as_deref(), Some("1"));
+        assert!(
+            entries[0].market.is_none(),
+            "runtime does not populate market today; field stays Option for forward-compat"
+        );
+        assert!(
+            entries[0].listing_date.is_none(),
+            "tradeStatus must NOT be aliased into listing_date (semantic mismatch)"
+        );
+        assert_eq!(entries[1].code, "600000");
     }
 
     #[test]
