@@ -354,8 +354,119 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             exchange,
             r#type,
             force,
+            source,
+            start,
+            end,
+            apply,
         } => {
             use crate::db::ClickHouseClient;
+
+            if source == "openstock" {
+                // P0.11a: OpenStock → ClickHouse kline_data (source = "OPENSTOCK")
+                //
+                // Dry-run 默认; --apply + QUANTIX_OPENSTOCK_KLINE_APPLY=yes 才真正写入。
+                // 不复用 QUANTIX_SHADOW_PERSIST_CONFIRM (那是 P0.8g-impl 影子表专用变量)。
+                if all {
+                    return Err(QuantixError::Other(
+                        "P0.11a openstock 分支暂不支持 --all; 请用 --code 单只导入".to_string(),
+                    ));
+                }
+                let Some(code) = code else {
+                    return Err(QuantixError::Other("请指定 --code <代码>".to_string()));
+                };
+
+                // 选择 category: 指数代码 (sh/sz/cn 前缀, 或全数字代码视为指数) 用 INDEX_KLINES,
+                // 其余股票代码用 HISTORICAL_KLINES (未联调验证, 见 design.md D4)。
+                let is_index =
+                    code.starts_with("sh.") || code.starts_with("sz.") || code.starts_with("cn.");
+                let osc = crate::sources::openstock_client::OpenStockClient::from_env()?;
+                let resp = if is_index {
+                    osc.fetch_index_klines(&code, start.as_deref(), end.as_deref())
+                        .await?
+                } else {
+                    osc.fetch_historical_klines(&code, start.as_deref(), end.as_deref())
+                        .await?
+                };
+
+                let envelope = crate::sources::openstock_envelope::OpenStockEnvelope {
+                    data: resp.records,
+                    source: Some(resp.source.clone()),
+                    data_category: Some(
+                        if is_index {
+                            "INDEX_KLINES"
+                        } else {
+                            "HISTORICAL_KLINES"
+                        }
+                        .to_string(),
+                    ),
+                    request_id: None,
+                    route_decision_id: None,
+                    quality_flags: Vec::new(),
+                    cache_state: None,
+                    circuit_state: None,
+                    latency_ms: resp.latency_ms,
+                    received_at: resp.received_at.clone(),
+                };
+                let klines = crate::sources::openstock_index::parse_index_klines(envelope)
+                    .map_err(|e| QuantixError::DataParse(e.to_string()))?;
+
+                println!(
+                    "OpenStock import-klines dry-run (source=openstock, category={})",
+                    if is_index {
+                        "INDEX_KLINES"
+                    } else {
+                        "HISTORICAL_KLINES"
+                    }
+                );
+                println!("  代码:    {}", code);
+                println!("  来源:    {}", resp.source);
+                println!("  记录数:  {}", klines.len());
+                if let Some(first) = klines.first() {
+                    println!(
+                        "  首条:    {} O={} H={} L={} C={}",
+                        first.date, first.open, first.high, first.low, first.close
+                    );
+                }
+                if let Some(last) = klines.last() {
+                    println!(
+                        "  末条:    {} O={} H={} L={} C={}",
+                        last.date, last.open, last.high, last.low, last.close
+                    );
+                }
+                println!("  artifact_hash: {}", resp.artifact_hash);
+                if let Some(ms) = resp.latency_ms {
+                    println!("  latency_ms:    {}", ms);
+                }
+
+                if !apply {
+                    println!(
+                        "  → dry-run; 加 --apply 实际写入 (需 QUANTIX_OPENSTOCK_KLINE_APPLY=yes)"
+                    );
+                    return Ok(());
+                }
+                if std::env::var("QUANTIX_OPENSTOCK_KLINE_APPLY")
+                    .ok()
+                    .as_deref()
+                    != Some("yes")
+                {
+                    return Err(QuantixError::Other(
+                        "已 --apply 但 QUANTIX_OPENSTOCK_KLINE_APPLY != yes; 拒绝写入 kline_data 主表".to_string(),
+                    ));
+                }
+
+                let ch = ClickHouseClient::with_default_config().await?;
+                ch.check_connection().await?;
+                ch.insert_kline_data_batch_with_source(&klines, &r#type, "OPENSTOCK")
+                    .await?;
+                println!(
+                    "  → 已写入 ClickHouse kline_data ({} 条, source=OPENSTOCK)",
+                    klines.len()
+                );
+                return Ok(());
+            }
+
+            // legacy tdx-api 分支 (P0.11c 删除)
+            eprintln!("⚠️ tdx-api legacy path, scheduled for removal in P0.11c");
 
             let c = client()?;
             let kt = parse_kline_type(&r#type)?;

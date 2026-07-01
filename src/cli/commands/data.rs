@@ -235,6 +235,22 @@ pub enum TdxApiCommands {
         /// 覆盖导入（忽略已有数据直接插入）
         #[arg(long)]
         force: bool,
+
+        /// 数据源: openstock (默认, P0.11a) 或 tdx-api (legacy, P0.11c 移除)
+        #[arg(long, default_value = "openstock")]
+        source: String,
+
+        /// OpenStock 起始日期 (YYYY-MM-DD), 仅 --source openstock 时生效
+        #[arg(long)]
+        start: Option<String>,
+
+        /// OpenStock 结束日期 (YYYY-MM-DD), 仅 --source openstock 时生效
+        #[arg(long)]
+        end: Option<String>,
+
+        /// 实际写入 ClickHouse 主表 (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_KLINE_APPLY=yes)
+        #[arg(long)]
+        apply: bool,
     },
 
     /// 从 tdx-api 同步交易日历到本地 config/holidays.json

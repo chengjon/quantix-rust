@@ -197,12 +197,20 @@ fn parses_data_tdx_api_import_klines_code_command() {
             exchange,
             r#type,
             force,
+            source,
+            start,
+            end,
+            apply,
         })) => {
             assert_eq!(code.as_deref(), Some("600000"));
             assert!(!all);
             assert_eq!(exchange, None);
             assert_eq!(r#type, "week");
             assert!(force);
+            assert_eq!(source, "openstock");
+            assert_eq!(start, None);
+            assert_eq!(end, None);
+            assert!(!apply);
         }
         other => panic!("unexpected command: {:?}", other),
     }
@@ -228,12 +236,18 @@ fn parses_data_tdx_api_import_klines_all_command() {
             exchange,
             r#type,
             force,
+            source,
+            start: _,
+            end: _,
+            apply,
         })) => {
             assert_eq!(code, None);
             assert!(all);
             assert_eq!(exchange.as_deref(), Some("sh"));
             assert_eq!(r#type, "day");
             assert!(!force);
+            assert_eq!(source, "openstock");
+            assert!(!apply);
         }
         other => panic!("unexpected command: {:?}", other),
     }
