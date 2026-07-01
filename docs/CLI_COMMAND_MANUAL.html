@@ -755,8 +755,8 @@ quantix data tdx-api quote -c 600000</pre>
 <li><a href='#cmd-data-tdx-api-pull-kline'><code>quantix data tdx-api pull-kline</code></a>：创建 K 线拉取异步任务</li>
 <li><a href='#cmd-data-tdx-api-pull-trade'><code>quantix data tdx-api pull-trade</code></a>：创建成交拉取异步任务</li>
 <li><a href='#cmd-data-tdx-api-cancel-task'><code>quantix data tdx-api cancel-task</code></a>：取消异步任务</li>
-<li><a href='#cmd-data-tdx-api-import-ticks'><code>quantix data tdx-api import-ticks</code></a>：导入逐笔成交数据到 TDengine</li>
-<li><a href='#cmd-data-tdx-api-import-klines'><code>quantix data tdx-api import-klines</code></a>：导入 THS 前复权 K 线到 ClickHouse</li>
+<li><a href='#cmd-data-tdx-api-import-ticks'><code>quantix data tdx-api import-ticks</code></a>：导入逐笔成交数据到 TDengine（P0.11b 起默认 OpenStock，dry-run 默认）</li>
+<li><a href='#cmd-data-tdx-api-import-klines'><code>quantix data tdx-api import-klines</code></a>：导入 K 线到 ClickHouse（P0.11a 起默认 OpenStock，dry-run 默认）</li>
 <li><a href='#cmd-data-tdx-api-sync-calendar'><code>quantix data tdx-api sync-calendar</code></a>：从 tdx-api 同步交易日历到本地 config/holidays.json</li>
 </ul>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>18 个下级命令</span><span class='chip'>1 个选项</span></div>
@@ -1116,7 +1116,7 @@ quantix data tdx-api quote -c 600000</pre>
 <div class='kicker'>3 级命令</div>
 <h3>quantix data tdx-api import-ticks</h3>
 <div class='meta'>命令路径：<code>quantix data tdx-api import-ticks</code></div>
-<p>导入逐笔成交数据到 TDengine</p>
+<p>导入逐笔成交数据到 TDengine（P0.11b 起默认 OpenStock，dry-run 默认）</p>
 <div class='subgrid'>
 <div>
 <h4>用法</h4>
@@ -1124,22 +1124,33 @@ quantix data tdx-api quote -c 600000</pre>
 <h4>参数</h4>
 <table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
 <tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>-d, --date</code></td><td>DATE</td><td>日期 (YYYYMMDD), 默认今天</td></tr>
+<tr><td><code>--source</code></td><td>SOURCE</td><td>数据源: openstock (默认, P0.11b) 或 tdx-api (legacy, P0.11c 移除) [default: openstock]</td></tr>
+<tr><td><code>--apply</code></td><td>-</td><td>实际写入 TDengine (默认 dry-run; 需配合 <code>QUANTIX_OPENSTOCK_TICK_APPLY=yes</code>)</td></tr>
 <tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
 </tbody></table>
 </div><div>
 <h4>使用示例</h4>
-<pre class='shell'>quantix data tdx-api import-ticks -c 600000 --date 20250605</pre>
+<pre class='shell'># OpenStock dry-run（默认）
+quantix data tdx-api import-ticks -c 600000 --date 20260630
+
+# OpenStock 实际写入 TDengine
+QUANTIX_OPENSTOCK_TICK_APPLY=yes \
+  quantix data tdx-api import-ticks -c 600000 --date 20260630 --apply
+
+# 临时回退到 legacy tdx-api 路径（P0.11c 将移除）
+quantix data tdx-api import-ticks -c 600000 --date 20250605 --source tdx-api</pre>
 <h4>功能说明</h4>
-<p>把 tdx-api 逐笔成交写入 TDengine tick_data 超级表；执行前应确认 TDengine 连接配置。</p>
+<p>P0.11b 起 <code>--source</code> 默认值由 <code>tdx-api</code> 切换为 <code>openstock</code>，OpenStock 分支经 <code>OpenStockClient::fetch_tick_data(symbol, date)</code> 拉取并解析为 <code>Tick</code> 数组。<code>--apply</code> 默认关闭（dry-run），开启时必须同时设置环境变量 <code>QUANTIX_OPENSTOCK_TICK_APPLY=yes</code> 才会真正写入 TDengine，任一条件不满足均拒绝写入并以非零码退出。<code>--source tdx-api</code> 走 legacy 路径并向 stderr 打印 <code>⚠️ tdx-api legacy path, scheduled for removal in P0.11c</code>，将在 P0.11c 整体删除。OpenStock 路径写入 <code>direction</code> 列的语义（Buy=1 / Sell=-1 / Neutral=0）与 legacy tdx-api 路径透传的原始字节语义不一致，跨路径比较同一 <code>direction</code> 列的值无意义，将在 P0.11c 统一。</p>
 </div></div>
 
-<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>2 个选项</span></div>
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>4 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-data-tdx-api-import-klines'>
 <div class='kicker'>3 级命令</div>
 <h3>quantix data tdx-api import-klines</h3>
 <div class='meta'>命令路径：<code>quantix data tdx-api import-klines</code></div>
-<p>导入 THS 前复权 K 线到 ClickHouse</p>
+<p>导入 K 线到 ClickHouse（P0.11a 起默认 OpenStock，dry-run 默认）</p>
 <div class='subgrid'>
 <div>
 <h4>用法</h4>
@@ -1151,15 +1162,30 @@ quantix data tdx-api quote -c 600000</pre>
 <tr><td><code>--exchange</code></td><td>EXCHANGE</td><td>交易所过滤 (sh/sz/bj), 仅 --all 时有效</td></tr>
 <tr><td><code>-t, --type</code></td><td>TYPE</td><td>K线周期: day, week, month [default: day]</td></tr>
 <tr><td><code>--force</code></td><td>-</td><td>覆盖导入（忽略已有数据直接插入）</td></tr>
+<tr><td><code>--source</code></td><td>SOURCE</td><td>数据源: openstock (默认, P0.11a) 或 tdx-api (legacy, P0.11c 移除) [default: openstock]</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>OpenStock 起始日期 (YYYY-MM-DD), 仅 --source openstock 时生效</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>OpenStock 结束日期 (YYYY-MM-DD), 仅 --source openstock 时生效</td></tr>
+<tr><td><code>--apply</code></td><td>-</td><td>实际写入 ClickHouse 主表 (默认 dry-run; 需配合 <code>QUANTIX_OPENSTOCK_KLINE_APPLY=yes</code>)</td></tr>
 <tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
 </tbody></table>
 </div><div>
 <h4>使用示例</h4>
-<pre class='shell'>quantix data tdx-api import-klines --all --exchange sh -t day</pre>
+<pre class='shell'># OpenStock dry-run（默认）
+quantix data tdx-api import-klines --code 600000 --start 2026-06-01 --end 2026-06-30
+
+# OpenStock 实际写入 ClickHouse kline_data 主表
+QUANTIX_OPENSTOCK_KLINE_APPLY=yes \
+  quantix data tdx-api import-klines --code 600000 --start 2026-06-01 --end 2026-06-30 --apply
+
+# 全市场 day K 线 dry-run
+quantix data tdx-api import-klines --all --exchange sh -t day
+
+# 临时回退到 legacy tdx-api 路径（P0.11c 将移除）
+quantix data tdx-api import-klines --code 600519 -t day --source tdx-api</pre>
 <h4>功能说明</h4>
-<p>把 THS 前复权 K 线写入 ClickHouse；--code 与 --all 互斥，--all 时可用 --exchange 缩小市场范围。</p>
+<p>P0.11a 起 <code>--source</code> 默认值由 <code>tdx-api</code> 切换为 <code>openstock</code>，OpenStock 分支根据股票代码前缀经 <code>OpenStockClient::fetch_index_klines</code>（指数）或 <code>fetch_historical_klines</code>（个股）拉取，写入 ClickHouse 主表 <code>kline_data</code> 时 <code>source = "OPENSTOCK"</code>。<code>--apply</code> 默认关闭（dry-run），开启时必须同时设置环境变量 <code>QUANTIX_OPENSTOCK_KLINE_APPLY=yes</code> 才会真正写入，任一条件不满足均拒绝写入并以非零码退出。<code>--start</code> / <code>--end</code> 仅在 <code>--source openstock</code> 时生效，格式 <code>YYYY-MM-DD</code>。<code>--source tdx-api</code> 走 legacy THS 前复权路径并向 stderr 打印 <code>⚠️ tdx-api legacy path, scheduled for removal in P0.11c</code>，将在 P0.11c 整体删除；<code>--code</code> 与 <code>--all</code> 互斥，<code>--all</code> 时可用 <code>--exchange</code> 缩小市场范围。</p>
 </div></div>
-<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>6 个选项</span></div>
+<div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>10 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card' id='cmd-data-tdx-api-sync-calendar'>
 <div class='kicker'>3 级命令</div>

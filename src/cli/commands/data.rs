@@ -58,6 +58,53 @@ pub enum DataCommands {
         #[arg(short, long, default_value = "./data")]
         output: String,
     },
+
+    /// 导入逐笔成交数据到 TDengine (OpenStock, P0.11c Phase 1 顶层 promote)
+    ///
+    /// 等价于 P0.11a/b 时期的 `data tdx-api import-ticks --source openstock`,
+    /// 移除 `--source` 参数 (openstock 现为唯一数据源, legacy tdx-api 路径
+    /// 将在 P0.11c Phase 4 删除)。旧路径仍可通过 `data tdx-api import-ticks`
+    /// 访问直至 Phase 4。
+    ImportTicks {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 日期 (YYYYMMDD), 默认今天
+        #[arg(short, long)]
+        date: Option<String>,
+
+        /// 实际写入 TDengine (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_TICK_APPLY=yes)
+        #[arg(long)]
+        apply: bool,
+    },
+
+    /// 导入 K 线到 ClickHouse `kline_data` (OpenStock, P0.11c Phase 1 顶层 promote)
+    ///
+    /// 等价于 P0.11a 时期的 `data tdx-api import-klines --source openstock`,
+    /// 移除 `--source` 参数 (openstock 现为唯一数据源)。旧 tdx-api 路径仍可
+    /// 通过 `data tdx-api import-klines` 访问直至 P0.11c Phase 4。
+    ImportKlines {
+        /// 股票代码 (sh./sz./cn. 前缀走 INDEX_KLINES, 其余走 HISTORICAL_KLINES)
+        #[arg(short, long)]
+        code: String,
+
+        /// K线周期: day, week, month
+        #[arg(short, long, default_value = "day")]
+        r#type: String,
+
+        /// 起始日期 (YYYY-MM-DD)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYY-MM-DD)
+        #[arg(long)]
+        end: Option<String>,
+
+        /// 实际写入 ClickHouse 主表 (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_KLINE_APPLY=yes)
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

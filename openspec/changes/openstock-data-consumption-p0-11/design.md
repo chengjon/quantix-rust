@@ -18,13 +18,13 @@ A single mega-slice would either (i) block P0.11a on the TICK_DATA smoke (slow) 
 
 | File:line | Usage | Action |
 |-----------|-------|--------|
-| `src/cli/handlers/tdx_api_handler.rs` (entire file, 476 lines) | All 18 CLI subcommand handlers | P0.11c delete |
+| `src/cli/handlers/tdx_api_handler.rs` (entire file, ~726 lines; grew during P0.11a/b when openstock branches were added) | All 18 CLI subcommand handlers | P0.11c delete |
 | `src/cli/handlers/data_handler.rs:348` | `DataSourceKind::TdxApi` health-check branch — `TdxApiClient::from_env()?; client.health().await?` | P0.11c reroute: remove variant, or alias to `OpenStock` and call `OpenStockClient::from_env()` with a `health()` ping (TBD: openstock has no `/health` endpoint today; simplest is remove the variant) |
 | `src/tasks/collect_scheduler.rs:83,136` | `tdx_api_fallback: Arc<RwLock<Option<TdxApiClient>>>` field + `set_tdx_api_fallback` method — runtime quote collector fallback | P0.11c Option A: rewire to `OpenStockClient`; requires `fetch_realtime_quotes` wrapper + `parse_realtime_quotes` parser. Option B: delete the fallback (judge by whether `collect_scheduler` is in any active automation today) |
 | `src/sources/tdx_api.rs` (entire file, 1309 lines) | The client itself, plus 33 methods | P0.11c delete |
 | `src/sources/mod.rs` | `pub mod tdx_api;` re-export | P0.11c delete |
 
-Additional `TdxApiClient` mentions in docs/guides/CHANGELOG are informational only — P0.11c task 3c.17 updates those with deprecation banners.
+Additional `TdxApiClient` mentions in docs/guides/CHANGELOG are informational only — P0.11c Phase 5（tasks.md `3c.33`）updates those with deprecation banners.
 
 ## D3. Write-path reuse (no new persistence code)
 
@@ -51,7 +51,7 @@ P0.11a/b consume the **existing** write paths; they do not invent new persistenc
 - **Option B**: Add a separate `direction` column to the TDengine schema; keep `status` for legacy bytes only.
 - **Option C**: Add a `source VARCHAR` tag column so downstream SQL can filter `WHERE source = 'OPENSTOCK'` when interpreting the status byte.
 
-Default recommendation: **Option B** (physical isolation) — cleanest semantics, accepts a one-time TDengine schema migration. P0.11c task 3c.5 is the natural place to land it (alongside the scheduler rewire).
+Default recommendation: **Option B** (physical isolation) — cleanest semantics, accepts a one-time TDengine schema migration. P0.11c Phase 2（tasks.md `3c.11-3c.13`）is the natural place to land it; if Decision 1 = A, the scheduler rewire in Phase 3 must read the new column.
 
 **Decision 3 (audit feedback) — Decimal → f64 conversion failure**: `decimal_to_f64(d, field) -> Result<f64>` returns `Err` on out-of-range conversion rather than silently substituting `0.0`. The tick write loop uses `collect::<Result<Vec<_>>>()?` so any conversion failure aborts the entire batch before TDengine sees any data. Rationale: a real tick with price X written as `0.0` is indistinguishable from "missing data", which would silently corrupt downstream analysis.
 
@@ -108,7 +108,7 @@ Two options for surfacing the data-source switch:
 - **Option N1 (chosen)**: `import-klines --source <openstock|tdx-api>` flag on the existing `tdx-api` subcommand path. Pro: zero CLI surface change; users who already run `quantix data tdx-api import-klines` see only the new default. Con: the command name still says `tdx-api`, which is misleading once openstock is the default.
 - **Option N2 (rejected)**: New top-level `quantix data openstock import-klines`. Pro: clean name. Con: duplicates the surface; forces user retraining; transition window creates two commands doing the same thing.
 
-N1 wins on transition friction. The misleading name is temporary — P0.11c deletes the `tdx-api` parent entirely and migrates `import-klines` / `import-ticks` up one level to `quantix data import-klines` (no parent) or `quantix data openstock import-klines`. **Decision for P0.11c task 3c.9**: when removing the `TdxApi` parent, decide whether to promote `ImportKlines` / `ImportTicks` to top-level `DataCommands` variants or relocate under `OpenStockCommands`. Default: promote to top-level, since by P0.11c openstock is the only source and the indirection is meaningless.
+N1 wins on transition friction. The misleading name is temporary — P0.11c deletes the `tdx-api` parent entirely and migrates `import-klines` / `import-ticks` up one level to `quantix data import-klines` (no parent) or `quantix data openstock import-klines`. **Decision for P0.11c Phase 1 (tasks.md 3c.9)**: when removing the `TdxApi` parent, decide whether to promote `ImportKlines` / `ImportTicks` to top-level `DataCommands` variants or relocate under `OpenStockCommands`. Default: promote to top-level, since by P0.11c openstock is the only source and the indirection is meaningless.
 
 ## D6. Governance debt — not carried forward
 
@@ -116,7 +116,7 @@ P0.10's design.md Risks table acknowledged that P0.8i / P0.9.yaml governance car
 
 ## D7. FUNCTION_TREE.md update choreography
 
-FUNCTION_TREE.md is the project's status registry. P0.11c task 3c.16 touches 5 lines:
+FUNCTION_TREE.md is the project's status registry. P0.11c Phase 5 (tasks.md 3c.31) touches 5 lines:
 
 - **L95** (`quantix data` row): drop "tdx-api 子命令已实现 18 个子命令" claim.
 - **L212** (tree node): remove `tdx-api REST 数据源 (tdx_api)`.
@@ -132,7 +132,7 @@ All updates happen in P0.11c, not earlier — sub-slices a/b do not change FUNCT
 |----|------|-----------|
 | R1 | `HISTORICAL_KLINES` shape differs from `INDEX_KLINES` | Fixture-driven parser tests before live wiring; parser absorbs shape drift via `Option<Value>` + `parse_decimal` pattern |
 | R2 | `TICK_DATA` not live-functional in openstock | Explicit 2b.2 unblock gate; if fails, P0.11b splits out, P0.11c proceeds with `import-ticks` still on tdx-api |
-| R3 | Hidden `TdxApiClient` consumer not caught by grep | 3c.12 grep audit + 3c.13 build clean + `gitnexus detect_changes` post-check |
-| R4 | `collect_scheduler` fallback rewire breaks an unrelated execution flow | Only scheduler edit is at 3c.5; full scheduler test suite runs before merge |
+| R3 | Hidden `TdxApiClient` consumer not caught by grep | Phase 4 (tasks.md 3c.27 + 3c.28) grep audit + build clean + `gitnexus detect_changes` post-check |
+| R4 | `collect_scheduler` fallback rewire breaks an unrelated execution flow | Only scheduler edit is in Phase 3 (tasks.md 3c.17); full scheduler test suite runs before merge |
 | R5 | openstock `REALTIME_QUOTES` shape unknown when P0.11c Option A starts | Same as R1: fixture-driven parser tests first |
-| R6 | Removing `tdx-api` Docker service breaks a running `quantix` instance still pointing at it | 3c.15 leaves `docker-compose.yml` `tdx-api` block commented, not deleted; operators can re-enable during transition |
+| R6 | Removing `tdx-api` Docker service breaks a running `quantix` instance still pointing at it | Phase 5 (tasks.md 3c.30) leaves `docker-compose.yml` `tdx-api` block commented, not deleted; operators can re-enable during transition |

@@ -407,6 +407,25 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
         } => {
             export_data(code, format, output).await?;
         }
+        DataCommands::ImportTicks { code, date, apply } => {
+            super::openstock_handler::import_openstock_ticks(&code, date.as_deref(), apply).await?;
+        }
+        DataCommands::ImportKlines {
+            code,
+            r#type,
+            start,
+            end,
+            apply,
+        } => {
+            super::openstock_handler::import_openstock_klines(
+                &code,
+                &r#type,
+                start.as_deref(),
+                end.as_deref(),
+                apply,
+            )
+            .await?;
+        }
     }
     Ok(())
 }
