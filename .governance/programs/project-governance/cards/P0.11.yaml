@@ -1,0 +1,75 @@
+task:
+  id: "P0.11"
+  title: "TdxApiClient removal + OpenStock canonical promotion"
+
+scope:
+  allowed_paths:
+    - "openspec/changes/openstock-data-consumption-p0-11/proposal.md"
+    - "openspec/changes/openstock-data-consumption-p0-11/design.md"
+    - "openspec/changes/openstock-data-consumption-p0-11/tasks.md"
+    - "openspec/changes/openstock-data-consumption-p0-11/specs/openstock-data-consumption/spec.md"
+    - "src/sources/tdx_api.rs"
+    - "src/sources/mod.rs"
+    - "src/cli/commands/data.rs"
+    - "src/cli/command_types.rs"
+    - "src/cli/handlers/tdx_api_handler.rs"
+    - "src/cli/handlers/openstock_handler.rs"
+    - "src/cli/handlers/app_shell.rs"
+    - "src/cli/handlers/data_handler.rs"
+    - "src/cli/handlers/mod.rs"
+    - "src/cli/mod.rs"
+    - "src/cli/tests/data.rs"
+    - "src/core/config.rs"
+    - "src/core/trading_calendar.rs"
+    - "src/tasks/collect_scheduler.rs"
+    - "tests/openstock_tick_data_live_test.rs"
+    - "tests/openstock_import_klines_live_test.rs"
+    - "docker-compose.yml"
+    - "FUNCTION_TREE.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    - "docs/CLI_COMMAND_MANUAL.html"
+    - "docs/guides/TDX_API_BRIDGE_GUIDE.md"
+    - "docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_2026-07-02.md"
+    - "docs/reports/HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md"
+    - ".governance/programs/project-governance/cards/P0.11.yaml"
+    - ".governance/programs/project-governance/nodes.json"
+    - ".governance/programs/project-governance/tree.md"
+    - ".governance/active-gates.json"
+    - ".governance/active-gates.md"
+  forbidden_paths:
+    - "src/data/models.rs"
+    - "src/backtest/**"
+    - "src/execution/**"
+
+non_goals:
+  - "No P0.9 / P0.10 governance debt cleanup (P0.8i / P0.9.yaml never created)."
+  - "No docker-compose tdx-api service block full removal — commented for rollback (R6), full removal scheduled for P0.12."
+  - "No scripts/daily-update.sh rewrite — references deleted commands; P0.12 scope."
+  - "No docs/CLI_COMMAND_MANUAL.html full HTML rewrite — 152 historical refs kept, banner added."
+  - "No tdx-api Docker image retirement (openstock repo scope)."
+
+acceptance:
+  commit_gate:
+    - "cargo fmt --all -- --check passes."
+    - "cargo clippy --all-targets --workspace -- -D warnings passes."
+    - "cargo test --workspace passes."
+    - "openspec validate openstock-data-consumption-p0-11 --strict passes."
+    - "grep -rn 'tdx_api|TdxApi|tdx-api' src/ tests/ --include='*.rs' returns empty."
+    - "git diff --check passes."
+  closeout_gate:
+    - "P0.11 closeout report filed at docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_2026-07-02.md."
+    - "OpenSpec change archived to openspec/changes/archive/2026-07-01-openstock-data-consumption-p0-11/."
+    - "HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md Status section updated (sections III.1/III.2/VII moved from ❌ to ✅)."
+
+evidence:
+  current_head: "b03b93e"
+  notes:
+    - "Phase 1 (openstock branch migration) — commit d73f860"
+    - "Phase 2 (TDengine schema audit, no-op) — Phase 1 already validated"
+    - "Phase 3 (collect_scheduler fallback removal, D1=B) — commit c5e2152"
+    - "Phase 4 (TdxApiClient + 18 CLI subcommands removal) — commit d1dda04 (2,656 lines deleted)"
+    - "Phase 5 (ecosystem doc cleanup) — commit b03b93e"
+    - "Decisions: D1=B (delete dead fallback, not rewire); D2=A (migrate to openstock_handler.rs); D3=B (TDengine schema audit no-op); D4=A (top-level promote)."
+    - "Closeout report: docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_2026-07-02.md"
+    - "Governance debt from P0.8i/P0.9/P0.10 not retroactively fixed per user direction."

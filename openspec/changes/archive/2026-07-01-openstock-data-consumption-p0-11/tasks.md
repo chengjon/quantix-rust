@@ -135,10 +135,10 @@ Sub-slice status legend:
 
 ## 4. Closeout
 
-- [ ] 4.1 `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_<date>.md` — record what shipped (per sub-slice), consumer reroutes, any residual `tdx-api` references (should be doc-only).
-- [ ] 4.2 Update handoff doc `HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md` Status section: §三.1 / §三.2 / §七 lines move from ❌ to ✅.
-- [ ] 4.3 Archive this OpenSpec change to `openspec/changes/archive/<YYYY-MM-DD>-openstock-data-consumption-p0-11/`.
-- [ ] 4.4 Governance card `P0.11.yaml` transition to `completed`.
+- [x] 4.1 `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_2026-07-02.md` — record what shipped (per sub-slice), consumer reroutes, any residual `tdx-api` references (should be doc-only). ✅
+- [x] 4.2 Update handoff doc `HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md` Status section: §三.1 / §三.2 / §七 lines move from ❌ to ✅. ✅ 2026-07-02 复审 section 全部 ✅ 闭合。
+- [x] 4.3 Archive this OpenSpec change to `openspec/changes/archive/2026-07-01-openstock-data-consumption-p0-11/`. ✅
+- [x] 4.4 Governance card `P0.11.yaml` transition to `completed`. ✅ 创建（retroactive，治理债在 closeout report §Follow-ups 已说明）；evidence.current_head=b03b93e。
 
 ---
 

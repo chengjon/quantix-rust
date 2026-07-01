@@ -6,9 +6,9 @@
 
 ---
 
-## Status（2026-07-01 复审）
+## Status（2026-07-02 复审 — P0.11 closed）
 
-本次复审基于 2026-07-01 真实联调（runtime `http://192.168.123.104:8040`，HEAD `eae7887`，5 个 P0 category 全部 live 验通），以及 `quantix-rust` HEAD 处的代码现状。
+本次复审基于 2026-07-02 P0.11c 收尾（HEAD `b03b93e`）。OpenSpec change `openstock-data-consumption-p0-11` 已完成 Phase 1-5 全部子任务。Closeout report: `docs/reports/OPENSTOCK_DATA_CONSUMPTION_P0_11_CLOSEOUT_2026-07-02.md`。
 
 ### ✅ 已闭合
 
@@ -18,6 +18,13 @@
 | §三.3 OpenSpec `tdx-api-import-e2e-hardening` 归档（方案 A） | 已归档 | commit `805cbc5`；归档于 `openspec/changes/archive/2026-06-29-tdx-api-import-e2e-hardening/` |
 | §四 **P0 全部三项** — 全 A 股代码列表、交易日历、指数 K 线 | openstock 已提供 `STOCK_CODES` + `ALL_STOCKS` + `TRADE_DATES` + `WORKDAYS` + `INDEX_KLINES`；本次联调 5 个 category live 验通 | `docs/operations/REMOTE_TEST_2026-07-01_ISSUES.md`；`docs/proposals/openstock-live-integration-findings.md` |
 | §五 协议建议（大部分） | envelope + `X-API-Key` + `source` 标记 + `artifact_hash` | `src/sources/openstock_envelope.rs`；`src/sources/openstock_shadow.rs` 中 `artifact_hash` SHA-256 实现 |
+| **§三.1 `import-klines` 数据源切换** | openstock `INDEX_KLINES` / `HISTORICAL_KLINES` | **commit `d73f860` (P0.11a Phase 1)**：`data import-klines` 顶层命令，OpenStock-only；P0.11c `d1dda04` 删除 legacy `data tdx-api import-klines` |
+| **§三.1 `import-ticks` 数据源切换** | openstock `TICK_DATA` | **commit `d73f860` (P0.11b Phase 1)**：`data import-ticks` 顶层命令，OpenStock-only；P0.11c `d1dda04` 删除 legacy `data tdx-api import-ticks` |
+| **§三.2 兼容回退的 `TdxApiClient`** | 已删除 | **commit `d1dda04` (P0.11c Phase 4)**：`src/sources/tdx_api.rs` (1309 行) 删除，`src/cli/handlers/tdx_api_handler.rs` (726 行) 删除，18 个 CLI 子命令删除 |
+| **§七.1 删除 `TdxApiClient` 对应方法** | 已删除 | **commit `d1dda04`**：33 个公开方法全部随客户端一并移除 |
+| **§三.3 FUNCTION_TREE.md tdx-api 条目改标** | 已完成 | **commit `b03b93e` (P0.11c Phase 5)**：FUNCTION_TREE.md L47/L212/L650/L772-790/L1101 全部标 `[deprecated, removed in P0.11c]` |
+| **`collect_scheduler.tdx_api_fallback`** | 已删除 | **commit `c5e2152` (P0.11c Phase 3, Decision 1=B)**：grep 确认零 caller，直接删除 dead-code 字段 |
+| **`docker-compose.yml` tdx-api 服务块** | 已注释 | **commit `b03b93e`**：服务块 + `tdx-api-data` volume 注释保留以便回滚（R6）；`TDX_API_URL` env 从 quantix 服务移除 |
 
 ### ⚠️ openstock 侧已就绪但 quantix-rust 未接入
 
@@ -34,24 +41,17 @@
 | P3 市场统计 | （需确认 category 名） | ❌ 未接入 |
 | P3 代码/名称搜索 | （需确认 category 名） | ❌ 未接入 |
 
-### ❌ 未解决（主体）
+### ⚠️ 仍待处理（非阻塞 closeout）
 
-**§三.1 / §三.2 / §七 quantix-rust 端清理 — 零进度**：
+以下项目已记录在 closeout report 的 Follow-ups 章节，不阻塞 P0.11 归档：
 
-- `src/sources/tdx_api.rs` **仍在**（1309 行，40.9 KB）
-- `src/cli/handlers/tdx_api_handler.rs` **仍在**（476 行，17.1 KB）
-- `src/cli/commands/data.rs` 中 `TdxApiCommands` 枚举与 18 个子命令仍在分发
-- `import-ticks` / `import-klines` 仍直写 tdx-api → ClickHouse / TDengine
-- FUNCTION_TREE.md L95 / L781 / L1126 仍把 tdx-api 标为 `[部分实现]`，未注明 deprecated / removal pending
-- §七.1 "删除 `TdxApiClient` 对应方法" — **零进度**
-
-### 推进路径
-
-新建 OpenSpec change `openstock-data-consumption-p0-11-tdx-cleanup`，分三个切片：
-
-1. **P0.11a**：`import-klines` 数据源从 tdx-api 切换到 openstock `INDEX_KLINES`/`HISTORICAL_KLINES`（openstock 侧已就绪），保留 tdx-api 作为兼容回退
-2. **P0.11b**：openstock `TICK_DATA` live 验通后，`import-ticks` 数据源从 tdx-api 切换到 openstock；TDengine 入仓后端保留（存储选型不属 handoff 范围）
-3. **P0.11c**：一次性移除 `TdxApiClient` + `tdx_api_handler.rs` + 18 个 CLI 子命令；FUNCTION_TREE tdx-api 条目改标 `[deprecated, removed in P0.11c]`
+| 项目 | 归属 | 跟踪 |
+|------|------|------|
+| `docker-compose.yml` tdx-api 服务块完整删除（现仅注释） | P0.12 | closeout §Follow-ups #1 |
+| `scripts/daily-update.sh` 重写或删除（仍引用已删除的 `data tdx-api sync-calendar`） | P0.12 | closeout §Follow-ups #2 |
+| `docs/CLI_COMMAND_MANUAL.html` 完整 HTML 重写（现仅顶部 banner） | 后续 | closeout §Follow-ups #3 |
+| `tdx-api` Docker image 本身退役 | openstock 仓库 | closeout §Follow-ups #4 |
+| P1/P2/P3 OpenStock category 接入（`MINUTE_DATA` / `REALTIME_QUOTES` / 等） | P0.13+ | 见本 handoff §"openstock 侧已就绪但 quantix-rust 未接入" 表 |
 
 ---
 
