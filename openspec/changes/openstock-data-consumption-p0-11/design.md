@@ -55,6 +55,40 @@ P0.11a/b mirrors the P0.9 pattern: fixture-driven parser tests first, then live 
 
 If a shape mismatch surfaces, fix it in the parser (mirrors how P0.9/P0.10 `IndexKlineRecord` accepts `Option<serde_json::Value>` for numerics and `parse_decimal`/`parse_volume` handle string vs number). **Do not** change OpenStockClient wrapper signatures for shape drift — that belongs in the parser layer.
 
+### D4.1 TICK_DATA live-verified shape (2026-07-01 smoke)
+
+Smoke command (task 2b.1, executed 2026-07-01):
+
+```
+curl -X POST http://192.168.123.104:8040/data/fetch \
+  -H "X-API-Key: ..." -H "Content-Type: application/json" \
+  -d '{"data_category":"TICK_DATA","params":{"symbol":"600000","date":"20260630"}}'
+```
+
+**Critical**: parameter is `symbol`, NOT `code`. Sending `code` returns HTTP 422 `"symbol is required for TICK_DATA"`. The fetch_index_klines / fetch_historical_klines wrappers use `code`; the new fetch_tick_data wrapper MUST use `symbol` to match the eltdx adapter contract.
+
+Response envelope (HTTP 200, 456 KB, 1800 ticks):
+- `data` is NOT a flat array. It is `[{meta: {...}, ticks: [...]}]` — array of 1 envelope-record, each containing a meta object and a ticks array.
+- `meta` fields: `symbol` (prefixed, e.g. `"sh600000"`), `start`, `count`, `returned_count`, `trading_date`, `price_base`, `has_more`, `requested_date`.
+- `ticks[]` fields per entry: `index`, `absolute_index`, `time` (`"HH:MM"`), `time_minutes`, `trade_datetime` (ISO `YYYY-MM-DDTHH:MM:SS`), `price` (float), `price_milli` (int), `volume` (int), `amount` (float), `order_count`, `status` (0/1), `side` (`"buy"`/`"sell"`), `price_delta_raw`, `price_acc_raw`.
+- Other envelope fields: `source: "eltdx"`, `data_category: "TICK_DATA"`, `gateway`, `endpoint_name`, `route_decision_id`, `request_id`, `exchange_time`, `received_at`, `staleness_ms`, `cache_state`, `circuit_state`, `quality_flags`, `latency_ms`.
+
+Parser design implications for `src/sources/openstock_ticks.rs`:
+- Record type is **not** reusable from IndexKlineRecord. New file with:
+  - `TickEnvelopeRecord { meta: TickMeta, ticks: Vec<TickEntry> }`
+  - `TickMeta { symbol, trading_date, returned_count, price_base, has_more, ... }`
+  - `TickEntry { trade_datetime, price, volume, amount, side, order_count, status, ... }`
+- `parse_tick_data(envelope) -> Result<Vec<TickEntry>>` — flattens the single envelope-record's ticks. Returns the meta separately or via a `(meta, ticks)` tuple if downstream needs `trading_date` / `price_base`.
+- Quantix `Tick` (`src/data/models.rs:33`) fields: `code, timestamp, price, volume, amount, direction`. Mapping:
+  - `code` ← strip prefix from `meta.symbol` (e.g. "sh600000" → "600000")
+  - `timestamp` ← parse `trade_datetime` (ISO, second precision)
+  - `price` ← `Decimal::try_from(price)` (float → Decimal; or use `price_milli`/1000 for exact)
+  - `volume` ← i64 from `volume`
+  - `amount` ← `Decimal::try_from(amount)`
+  - `direction` ← `match side { "buy" => Buy, "sell" => Sell, _ => Neutral }`
+- Status field (0/1) is dropped — semantics unknown, not in the `Tick` model. Document this in parser comment.
+- TDengine write path: existing `src/db/tdengine.rs` client unchanged per design D3.
+
 ## D5. Naming: `--source` flag vs new top-level subcommand
 
 Two options for surfacing the data-source switch:

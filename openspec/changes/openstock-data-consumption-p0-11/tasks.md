@@ -45,12 +45,12 @@ Sub-slice status legend:
 
 ### 2b. Unblock
 
-- [ ] 2b.1 Live smoke `TICK_DATA`: `curl -X POST $OPENSTOCK_BASE_URL/data/fetch -H "X-API-Key: $KEY" -d '{"data_category":"TICK_DATA","params":{"code":"600000","date":"20260630"}}'`. Capture sample response shape.
-- [ ] 2b.2 If `TICK_DATA` returns usable data → proceed to 2b.3. If not → mark P0.11b ⛔, split this sub-slice out as separate OpenSpec change, proceed to P0.11c with `import-ticks` staying on tdx-api (P0.11c then becomes "remove tdx-api EXCEPT `import-ticks`").
+- [x] 2b.1 Live smoke `TICK_DATA`: `curl -X POST $OPENSTOCK_BASE_URL/data/fetch -H "X-API-Key: $KEY" -d '{"data_category":"TICK_DATA","params":{"symbol":"600000","date":"20260630"}}'`. Sample shape captured in design.md §D4.1. **Note: parameter is `symbol`, not `code`** (sending `code` returns HTTP 422).
+- [x] 2b.2 TICK_DATA returns usable data (HTTP 200, 456 KB, 1800 ticks for sh600000 on 2026-06-30). Proceed to 2b.3. P0.11b is **not split out**.
 
 ### 2b. Code (only if 2b.2 passes)
 
-- [ ] 2b.3 Add `OpenStockClient::fetch_tick_data(&self, code: &str, date: Option<&str>)` wrapper.
+- [ ] 2b.3 Add `OpenStockClient::fetch_tick_data(&self, symbol: &str, date: Option<&str>)` wrapper. Parameter name MUST be `symbol` (NOT `code`) — see design.md §D4.1.
 - [ ] 2b.4 Create `src/sources/openstock_ticks.rs` with `TickRecord`, `parse_tick_data(envelope) -> Result<Vec<TickEntry>, TickParseError>`, and `normalize_*` helpers mirroring `openstock_index.rs` layout.
 - [ ] 2b.5 Add fixture-driven unit tests `tests/openstock_ticks.rs` covering: happy path, empty records, missing required field, malformed numeric (string vs number, mirroring `IndexKlineRecord` learnings).
 - [ ] 2b.6 Edit `ImportTicks` command: add `--source` flag (default `openstock`).
