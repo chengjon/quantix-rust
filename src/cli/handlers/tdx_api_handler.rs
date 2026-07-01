@@ -6,12 +6,19 @@ fn client() -> Result<TdxApiClient> {
     TdxApiClient::from_env()
 }
 
-/// Best-effort `Decimal` → `f64` for the TDengine tick write path.
-/// TDengine's tick schema stores price/amount as double; precision loss
-/// is acceptable (matches the legacy tdx-api path that already uses f64).
-fn decimal_to_f64(d: rust_decimal::Decimal) -> f64 {
+/// `Decimal` → `f64` for the TDengine tick write path.
+///
+/// Returns `Err` on values outside `f64` range instead of silently
+/// substituting 0.0 (which would corrupt the row — a real tick at
+/// price X written as 0.0 is indistinguishable from "no data"). The
+/// caller decides whether to skip the tick or abort the batch.
+fn decimal_to_f64(d: rust_decimal::Decimal, field: &'static str) -> Result<f64> {
     use rust_decimal::prelude::ToPrimitive;
-    d.to_f64().unwrap_or(0.0)
+    d.to_f64().ok_or_else(|| {
+        QuantixError::Other(format!(
+            "decimal_to_f64({d}) failed for field `{field}` (out of f64 range)"
+        ))
+    })
 }
 
 fn parse_kline_type(s: &str) -> Result<KlineType> {
@@ -339,16 +346,22 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
                     .iter()
                     .map(|t| {
                         let ts_ms = t.timestamp.and_utc().timestamp_millis();
-                        let price_f = decimal_to_f64(t.price);
-                        let amount_f = decimal_to_f64(t.amount);
+                        let price_f = decimal_to_f64(t.price, "price")?;
+                        let amount_f = decimal_to_f64(t.amount, "amount")?;
                         let status_i = match t.direction {
                             crate::data::models::TradeDirection::Buy => 1,
                             crate::data::models::TradeDirection::Sell => -1,
                             crate::data::models::TradeDirection::Neutral => 0,
                         };
-                        (ts_ms, price_f, t.volume as i32, amount_f, status_i)
+                        Ok::<(i64, f64, i32, f64, i32), QuantixError>((
+                            ts_ms,
+                            price_f,
+                            t.volume as i32,
+                            amount_f,
+                            status_i,
+                        ))
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>>>()?;
 
                 tde.insert_ticks(&code, &rows).await?;
                 println!(

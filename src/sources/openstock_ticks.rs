@@ -19,6 +19,7 @@
 use chrono::NaiveDateTime;
 use rust_decimal::Decimal;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -77,6 +78,11 @@ pub struct TickMeta {
     pub price_base: Option<serde_json::Value>,
     #[serde(default)]
     pub has_more: Option<bool>,
+    /// Provider-specific fields not modeled above (e.g. `start`,
+    /// `count`, `requested_date`). Retained verbatim per the project
+    /// parser convention — see `openstock_codes.rs` module header.
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,6 +97,13 @@ pub struct TickEntry {
     pub amount: Option<serde_json::Value>,
     #[serde(default)]
     pub side: Option<String>,
+    /// Provider-specific fields not modeled above (e.g.
+    /// `index`, `absolute_index`, `time`, `time_minutes`, `price_milli`,
+    /// `order_count`, `status`, `price_delta_raw`, `price_acc_raw`).
+    /// Retained verbatim so dry-run output can surface what the runtime
+    /// actually sent and future schema additions are forward-compatible.
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
 }
 
 /// Parse a TICK_DATA envelope into a flat tick list paired with the
