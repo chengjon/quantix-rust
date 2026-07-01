@@ -50,16 +50,16 @@ Sub-slice status legend:
 
 ### 2b. Code (only if 2b.2 passes)
 
-- [ ] 2b.3 Add `OpenStockClient::fetch_tick_data(&self, symbol: &str, date: Option<&str>)` wrapper. Parameter name MUST be `symbol` (NOT `code`) — see design.md §D4.1.
-- [ ] 2b.4 Create `src/sources/openstock_ticks.rs` with `TickRecord`, `parse_tick_data(envelope) -> Result<Vec<TickEntry>, TickParseError>`, and `normalize_*` helpers mirroring `openstock_index.rs` layout.
-- [ ] 2b.5 Add fixture-driven unit tests `tests/openstock_ticks.rs` covering: happy path, empty records, missing required field, malformed numeric (string vs number, mirroring `IndexKlineRecord` learnings).
-- [ ] 2b.6 Edit `ImportTicks` command: add `--source` flag (default `openstock`).
-- [ ] 2b.7 Edit `import_ticks` handler: branch on `source`; openstock branch → TDengine write via existing `src/db/tdengine.rs` client.
-- [ ] 2b.8 Add `#[ignore]` live test `tests/openstock_tick_data_live_test.rs`.
+- [x] 2b.3 Add `OpenStockClient::fetch_tick_data(&self, symbol: &str, date: Option<&str>)` wrapper. Parameter name MUST be `symbol` (NOT `code`) — see design.md §D4.1.
+- [x] 2b.4 Create `src/sources/openstock_ticks.rs` with `TickRecord`, `parse_tick_data(envelope) -> Result<Vec<TickEntry>, TickParseError>`, and `normalize_*` helpers mirroring `openstock_index.rs` layout.
+- [x] 2b.5 Add fixture-driven unit tests `tests/openstock_ticks.rs` covering: happy path, empty records, missing required field, malformed numeric (string vs number, mirroring `IndexKlineRecord` learnings).
+- [x] 2b.6 Edit `ImportTicks` command: add `--source` flag (default `openstock`).
+- [x] 2b.7 Edit `import_ticks` handler: branch on `source`; openstock branch → TDengine write via existing `src/db/tdengine.rs` client.
+- [x] 2b.8 Add `#[ignore]` live test `tests/openstock_tick_data_live_test.rs`.
 
 ### 2b. Verify
 
-- [ ] 2b.9 `cargo test --workspace` (live tests skip).
+- [x] 2b.9 `cargo test --workspace` (live tests skip).
 - [ ] 2b.10 `cargo test --test openstock_tick_data_live_test -- --ignored` → passes.
 
 ---

@@ -212,6 +212,14 @@ pub enum TdxApiCommands {
         /// 日期 (YYYYMMDD), 默认今天
         #[arg(short, long)]
         date: Option<String>,
+
+        /// 数据源: openstock (默认, P0.11b) 或 tdx-api (legacy, P0.11c 移除)
+        #[arg(long, default_value = "openstock")]
+        source: String,
+
+        /// 实际写入 TDengine (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_TICK_APPLY=yes)
+        #[arg(long)]
+        apply: bool,
     },
 
     /// 导入 THS 前复权 K 线到 ClickHouse

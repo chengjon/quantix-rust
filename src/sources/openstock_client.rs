@@ -398,6 +398,35 @@ impl OpenStockClient {
         self.fetch("HISTORICAL_KLINES", params).await
     }
 
+    /// Convenience: fetch `TICK_DATA` for a stock symbol on an optional
+    /// trading date. Live-verified 2026-07-01 (see design.md D4.1).
+    ///
+    /// **Critical**: the runtime parameter is `symbol` (NOT `code`).
+    /// Sending `code` returns HTTP 422 `"symbol is required for
+    /// TICK_DATA"`. This differs from `fetch_index_klines` /
+    /// `fetch_historical_klines`, which use `code`. The eltdx adapter
+    /// requires the `symbol` name.
+    ///
+    /// `date` is `YYYYMMDD` (numeric, no dashes) per the eltdx adapter
+    /// contract. When omitted, the runtime defaults to the latest
+    /// trading day.
+    ///
+    /// Response shape: `data: [{ meta, ticks: [...] }]` — a one-element
+    /// array wrapping a `{meta, ticks}` envelope-record (NOT a flat
+    /// tick list). Use [`parse_tick_data`](crate::sources::openstock_ticks::parse_tick_data)
+    /// to flatten.
+    pub async fn fetch_tick_data(
+        &self,
+        symbol: &str,
+        date: Option<&str>,
+    ) -> Result<OpenStockResponse<crate::sources::openstock_ticks::TickEnvelopeRecord>> {
+        let mut params = serde_json::json!({ "symbol": symbol });
+        if let Some(date) = date {
+            params["date"] = Value::String(date.to_string());
+        }
+        self.fetch("TICK_DATA", params).await
+    }
+
     /// Convenience: fetch `ALL_STOCKS` (baostock full-market snapshot).
     /// `day` is optional (`YYYY-MM-DD`); when omitted, the server falls
     /// back to the most recent trading day and reports it via

@@ -6,6 +6,14 @@ fn client() -> Result<TdxApiClient> {
     TdxApiClient::from_env()
 }
 
+/// Best-effort `Decimal` → `f64` for the TDengine tick write path.
+/// TDengine's tick schema stores price/amount as double; precision loss
+/// is acceptable (matches the legacy tdx-api path that already uses f64).
+fn decimal_to_f64(d: rust_decimal::Decimal) -> f64 {
+    use rust_decimal::prelude::ToPrimitive;
+    d.to_f64().unwrap_or(0.0)
+}
+
 fn parse_kline_type(s: &str) -> Result<KlineType> {
     match s {
         "minute1" => Ok(KlineType::Min1),
@@ -231,9 +239,127 @@ pub(crate) async fn run_tdx_api_command(cmd: TdxApiCommands) -> Result<()> {
             let resp = c.cancel_task(&id).await?;
             println!("任务 {} 已取消: {}", id, resp);
         }
-        TdxApiCommands::ImportTicks { code, date } => {
+        TdxApiCommands::ImportTicks {
+            code,
+            date,
+            source,
+            apply,
+        } => {
             use crate::core::config::AppConfig;
             use crate::db::TDengineClient;
+
+            if source == "openstock" {
+                // P0.11b: OpenStock TICK_DATA → TDengine.
+                //
+                // Dry-run 默认; --apply + QUANTIX_OPENSTOCK_TICK_APPLY=yes 才真正写入。
+                // 不复用 QUANTIX_OPENSTOCK_KLINE_APPLY (那是 ClickHouse 主表专用)。
+                let osc = crate::sources::openstock_client::OpenStockClient::from_env()?;
+                let resp = osc
+                    .fetch_tick_data(&code, date.as_deref())
+                    .await
+                    .map_err(|e| QuantixError::Other(format!("fetch_tick_data: {e}")))?;
+                let envelope = crate::sources::openstock_envelope::OpenStockEnvelope {
+                    data: resp.records,
+                    source: Some(resp.source.clone()),
+                    data_category: Some("TICK_DATA".to_string()),
+                    request_id: None,
+                    route_decision_id: None,
+                    quality_flags: Vec::new(),
+                    cache_state: None,
+                    circuit_state: None,
+                    latency_ms: resp.latency_ms,
+                    received_at: resp.received_at.clone(),
+                };
+                let (meta, ticks) = crate::sources::openstock_ticks::parse_tick_data(envelope)
+                    .map_err(|e| QuantixError::DataParse(format!("parse_tick_data: {e}")))?;
+
+                println!("OpenStock import-ticks dry-run (source=openstock, category=TICK_DATA)");
+                println!("  代码:    {}", code);
+                println!("  日期:    {}", date.as_deref().unwrap_or("(latest)"));
+                println!("  来源:    {}", resp.source);
+                println!("  Tick 数: {}", ticks.len());
+                if let Some(trading_date) = meta.trading_date.as_deref() {
+                    println!("  交易日:  {}", trading_date);
+                }
+                if let Some(first) = ticks.first() {
+                    println!(
+                        "  首条:    {} price={} vol={} amount={} dir={:?}",
+                        first.timestamp, first.price, first.volume, first.amount, first.direction
+                    );
+                }
+                if let Some(last) = ticks.last() {
+                    println!(
+                        "  末条:    {} price={} vol={} amount={} dir={:?}",
+                        last.timestamp, last.price, last.volume, last.amount, last.direction
+                    );
+                }
+                println!("  artifact_hash: {}", resp.artifact_hash);
+                if let Some(ms) = resp.latency_ms {
+                    println!("  latency_ms:    {}", ms);
+                }
+
+                if ticks.is_empty() {
+                    println!("  → 无 tick 数据; 跳过写入");
+                    return Ok(());
+                }
+
+                if !apply {
+                    println!(
+                        "  → dry-run; 加 --apply 实际写入 (需 QUANTIX_OPENSTOCK_TICK_APPLY=yes)"
+                    );
+                    return Ok(());
+                }
+                if std::env::var("QUANTIX_OPENSTOCK_TICK_APPLY")
+                    .ok()
+                    .as_deref()
+                    != Some("yes")
+                {
+                    return Err(QuantixError::Other(
+                        "已 --apply 但 QUANTIX_OPENSTOCK_TICK_APPLY != yes; 拒绝写入 TDengine"
+                            .to_string(),
+                    ));
+                }
+
+                let config = AppConfig::load("config")
+                    .map_err(|e| QuantixError::Other(format!("加载配置失败: {e}")))?;
+                let td = config
+                    .database
+                    .tdengine
+                    .ok_or_else(|| QuantixError::Config("缺少 TDengine 配置".to_string()))?;
+                let token = format!("{}:{}", td.username, td.password);
+                let tde = TDengineClient::new_with_database(
+                    &format!("http://{}:{}", td.host, td.port),
+                    &token,
+                    &td.database,
+                )?;
+                tde.check_connection().await?;
+                tde.create_tick_table().await?;
+
+                let rows: Vec<(i64, f64, i32, f64, i32)> = ticks
+                    .iter()
+                    .map(|t| {
+                        let ts_ms = t.timestamp.and_utc().timestamp_millis();
+                        let price_f = decimal_to_f64(t.price);
+                        let amount_f = decimal_to_f64(t.amount);
+                        let status_i = match t.direction {
+                            crate::data::models::TradeDirection::Buy => 1,
+                            crate::data::models::TradeDirection::Sell => -1,
+                            crate::data::models::TradeDirection::Neutral => 0,
+                        };
+                        (ts_ms, price_f, t.volume as i32, amount_f, status_i)
+                    })
+                    .collect();
+
+                tde.insert_ticks(&code, &rows).await?;
+                println!(
+                    "  → 已写入 TDengine ({} 条 tick, source=OPENSTOCK)",
+                    rows.len()
+                );
+                return Ok(());
+            }
+
+            // legacy tdx-api 分支 (P0.11c 删除)
+            eprintln!("⚠️ tdx-api legacy path, scheduled for removal in P0.11c");
 
             let c = client()?;
             let resp = c.get_trades(&code, date.as_deref()).await?;
