@@ -83,10 +83,10 @@ Sub-slice status legend:
 
 > 删除 `tdx_api_handler.rs` 前，P0.11a/b 写入该文件的 openstock 分支必须先迁出，否则删除时一并丢失。
 
-- [ ] 3c.7 把 `tdx_api_handler.rs::import_ticks` 的 openstock 分支迁到 `openstock_handler.rs`（Decision 2 = A 时）。
-- [ ] 3c.8 把 `tdx_api_handler.rs::import_klines` 的 openstock 分支迁到 `openstock_handler.rs`（Decision 2 = A 时）。
-- [ ] 3c.9 `app_shell.rs` dispatcher 重路由到新位置；如 Decision 4 = A，新增 `DataCommands::ImportTicks` / `ImportKlines` 顶层 variant。
-- [ ] 3c.10 `cargo build + cargo test --workspace` 全绿（验证迁出无误）。
+- [x] 3c.7 把 `tdx_api_handler.rs::import_ticks` 的 openstock 分支迁到 `openstock_handler.rs`（Decision 2 = A 时）. ✅ commit `d73f860` — 新增 `import_openstock_ticks()` (screener_handler.rs:596).
+- [x] 3c.8 把 `tdx_api_handler.rs::import_klines` 的 openstock 分支迁到 `openstock_handler.rs`（Decision 2 = A 时）. ✅ commit `d73f860` — 新增 `import_openstock_klines()` (screener_handler.rs:723).
+- [x] 3c.9 `app_shell.rs` dispatcher 重路由到新位置；如 Decision 4 = A，新增 `DataCommands::ImportTicks` / `ImportKlines` 顶层 variant. ✅ commit `d73f860` — DataCommands 加 ImportTicks/ImportKlines 顶层 variant, app_shell.rs 加 dispatcher 分支.
+- [x] 3c.10 `cargo build + cargo test --workspace` 全绿（验证迁出无误）. ✅ commit `d73f860` — fmt clean, clippy -D warnings clean, 765 lib tests + 681 integration tests + 14 ignored (live) all pass.
 
 ### 3c. Phase 2 — TDengine schema 准备（按 Decision 3 = B 展开）
 
