@@ -1,4 +1,4 @@
-//! Live smoke for `quantix data tdx-api import-klines --source openstock` (P0.11a).
+//! Live smoke for `quantix data import-klines` (OpenStock source).
 //! Verifies the dry-run path: OpenStock fetch succeeds, parser produces
 //! `Vec<Kline>`, and the ClickHouse write is NOT triggered (no --apply).
 //! Gated by `QUANTIX_OPENSTOCK_LIVE=1`.

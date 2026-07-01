@@ -28,9 +28,7 @@ mod trade;
 pub use account::{AccountCommands, AccountGroupCommands};
 pub use analysis::{AnalyzeCommands, ScreenerCommands, TaskCommands};
 pub use backtest::BacktestCommands;
-pub use data::{
-    DataCommands, DataSourceCommands, DataSourceKind, OpenStockCommands, TdxApiCommands,
-};
+pub use data::{DataCommands, DataSourceCommands, DataSourceKind, OpenStockCommands};
 pub use factor::{FactorCommands, FactorOutputFormat};
 pub use info::{
     AiCommands, FundamentalCommands, ImportCommands, NewsCommands, NotifyCommands,

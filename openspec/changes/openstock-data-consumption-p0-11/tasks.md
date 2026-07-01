@@ -112,17 +112,17 @@ Sub-slice status legend:
 
 ### 3c. Phase 4 — 删除（此时 legacy 已无生产引用）
 
-- [ ] 3c.19 删 `src/sources/tdx_api.rs`（1 309 行）+ `src/sources/mod.rs` 的 `pub mod tdx_api;`。
-- [ ] 3c.20 删 `src/cli/handlers/tdx_api_handler.rs`（726 行）+ `src/cli/handlers/mod.rs` 的 `pub mod tdx_api_handler;`。⚠️ 必须确认 Phase 1 已完成，openstock 分支已迁出。
-- [ ] 3c.21 删 `src/cli/commands/data.rs` 的 `TdxApiCommands` 枚举 + `TdxApi` parent variant（保留 `ImportTicks` / `ImportKlines`，按 Decision 4 = A promote 到 `DataCommands` 顶层）。
-- [ ] 3c.22 删 `src/cli/command_types.rs` 的 `DataSourceKind::TdxApi` 变体。
-- [ ] 3c.23 删 `src/cli/handlers/app_shell.rs` 的 `TdxApi(cmd) => ...` dispatcher 分支（Phase 1 已重路由后，本步骤仅清空死分支）。
-- [ ] 3c.24 删 `src/cli/handlers/data_handler.rs` 的全部 `tdx_api_*` helper（L42-47 `PersistedTdxApiConfig`、L543-605 helper 函数、L279-281 / L300 / L347-351 分支、L678-712 测试）。
-- [ ] 3c.25 ⚠️ **CRITICAL**：删 `src/core/config.rs` 的 `TdxApiConfig` 结构体 + 6 个 `default_tdx_api_*` 函数 + `DataSourceConfig.tdx_api` 字段。**必须与 3c.19 同 commit 或紧邻 commit**，否则 `DataSourceConfig.tdx_api` 引用悬空，编译断裂（审核意见 1）。
-- [ ] 3c.26 清理 §1.4 仅注释/doc-comment 文件：`src/core/trading_calendar.rs:387` 注释、`tests/openstock_tick_data_live_test.rs` doc、`tests/openstock_import_klines_live_test.rs` doc。
-- [ ] 3c.27 `grep -rn "tdx_api\|TdxApi\|tdx-api" src/ tests/ --include="*.rs"` → 应为空（验证全部清理）。
-- [ ] 3c.28 `cargo build --workspace + cargo test --workspace` 全绿。
-- [ ] 3c.29 `gitnexus detect_changes` — expected scope: deleted `tdx_api.rs`, deleted `tdx_api_handler.rs`, modified `collect_scheduler.rs`, `data_handler.rs`, `data.rs`, `app_shell.rs`, `config.rs`, `command_types.rs`. No surprise file.
+- [x] 3c.19 删 `src/sources/tdx_api.rs`（1 309 行）+ `src/sources/mod.rs` 的 `pub mod tdx_api;`。 ✅
+- [x] 3c.20 删 `src/cli/handlers/tdx_api_handler.rs`（726 行）+ `src/cli/handlers/mod.rs` 的 `pub mod tdx_api_handler;`。 ✅
+- [x] 3c.21 删 `src/cli/commands/data.rs` 的 `TdxApiCommands` 枚举 + `TdxApi` parent variant（保留 `ImportTicks` / `ImportKlines`，按 Decision 4 = A promote 到 `DataCommands` 顶层）。 ✅
+- [x] 3c.22 删 `src/cli/command_types.rs` 的 `DataSourceKind::TdxApi` 变体。 ✅
+- [x] 3c.23 删 `src/cli/handlers/app_shell.rs` 的 `TdxApi(cmd) => ...` dispatcher 分支（Phase 1 已重路由后，本步骤仅清空死分支）。 ✅
+- [x] 3c.24 删 `src/cli/handlers/data_handler.rs` 的全部 `tdx_api_*` helper（L42-47 `PersistedTdxApiConfig`、L543-605 helper 函数、L279-281 / L300 / L347-351 分支、L678-712 测试）。 ✅
+- [x] 3c.25 ⚠️ **CRITICAL**：删 `src/core/config.rs` 的 `TdxApiConfig` 结构体 + 6 个 `default_tdx_api_*` 函数 + `DataSourceConfig.tdx_api` 字段。 ✅ 与 3c.19 同 commit。
+- [x] 3c.26 清理 §1.4 仅注释/doc-comment 文件：`src/core/trading_calendar.rs:387` 注释、`tests/openstock_tick_data_live_test.rs` doc、`tests/openstock_import_klines_live_test.rs` doc、`src/cli/handlers/openstock_handler.rs` 5 处 doc、`src/cli/commands/data.rs` 2 处 SetDefault/Test 提示、`src/tasks/collect_scheduler.rs` warn 消息。 ✅
+- [x] 3c.27 `grep -rn "tdx_api\|TdxApi\|tdx-api" src/ tests/ --include="*.rs"` → 应为空（验证全部清理）。 ✅
+- [x] 3c.28 `cargo build --workspace + cargo test --workspace` 全绿。 ✅ 1431 passed, 16 ignored; clippy 0 warnings; fmt clean.
+- [x] 3c.29 `gitnexus detect_changes` — expected scope: deleted `tdx_api.rs`, deleted `tdx_api_handler.rs`, modified `collect_scheduler.rs`, `data_handler.rs`, `data.rs`, `app_shell.rs`, `config.rs`, `command_types.rs`. No surprise file. ✅ 见本 commit diff。
 
 ### 3c. Phase 5 — Ecosystem cleanup（main 已稳定后）
 

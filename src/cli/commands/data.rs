@@ -10,10 +10,6 @@ pub enum DataCommands {
     #[command(name = "openstock", subcommand)]
     OpenStock(OpenStockCommands),
 
-    /// tdx-api Docker 服务查询
-    #[command(subcommand)]
-    TdxApi(TdxApiCommands),
-
     /// 导入本地市场基础面快照到 ClickHouse
     ImportFundamentals {
         /// 输入 JSON 文件路径，内容为 MarketFundamentalSyncRecord 数组
@@ -59,12 +55,7 @@ pub enum DataCommands {
         output: String,
     },
 
-    /// 导入逐笔成交数据到 TDengine (OpenStock, P0.11c Phase 1 顶层 promote)
-    ///
-    /// 等价于 P0.11a/b 时期的 `data tdx-api import-ticks --source openstock`,
-    /// 移除 `--source` 参数 (openstock 现为唯一数据源, legacy tdx-api 路径
-    /// 将在 P0.11c Phase 4 删除)。旧路径仍可通过 `data tdx-api import-ticks`
-    /// 访问直至 Phase 4。
+    /// 导入逐笔成交数据到 TDengine (OpenStock)
     ImportTicks {
         /// 股票代码
         #[arg(short, long)]
@@ -79,11 +70,7 @@ pub enum DataCommands {
         apply: bool,
     },
 
-    /// 导入 K 线到 ClickHouse `kline_data` (OpenStock, P0.11c Phase 1 顶层 promote)
-    ///
-    /// 等价于 P0.11a 时期的 `data tdx-api import-klines --source openstock`,
-    /// 移除 `--source` 参数 (openstock 现为唯一数据源)。旧 tdx-api 路径仍可
-    /// 通过 `data tdx-api import-klines` 访问直至 P0.11c Phase 4。
+    /// 导入 K 线到 ClickHouse `kline_data` (OpenStock)
     ImportKlines {
         /// 股票代码 (sh./sz./cn. 前缀走 INDEX_KLINES, 其余走 HISTORICAL_KLINES)
         #[arg(short, long)]
@@ -104,215 +91,6 @@ pub enum DataCommands {
         /// 实际写入 ClickHouse 主表 (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_KLINE_APPLY=yes)
         #[arg(long)]
         apply: bool,
-    },
-}
-
-#[derive(Subcommand, Debug)]
-pub enum TdxApiCommands {
-    /// 测试 tdx-api 连通性
-    Health,
-
-    /// 获取实时行情
-    Quote {
-        /// 股票代码 (如 600000 或 sh600000)
-        #[arg(short, long)]
-        code: String,
-    },
-
-    /// 获取 K 线数据
-    Kline {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// K线周期: minute1, minute5, minute15, minute30, hour, day, week, month
-        #[arg(short, long, default_value = "day")]
-        r#type: String,
-
-        /// 限制返回条数
-        #[arg(short, long)]
-        limit: Option<u32>,
-    },
-
-    /// 获取完整历史K线 (同花顺前复权)
-    KlineThs {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// K线周期: day, week, month
-        #[arg(short, long, default_value = "day")]
-        r#type: String,
-    },
-
-    /// 获取分时数据
-    Minute {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// 日期 (YYYYMMDD), 默认今天
-        #[arg(short, long)]
-        date: Option<String>,
-    },
-
-    /// 搜索股票代码/名称
-    Search {
-        /// 搜索关键词
-        #[arg(short, long)]
-        keyword: String,
-    },
-
-    /// 查询交易日
-    Workday {
-        /// 日期 (YYYYMMDD)
-        #[arg(short, long)]
-        date: Option<String>,
-
-        /// 前后查询数量
-        #[arg(short, long, default_value = "5")]
-        count: u32,
-    },
-
-    /// 查询交易日范围
-    WorkdayRange {
-        /// 开始日期 (YYYYMMDD)
-        #[arg(long)]
-        start: String,
-
-        /// 结束日期 (YYYYMMDD)
-        #[arg(long)]
-        end: String,
-    },
-
-    /// N日收益计算
-    Income {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// 起始日期 (YYYYMMDD)
-        #[arg(long)]
-        start_date: String,
-
-        /// 计算天数列表 (如 5,10,20)
-        #[arg(short, long, value_delimiter = ',', default_value = "5,10,20,60,120")]
-        days: Vec<i32>,
-    },
-
-    /// 获取市场涨跌统计
-    MarketStats,
-
-    /// 列出异步任务
-    Tasks,
-
-    /// 查看任务详情
-    TaskInfo {
-        /// 任务 ID
-        #[arg(short, long)]
-        id: String,
-    },
-
-    /// 创建 K 线拉取异步任务
-    PullKline {
-        /// 股票代码 (逗号分隔, 如 600519,000001)
-        #[arg(short, long, value_delimiter = ',')]
-        codes: Vec<String>,
-
-        /// 起始日期 (YYYYMMDD)
-        #[arg(long)]
-        start_date: Option<String>,
-
-        /// 限制条数
-        #[arg(long)]
-        limit: Option<i32>,
-    },
-
-    /// 创建成交拉取异步任务
-    PullTrade {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// 起始年份
-        #[arg(long)]
-        start_year: Option<i32>,
-
-        /// 结束年份
-        #[arg(long)]
-        end_year: Option<i32>,
-    },
-
-    /// 取消异步任务
-    CancelTask {
-        /// 任务 ID
-        #[arg(short, long)]
-        id: String,
-    },
-
-    /// 导入逐笔成交数据到 TDengine
-    ImportTicks {
-        /// 股票代码
-        #[arg(short, long)]
-        code: String,
-
-        /// 日期 (YYYYMMDD), 默认今天
-        #[arg(short, long)]
-        date: Option<String>,
-
-        /// 数据源: openstock (默认, P0.11b) 或 tdx-api (legacy, P0.11c 移除)
-        #[arg(long, default_value = "openstock")]
-        source: String,
-
-        /// 实际写入 TDengine (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_TICK_APPLY=yes)
-        #[arg(long)]
-        apply: bool,
-    },
-
-    /// 导入 THS 前复权 K 线到 ClickHouse
-    ImportKlines {
-        /// 股票代码 (如 600519), 与 --all 互斥
-        #[arg(short, long, group = "target")]
-        code: Option<String>,
-
-        /// 导入全部 A 股
-        #[arg(long, group = "target")]
-        all: bool,
-
-        /// 交易所过滤 (sh/sz/bj), 仅 --all 时有效
-        #[arg(long)]
-        exchange: Option<String>,
-
-        /// K线周期: day, week, month
-        #[arg(short, long, default_value = "day")]
-        r#type: String,
-
-        /// 覆盖导入（忽略已有数据直接插入）
-        #[arg(long)]
-        force: bool,
-
-        /// 数据源: openstock (默认, P0.11a) 或 tdx-api (legacy, P0.11c 移除)
-        #[arg(long, default_value = "openstock")]
-        source: String,
-
-        /// OpenStock 起始日期 (YYYY-MM-DD), 仅 --source openstock 时生效
-        #[arg(long)]
-        start: Option<String>,
-
-        /// OpenStock 结束日期 (YYYY-MM-DD), 仅 --source openstock 时生效
-        #[arg(long)]
-        end: Option<String>,
-
-        /// 实际写入 ClickHouse 主表 (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_KLINE_APPLY=yes)
-        #[arg(long)]
-        apply: bool,
-    },
-
-    /// 从 tdx-api 同步交易日历到本地 config/holidays.json
-    SyncCalendar {
-        /// 年份 (默认今年)
-        #[arg(short, long)]
-        year: Option<i32>,
     },
 }
 
@@ -362,7 +140,7 @@ pub enum DataSourceCommands {
         #[arg(long, default_value = "config")]
         config_dir: String,
 
-        /// 数据源名称，目前支持 tdx / tdx-api / akshare
+        /// 数据源名称，目前支持 tdx / akshare
         #[arg(long, value_enum)]
         name: DataSourceKind,
     },
@@ -373,7 +151,7 @@ pub enum DataSourceCommands {
         #[arg(long, default_value = "config")]
         config_dir: String,
 
-        /// 数据源名称，目前支持 tdx / tdx-api / akshare
+        /// 数据源名称，目前支持 tdx / akshare
         #[arg(long, value_enum)]
         name: DataSourceKind,
     },
@@ -382,7 +160,6 @@ pub enum DataSourceCommands {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum DataSourceKind {
     Tdx,
-    TdxApi,
     Akshare,
 }
 
@@ -390,7 +167,6 @@ impl DataSourceKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Tdx => "tdx",
-            Self::TdxApi => "tdx_api",
             Self::Akshare => "akshare",
         }
     }

@@ -1,4 +1,4 @@
-//! Live smoke for `quantix data tdx-api import-ticks --source openstock` (P0.11b).
+//! Live smoke for `quantix data import-ticks` (OpenStock source).
 //! Verifies the dry-run parse path: OpenStock TICK_DATA fetch succeeds,
 //! `parse_tick_data` produces a non-empty `Vec<Tick>`, and TDengine is
 //! NOT touched (no --apply).

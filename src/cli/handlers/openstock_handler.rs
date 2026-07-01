@@ -581,17 +581,13 @@ pub(crate) async fn shadow_verify(batch_id: &str) -> Result<()> {
 }
 
 // ============================================================================
-// P0.11c Phase 1 — OpenStock import-* migrated here from tdx_api_handler.rs
-// (tasks.md 3c.7 + 3c.8). Legacy tdx-api branch stays in tdx_api_handler.rs
-// until Phase 4 delete. These functions are the canonical OpenStock-only
-// paths, reachable via DataCommands::ImportTicks / ImportKlines (D4=A top-level
-// promote, tasks.md 3c.9).
+// OpenStock import-* canonical paths.
+// Reachable via DataCommands::ImportTicks / ImportKlines.
 // ============================================================================
 
-/// `quantix data import-ticks` (P0.11c Phase 1, source=openstock only).
+/// `quantix data import-ticks` (OpenStock only).
 ///
-/// Migrated from `tdx_api_handler.rs::run_tdx_api_command::ImportTicks`
-/// openstock branch (L258-372 in pre-Phase-1 layout). Writes to TDengine
+/// Writes to TDengine
 /// gated by `--apply` + `QUANTIX_OPENSTOCK_TICK_APPLY=yes`; default dry-run.
 pub(crate) async fn import_openstock_ticks(
     code: &str,
@@ -687,10 +683,7 @@ pub(crate) async fn import_openstock_ticks(
             let ts_ms = t.timestamp.and_utc().timestamp_millis();
             let price_f = super::decimal_to_f64(t.price, "import-ticks")?;
             let amount_f = super::decimal_to_f64(t.amount, "import-ticks")?;
-            // P0.11c Phase 2 (Decision 3=B) will redirect this to a new
-            // `direction TINYINT` column. Until the schema migration lands,
-            // this maps TradeDirection to the legacy `status` byte — same
-            // placeholder behavior as the original tdx_api_handler branch.
+            // Maps TradeDirection → direction TINYINT byte (TDengine schema).
             let status_i = match t.direction {
                 crate::data::models::TradeDirection::Buy => 1,
                 crate::data::models::TradeDirection::Sell => -1,
@@ -714,10 +707,9 @@ pub(crate) async fn import_openstock_ticks(
     Ok(())
 }
 
-/// `quantix data import-klines` (P0.11c Phase 1, source=openstock only).
+/// `quantix data import-klines` (OpenStock only).
 ///
-/// Migrated from `tdx_api_handler.rs::run_tdx_api_command::ImportKlines`
-/// openstock branch (L503-605 in pre-Phase-1 layout). Writes to ClickHouse
+/// Writes to ClickHouse
 /// `kline_data` table gated by `--apply` + `QUANTIX_OPENSTOCK_KLINE_APPLY=yes`;
 /// default dry-run.
 pub(crate) async fn import_openstock_klines(

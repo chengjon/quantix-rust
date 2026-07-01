@@ -19,7 +19,7 @@ pub use command_types::{
     SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
-    TdxApiCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 pub use commands::{Cli, Commands};
 

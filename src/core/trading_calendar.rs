@@ -384,7 +384,7 @@ impl TradingCalendar {
         Ok(())
     }
 
-    /// 从交易日列表同步日历 (可由 tdx-api 调用方注入)
+    /// 从交易日列表同步日历
     ///
     /// 遍历全年，推导出节假日（非交易日的平日）和调休日（交易日的周末）
     pub fn sync_trading_days(&mut self, year: i32, trading_days: Vec<NaiveDate>) {

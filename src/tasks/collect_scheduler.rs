@@ -245,9 +245,7 @@ impl CollectScheduler {
         info!("开始采集 {} 只股票的实时行情", stocks.len());
 
         let quotes = self.collector.collect_all(&stocks).await.map_err(|e| {
-            warn!(
-                "TDX 协议采集失败: {e} (P0.11c Phase 3 已移除 tdx-api fallback, 主采集器失败即报错)"
-            );
+            warn!("TDX 协议采集失败: {e}");
             e
         })?;
 

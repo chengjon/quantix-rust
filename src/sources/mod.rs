@@ -17,7 +17,6 @@ pub mod quote_collector;
 ///
 /// 统一数据源接口，支持多数据源切换
 pub mod tdx;
-pub mod tdx_api;
 pub mod tdx_file;
 pub mod websocket;
 
@@ -54,12 +53,6 @@ pub use openstock_ticks::{
 };
 pub use quote_collector::{QuoteCollector, StockInfo as QuoteStockInfo};
 pub use tdx::{StockQuote, TdxSource};
-pub use tdx_api::{
-    CodeEntry, CodesResponse, IncomeItem, IncomeOhlcv, IncomeResponse,
-    KlineType as TdxApiKlineType, MarketStatItem, MarketStatsResponse, PullKlineRequest,
-    PullTradeRequest, SearchResult, TaskInfo, TdxApiClient, TdxApiConfig, WorkdayDate,
-    WorkdayRangeResponse, WorkdayResponse,
-};
 pub use tdx_file::{
     FuquanCalculator, FuquanFactor, FuquanType, TdxDataImporter, TdxDayData, TdxDayFile,
     TdxDayRecord, TdxGbbqFile, TdxGbbqRecord,

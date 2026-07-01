@@ -9,7 +9,7 @@ pub(crate) use super::command_types::{
     SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
     StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
     StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
-    TdxApiCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
+    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 use crate::core::Result;
 
@@ -41,7 +41,6 @@ mod shared_support;
 mod stop_handler;
 mod stop_output;
 mod strategy_handler;
-mod tdx_api_handler;
 mod trade_handler;
 mod trade_output;
 mod watchlist_handler;
