@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782801256493,
+  "lastUpdate": 1782889240795,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -4407,6 +4407,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 499749.5978676136,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "8687d47e34f8ccd3c4c1a9dac6cf7339d82070d5",
+          "message": "feat(openstock): WORKDAYS CLI surfaces full action matrix\n\nThe WORKDAYS category is action-driven in the runtime (eltdx provider\nsupports today/today_is_workday/is_workday/range/next_workday/\nprevious_workday). The previous CLI shape (`--year`) was based on the\nP0.9 union-calendar assumption and silently did nothing useful —\nruntime ignored the year param and returned `action=today` for every\ncall.\n\nReplaced the CLI subcommand shape:\n  fetch-workdays [--action <default today>]\n                 [--date YYYY-MM-DD]\n                 [--start YYYY-MM-DD] [--end YYYY-MM-DD]\n\n`OpenStockClient::fetch_workdays` signature changed accordingly; the\nhandler prints the full record shape (action/date/is_workday/\ntoday_is_workday/next_workday/previous_workday) so callers can see\nexactly what runtime returned. Live test updated to drive a\nconfigurable action via env vars.\n\nNote: live smoke shows runtime itself downgrades next_workday /\nprevious_workday to `action=today` — that is an upstream provider\nbehavior, not a CLI bug, and is left for the OpenStock runtime repo\nto address.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-06-30T15:15:54Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/8687d47e34f8ccd3c4c1a9dac6cf7339d82070d5"
+        },
+        "date": 1782889239760,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 295582.46866598155,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 2900847.405652282,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 36813421.165246025,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 855113.2686298216,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 10098479.716795051,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 80612932.596627,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 2299571.0941674765,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 20153373.955122653,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 181477057.2408135,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 11138.045442315093,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 113253.25122115195,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1195227.5054630816,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 11289.548363654758,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 112105.37530400808,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1254667.8737927405,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 27360.25419919614,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 282060.1624946865,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 2929989.9252251745,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 15784.458266234535,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 191191.14708446362,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 2128208.603475987,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 28720.257481074565,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 442614.7705537132,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 4960099.240499998,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 3979.000316492851,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 44344.20137755135,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 840775.660171795,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 4692.809188020699,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 60045.72444427732,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 30047.022781400636,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 12392.867148968535,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 109199.16814886205,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 54370.701376921395,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 31.604106959500804,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 29.874685576601934,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 46.805326211673744,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 660.2029184455735,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 6381.106278291686,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 62963.09971862113,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 4965.381375594331,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 50688.7685862167,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 518374.9571991612,
             "unit": "ns"
           }
         ]
