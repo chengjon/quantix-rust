@@ -9,6 +9,7 @@ pub mod openstock_client;
 pub mod openstock_codes;
 pub mod openstock_envelope;
 pub mod openstock_index;
+pub mod openstock_market;
 pub mod openstock_shadow;
 pub mod openstock_ticks;
 pub mod quote_collector;
@@ -45,6 +46,7 @@ pub use openstock_envelope::{OpenStockEnvelope, OpenStockErrorEnvelope};
 pub use openstock_index::{
     IndexKlineParseError, IndexKlineRecord, index_kline_error_into_quantix, parse_index_klines,
 };
+pub use openstock_market::OpenStockMarketReader;
 pub use openstock_shadow::artifact_hash as openstock_artifact_hash;
 pub use openstock_ticks::{
     TickEntry, TickEnvelopeRecord, TickMeta, TickParseError, parse_tick_data,

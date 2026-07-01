@@ -20,6 +20,53 @@ pub(crate) async fn create_clickhouse_client() -> Result<ClickHouseClient> {
     ClickHouseClient::from_settings(&runtime.clickhouse).await
 }
 
+/// 统一 K 线获取入口。
+///
+/// 路由策略：
+/// 1. 先走 OpenStock `/data/bars`（最实时，支持任意时间段）
+/// 2. 无结果/OpenStock 不可用时回退到 ClickHouse `day_kline`（1,150 万行历史数据）
+/// 3. 都无数据则返回空 vec（由调用方判断是否报错）
+pub(crate) async fn get_kline_for_analysis(
+    code: &str,
+    start: Option<chrono::NaiveDate>,
+    end: Option<chrono::NaiveDate>,
+    limit: Option<usize>,
+) -> Result<Vec<crate::data::models::Kline>> {
+    let start_str = start.map(|d| d.format("%Y-%m-%d").to_string());
+    let end_str = end.map(|d| d.format("%Y-%m-%d").to_string());
+
+    // 1. 尝试 OpenStock /data/bars
+    let os_settings = crate::core::runtime::OpenStockSettings::from_env();
+    if let (Some(base_url), Some(api_key)) = (&os_settings.base_url, &os_settings.api_key) {
+        let cfg = crate::sources::openstock_client::OpenStockClientConfig {
+            base_url: base_url.clone(),
+            api_key: api_key.clone(),
+            timeout: std::time::Duration::from_secs(os_settings.timeout_secs),
+            ..Default::default()
+        };
+        if let Ok(client) = crate::sources::openstock_client::OpenStockClient::new(cfg) {
+            match client
+                .fetch_daily_klines(code, start_str.as_deref(), end_str.as_deref())
+                .await
+            {
+                Ok(klines) if !klines.is_empty() => {
+                    let limited = match limit {
+                        Some(l) if klines.len() > l => klines.into_iter().take(l).collect(),
+                        _ => klines,
+                    };
+                    return Ok(limited);
+                }
+                Ok(_) => { /* openstock 无数据，fall through */ }
+                Err(_) => { /* openstock 不可用，fall through */ }
+            }
+        }
+    }
+
+    // 2. Fallback: ClickHouse day_kline
+    let ch = create_clickhouse_client().await?;
+    ch.get_kline_data(code, "1d", start, end, limit).await
+}
+
 pub(crate) fn build_trade_init_request(
     command_name: &str,
     capital: Option<f64>,

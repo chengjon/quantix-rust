@@ -26,7 +26,7 @@ pub(crate) async fn run_strategy(name: String, mode: String, code: Option<String
                     &name,
                     &mode,
                     code,
-                    ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+                    ClickHouseDailyKlineLoader::new(),
                     create_trade_store(),
                     create_risk_store(),
                     &runtime_store,
@@ -65,10 +65,7 @@ pub(crate) async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
     println!("  股票: {}", stock_code);
     println!("  参数: MA5, MA20");
 
-    let client = create_clickhouse_client().await?;
-    let klines = client
-        .get_kline_data(&stock_code, "1d", None, None, Some(10000))
-        .await?;
+    let klines = get_kline_for_analysis(&stock_code, None, None, Some(10000)).await?;
 
     if klines.len() < 20 {
         return Err(QuantixError::Other(format!(

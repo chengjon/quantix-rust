@@ -20,10 +20,7 @@ pub(crate) async fn calculate_indicators(code: String, indicators_str: String) -
     println!("  代码: {}", code);
     println!("  指标: {}", indicators_str);
 
-    let client = create_clickhouse_client().await?;
-    let klines = client
-        .get_kline_data(&code, "1d", None, None, Some(1000))
-        .await?;
+    let klines = get_kline_for_analysis(&code, None, None, Some(1000)).await?;
 
     if klines.is_empty() {
         println!("⚠️  未找到数据");

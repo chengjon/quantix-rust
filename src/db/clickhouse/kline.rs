@@ -2,6 +2,10 @@ use super::*;
 
 impl ClickHouseClient {
     /// 查询 K线数据 (支持多周期)
+    ///
+    /// 路由策略：
+    /// 1. 先查 `day_kline` 表（1,150万行历史数据，10年范围）
+    /// 2. 如无结果，fallback 到 `kline_data` 表（实时/分钟线汇聚）
     pub async fn get_kline_data(
         &self,
         code: &str,
@@ -10,16 +14,24 @@ impl ClickHouseClient {
         end_date: Option<chrono::NaiveDate>,
         limit: Option<usize>,
     ) -> Result<Vec<crate::data::models::Kline>> {
-        let mut where_clause = format!("code = '{}' AND period = '{}'", code, period);
+        let limit_str = limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default();
 
+        // 1. 查 day_kline (1,150万行历史日线)
+        let day_rows = self
+            .query_day_kline(code, start_date, end_date, &limit_str)
+            .await?;
+        if !day_rows.is_empty() {
+            return Ok(day_rows);
+        }
+
+        // 2. Fallback: 查 kline_data (实时/分钟线汇聚)
+        let mut where_clause = format!("code = '{}' AND period = '{}'", code, period);
         if let Some(start) = start_date {
             where_clause.push_str(&format!(" AND date >= '{}'", start));
         }
         if let Some(end) = end_date {
             where_clause.push_str(&format!(" AND date <= '{}'", end));
         }
-
-        let limit_str = limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default();
 
         let sql = format!(
             r#"
@@ -55,6 +67,75 @@ impl ClickHouseClient {
                 adjust_type: crate::data::models::AdjustType::None,
             })
             .collect())
+    }
+
+    /// 从 `day_kline` 查询历史 K线 (通过 HTTP JSON 避免 binary 协议类型不匹配)
+    async fn query_day_kline(
+        &self,
+        code: &str,
+        start_date: Option<chrono::NaiveDate>,
+        end_date: Option<chrono::NaiveDate>,
+        limit_str: &str,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let mut where_clause = format!("stock_code = '{}'", code);
+        if let Some(start) = start_date {
+            where_clause.push_str(&format!(" AND trade_date >= '{}'", start));
+        }
+        if let Some(end) = end_date {
+            where_clause.push_str(&format!(" AND trade_date <= '{}'", end));
+        }
+
+        let sql = format!(
+            r#"
+            SELECT
+                stock_code,
+                trade_date,
+                open, high, low, close, volume, amount
+            FROM quantix.day_kline
+            WHERE {}
+            ORDER BY trade_date ASC
+            {}
+            "#,
+            where_clause, limit_str
+        );
+
+        /// 轻量行结构，匹配 day_kline 的列名
+        #[derive(serde::Deserialize)]
+        struct DayKlineRow {
+            #[serde(rename = "stock_code")]
+            code: String,
+            #[serde(rename = "trade_date")]
+            date: String,
+            open: f64,
+            high: f64,
+            low: f64,
+            close: f64,
+            volume: f64,
+            amount: f64,
+        }
+
+        let rows: Vec<DayKlineRow> = self
+            .query_json(&sql)
+            .await
+            .map_err(|e| QuantixError::DatabaseQuery(format!("查询 day_kline 失败: {}", e)))?;
+
+        let mut klines: Vec<crate::data::models::Kline> = Vec::with_capacity(rows.len());
+        for row in rows {
+            let date = chrono::NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
+                .map_err(|e| QuantixError::DataParse(format!("解析日期失败: {}", e)))?;
+            klines.push(crate::data::models::Kline {
+                code: row.code,
+                date,
+                open: Decimal::from_f64(row.open).unwrap_or_default(),
+                high: Decimal::from_f64(row.high).unwrap_or_default(),
+                low: Decimal::from_f64(row.low).unwrap_or_default(),
+                close: Decimal::from_f64(row.close).unwrap_or_default(),
+                volume: row.volume as i64,
+                amount: Some(Decimal::from_f64(row.amount).unwrap_or_default()),
+                adjust_type: crate::data::models::AdjustType::None,
+            });
+        }
+        Ok(klines)
     }
 
     /// 插入 K线数据

@@ -2,6 +2,7 @@ use super::*;
 use crate::cli::handlers::market_output::print_market_strength_stock_ranking;
 use std::path::Path;
 
+use crate::core::runtime::OpenStockSettings;
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::market::{
     BoardRankRow, BoardSortBy, BoardType, LeaderFilter, LeaderRow, MarketDataReader,
@@ -21,8 +22,28 @@ pub async fn run_market_command(cmd: MarketCommands) -> Result<()> {
             MarketCommandOutput::Foundation(summary)
         }
         other => {
-            let reader = create_clickhouse_client().await?;
-            execute_market_command_with_runtime(other, reader, Some(&runtime.risk_path)).await?
+            // 优先使用 OpenStock 作为 market 数据源，具备完整配置时走 OpenStock，
+            // 否则回退到 ClickHouse
+            let os_settings = OpenStockSettings::from_env();
+            if os_settings.base_url.is_some() && os_settings.api_key.is_some() {
+                match crate::sources::openstock_client::OpenStockClient::from_settings(&os_settings)
+                {
+                    Ok(os_client) => {
+                        let reader =
+                            crate::sources::openstock_market::OpenStockMarketReader::new(os_client);
+                        execute_market_command_with_runtime(other, reader, Some(&runtime.risk_path))
+                            .await?
+                    }
+                    Err(_) => {
+                        let reader = create_clickhouse_client().await?;
+                        execute_market_command_with_runtime(other, reader, Some(&runtime.risk_path))
+                            .await?
+                    }
+                }
+            } else {
+                let reader = create_clickhouse_client().await?;
+                execute_market_command_with_runtime(other, reader, Some(&runtime.risk_path)).await?
+            }
         }
     };
 

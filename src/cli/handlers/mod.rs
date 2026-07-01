@@ -150,8 +150,8 @@ pub(crate) use self::shared_support::{
     build_stop_status_rows, build_trade_init_request, build_trade_order_request,
     create_clickhouse_client, create_risk_store, create_trade_store, decimal_to_f64,
     ensure_watchlist_contains_code, filter_stop_rules, format_stop_eval_state,
-    load_initialized_trade_account, load_trade_quote_prices, parse_stop_history_date,
-    parse_stop_history_event_type, patch_value, remap_trade_request_error,
+    get_kline_for_analysis, load_initialized_trade_account, load_trade_quote_prices,
+    parse_stop_history_date, parse_stop_history_event_type, patch_value, remap_trade_request_error,
     resolve_stop_reference_price, sync_risk_from_trade_store,
 };
 pub(crate) use self::stop_handler::StopCommandOutput;

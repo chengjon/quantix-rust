@@ -5,6 +5,7 @@
 //! [`OpenStockResponse::from_envelope`] and the shared deserialization
 //! paths.
 
+use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -465,6 +466,105 @@ impl OpenStockClient {
             params["end"] = Value::String(end.to_string());
         }
         self.fetch("WORKDAYS", params).await
+    }
+
+    /// Fetch daily OHLCV bars from OpenStock `/data/bars` endpoint.
+    ///
+    /// This is the preferred path for backtest/analysis K-line data.
+    /// `/data/bars` natively supports symbol, period, date range and
+    /// adjust type, and internally negotiates KLINES / ADJUSTED_KLINES
+    /// / HISTORICAL_KLINES based on the `adjust` param.
+    ///
+    /// Returns `Vec<Kline>` on success. When the upstream provider is
+    /// unavailable or returns empty data, returns an empty vec (caller
+    /// should fall back to ClickHouse or another source).
+    pub async fn fetch_daily_klines(
+        &self,
+        code: &str,
+        start: Option<&str>,
+        end: Option<&str>,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        let endpoint = self
+            .base_url
+            .join("data/bars")
+            .map_err(|e| QuantixError::Other(format!("url join failed: {}", e)))?;
+
+        let mut body = serde_json::json!({
+            "symbol": code,
+            "period": "day",
+        });
+        if let Some(start) = start {
+            body["start_date"] = Value::String(start.to_string());
+        }
+        if let Some(end) = end {
+            body["end_date"] = Value::String(end.to_string());
+        }
+
+        let resp = self
+            .http
+            .post(endpoint)
+            .header("X-API-Key", self.api_key.clone())
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars request failed: {}", e)))?;
+
+        let status = resp.status();
+        let raw = resp
+            .text()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars body read failed: {}", e)))?;
+
+        if !status.is_success() {
+            return Err(QuantixError::Other(format!(
+                "/data/bars returned {}: {}",
+                status,
+                raw.chars().take(200).collect::<String>()
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BarsResponse {
+            data: Vec<BarRecord>,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BarRecord {
+            time: String,
+            open: f64,
+            high: f64,
+            low: f64,
+            close: f64,
+            volume: f64,
+            amount: f64,
+        }
+
+        let bars: BarsResponse = serde_json::from_str(&raw)
+            .map_err(|e| QuantixError::Other(format!("/data/bars parse failed: {}", e)))?;
+
+        let mut klines = Vec::with_capacity(bars.data.len());
+        for bar in bars.data {
+            // time format: "2026-06-01T15:00:00+08:00" → NaiveDate
+            let date = chrono::NaiveDate::parse_from_str(&bar.time[..10], "%Y-%m-%d")
+                .map_err(|e| QuantixError::DataParse(format!("解析 bars 日期失败: {}", e)))?;
+
+            klines.push(crate::data::models::Kline {
+                code: code.to_string(),
+                date,
+                open: rust_decimal::Decimal::from_str(&format!("{}", bar.open)).unwrap_or_default(),
+                high: rust_decimal::Decimal::from_str(&format!("{}", bar.high)).unwrap_or_default(),
+                low: rust_decimal::Decimal::from_str(&format!("{}", bar.low)).unwrap_or_default(),
+                close: rust_decimal::Decimal::from_str(&format!("{}", bar.close))
+                    .unwrap_or_default(),
+                volume: bar.volume as i64,
+                amount: Some(
+                    rust_decimal::Decimal::from_str(&format!("{}", bar.amount)).unwrap_or_default(),
+                ),
+                adjust_type: crate::data::models::AdjustType::None,
+            });
+        }
+
+        Ok(klines)
     }
 }
 

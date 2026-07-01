@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::core::{QuantixError, Result};
-use crate::db::clickhouse::ClickHouseClient;
 use crate::screener::{
     DailyKlineLoader, PresetInvocation, RuleMatchDetail, ScreenRow, ScreenRunOptions, ScreenSortBy,
     ScreenUniverse, ScreenerService, parse_preset_invocation,
@@ -21,7 +20,7 @@ pub(crate) async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
             .await?
         }
         ScreenerCommands::Run { .. } => {
-            let loader = ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?);
+            let loader = ClickHouseDailyKlineLoader::new();
             execute_screener_command_with_loader(cmd, loader, create_watchlist_storage()).await?
         }
     };
@@ -34,13 +33,11 @@ pub(crate) async fn run_screener_command(cmd: ScreenerCommands) -> Result<()> {
     Ok(())
 }
 
-pub(crate) struct ClickHouseDailyKlineLoader {
-    client: ClickHouseClient,
-}
+pub(crate) struct ClickHouseDailyKlineLoader;
 
 impl ClickHouseDailyKlineLoader {
-    pub(crate) fn new(client: ClickHouseClient) -> Self {
-        Self { client }
+    pub(crate) fn new() -> Self {
+        Self
     }
 }
 
@@ -51,10 +48,8 @@ impl DailyKlineLoader for ClickHouseDailyKlineLoader {
         code: &str,
         lookback: usize,
     ) -> Result<Vec<crate::data::models::Kline>> {
-        let mut rows = self
-            .client
-            .get_kline_data(code, "1d", None, None, None)
-            .await?;
+        // 走统一 K 线获取入口：OpenStock /data/bars → ClickHouse day_kline fallback
+        let mut rows = get_kline_for_analysis(code, None, None, None).await?;
 
         if rows.len() > lookback {
             rows = rows[rows.len() - lookback..].to_vec();
@@ -71,10 +66,8 @@ impl StrategyBarLoader for ClickHouseDailyKlineLoader {
         code: &str,
         limit: usize,
     ) -> Result<Vec<crate::data::models::Kline>> {
-        let mut rows = self
-            .client
-            .get_kline_data(code, "1d", None, None, None)
-            .await?;
+        // 走统一 K 线获取入口
+        let mut rows = get_kline_for_analysis(code, None, None, None).await?;
         if rows.len() > limit {
             rows = rows[rows.len() - limit..].to_vec();
         }

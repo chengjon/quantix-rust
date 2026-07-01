@@ -124,10 +124,7 @@ pub(crate) async fn execute_backtest_run(
         risk_free_rate: parse_decimal_arg("risk_free_rate", &risk_free_rate)?,
     };
 
-    let client = create_clickhouse_client().await?;
-    let klines = client
-        .get_kline_data(&code, "1d", start_date, end_date, Some(limit))
-        .await?;
+    let klines = get_kline_for_analysis(&code, start_date, end_date, Some(limit)).await?;
 
     if klines.len() < long_period {
         return Err(QuantixError::Other(format!(

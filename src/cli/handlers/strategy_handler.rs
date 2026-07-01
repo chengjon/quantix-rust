@@ -581,7 +581,7 @@ pub(crate) async fn execute_strategy_daemon_run(once: bool) -> Result<()> {
     let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
     let config_store = JsonStrategyConfigStore::new(runtime.strategy_config_path);
     let loader = FallbackStrategyBarLoader::from_env_with_primary_source_id(
-        ClickHouseDailyKlineLoader::new(create_clickhouse_client().await?),
+        ClickHouseDailyKlineLoader::new(),
         "clickhouse-storage",
     );
 

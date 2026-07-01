@@ -75,13 +75,8 @@ pub(crate) async fn query_kline_data(
         .as_ref()
         .and_then(|s| NaiveDate::parse_from_str(s, "%Y%m%d").ok());
 
-    // 连接 ClickHouse
-    let client = create_clickhouse_client().await?;
-
-    // 查询数据
-    let klines = client
-        .get_kline_data(&code, &period_type, start_date, end_date, Some(limit))
-        .await?;
+    // 查询数据 — 走统一 K 线获取入口
+    let klines = get_kline_for_analysis(&code, start_date, end_date, Some(limit)).await?;
 
     if klines.is_empty() {
         println!("⚠️  未找到数据");
