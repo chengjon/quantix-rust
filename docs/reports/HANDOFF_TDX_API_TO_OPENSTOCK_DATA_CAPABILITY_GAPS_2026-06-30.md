@@ -1,8 +1,57 @@
 # Handoff — TDX-API 数据能力缺口 → OpenStock 接管
 
-日期：2026-06-30
+日期：2026-06-30（首次发布）· 状态复审：2026-07-01
 方向：quantix-rust → openstock
 触发：本项目 `quantix-rust` 仅作数据消费者，所有数据来自容器化部署的 `openstock`；明确不吸收 `tdxquant`、`miniqmt`（依赖 Windows 客户端，无法容器化）。
+
+---
+
+## Status（2026-07-01 复审）
+
+本次复审基于 2026-07-01 真实联调（runtime `http://192.168.123.104:8040`，HEAD `eae7887`，5 个 P0 category 全部 live 验通），以及 `quantix-rust` HEAD 处的代码现状。
+
+### ✅ 已闭合
+
+| 原始章节 | 内容 | 闭合证据 |
+|----------|------|----------|
+| §二（quantix 已做的部分） | OpenStock P0.8a–h + P0.9 + P0.10 全部落地 | commits `2571003` / `6f77efe` / `d1095c2` / `b51b9fb` / `8687d47` / `cbe87be` / `440c79f` / `4ef93fb` / `bc58365` |
+| §三.3 OpenSpec `tdx-api-import-e2e-hardening` 归档（方案 A） | 已归档 | commit `805cbc5`；归档于 `openspec/changes/archive/2026-06-29-tdx-api-import-e2e-hardening/` |
+| §四 **P0 全部三项** — 全 A 股代码列表、交易日历、指数 K 线 | openstock 已提供 `STOCK_CODES` + `ALL_STOCKS` + `TRADE_DATES` + `WORKDAYS` + `INDEX_KLINES`；本次联调 5 个 category live 验通 | `docs/operations/REMOTE_TEST_2026-07-01_ISSUES.md`；`docs/proposals/openstock-live-integration-findings.md` |
+| §五 协议建议（大部分） | envelope + `X-API-Key` + `source` 标记 + `artifact_hash` | `src/sources/openstock_envelope.rs`；`src/sources/openstock_shadow.rs` 中 `artifact_hash` SHA-256 实现 |
+
+### ⚠️ openstock 侧已就绪但 quantix-rust 未接入
+
+§四 P1/P2/P3 的能力 openstock 大部分已有对应 category（见 `DATA_CAPABILITY_SCOPE.md`），但 **quantix-rust 客户端没有对应方法**，本次联调只验了 P0 5 个：
+
+| Handoff 项 | openstock category | quantix-rust 客户端接入状态 |
+|------------|-------------------|---------------------------|
+| P1 分钟级 K 线 | `MINUTE_DATA` | ❌ 未接入 |
+| P1 周/月 K 线、不复权 | `KLINES` / `ADJUSTED_KLINES` / `HISTORICAL_KLINES` / `ADJUST_FACTOR` | ❌ 未接入 |
+| P2 实时行情 | `REALTIME_QUOTES` | ❌ 未接入 |
+| P2 分时图 | `MINUTE_DATA` | ❌ 未接入 |
+| P3 逐笔成交 | `TICK_DATA` | ❌ 未接入 |
+| P3 财务数据 | （需确认 category 名） | ❌ 未接入 |
+| P3 市场统计 | （需确认 category 名） | ❌ 未接入 |
+| P3 代码/名称搜索 | （需确认 category 名） | ❌ 未接入 |
+
+### ❌ 未解决（主体）
+
+**§三.1 / §三.2 / §七 quantix-rust 端清理 — 零进度**：
+
+- `src/sources/tdx_api.rs` **仍在**（1309 行，40.9 KB）
+- `src/cli/handlers/tdx_api_handler.rs` **仍在**（476 行，17.1 KB）
+- `src/cli/commands/data.rs` 中 `TdxApiCommands` 枚举与 18 个子命令仍在分发
+- `import-ticks` / `import-klines` 仍直写 tdx-api → ClickHouse / TDengine
+- FUNCTION_TREE.md L95 / L781 / L1126 仍把 tdx-api 标为 `[部分实现]`，未注明 deprecated / removal pending
+- §七.1 "删除 `TdxApiClient` 对应方法" — **零进度**
+
+### 推进路径
+
+新建 OpenSpec change `openstock-data-consumption-p0-11-tdx-cleanup`，分三个切片：
+
+1. **P0.11a**：`import-klines` 数据源从 tdx-api 切换到 openstock `INDEX_KLINES`/`HISTORICAL_KLINES`（openstock 侧已就绪），保留 tdx-api 作为兼容回退
+2. **P0.11b**：openstock `TICK_DATA` live 验通后，`import-ticks` 数据源从 tdx-api 切换到 openstock；TDengine 入仓后端保留（存储选型不属 handoff 范围）
+3. **P0.11c**：一次性移除 `TdxApiClient` + `tdx_api_handler.rs` + 18 个 CLI 子命令；FUNCTION_TREE tdx-api 条目改标 `[deprecated, removed in P0.11c]`
 
 ---
 
@@ -174,3 +223,14 @@
 
 - quantix-rust 维护者：通过本仓库 PR / issue。
 - openstock 团队：接收本 handoff 后回填接管计划与上线时间。
+
+---
+
+## 变更日志
+
+- **2026-06-30**：首次发布。
+- **2026-07-01**：复审 — 顶部追加 Status section；§四 P0 三项标闭合；§三.3 归档标已执行；§三.1/§三.2/§七 quantix-rust 清理标 pending，归入新 OpenSpec change `openstock-data-consumption-p0-11-tdx-cleanup` 推进。
+
+---
+
+> 本文档为 handoff + 状态记录，不作为功能状态注册表；功能当前状态以 [`FUNCTION_TREE.md`](../../FUNCTION_TREE.md) 中的状态注册表为准。
