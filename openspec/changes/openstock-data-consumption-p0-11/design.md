@@ -44,6 +44,17 @@ P0.11a/b consume the **existing** write paths; they do not invent new persistenc
 - Existing write: `src/db/tdengine.rs::TdengineClient` (used by current `import-ticks` tdx-api path).
 - P0.11b reroutes the source from tdx-api to openstock `TICK_DATA` but does not modify `TdengineClient`. Same dry-run / `--apply` gate pattern.
 
+**Decision 1 (audit feedback) — env var partition**: P0.11b introduces a fresh env var `QUANTIX_OPENSTOCK_TICK_APPLY=yes` for the TDengine write gate. It deliberately does NOT reuse `QUANTIX_OPENSTOCK_KLINE_APPLY` (that's ClickHouse-specific). Rationale: tick → TDengine and kline → ClickHouse are independent targets; a single shared `QUANTIX_OPENSTOCK_APPLY` would mislead operators into thinking one confirmation covers both. The risk-isolation principle wins over DRY here. Code: `src/cli/handlers/tdx_api_handler.rs::import_ticks` openstock branch.
+
+**Decision 2 (audit feedback) — direction-byte mapping**: `TradeDirection::{Buy, Sell, Neutral}` maps to `i32` values `{1, -1, 0}` for the TDengine status column. This is a **temporary placeholder** that does NOT align with the legacy tdx-api path's `t.status` byte (semantics undefined in quantix). Two paths write the same column with incomparable values during the P0.11b → P0.11c transition window. **P0.11c MUST resolve this** via one of:
+- **Option A**: Reverse-engineer tdx-api's status byte meaning and unify the mapping.
+- **Option B**: Add a separate `direction` column to the TDengine schema; keep `status` for legacy bytes only.
+- **Option C**: Add a `source VARCHAR` tag column so downstream SQL can filter `WHERE source = 'OPENSTOCK'` when interpreting the status byte.
+
+Default recommendation: **Option B** (physical isolation) — cleanest semantics, accepts a one-time TDengine schema migration. P0.11c task 3c.5 is the natural place to land it (alongside the scheduler rewire).
+
+**Decision 3 (audit feedback) — Decimal → f64 conversion failure**: `decimal_to_f64(d, field) -> Result<f64>` returns `Err` on out-of-range conversion rather than silently substituting `0.0`. The tick write loop uses `collect::<Result<Vec<_>>>()?` so any conversion failure aborts the entire batch before TDengine sees any data. Rationale: a real tick with price X written as `0.0` is indistinguishable from "missing data", which would silently corrupt downstream analysis.
+
 ## D4. Field-shape risk for `HISTORICAL_KLINES` and `TICK_DATA`
 
 `INDEX_KLINES` is live-verified: codes are prefixed (`sh.000001`), numerics are strings, `time` is the date column. `HISTORICAL_KLINES` and `TICK_DATA` are likely different:
@@ -73,21 +84,22 @@ Response envelope (HTTP 200, 456 KB, 1800 ticks):
 - `ticks[]` fields per entry: `index`, `absolute_index`, `time` (`"HH:MM"`), `time_minutes`, `trade_datetime` (ISO `YYYY-MM-DDTHH:MM:SS`), `price` (float), `price_milli` (int), `volume` (int), `amount` (float), `order_count`, `status` (0/1), `side` (`"buy"`/`"sell"`), `price_delta_raw`, `price_acc_raw`.
 - Other envelope fields: `source: "eltdx"`, `data_category: "TICK_DATA"`, `gateway`, `endpoint_name`, `route_decision_id`, `request_id`, `exchange_time`, `received_at`, `staleness_ms`, `cache_state`, `circuit_state`, `quality_flags`, `latency_ms`.
 
-Parser design implications for `src/sources/openstock_ticks.rs`:
+Parser design (shipped 2026-07-01 in `src/sources/openstock_ticks.rs`, commit `47747c5` + audit fix `c16ea8e`):
 - Record type is **not** reusable from IndexKlineRecord. New file with:
-  - `TickEnvelopeRecord { meta: TickMeta, ticks: Vec<TickEntry> }`
-  - `TickMeta { symbol, trading_date, returned_count, price_base, has_more, ... }`
-  - `TickEntry { trade_datetime, price, volume, amount, side, order_count, status, ... }`
-- `parse_tick_data(envelope) -> Result<Vec<TickEntry>>` — flattens the single envelope-record's ticks. Returns the meta separately or via a `(meta, ticks)` tuple if downstream needs `trading_date` / `price_base`.
-- Quantix `Tick` (`src/data/models.rs:33`) fields: `code, timestamp, price, volume, amount, direction`. Mapping:
-  - `code` ← strip prefix from `meta.symbol` (e.g. "sh600000" → "600000")
-  - `timestamp` ← parse `trade_datetime` (ISO, second precision)
-  - `price` ← `Decimal::try_from(price)` (float → Decimal; or use `price_milli`/1000 for exact)
-  - `volume` ← i64 from `volume`
-  - `amount` ← `Decimal::try_from(amount)`
+  - `TickEnvelopeRecord { meta: Option<TickMeta>, ticks: Vec<TickEntry> }`
+  - `TickMeta { symbol, trading_date, returned_count, price_base, has_more, extra: HashMap<String, Value> }`
+  - `TickEntry { trade_datetime, price, volume, amount, side, extra: HashMap<String, Value> }`
+  - `extra` catch-all (`#[serde(flatten)]`) retains unmapped provider fields (`order_count`, `price_milli`, `status`, `price_delta_raw`, `price_acc_raw`) verbatim — aligns with the project parser convention documented in `openstock_codes.rs` module header.
+- `parse_tick_data(envelope) -> Result<(TickMeta, Vec<Tick>), TickParseError>` — flattens the single envelope-record's ticks. Returns `(meta, ticks)` tuple because downstream needs `meta.trading_date` for dry-run output.
+- Quantix `Tick` (`src/data/models.rs:33`) field mapping:
+  - `code` ← strip prefix from `meta.symbol` via `normalize_symbol` (e.g. "sh600000" → "600000")
+  - `timestamp` ← parse `trade_datetime` (ISO `%Y-%m-%dT%H:%M:%S`, second precision; sub-second variant also accepted)
+  - `price` ← `parse_decimal` (handles `String` and `Number` shape drift, mirroring `IndexKlineRecord` lesson)
+  - `volume` ← `parse_volume` → i64
+  - `amount` ← `parse_decimal`
   - `direction` ← `match side { "buy" => Buy, "sell" => Sell, _ => Neutral }`
-- Status field (0/1) is dropped — semantics unknown, not in the `Tick` model. Document this in parser comment.
-- TDengine write path: existing `src/db/tdengine.rs` client unchanged per design D3.
+- Status field (0/1) lands in `TickEntry.extra["status"]` rather than being dropped silently. **Not mapped to the TDengine write** — see D3 decision 2 below for the direction-byte mapping.
+- TDengine write path: existing `src/db/tdengine.rs::insert_ticks` unchanged per design D3.
 
 ## D5. Naming: `--source` flag vs new top-level subcommand
 

@@ -32,14 +32,48 @@ The `quantix data tdx-api import-klines` subcommand SHALL accept a `--source <op
 
 ### Requirement: `import-ticks` accepts OpenStock source after live verification
 
-The `quantix data tdx-api import-ticks` subcommand SHALL accept a `--source <openstock|tdx-api>` flag. The default value is `openstock` IF AND ONLY IF task 2b.2 (`TICK_DATA` live smoke) has passed; otherwise the default is `tdx-api` and the openstock branch is hidden behind the flag.
+The `quantix data tdx-api import-ticks` subcommand SHALL accept a `--source <openstock|tdx-api>` flag with default `openstock`. The openstock branch SHALL use `OpenStockClient::fetch_tick_data(symbol, date)` where the JSON request parameter name is `symbol` (NOT `code`) per the eltdx adapter contract — sending `code` returns HTTP 422. The openstock branch SHALL be dry-run by default and write to TDengine only when `--apply` is set AND env var `QUANTIX_OPENSTOCK_TICK_APPLY=yes`.
+
+#### Scenario: TICK_DATA request uses `symbol` parameter
+
+- **WHEN** the openstock branch issues a `TICK_DATA` fetch
+- **THEN** the JSON body params object contains key `symbol` (not `code`)
+- **AND** the value is the stock code string (e.g. `"600000"`)
 
 #### Scenario: TICK_DATA live smoke passed
 
 - **GIVEN** the `TICK_DATA` smoke gate (task 2b.2) has passed
 - **WHEN** the user runs `quantix data tdx-api import-ticks --code 600000`
 - **THEN** the command fetches via `OpenStockClient::fetch_tick_data`
-- **AND** writes through the existing TDengine client
+- **AND** the response envelope shape `data: [{meta, ticks}]` is flattened by `parse_tick_data` into `(TickMeta, Vec<Tick>)`
+
+#### Scenario: TICK_DATA dry-run default
+
+- **WHEN** the user runs `import-ticks --code 600000 --source openstock` without `--apply`
+- **THEN** the command prints a dry-run report (tick count, first/last sample, artifact_hash, latency_ms)
+- **AND** does NOT write to TDengine
+
+#### Scenario: TICK_DATA apply requires explicit confirmation
+
+- **WHEN** the user runs `import-ticks --code 600000 --source openstock --apply`
+- **AND** env var `QUANTIX_OPENSTOCK_TICK_APPLY` is NOT set to `yes`
+- **THEN** the command refuses to write to TDengine and exits with non-zero status
+
+#### Scenario: TICK_DATA apply writes TDengine
+
+- **GIVEN** `--apply` is set AND `QUANTIX_OPENSTOCK_TICK_APPLY=yes`
+- **WHEN** the openstock branch parses the response
+- **THEN** each `TickEntry` is mapped to `(timestamp_ms, price_f64, volume_i32, amount_f64, direction_status_i32)`
+- **AND** `direction_status_i32` is `1` for `Buy`, `-1` for `Sell`, `0` for `Neutral`
+- **AND** `decimal_to_f64` returns `Err` on out-of-range conversion (does NOT silently substitute `0.0`)
+- **AND** any conversion error aborts the entire batch before the TDengine write
+
+#### Scenario: TICK_DATA response fields are forward-compatible
+
+- **WHEN** the openstock response contains fields not modeled in `TickEntry` (e.g. `price_milli`, `order_count`, `status`, `price_delta_raw`)
+- **THEN** they are captured in `TickEntry.extra: HashMap<String, Value>` via `#[serde(flatten)]`
+- **AND** `TickMeta` similarly captures unmapped meta fields
+- **AND** dry-run output MAY surface selected extra fields for operator visibility
 
 #### Scenario: TICK_DATA live smoke failed
 
@@ -47,6 +81,15 @@ The `quantix data tdx-api import-ticks` subcommand SHALL accept a `--source <ope
 - **WHEN** the user runs `import-ticks`
 - **THEN** the default source remains `tdx-api`
 - **AND** P0.11b splits out as a separate OpenSpec change (slice boundary adapts)
+
+#### Scenario: status byte semantic mismatch with legacy path
+
+- **GIVEN** P0.11b is merged but P0.11c has not yet removed the legacy tdx-api path
+- **WHEN** both paths write to the same TDengine `tick` table's status/direction column
+- **THEN** the openstock path writes `TradeDirection` mapping (Buy=1, Sell=-1, Neutral=0)
+- **AND** the legacy path writes raw tdx-api protocol bytes (semantics undefined in quantix)
+- **AND** downstream consumers MUST NOT compare status values across the two paths
+- **AND** P0.11c SHALL resolve this via one of: (a) unified mapping, (b) split columns, or (c) source tag column
 
 ### Requirement: `TdxApiClient` removal
 
