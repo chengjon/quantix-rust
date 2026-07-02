@@ -38,13 +38,14 @@ D1-D5; D6 covers the OpenSpec/governance approach.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| **D1 Scope baseline** (was Q1) | C — week/month + qfq/hfq | Covers all three P1 items from HANDOFF §四 |
+| **D1 Scope baseline** (was Q1) | C — day/week/month + qfq/hfq | Covers all three P1 items from HANDOFF §四 (`day` is included as default; P0.13a normalizes it through the new path) |
 | **D2 Adjust type source** (was Q2) | A — request-driven | OpenStock runtime does not echo `adjust_type` in response; shadow persistence chain is already request-driven |
 | **D3 Client API shape** (was Q3) | C — add `fetch_klines`, leave `fetch_daily_klines` unchanged | Zero disruption to existing market/backtest callers (P0.11) |
 | **D4 CLI shape** (was Q4) | C — single `FetchKlines` with `--period day\|week\|month` strict enum | Matches OpenStock `/data/bars` shape; P0.13b only needs to widen enum |
-| **D5 Test matrix** (was Q5) | C — full (3 fixture + 3 live + 1 wiremock + 1 unit) | Covers request construction, response parsing, and end-to-end live paths |
-| **D6 Period enum strictness** | Reject `daily`/`weekly`/`monthly`/`minute*` aliases | Surface predictable error rather than let OpenStock silently map them; `--help` documents accepted values |
+| **D5 Test matrix** (was Q5) | C — full (5 unit/wiremock + 3 live = 8 tests across 3 layers) | Covers request construction, response parsing, and end-to-end live paths |
+| **D6 Period enum strictness** | Reject `daily`/`weekly`/`monthly`/`minute*` aliases; case-insensitive on input | Surface predictable error rather than let OpenStock silently map them; case-insensitivity matches `AdjustType::FromStr` (D8) |
 | **D7 OpenSpec approach** | C — single OpenSpec change, phased commits | One governance card; 3 commits map to Phase 1/2/3 |
+| **D8 Type naming** (review fix) | Name the new type `BarPeriod` (NOT `KlinePeriod`) | Existing `KlinePeriod` in `src/sources/kline_aggregator.rs:14` represents aggregator time-windows (1m/5m/1d); OpenStock `/data/bars` period is a different semantic domain (day/week/month API param). Name collision would compile-fail and confuse consumers |
 
 **AdjustType variant naming**: existing enum in `src/data/models.rs:25`
 uses uppercase `QFQ`/`HFQ` (Rust convention for enum variants). Wire
@@ -82,29 +83,36 @@ own response shape, distinct from `/data/fetch`.
 2. **`Kline` data model unchanged**: existing `Kline { code, date, open, high, low, close, volume, amount, adjust_type }` covers all 3 periods × 3 adjust types.
 3. **No new DB writes**: read-only fetch only. ClickHouse / shadow persistence integration is out of scope (deferred to a later slice if needed).
 4. **No new parser**: the inline JSON parsing in `fetch_daily_klines` shape (using local `BarsResponse` / `BarRecord` structs) is reused.
+5. **Symbol prefix behavior** (review fix): `/data/bars` does NOT call `normalize_symbol` — `Kline.code` retains whatever prefix the caller passed (e.g. `"sh000001"` → `Kline.code = "sh000001"`). This differs from `/data/fetch` paths (`INDEX_KLINES`) which strip the prefix via `normalize_symbol` → `"000001"`. This is existing behavior inherited from `fetch_daily_klines` (out-of-scope to change in P0.13a); documented as invariant to surface the asymmetry.
+6. **`f64` → `Decimal` precision loss** (review fix): `BarRecord` deserializes OHLCV as `f64`, then `format!("{}", x)` → `Decimal::from_str`. This is existing tech debt in `fetch_daily_klines` and is preserved unchanged in P0.13a. Documented here to surface the accepted trade-off (precision adequate for A-share prices that have at most 2 decimal places).
 
 ## Components
 
-### 1. `KlinePeriod` enum
+### 1. `BarPeriod` enum (renamed from `KlinePeriod` per review D8)
 
-New type — placed in `src/data/models.rs` alongside `AdjustType`:
+New type — placed in `src/data/models.rs` alongside `AdjustType`. Named
+`BarPeriod` (not `KlinePeriod`) to avoid collision with the existing
+`src/sources/kline_aggregator.rs:14` `KlinePeriod` enum, which represents
+aggregator time-windows (1m/5m/15m/30m/1h/1d) — a different semantic
+domain from OpenStock `/data/bars` API `period` parameter.
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KlinePeriod {
+pub enum BarPeriod {
     Day,
     Week,
     Month,
 }
 
-impl KlinePeriod {
+impl BarPeriod {
     pub fn as_str(&self) -> &'static str { /* "day" | "week" | "month" */ }
 }
 
-impl FromStr for KlinePeriod {
+impl FromStr for BarPeriod {
     type Err = QuantixError;
     // Strict per decision D6: rejects "daily"/"weekly"/"monthly" aliases
-    // and "minute*" (P0.13b scope). Only accepts "day" | "week" | "month".
+    // and "minute*" (P0.13b scope). Only accepts "day" | "week" | "month"
+    // in any case (case-insensitive input — match AdjustType::FromStr behavior).
 }
 ```
 
@@ -120,23 +128,29 @@ Existing `AdjustType` enum in `src/data/models.rs:25` has variants
 
 ```rust
 impl AdjustType {
-    pub fn as_openstock_param(&self) -> &'static str {
+    /// Returns OpenStock `/data/bars` adjust parameter value, or `None`
+    /// to signal "do not include the `adjust` field in the request body"
+    /// (matches existing `fetch_daily_klines` behavior — it omits the
+    /// field entirely rather than sending `"adjust": ""`).
+    pub fn as_openstock_param(&self) -> Option<&'static str> {
         match self {
-            Self::None => "",
-            Self::QFQ => "qfq",
-            Self::HFQ => "hfq",
+            Self::None => None,
+            Self::QFQ => Some("qfq"),
+            Self::HFQ => Some("hfq"),
         }
     }
 }
 
 impl FromStr for AdjustType {
     type Err = QuantixError;
-    // Accepts lowercase "none" | "qfq" | "hff" only.
-    // Case-insensitive on input; maps to canonical enum variant.
+    // Accepts "none" | "qfq" | "hfq" in any case (case-insensitive).
 }
 ```
 
 CLI `--adjust` strings route through this `FromStr` (decision D2).
+`fetch_klines` conditionally includes `body["adjust"]` only when
+`as_openstock_param()` returns `Some(...)` — matches `fetch_daily_klines`
+behavior of omitting the field when adjust is None.
 
 ### 3. `OpenStockClient::fetch_klines` method
 
@@ -149,20 +163,22 @@ In `src/sources/openstock_client.rs`, after `fetch_daily_klines`:
 /// New CLI paths use this; `fetch_daily_klines` is preserved unchanged
 /// for existing market/backtest callers.
 ///
-/// `period` accepts `day` | `week` | `month` (P0.13a scope).
+/// `period` accepts `Day` | `Week` | `Month` (P0.13a scope, see BarPeriod).
 /// `adjust` is request-driven (runtime does not echo it; we stamp each
 /// `Kline` with the requested `AdjustType`).
 pub async fn fetch_klines(
     &self,
     code: &str,
-    period: KlinePeriod,
+    period: BarPeriod,
     adjust: AdjustType,
     start: Option<&str>,
     end: Option<&str>,
 ) -> Result<Vec<Kline>> {
     // Same shape as fetch_daily_klines, plus:
     //   body["period"] = period.as_str()
-    //   body["adjust"] = adjust.as_openstock_param()
+    //   if let Some(adj) = adjust.as_openstock_param() {
+    //       body["adjust"] = adj;  // only included when adjust != None
+    //   }
     //   each Kline gets `adjust_type: adjust` (not hardcoded None)
 }
 ```
