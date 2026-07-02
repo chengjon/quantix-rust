@@ -673,6 +673,114 @@ impl OpenStockClient {
 
         Ok(klines)
     }
+
+    /// Fetches minute-level OHLCV candles from `/data/bars` with `period`
+    /// in `1m|5m|15m|30m|60m`. Mirrors `fetch_klines` shape (direct reqwest,
+    /// no envelope, no retry, no circuit breaker). Returns `Vec<MinuteBar>`
+    /// with `NaiveDateTime` timestamps (minute precision preserved from
+    /// the wire ISO string).
+    ///
+    /// The returned `MinuteBar` records are stamped with the requested
+    /// `adjust_type` (the runtime does not echo it back — decision D2
+    /// request-driven, matching `fetch_klines`).
+    ///
+    /// `AdjustType::None` causes the `adjust` field to be omitted entirely
+    /// from the request body (matches `fetch_klines` wire shape).
+    ///
+    /// `date` is sent as `"date": "YYYY-MM-DD"` (single-day scope per spec §8
+    /// P0.13b-1; multi-day range query is a P0.13c concern).
+    pub async fn fetch_minute_klines(
+        &self,
+        code: &str,
+        period: crate::data::models::MinutePeriod,
+        date: chrono::NaiveDate,
+        adjust: crate::data::models::AdjustType,
+    ) -> Result<Vec<crate::data::models::MinuteBar>> {
+        use std::str::FromStr;
+
+        let endpoint = self
+            .base_url
+            .join("data/bars")
+            .map_err(|e| QuantixError::Other(format!("url join failed: {}", e)))?;
+
+        let mut body = serde_json::json!({
+            "symbol": code,
+            "period": period.as_str(),
+            "date": date.format("%Y-%m-%d").to_string(),
+        });
+        if let Some(adj) = adjust.as_openstock_param() {
+            body["adjust"] = serde_json::Value::String(adj.to_string());
+        }
+
+        let resp = self
+            .http
+            .post(endpoint)
+            .header("X-API-Key", self.api_key.clone())
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars request failed: {}", e)))?;
+
+        let status = resp.status();
+        let raw = resp
+            .text()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars body read failed: {}", e)))?;
+
+        if !status.is_success() {
+            return Err(QuantixError::Other(format!(
+                "/data/bars returned {}: {}",
+                status,
+                raw.chars().take(200).collect::<String>()
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BarsResponse {
+            data: Vec<MinuteBarRecord>,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct MinuteBarRecord {
+            time: String,
+            open: f64,
+            high: f64,
+            low: f64,
+            close: f64,
+            volume: f64,
+            amount: f64,
+        }
+
+        let bars: BarsResponse = serde_json::from_str(&raw)
+            .map_err(|e| QuantixError::Other(format!("/data/bars parse failed: {}", e)))?;
+
+        let mut out = Vec::with_capacity(bars.data.len());
+        for bar in bars.data {
+            // Wire time format: "2026-07-02T09:31:00+08:00" → take first 19 chars
+            // "2026-07-02T09:31:00" → parse as NaiveDateTime (no timezone).
+            let ts = chrono::NaiveDateTime::parse_from_str(&bar.time[..19], "%Y-%m-%dT%H:%M:%S")
+                .map_err(|e| {
+                    QuantixError::DataParse(format!("解析 minute bars 时间戳失败: {}", e))
+                })?;
+
+            out.push(crate::data::models::MinuteBar {
+                code: code.to_string(),
+                timestamp: ts,
+                open: rust_decimal::Decimal::from_str(&format!("{}", bar.open)).unwrap_or_default(),
+                high: rust_decimal::Decimal::from_str(&format!("{}", bar.high)).unwrap_or_default(),
+                low: rust_decimal::Decimal::from_str(&format!("{}", bar.low)).unwrap_or_default(),
+                close: rust_decimal::Decimal::from_str(&format!("{}", bar.close))
+                    .unwrap_or_default(),
+                volume: bar.volume as i64,
+                amount: Some(
+                    rust_decimal::Decimal::from_str(&format!("{}", bar.amount)).unwrap_or_default(),
+                ),
+                adjust_type: adjust,
+            });
+        }
+
+        Ok(out)
+    }
 }
 
 /// Public post-parse view of a `/data/fetch` success response.
@@ -1197,5 +1305,119 @@ mod tests {
             .expect_err("should fail");
         let msg = format!("{:?}", err);
         assert!(msg.contains("/data/bars returned 400"), "msg={}", msg);
+    }
+
+    // -----------------------------------------------------------------
+    // fetch_minute_klines tests (wiremock-based, P0.13b-1 Task 2)
+    // -----------------------------------------------------------------
+
+    #[tokio::test]
+    async fn fetch_minute_klines_1m_none_sends_period_1m_and_date() {
+        use crate::data::models::{AdjustType, MinutePeriod};
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        let body = serde_json::json!({
+            "data": [
+                {"time": "2026-07-02T09:31:00+08:00", "open": 10.0, "high": 10.5, "low": 9.9, "close": 10.2, "volume": 1000.0, "amount": 10200.0},
+                {"time": "2026-07-02T09:32:00+08:00", "open": 10.2, "high": 10.4, "low": 10.1, "close": 10.3, "volume": 800.0, "amount": 8240.0},
+            ]
+        });
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .and(body_partial_json(serde_json::json!({
+                "symbol": "sh600000",
+                "period": "1m",
+                "date": "2026-07-02"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
+        let bars = client
+            .fetch_minute_klines("sh600000", MinutePeriod::Minute1, date, AdjustType::None)
+            .await
+            .expect("fetch_minute_klines ok");
+
+        assert_eq!(bars.len(), 2);
+        assert_eq!(bars[0].code, "sh600000");
+        assert_eq!(
+            bars[0].timestamp,
+            chrono::NaiveDateTime::parse_from_str("2026-07-02T09:31:00", "%Y-%m-%dT%H:%M:%S")
+                .unwrap()
+        );
+        assert_eq!(bars[0].adjust_type, AdjustType::None);
+        assert_eq!(bars[1].volume, 800);
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_klines_5m_qfq_sends_adjust_and_stamps_records() {
+        use crate::data::models::{AdjustType, MinutePeriod};
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .and(body_partial_json(serde_json::json!({
+                "symbol": "sh600000",
+                "period": "5m",
+                "date": "2026-07-02",
+                "adjust": "qfq"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": [
+                    {"time": "2026-07-02T09:35:00+08:00", "open": 11.0, "high": 11.2, "low": 10.9, "close": 11.1, "volume": 500.0, "amount": 5550.0}
+                ]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
+        let bars = client
+            .fetch_minute_klines("sh600000", MinutePeriod::Minute5, date, AdjustType::QFQ)
+            .await
+            .expect("fetch_minute_klines ok");
+
+        assert_eq!(bars.len(), 1);
+        assert_eq!(bars[0].adjust_type, AdjustType::QFQ);
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_klines_propagates_4xx() {
+        use crate::data::models::{AdjustType, MinutePeriod};
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("bad period"))
+            .expect(1) // no retry on 4xx — matches fetch_klines
+            .mount(&server)
+            .await;
+
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
+        let result = client
+            .fetch_minute_klines("sh600000", MinutePeriod::Minute15, date, AdjustType::None)
+            .await;
+
+        let err = result.expect_err("expected error on 400");
+        let msg = format!("{:?}", err);
+        assert!(
+            msg.contains("/data/bars returned 400"),
+            "expected '/data/bars returned 400' in error, got: {}",
+            msg
+        );
     }
 }
