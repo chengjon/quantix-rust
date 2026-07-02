@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782889240795,
+  "lastUpdate": 1782973905837,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -4639,6 +4639,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 518374.9571991612,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "49d11369ffd8e20e1695364ae7c8a96961b06f99",
+          "message": "chore(openstock): P0.12 follow-ups — full tdx-api removal\n\nExecutes 3 of the 4 non-blocking follow-ups from the P0.11 closeout\nreport (the 4th, tdx-api Docker image deprecation, is filed in the\nopenstock repo at docs/operations/TDX_API_IMAGE_DEPRECATION_2026-07-02.md).\n\n1. docker-compose.yml: full removal of tdx-api service block + volume\n   (was commented for rollback safety in P0.11c Phase 5). Compose\n   config validates clean.\n2. scripts/daily-update.sh: rewritten to use OpenStock endpoints\n   (data openstock fetch-calendar + data import-klines per-code).\n   Drops --all batch flag (no equivalent yet; codes passed as args).\n   Requires OPENSTOCK_BASE_URL + OPENSTOCK_API_KEY env. APPLY=1\n   passes --apply (still gated by QUANTIX_OPENSTOCK_KLINE_APPLY=yes).\n3. docs/CLI_COMMAND_MANUAL.html: full cleanup — removed 18 nav\n   entries and 19 detail sections under cmd-data-tdx-api; replaced\n   with a single compact deprecation section pointing at top-level\n   replacements (data import-ticks/import-klines/openstock fetch-*).\n   Down from 152 refs to 4 intentional deprecation markers.\n\nVerification:\n- docker compose -f docker-compose.yml config (validates clean)\n- bash -n scripts/daily-update.sh\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-07-01T17:32:11Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/49d11369ffd8e20e1695364ae7c8a96961b06f99"
+        },
+        "date": 1782973904713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 359705.2060662801,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 3203727.9366193265,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 39602192.528825395,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1350973.4342842866,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 9631390.472212302,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 92128003.54797618,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 1394346.218490246,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 10098870.968437761,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 101736895.67646827,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 14861.931334785304,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 157650.26909937852,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1658318.7943488394,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 14928.595161903693,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 157645.04572722185,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1665799.2255036351,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 38578.49588372378,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 395112.7663841627,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 4018916.7260000007,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 26145.98078111815,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 341213.66644783656,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 3621108.7409443557,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 38824.65482676802,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 642104.2565238872,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 6691792.121333334,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 6206.474145130929,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 71884.11410256164,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 1217734.963068686,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 8160.193152930205,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 95496.01234267557,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 49138.591612436765,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 16865.89963748921,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 147428.16309573237,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 74712.14190074544,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 52.87599905168985,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 50.50022278754663,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 74.12710925425863,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 1255.2235048298385,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 12768.545131735415,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 127508.87634527139,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 9116.123787566175,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 92855.80966656742,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 935744.4539760561,
             "unit": "ns"
           }
         ]
