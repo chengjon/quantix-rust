@@ -362,35 +362,40 @@ pub(crate) async fn fetch_openstock_klines(
 
     use crate::data::models::{AdjustType, BarPeriod};
 
-    let period =
+    let period_enum =
         BarPeriod::from_str(period).map_err(|e| QuantixError::Config(format!("--period {}", e)))?;
-    let adjust = AdjustType::from_str(adjust)
+    let adjust_enum = AdjustType::from_str(adjust)
         .map_err(|e| QuantixError::Config(format!("--adjust {}", e)))?;
 
     let client = OpenStockClient::from_settings(settings)?;
     let klines = client
-        .fetch_klines(symbol, period, adjust, start, end)
+        .fetch_klines(symbol, period_enum, adjust_enum, start, end)
         .await?;
 
+    println!("OpenStock live fetch (/data/bars, symbol={})", symbol);
+    println!("  Period:  {}", period_enum.as_str());
     println!(
-        "OpenStock live fetch (KLINES, symbol={}, period={}, adjust={:?})",
-        symbol,
-        period.as_str(),
-        adjust
+        "  Adjust:  {}",
+        adjust_enum
+            .as_openstock_param()
+            .unwrap_or("none (field omitted)")
     );
     println!("  记录数: {}", klines.len());
-    if let Some(first) = klines.first() {
+    if let (Some(first), Some(last)) = (klines.first(), klines.last()) {
         println!(
-            "  首条: date={} open={} high={} low={} close={} volume={}",
-            first.date, first.open, first.high, first.low, first.close, first.volume
+            "  首条: date={} open={} close={}",
+            first.date, first.open, first.close
+        );
+        println!(
+            "  末条: date={} open={} close={}",
+            last.date, last.open, last.close
         );
     }
-    if let Some(last) = klines.last() {
-        println!(
-            "  末条: date={} open={} high={} low={} close={} volume={}",
-            last.date, last.open, last.high, last.low, last.close, last.volume
-        );
-    }
+    // /data/bars is a direct reqwest path; it does NOT echo source,
+    // artifact_hash, or latency_ms (only the /data/fetch envelope does).
+    println!("  Source:        (not reported by /data/bars)");
+    println!("  artifact_hash: (not reported by /data/bars)");
+    println!("  latency_ms:    (not reported by /data/bars)");
     Ok(())
 }
 
