@@ -72,6 +72,81 @@ impl std::str::FromStr for BarPeriod {
     }
 }
 
+/// `/data/bars` 分钟周期参数 (P0.13b-1, OpenStock API).
+///
+/// 与 `BarPeriod`（day/week/month）语义域不同：分钟蜡烛返回
+/// `Vec<MinuteBar>`（含 `NaiveDateTime` 时间戳），日线/周线/月线
+/// 返回 `Vec<Kline>`（仅 `NaiveDate`）。类型系统强制调用方区分。
+///
+/// Wire tokens `1m|5m|15m|30m|60m` 直接对应 OpenStock `_PERIOD_MAP`
+/// 主 token。**拒绝所有别名**（`1min|minute|5min|1h|hour` 等），
+/// 因为 `_PERIOD_MAP.get(period, "day")` 对未知 token 静默回退到
+/// day——严格白名单 + fail-fast 是唯一安全策略。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MinutePeriod {
+    Minute1,
+    Minute5,
+    Minute15,
+    Minute30,
+    Minute60,
+}
+
+impl MinutePeriod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Minute1 => "1m",
+            Self::Minute5 => "5m",
+            Self::Minute15 => "15m",
+            Self::Minute30 => "30m",
+            Self::Minute60 => "60m",
+        }
+    }
+}
+
+impl std::str::FromStr for MinutePeriod {
+    type Err = QuantixError;
+
+    /// 仅接受 `1m|5m|15m|30m|60m`（任意大小写）。拒绝所有别名
+    /// （`1min|minute|5min|1h|hour` 等）和任何非 5 个主 token 的值。
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "1m" => Ok(Self::Minute1),
+            "5m" => Ok(Self::Minute5),
+            "15m" => Ok(Self::Minute15),
+            "30m" => Ok(Self::Minute30),
+            "60m" => Ok(Self::Minute60),
+            other => Err(QuantixError::Config(format!(
+                "unsupported MinutePeriod `{}`: expected one of 1m|5m|15m|30m|60m",
+                other
+            ))),
+        }
+    }
+}
+
+/// 分钟级 K 线蜡烛（P0.13b-1 新增）。
+///
+/// **命名说明**：命名为 `MinuteBar`（不是 `MinuteKline`），因为
+/// `src/db/tdengine.rs:37` 已存在公开 re-export 的 `MinuteKline`{
+/// ts: DateTime<Utc>, code, open: f64, ... }——TDengine 行映射用 f64。
+/// 本类型用 `Decimal` + `AdjustType`，语义不同，必须避免名称碰撞。
+/// `MinuteBar` 与 P0.13a `BarPeriod` 形成请求/响应语义对。
+///
+/// 与 `Kline`（日线）的区别：
+/// - `timestamp: NaiveDateTime`（精确到分钟）vs `date: NaiveDate`
+/// - 其他字段与 `Kline` 一致
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinuteBar {
+    pub code: String,
+    pub timestamp: NaiveDateTime,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: i64,
+    pub amount: Option<Decimal>,
+    pub adjust_type: AdjustType,
+}
+
 impl AdjustType {
     /// Returns the OpenStock `/data/bars` `adjust` parameter value, or
     /// `None` when the field should be omitted entirely (matches the
@@ -229,5 +304,50 @@ mod tests {
         assert!(matches!(AdjustType::from_str("Hfq"), Ok(AdjustType::HFQ)));
         assert!(AdjustType::from_str("front").is_err());
         assert!(AdjustType::from_str("").is_err());
+    }
+
+    #[test]
+    fn minute_period_as_str_round_trip() {
+        assert_eq!(MinutePeriod::Minute1.as_str(), "1m");
+        assert_eq!(MinutePeriod::Minute5.as_str(), "5m");
+        assert_eq!(MinutePeriod::Minute15.as_str(), "15m");
+        assert_eq!(MinutePeriod::Minute30.as_str(), "30m");
+        assert_eq!(MinutePeriod::Minute60.as_str(), "60m");
+    }
+
+    #[test]
+    fn minute_period_from_str_accepts_canonical_case_insensitive() {
+        assert!(matches!(
+            MinutePeriod::from_str("1m"),
+            Ok(MinutePeriod::Minute1)
+        ));
+        assert!(matches!(
+            MinutePeriod::from_str("5M"),
+            Ok(MinutePeriod::Minute5)
+        ));
+        assert!(matches!(
+            MinutePeriod::from_str("15m"),
+            Ok(MinutePeriod::Minute15)
+        ));
+        assert!(matches!(
+            MinutePeriod::from_str("30M"),
+            Ok(MinutePeriod::Minute30)
+        ));
+        assert!(matches!(
+            MinutePeriod::from_str("60m"),
+            Ok(MinutePeriod::Minute60)
+        ));
+    }
+
+    #[test]
+    fn minute_period_from_str_rejects_aliases() {
+        // D4 strict — reject 1min/minute/5min/1h/hour and any day* value
+        assert!(MinutePeriod::from_str("1min").is_err());
+        assert!(MinutePeriod::from_str("minute").is_err());
+        assert!(MinutePeriod::from_str("5min").is_err());
+        assert!(MinutePeriod::from_str("1h").is_err());
+        assert!(MinutePeriod::from_str("hour").is_err());
+        assert!(MinutePeriod::from_str("day").is_err());
+        assert!(MinutePeriod::from_str("").is_err());
     }
 }
