@@ -31,16 +31,27 @@ read-only (no DB writes). This covers the B-group row of the HANDOFF
 table (周/月 K 线 + 不复权 — `不复权` is satisfied by `adjust_type=None`
 which is already the default).
 
-## Decisions (from brainstorming Q1-Q5 + approach C)
+## Decisions
+
+Renumbered D1-D6 (D = design decision). The brainstorming Q1-Q5 map to
+D1-D5; D6 covers the OpenSpec/governance approach.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| **Q1 Scope baseline** | C — week/month + qfq/hfq | Covers all three P1 items from HANDOFF §四 |
-| **Q2 Adjust type source** | A — request-driven | OpenStock runtime does not echo `adjust_type` in response; shadow persistence chain is already request-driven |
-| **Q3 Client API shape** | C — add `fetch_klines`, leave `fetch_daily_klines` unchanged | Zero disruption to existing market/backtest callers (P0.11) |
-| **Q4 CLI shape** | C — single `FetchKlines` with `--period day\|week\|month` enum | Matches OpenStock `/data/bars` shape; P0.13b only needs to widen enum |
-| **Q5 Test matrix** | C — full (3 fixture + 3 live + 1 wiremock + 1 qfq unit) | Covers request construction, response parsing, and end-to-end live paths |
-| **Approach** | C — single OpenSpec change, phased commits | One governance card; 3 commits map to Phase 1/2/3 |
+| **D1 Scope baseline** (was Q1) | C — week/month + qfq/hfq | Covers all three P1 items from HANDOFF §四 |
+| **D2 Adjust type source** (was Q2) | A — request-driven | OpenStock runtime does not echo `adjust_type` in response; shadow persistence chain is already request-driven |
+| **D3 Client API shape** (was Q3) | C — add `fetch_klines`, leave `fetch_daily_klines` unchanged | Zero disruption to existing market/backtest callers (P0.11) |
+| **D4 CLI shape** (was Q4) | C — single `FetchKlines` with `--period day\|week\|month` strict enum | Matches OpenStock `/data/bars` shape; P0.13b only needs to widen enum |
+| **D5 Test matrix** (was Q5) | C — full (3 fixture + 3 live + 1 wiremock + 1 unit) | Covers request construction, response parsing, and end-to-end live paths |
+| **D6 Period enum strictness** | Reject `daily`/`weekly`/`monthly`/`minute*` aliases | Surface predictable error rather than let OpenStock silently map them; `--help` documents accepted values |
+| **D7 OpenSpec approach** | C — single OpenSpec change, phased commits | One governance card; 3 commits map to Phase 1/2/3 |
+
+**AdjustType variant naming**: existing enum in `src/data/models.rs:25`
+uses uppercase `QFQ`/`HFQ` (Rust convention for enum variants). Wire
+format in OpenStock `/data/bars` body is lowercase `qfq`/`hfq`. The new
+`as_openstock_param()` helper handles the lowercase mapping; CLI input
+strings `none`/`qfq`/`hfq` are parsed by a new `FromStr` impl on
+`AdjustType` that accepts lowercase.
 
 ## Architecture
 
@@ -76,8 +87,7 @@ own response shape, distinct from `/data/fetch`.
 
 ### 1. `KlinePeriod` enum
 
-New type — placed in `src/data/models.rs` alongside `AdjustType` (decision
-D5, to be confirmed at implementation time):
+New type — placed in `src/data/models.rs` alongside `AdjustType`:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,30 +103,40 @@ impl KlinePeriod {
 
 impl FromStr for KlinePeriod {
     type Err = QuantixError;
-    // Strict — rejects "daily"/"weekly"/"monthly" aliases and "minute*" (P0.13b).
+    // Strict per decision D6: rejects "daily"/"weekly"/"monthly" aliases
+    // and "minute*" (P0.13b scope). Only accepts "day" | "week" | "month".
 }
 ```
 
-**Strict enum rationale (decision D3)**: rejecting aliases prevents
+**Strict enum rationale (decision D6)**: rejecting aliases prevents
 confusion when CLI users try `--period daily` (which OpenStock silently
 accepts via `_PERIOD_MAP` but quantix-rust should surface as a config
 error to keep the surface predictable).
 
-### 2. `AdjustType::as_openstock_param` helper
+### 2. `AdjustType` extensions
 
-Added to existing `AdjustType` enum in `src/data/models.rs`:
+Existing `AdjustType` enum in `src/data/models.rs:25` has variants
+`None`/`QFQ`/`HFQ` and **no** `FromStr` impl. Add two new impls:
 
 ```rust
 impl AdjustType {
     pub fn as_openstock_param(&self) -> &'static str {
         match self {
             Self::None => "",
-            Self::Qfq => "qfq",
-            Self::Hfq => "hfq",
+            Self::QFQ => "qfq",
+            Self::HFQ => "hfq",
         }
     }
 }
+
+impl FromStr for AdjustType {
+    type Err = QuantixError;
+    // Accepts lowercase "none" | "qfq" | "hff" only.
+    // Case-insensitive on input; maps to canonical enum variant.
+}
 ```
+
+CLI `--adjust` strings route through this `FromStr` (decision D2).
 
 ### 3. `OpenStockClient::fetch_klines` method
 
@@ -186,7 +206,7 @@ effects beyond HTTP egress and stdout.)
 | Error source | Path | Outcome |
 |---|---|---|
 | Invalid `--period` string | Handler parses with `KlinePeriod::from_str` | `QuantixError::Config` — fail-fast, no HTTP |
-| Invalid `--adjust` string | Handler parses (existing `AdjustType::from_str` if exists, else new helper) | `QuantixError::Config` — fail-fast, no HTTP |
+| Invalid `--adjust` string | Handler parses with new `AdjustType::from_str` (lowercase `none\|qfq\|hfq` only) | `QuantixError::Config` — fail-fast, no HTTP |
 | `OPENSTOCK_BASE_URL` / `OPENSTOCK_API_KEY` missing | `OpenStockClient::from_env` | `QuantixError::Config` — fail-fast |
 | HTTP 4xx from `/data/bars` | Direct from reqwest, no retry (matches `fetch_daily_klines`) | `QuantixError::Other` — surfaced to CLI |
 | HTTP 5xx from `/data/bars` | Same — no retry (matches `fetch_daily_klines`) | `QuantixError::Other` |
