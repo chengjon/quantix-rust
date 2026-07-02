@@ -1,0 +1,47 @@
+id: P0.13a
+title: "OpenStock P0.13a — Multi-period K-line Fetch (day/week/month + qfq/hfq)"
+program: project-governance
+change_ref: openstock-data-consumption-p0-13a
+
+scope:
+  allowed_paths:
+    - src/data/models.rs
+    - src/sources/openstock_client.rs
+    - src/cli/commands/data.rs
+    - src/cli/handlers/openstock_handler.rs
+    - src/cli/handlers/app_shell.rs
+    - src/cli/handlers/mod.rs
+    - tests/openstock_live_klines.rs
+    - openspec/changes/openstock-data-consumption-p0-13a/**
+    - .governance/programs/project-governance/cards/P0.13a.yaml
+    - docs/reports/HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md
+    - FUNCTION_TREE.md
+  forbidden_paths:
+    - src/sources/openstock.rs
+    - src/sources/openstock_index.rs
+    - src/db/**
+    - src/backtest/**
+    - src/execution/**
+    - src/sources/kline_aggregator.rs
+
+non_goals:
+  - minute-level period support (P0.13b)
+  - ADJUST_FACTOR raw factor exposure (P0.13d+)
+  - eltdx KLINES direct category wiring (covered via /data/bars)
+  - ClickHouse or shadow persistence integration
+  - fetch_daily_klines refactor
+  - retry / circuit breaker for /data/bars path
+
+acceptance:
+  commit_gate:
+    - "cargo fmt --all -- --check"
+    - "cargo clippy --all-targets --workspace -- -D warnings"
+    - "cargo test --workspace"
+    - "openspec validate openstock-data-consumption-p0-13a --strict"
+    - "grep -n 'pub async fn fetch_klines' src/sources/openstock_client.rs"
+  closeout_gate:
+    - "HANDOFF report B-group row flipped to ✅"
+    - "OpenSpec change openstock-data-consumption-p0-13a archived"
+
+evidence:
+  current_head: ""  # fill at execution time

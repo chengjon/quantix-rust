@@ -33,7 +33,7 @@
 | Handoff 项 | openstock category | quantix-rust 客户端接入状态 |
 |------------|-------------------|---------------------------|
 | P1 分钟级 K 线 | `MINUTE_DATA` | ❌ 未接入 |
-| P1 周/月 K 线、不复权 | `KLINES` / `ADJUSTED_KLINES` / `HISTORICAL_KLINES` / `ADJUST_FACTOR` | ❌ 未接入 |
+| P1 周/月 K 线、不复权 | `KLINES` / `ADJUSTED_KLINES` / `HISTORICAL_KLINES` / `ADJUST_FACTOR` | ✅ (P0.13a, 2026-07-02: covered via `/data/bars` multi-period fetch; `KLINES`/`ADJUSTED_KLINES`/`HISTORICAL_KLINES` — `ADJUST_FACTOR` raw exposure deferred to P0.13d+) |
 | P2 实时行情 | `REALTIME_QUOTES` | ❌ 未接入 |
 | P2 分时图 | `MINUTE_DATA` | ❌ 未接入 |
 | P3 逐笔成交 | `TICK_DATA` | ❌ 未接入 |
