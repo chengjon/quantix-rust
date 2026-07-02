@@ -781,6 +781,113 @@ impl OpenStockClient {
 
         Ok(out)
     }
+
+    /// 消费 MINUTE_DATA category（分时点序列 / 分时图 ticks）。
+    ///
+    /// 走 `/data/fetch` envelope 路径，复用 retry + circuit breaker
+    /// （与 `fetch_stock_codes` / `fetch_trade_dates` 同路径）。
+    ///
+    /// **调用签名**（对齐 `fetch_stock_codes`）：`fetch<T>()` 接收
+    /// `(category: &str, params: Value)` 双参数，内部拼装为
+    /// `{data_category, params}` envelope。
+    ///
+    /// **category 无 period/adjust 维度** — params 仅 `{code, date}`。
+    ///
+    /// 解析：response.records 是 8 字段的数组，parse_minute_share 裁剪到
+    /// 5 业务字段。单条记录关键字段缺失 → warn + skip（INV-2C）。
+    pub async fn fetch_minute_share(
+        &self,
+        code: &str,
+        date: chrono::NaiveDate,
+    ) -> Result<Vec<crate::data::models::MinuteShare>> {
+        let params = serde_json::json!({
+            "code": code,
+            "date": date.format("%Y-%m-%d").to_string(),
+        });
+        let resp = self.fetch::<RawMinuteRecord>("MINUTE_DATA", params).await?;
+        let records = resp.records;
+        let mut out = Vec::with_capacity(records.len());
+        for raw in records {
+            if let Some(share) = parse_minute_share(code, &raw, date) {
+                out.push(share);
+            } else {
+                tracing::warn!(
+                    code = code,
+                    date = %date,
+                    time_minutes = %raw.time_minutes,
+                    "MINUTE_DATA record missing required field or invalid time, skipping"
+                );
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// MINUTE_DATA 原始记录（8 字段，未裁剪）。
+///
+/// OpenStock envelope `records` 数组元素的反序列化目标。
+/// 字段名对应 eLtdx MINUTE_DATA 输出：
+///   - time_minutes: "0930" 或 "09:30" 格式
+///   - price/volume/amount/avg_price: 业务字段（保留）
+///   - index/time/price_milli: 冗余字段（serde default 容忍缺失）
+///
+/// **数值字段直接用 `Decimal`**（rust_decimal + serde 自动反序列化 JSON number）。
+/// 若 live 测试发现字符串格式数值漂移，切换到 `serde_json::Value` + parse_decimal。
+#[derive(Debug, serde::Deserialize)]
+struct RawMinuteRecord {
+    time_minutes: String,
+    price: Option<rust_decimal::Decimal>,
+    volume: Option<i64>,
+    amount: Option<rust_decimal::Decimal>,
+    avg_price: Option<rust_decimal::Decimal>,
+}
+
+/// 解析 MINUTE_DATA 单条记录为 `MinuteShare`。
+///
+/// 丢弃字段：`index`（内部序号）、`time`（ISO 冗余）、`price_milli`（毫表示）。
+/// 保留字段：`time_minutes, price, volume, amount, avg_price`。
+///
+/// 返回 `Option<MinuteShare>`：当 4 个关键字段（price/volume/amount/avg_price）
+/// 任一为 None，或 `time_minutes` 解析失败时返回 None，调用方 warn + skip（INV-2C）。
+fn parse_minute_share(
+    code: &str,
+    raw: &RawMinuteRecord,
+    date: chrono::NaiveDate,
+) -> Option<crate::data::models::MinuteShare> {
+    let price = raw.price?;
+    let volume = raw.volume?;
+    let amount = raw.amount?;
+    let avg_price = raw.avg_price?;
+    let (hh, mm) = parse_time_minutes(&raw.time_minutes)?;
+    let timestamp = date.and_hms_opt(hh, mm, 0)?;
+    Some(crate::data::models::MinuteShare {
+        code: code.to_string(),
+        timestamp,
+        price: Some(price),
+        volume: Some(volume),
+        amount: Some(amount),
+        avg_price: Some(avg_price),
+    })
+}
+
+/// 解析 `time_minutes` 字段为 (HH, MM)。
+///
+/// 接受两种格式（D4 双格式容错，防御 R2 格式歧义）：
+///   - "0930"     → (9, 30)
+///   - "09:30"    → (9, 30)
+///
+/// 长度不匹配或字符非数字 → None（触发 INV-2C skip）。
+fn parse_time_minutes(s: &str) -> Option<(u32, u32)> {
+    let cleaned: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+    if cleaned.len() != 4 {
+        return None;
+    }
+    let hh: u32 = cleaned[..2].parse().ok()?;
+    let mm: u32 = cleaned[2..].parse().ok()?;
+    if hh >= 24 || mm >= 60 {
+        return None;
+    }
+    Some((hh, mm))
 }
 
 /// Public post-parse view of a `/data/fetch` success response.
@@ -1419,5 +1526,138 @@ mod tests {
             "expected '/data/bars returned 400' in error, got: {}",
             msg
         );
+    }
+
+    // -----------------------------------------------------------------
+    // fetch_minute_share (P0.13b-2)
+    // -----------------------------------------------------------------
+
+    #[tokio::test]
+    async fn fetch_minute_share_sends_minute_data_category_and_date() {
+        use rust_decimal_macros::dec;
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .and(body_partial_json(serde_json::json!({
+                "data_category": "MINUTE_DATA",
+                "params": { "code": "sh600000", "date": "2026-07-01" }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "source": "eltdx",
+                "artifact_hash": "abc123",
+                "latency_ms": 42,
+                "data": [
+                    { "time_minutes": "09:30", "price": 10.50, "volume": 12300, "amount": 129150.0, "avg_price": 10.50, "index": 0, "time": "2026-07-01T09:30:00", "price_milli": 10500 },
+                    { "time_minutes": "09:31", "price": 10.51, "volume": 8800, "amount": 92488.0, "avg_price": 10.505, "index": 1, "time": "2026-07-01T09:31:00", "price_milli": 10510 }
+                ]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let shares = client
+            .fetch_minute_share("sh600000", date)
+            .await
+            .expect("fetch ok");
+        assert_eq!(shares.len(), 2);
+        assert_eq!(shares[0].code, "sh600000");
+        assert_eq!(shares[0].timestamp, date.and_hms_opt(9, 30, 0).unwrap());
+        assert_eq!(shares[0].price, Some(dec!(10.50)));
+        assert_eq!(shares[0].volume, Some(12300));
+        assert_eq!(shares[1].timestamp, date.and_hms_opt(9, 31, 0).unwrap());
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_share_skips_records_with_missing_required_field() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "source": "eltdx",
+                "data": [
+                    { "time_minutes": "09:30", "price": 10.50, "volume": 100, "amount": 1050.0, "avg_price": 10.50 },
+                    { "time_minutes": "09:31", "price": 10.51, "volume": 200, "amount": 2102.0 },
+                    { "time_minutes": "09:32", "price": 10.52, "amount": 526.0, "avg_price": 10.52 },
+                    { "time_minutes": "99:99", "price": 10.53, "volume": 300, "amount": 3159.0, "avg_price": 10.53 },
+                    { "time_minutes": "1130", "price": 10.54, "volume": 400, "amount": 4216.0, "avg_price": 10.54 }
+                ]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let shares = client
+            .fetch_minute_share("sh600000", date)
+            .await
+            .expect("fetch ok");
+        assert_eq!(
+            shares.len(),
+            2,
+            "expected 2 valid records, got {:?}",
+            shares
+        );
+        assert_eq!(shares[0].timestamp, date.and_hms_opt(9, 30, 0).unwrap());
+        assert_eq!(shares[1].timestamp, date.and_hms_opt(11, 30, 0).unwrap());
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_share_propagates_4xx() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                "error": { "code": "NOT_FOUND", "message": "unknown code" }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let err = client
+            .fetch_minute_share("invalid_code", date)
+            .await
+            .expect_err("must error");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("404") || msg.contains("NOT_FOUND") || msg.contains("unknown"),
+            "expected error to mention status/error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_time_minutes_accepts_compact_format() {
+        assert_eq!(parse_time_minutes("0930"), Some((9, 30)));
+        assert_eq!(parse_time_minutes("1130"), Some((11, 30)));
+        assert_eq!(parse_time_minutes("1500"), Some((15, 0)));
+    }
+
+    #[test]
+    fn parse_time_minutes_accepts_colon_format() {
+        assert_eq!(parse_time_minutes("09:30"), Some((9, 30)));
+        assert_eq!(parse_time_minutes("11:30"), Some((11, 30)));
+    }
+
+    #[test]
+    fn parse_time_minutes_rejects_invalid() {
+        assert_eq!(parse_time_minutes("99:99"), None);
+        assert_eq!(parse_time_minutes("25:00"), None);
+        assert_eq!(parse_time_minutes("12:60"), None);
+        assert_eq!(parse_time_minutes("abc"), None);
+        assert_eq!(parse_time_minutes("123"), None);
+        assert_eq!(parse_time_minutes("12345"), None);
     }
 }
