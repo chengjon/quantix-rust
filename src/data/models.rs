@@ -147,6 +147,26 @@ pub struct MinuteBar {
     pub adjust_type: AdjustType,
 }
 
+/// 分时点序列（P0.13b-2 新增）。
+///
+/// 对应 OpenStock `MINUTE_DATA` category。与 `MinuteBar` 区别：
+/// - 无 OHLC（仅单一 `price`）
+/// - 含 `avg_price`（均价，业务关键字段）
+///
+/// **Option 字段说明**：业务字段全部用 `Option` 包裹以支持 INV-2C
+/// （单条记录字段缺失时 warn + skip，不中断整批）。serde 反序列化
+/// 在 Option 字段缺失时返回 None 而非失败；parser 阶段检查关键字段
+/// （price/volume/amount/avg_price），任一为 None 则 warn + skip。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinuteShare {
+    pub code: String,
+    pub timestamp: NaiveDateTime,
+    pub price: Option<Decimal>,
+    pub volume: Option<i64>,
+    pub amount: Option<Decimal>,
+    pub avg_price: Option<Decimal>,
+}
+
 impl AdjustType {
     /// Returns the OpenStock `/data/bars` `adjust` parameter value, or
     /// `None` when the field should be omitted entirely (matches the
@@ -349,5 +369,40 @@ mod tests {
         assert!(MinutePeriod::from_str("hour").is_err());
         assert!(MinutePeriod::from_str("day").is_err());
         assert!(MinutePeriod::from_str("").is_err());
+    }
+
+    #[test]
+    fn minute_share_round_trip_serde() {
+        use chrono::NaiveDate;
+        let share = crate::data::models::MinuteShare {
+            code: "sh600000".to_string(),
+            timestamp: NaiveDate::from_ymd_opt(2026, 7, 1)
+                .unwrap()
+                .and_hms_opt(9, 30, 0)
+                .unwrap(),
+            price: Some(Decimal::from_str("10.50").unwrap()),
+            volume: Some(123_456),
+            amount: Some(Decimal::from_str("1296288.00").unwrap()),
+            avg_price: Some(Decimal::from_str("10.4975").unwrap()),
+        };
+        let json = serde_json::to_string(&share).expect("serialize");
+        let back: crate::data::models::MinuteShare =
+            serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.code, "sh600000");
+        assert_eq!(back.volume, Some(123_456));
+        assert_eq!(back.avg_price, Some(Decimal::from_str("10.4975").unwrap()));
+    }
+
+    #[test]
+    fn minute_share_allows_missing_optional_fields() {
+        // Missing price/volume/amount/avg_price fields → all None (INV-2C foundation)
+        let json = r#"{"code":"sh600000","timestamp":"2026-07-01T09:30:00"}"#;
+        let share: crate::data::models::MinuteShare =
+            serde_json::from_str(json).expect("deserialize with missing optionals");
+        assert_eq!(share.code, "sh600000");
+        assert_eq!(share.price, None);
+        assert_eq!(share.volume, None);
+        assert_eq!(share.amount, None);
+        assert_eq!(share.avg_price, None);
     }
 }
