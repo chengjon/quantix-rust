@@ -1,5 +1,7 @@
 # OpenStock P0.13b-1 (Minute Candles) Implementation Plan
 
+> **Revision R1 (2026-07-02)**: Fixed `test_client_for` → `OpenStockClient::new(fast_test_cfg(server.uri()))` per `2026-07-02-openstock-p0-13b-1-plan-review.md` (3 wiremock tests would have failed to compile). Removed redundant `OpenStockSettings` inline import (already at file scope L4). Clarified helper location at `src/sources/openstock_client.rs:789`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Wire OpenStock `/data/bars?period=1m|5m|15m|30m|60m` to a new `fetch_minute_klines` client method returning `Vec<MinuteBar>`, plus a `fetch-minute-klines` CLI subcommand.
@@ -249,7 +251,7 @@ Insert in `src/sources/openstock_client.rs` `#[cfg(test)] mod tests` block, afte
             .mount(&server)
             .await;
 
-        let client = test_client_for(&server);
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
         let bars = client
             .fetch_minute_klines("sh600000", MinutePeriod::Minute1, date, AdjustType::None)
@@ -286,7 +288,7 @@ Insert in `src/sources/openstock_client.rs` `#[cfg(test)] mod tests` block, afte
             .mount(&server)
             .await;
 
-        let client = test_client_for(&server);
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
         let bars = client
             .fetch_minute_klines("sh600000", MinutePeriod::Minute5, date, AdjustType::QFQ)
@@ -307,7 +309,7 @@ Insert in `src/sources/openstock_client.rs` `#[cfg(test)] mod tests` block, afte
             .mount(&server)
             .await;
 
-        let client = test_client_for(&server);
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
         let result = client
             .fetch_minute_klines("sh600000", MinutePeriod::Minute15, date, AdjustType::None)
@@ -323,7 +325,7 @@ Insert in `src/sources/openstock_client.rs` `#[cfg(test)] mod tests` block, afte
     }
 ```
 
-**Note for implementer**: The `test_client_for` helper and imports (`MinutePeriod`, `AdjustType`, etc.) are already in scope in the existing `#[cfg(test)] mod tests` block — P0.13a uses the same pattern. If `test_client_for` is named differently, grep the file first.
+**Note for implementer**: The `fast_test_cfg` helper is defined at `src/sources/openstock_client.rs:789` in the existing `#[cfg(test)] mod tests` block. The standard pattern (used at L811, L841, L867, L1093, L1134, L1182) is `OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build")`. Imports (`MinutePeriod`, `AdjustType`, `OpenStockClient`, `wiremock`) are already in scope in the test module.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -517,7 +519,6 @@ pub(crate) async fn fetch_openstock_minute_klines(
 ) -> Result<()> {
     use std::str::FromStr;
 
-    use crate::core::runtime::OpenStockSettings;
     use crate::data::models::{AdjustType, MinutePeriod};
     use crate::sources::openstock_client::OpenStockClient;
 
@@ -557,7 +558,7 @@ pub(crate) async fn fetch_openstock_minute_klines(
 }
 ```
 
-**Note for implementer**: Some imports at the top of `openstock_handler.rs` may already exist (e.g. `OpenStockSettings` is imported at L4 per spec review). The inline `use` block above is defensive — if any of these are already imported at file scope, omit them from the inline block. Run `cargo check` after Step 2 to confirm.
+**Note for implementer**: `OpenStockSettings` is already imported at `openstock_handler.rs:4` (verified). The inline `use` block intentionally omits it (only `MinutePeriod`, `AdjustType`, `OpenStockClient` need inline imports for this function). Run `cargo check` after Step 2 to confirm no missing/extra imports.
 
 - [ ] **Step 3: Re-export handler in `src/cli/handlers/mod.rs`**
 
