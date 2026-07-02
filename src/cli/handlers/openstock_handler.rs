@@ -455,6 +455,32 @@ pub(crate) async fn fetch_openstock_minute_klines(
     Ok(())
 }
 
+pub(crate) async fn fetch_openstock_minute_share(
+    settings: &OpenStockSettings,
+    symbol: String,
+    date_str: String,
+) -> Result<()> {
+    let client = OpenStockClient::from_settings(settings)?;
+    let date = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+        .map_err(|e| QuantixError::Other(format!("invalid date '{}': {}", date_str, e)))?;
+    let started = std::time::Instant::now();
+    let shares = client.fetch_minute_share(&symbol, date).await?;
+    let latency_ms = started.elapsed().as_millis();
+
+    let base_url = settings.base_url.as_deref().unwrap_or("(not set)");
+    println!("OpenStock MINUTE_DATA (time-share ticks)");
+    println!("  Code:     {}", symbol);
+    println!("  Date:     {}", date);
+    println!("  Endpoint: {}/data/fetch", base_url);
+    println!("  Records:  {}", shares.len());
+    if let (Some(first), Some(last)) = (shares.first(), shares.last()) {
+        println!("  First:    {:?}", first);
+        println!("  Last:     {:?}", last);
+    }
+    println!("  latency_ms: {}", latency_ms);
+    Ok(())
+}
+
 pub(crate) async fn fetch_openstock_all_stocks(
     settings: &OpenStockSettings,
     day: Option<&str>,

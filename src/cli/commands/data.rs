@@ -396,4 +396,15 @@ pub enum OpenStockCommands {
         #[arg(long, default_value = "none")]
         adjust: String,
     },
+
+    /// Fetch OpenStock MINUTE_DATA category (intraday time-share ticks).
+    ///
+    /// Returns per-minute price + avg_price for the given code/date.
+    /// Distinct from fetch-minute-klines: no OHLC, no period/adjust.
+    FetchMinuteShare {
+        #[arg(long)]
+        symbol: String,
+        #[arg(long)]
+        date: String,
+    },
 }
