@@ -2,6 +2,7 @@
 
 > 设计日期：2026-07-02
 > 状态：定稿，待实现
+> 修订：2026-07-02 (R1) — 修正 CRITICAL 类型名 `MinuteKline` 冲突（`src/db/tdengine.rs:37`）→ 改名 `MinuteBar`；修正 `OpenStockClientSettings` → `OpenStockSettings`；修正 `OpenStockClient::new()` → `from_settings()`；调和 INV-2C 与 `MinuteShare` struct；修正架构图 query string → JSON body；CLI smoke 命令路径修正。详见 `2026-07-02-openstock-p0-13b-design-review.md`。
 > 前序切片：P0.13a（多周期日线 K 线拉取，已合并 2026-07-02）
 > 切片范围：P0.13b-1（分钟蜡烛 K 线）+ P0.13b-2（分时点序列），**两个独立 OpenSpec change**
 
@@ -32,7 +33,7 @@
 |---|---|---|
 | OpenStock 端点 | `/data/bars` | `/data/fetch`（envelope） |
 | 数据形态 | OHLCV 蜡烛 | 单点价格序列 |
-| Rust 模型 | `MinuteKline`（含 OHLC） | `MinuteShare`（含 avg_price） |
+| Rust 模型 | `MinuteBar`（含 OHLC） | `MinuteShare`（含 avg_price） |
 | 客户端方法 | 直 reqwest | envelope + retry + circuit breaker |
 | 输入参数 | `code + period + date + adjust` | `code + date` |
 | 业务用途 | 短线信号、回测 | 当日盘口走势、VWAP 辅助 |
@@ -121,13 +122,13 @@ def map_period(period):
            │ OpenStockClient::               │
            │   fetch_minute_klines(          │
            │     code, period, date, adjust) │
-           │   → Vec<MinuteKline>            │
+           │   → Vec<MinuteBar>              │
            │   (直 reqwest，无 retry/breaker) │
            └───────────────┬────────────────┘
                            │
                            ▼
-                  OpenStock /data/bars
-                  ?period=1m (或 5m/15m/30m/60m)
+                  OpenStock /data/bars (POST + JSON body)
+                  { symbol, period: "1m", date, adjust? }
 ```
 
 ### 3.2 P0.13b-2（分时点序列）
@@ -168,7 +169,7 @@ def map_period(period):
 /// `/data/bars` 分钟周期参数（P0.13b-1 新增）。
 ///
 /// 与 P0.13a 的 `BarPeriod`（day/week/month）语义域不同：
-/// 分钟蜡烛返回 `Vec<MinuteKline>`（含 NaiveDateTime 时间戳），
+/// 分钟蜡烛返回 `Vec<MinuteBar>`（含 NaiveDateTime 时间戳），
 /// 而日线/周线/月线返回 `Vec<Kline>`（仅 NaiveDate）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MinutePeriod {
@@ -218,16 +219,22 @@ impl std::str::FromStr for MinutePeriod {
 }
 ```
 
-#### 4.1.2 `MinuteKline` 结构体（`src/data/models.rs`）
+#### 4.1.2 `MinuteBar` 结构体（`src/data/models.rs`）
 
 ```rust
 /// 分钟级 K 线蜡烛（P0.13b-1 新增）。
+///
+/// **命名说明**：命名为 `MinuteBar`（不是 `MinuteKline`），因为
+/// `src/db/tdengine.rs:37` 已存在公开 re-export 的 `MinuteKline`{
+/// ts: DateTime<Utc>, code, open: f64, ... }——TDengine 行映射用 f64。
+/// 本类型用 `Decimal` + `AdjustType`，语义不同，必须避免名称碰撞。
+/// `MinuteBar` 与 P0.13a `BarPeriod` 形成请求/响应语义对。
 ///
 /// 与 `Kline`（日线）的区别：
 /// - `timestamp: NaiveDateTime`（精确到分钟）vs `date: NaiveDate`
 /// - 其他字段与 `Kline` 一致
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinuteKline {
+pub struct MinuteBar {
     pub code: String,
     pub timestamp: NaiveDateTime,
     pub open: Decimal,
@@ -249,8 +256,8 @@ pub async fn fetch_minute_klines(
     period: MinutePeriod,
     date: NaiveDate,
     adjust: AdjustType,
-) -> Result<Vec<MinuteKline>> {
-    // 复用 /data/bars 端点，body:
+) -> Result<Vec<MinuteBar>> {
+    // 复用 /data/bars 端点（POST + JSON body），body:
     //   { symbol, period: "1m"|"5m"|..., date: "YYYY-MM-DD", adjust?: "qfq"|"hfq" }
     // 与 fetch_klines 同路径：直 reqwest，无 envelope，无 retry/breaker。
     //
@@ -275,7 +282,7 @@ FetchMinuteKlines {
 
 ```rust
 pub(crate) async fn fetch_openstock_minute_klines(
-    settings: &OpenStockClientSettings,
+    settings: &OpenStockSettings,
     symbol: String,
     period: String,
     date: String,
@@ -288,7 +295,7 @@ pub(crate) async fn fetch_openstock_minute_klines(
     let date_parsed = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
         .map_err(|e| QuantixError::Config(format!("--date: {}", e)))?;
 
-    let client = OpenStockClient::new(settings.clone());
+    let client = OpenStockClient::from_settings(settings)?;
     let klines = client.fetch_minute_klines(&symbol, period_enum, date_parsed, adjust_enum).await?;
 
     // 输出格式（与 P0.13a fetch-klines 同形状）：
@@ -314,17 +321,22 @@ pub(crate) async fn fetch_openstock_minute_klines(
 ```rust
 /// 分时点序列（P0.13b-2 新增）。
 ///
-/// 对应 OpenStock `MINUTE_DATA` 分类。与 `MinuteKline` 区别：
+/// 对应 OpenStock `MINUTE_DATA` 分类。与 `MinuteBar` 区别：
 /// - 无 OHLC（仅单一 `price`）
 /// - 含 `avg_price`（均价，业务关键字段）
+///
+/// **Option 字段说明**：业务字段全部用 `Option` 包裹以支持 INV-2C
+/// （单条记录字段缺失时 warn + skip，不中断整批）。serde 反序列化
+/// 在 Option 字段缺失时返回 None 而非失败；parser 阶段检查关键字段
+/// （price/volume/amount/avg_price），任一为 None 则 warn + skip。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinuteShare {
     pub code: String,
     pub timestamp: NaiveDateTime,
-    pub price: Decimal,
-    pub volume: i64,
-    pub amount: Decimal,
-    pub avg_price: Decimal,
+    pub price: Option<Decimal>,
+    pub volume: Option<i64>,
+    pub amount: Option<Decimal>,
+    pub avg_price: Option<Decimal>,
 }
 ```
 
@@ -352,7 +364,14 @@ pub async fn fetch_minute_share(
 ///
 /// 丢弃字段：`index`（内部序号）、`time`（ISO 冗余）、`price_milli`（毫表示）。
 /// 保留字段：`time_minutes, price, volume, amount, avg_price`。
-pub(crate) fn parse_minute_share(code: &str, raw: &RawMinuteRecord) -> Result<MinuteShare> {
+///
+/// 返回 `Option<MinuteShare>` 而非 `Result`：当关键字段（price/volume/
+/// amount/avg_price）任一为 None 时返回 None，调用方 warn + skip，
+/// 实现 INV-2C "不中断整批" 语义。
+pub(crate) fn parse_minute_share(
+    code: &str,
+    raw: &RawMinuteRecord,
+) -> Option<MinuteShare> {
     todo!()
 }
 ```
@@ -384,7 +403,7 @@ pub(crate) async fn fetch_openstock_minute_share(
 | ID | 描述 |
 |---|---|
 | INV-1A | `MinutePeriod` 仅接受 5 个主 token，所有别名在 FromStr 阶段拒绝 |
-| INV-1B | `fetch_minute_klines` 返回的 `MinuteKline` 必须含 `NaiveDateTime`（非 `NaiveDate`） |
+| INV-1B | `fetch_minute_klines` 返回的 `MinuteBar` 必须含 `NaiveDateTime`（非 `NaiveDate`） |
 | INV-1C | `/data/bars` 4xx/5xx 错误必须以 `QuantixError::Other` 传播，**不重试**（与 fetch_klines 对齐） |
 | INV-1D | `AdjustType::None` 时请求体**省略** `adjust` 字段（不发送 `"adjust": ""`） |
 
@@ -394,7 +413,7 @@ pub(crate) async fn fetch_openstock_minute_share(
 |---|---|
 | INV-2A | `MinuteShare` 仅含 5 个业务字段，丢弃 `index/time/price_milli` |
 | INV-2B | `/data/fetch MINUTE_DATA` 复用现有 envelope 路径（含 retry + circuit breaker） |
-| INV-2C | 单条记录字段缺失时整条记录跳过（warn log），不中断整批 |
+| INV-2C | 单条记录字段缺失（`MinuteShare` 业务字段为 None）时 warn + skip，**不中断整批**——`MinuteShare` 业务字段全部 `Option` 包裹使 serde 不在字段缺失时硬失败，parser 显式判定后跳过 |
 | INV-2D | `timestamp` 来自 `time_minutes`（分钟精度），不用 `time` 字段（避免双源） |
 
 ---
@@ -429,7 +448,7 @@ pub(crate) async fn fetch_openstock_minute_share(
 | ID | 层 | 文件 | 内容 |
 |---|---|---|---|
 | T1 | unit | `src/data/models.rs` | `MinutePeriod` as_str 往返 + FromStr 严格（拒绝别名 `1min/minute/1h`） |
-| T2 | unit | `src/data/models.rs` | `MinuteKline` 序列化往返（timestamp 字段） |
+| T2 | unit | `src/data/models.rs` | `MinuteBar` 序列化往返（timestamp 字段） |
 | T3 | wiremock | `src/sources/openstock_client.rs` | `fetch_minute_klines` period=1m + adjust=none + 200 OK → Vec 非空 |
 | T4 | wiremock | 同 | period=5m + adjust=qfq → body 含 `"adjust":"qfq"`，返回带 `adjust_type: QFQ` |
 | T5 | wiremock | 同 | period=15m + 4xx → `QuantixError::Other`，`.expect(1)` 锁定无重试 |
@@ -458,7 +477,7 @@ pub(crate) async fn fetch_openstock_minute_share(
 
 | Phase | 任务 | Commit |
 |---|---|---|
-| 1.1 | `MinutePeriod` 枚举 + `MinuteKline` 结构体 + unit tests (T1, T2) | commit 1 |
+| 1.1 | `MinutePeriod` 枚举 + `MinuteBar` 结构体 + unit tests (T1, T2) | commit 1 |
 | 1.2 | `fetch_minute_klines` 方法 + wiremock tests (T3-T5) | commit 2 |
 | 2 | CLI `FetchMinuteKlines` + handler + dispatcher + mod.rs | commit 3 |
 | 3 | Live tests (T6-T8) + OpenSpec change + governance card + archive | commit 4 |
@@ -492,17 +511,21 @@ pub(crate) async fn fetch_openstock_minute_share(
 **决策**：P0.13b-1 复用 P0.13a 的 `/data/bars`，仅 `period` 参数从 day/week/month 扩展到 1m/5m/15m/30m/60m。
 **原因**：OpenStock 已支持，无需服务端改动。
 
-### D3：新建 `MinutePeriod` 枚举（不扩展 `BarPeriod`）
-**决策**：P0.13b-1 新建 `MinutePeriod`，不动 P0.13a 的 `BarPeriod`。
-**原因**：返回类型不同（`Vec<MinuteKline>` vs `Vec<Kline>`），类型系统强制区分；保持 P0.13a 稳定。
+### D3：新建 `MinutePeriod` 枚举（不扩展 `BarPeriod`），新建 `MinuteBar` 结构体（不复用 `Kline`，不与 `src/db/tdengine.rs:37` `MinuteKline` 碰撞）
+**决策**：
+- P0.13b-1 新建 `MinutePeriod`，不动 P0.13a 的 `BarPeriod`。
+- 蜡烛响应类型命名为 `MinuteBar`（**不是** `MinuteKline`）——`src/db/tdengine.rs:37` 已有公开 re-export 的 `MinuteKline`（f64 + DateTime\<Utc\>，TDengine 行映射），命名碰撞会导致编译歧义。
+**原因**：
+- 返回类型不同（`Vec<MinuteBar>` vs `Vec<Kline>`），类型系统强制区分；保持 P0.13a 稳定。
+- `MinuteBar` 与 `BarPeriod` 形成请求/响应语义对；避免 TDengine `MinuteKline` 的 f64 vs API 层 Decimal 类型歧义。
 
 ### D4：wire token 使用主 token（拒绝别名）
 **决策**：`MinutePeriod::as_str()` 返回 `1m|5m|15m|30m|60m`；`FromStr` 拒绝所有别名。
 **原因**：OpenStock `_PERIOD_MAP` 对未知 token 静默回退到 day（R1），严格白名单 + fail-fast 是唯一安全策略。
 
-### D5：`MinuteKline` 独立结构体（不复用 `Kline`）
-**决策**：新建 `MinuteKline { timestamp: NaiveDateTime, ... }`，不复用 `Kline { date: NaiveDate, ... }`。
-**原因**：时间精度是业务必需，把 `Kline.date` 改成 `NaiveDateTime` 会破坏所有现有消费者。
+### D5：`MinuteBar` 独立结构体（不复用 `Kline`）
+**决策**：新建 `MinuteBar { timestamp: NaiveDateTime, ... }`，不复用 `Kline { date: NaiveDate, ... }`。
+**原因**：时间精度是业务必需，把 `Kline.date` 改成 `NaiveDateTime` 会破坏所有现有消费者。命名见 D3。
 
 ### D6：`MinuteShare` 裁剪到 5 业务字段
 **决策**：丢弃 `index/time/price_milli`，保留 `time_minutes/price/volume/amount/avg_price`。
@@ -559,8 +582,8 @@ OPENSTOCK_BASE_URL=http://192.168.123.104:8040 \
 OPENSTOCK_API_KEY=<key> \
 cargo test --test openstock_live_minute_klines -- --ignored
 
-# CLI smoke
-cargo run -q -- openstock fetch-minute-klines --symbol sh600000 --period 1m --date 2026-07-02
+# CLI smoke (注意：FetchMinuteKlines 挂在 DataCommands::OpenStock → OpenStockCommands 下)
+cargo run -q -- data openstock fetch-minute-klines --symbol sh600000 --period 1m --date 2026-07-02
 
 # Spec + governance
 openspec validate openstock-data-consumption-p0-13b-1 --strict
