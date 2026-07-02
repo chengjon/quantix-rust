@@ -1,6 +1,6 @@
 id: P0.13b-1
 title: "OpenStock minute-level K-line candles (KLINES minute periods)"
-state: in_progress
+state: completed
 scope:
   allowed_paths:
     - src/data/models.rs
