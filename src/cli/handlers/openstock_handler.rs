@@ -399,6 +399,62 @@ pub(crate) async fn fetch_openstock_klines(
     Ok(())
 }
 
+/// 实时拉取分钟级 K 线（P0.13b-1）。
+///
+/// 通过 `/data/bars` 端点拉取 1m|5m|15m|30m|60m 周期 + none/qfq/hfq 复权的
+/// 分钟级 K 线数据。`--period` 与 `--adjust` 通过 `FromStr` 严格解析，
+/// 非法值在任何 HTTP 请求之前即以 `QuantixError::Config` 快速失败。
+///
+/// 注意：`/data/bars` 不返回 `/data/fetch` 信封中的 `source` /
+/// `artifact_hash` / `latency_ms` 字段，因此本 handler 不打印这些字段
+/// （与 `fetch_openstock_klines` 一致）。
+pub(crate) async fn fetch_openstock_minute_klines(
+    settings: &OpenStockSettings,
+    symbol: String,
+    period: String,
+    date: String,
+    adjust: String,
+) -> Result<()> {
+    use std::str::FromStr;
+
+    use crate::data::models::{AdjustType, MinutePeriod};
+    use crate::sources::openstock_client::OpenStockClient;
+
+    let period_enum = MinutePeriod::from_str(&period)
+        .map_err(|e| QuantixError::Config(format!("--period: {}", e)))?;
+    let adjust_enum = AdjustType::from_str(&adjust)
+        .map_err(|e| QuantixError::Config(format!("--adjust: {}", e)))?;
+    let date_parsed = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+        .map_err(|e| QuantixError::Config(format!("--date: {}", e)))?;
+
+    let client = OpenStockClient::from_settings(settings)?;
+    let bars = client
+        .fetch_minute_klines(&symbol, period_enum, date_parsed, adjust_enum)
+        .await?;
+
+    println!(
+        "OpenStock live fetch (/data/bars, symbol={}, minute={})",
+        symbol,
+        period_enum.as_str()
+    );
+    println!("  Date:   {}", date);
+    println!(
+        "  Adjust: {}",
+        adjust_enum
+            .as_openstock_param()
+            .unwrap_or("none (field omitted)")
+    );
+    println!("  记录数: {}", bars.len());
+    if !bars.is_empty() {
+        println!("  First:  {:?}", bars.first());
+        println!("  Last:   {:?}", bars.last());
+    }
+    println!("  Source:        (not reported by /data/bars)");
+    println!("  artifact_hash: (not reported by /data/bars)");
+    println!("  latency_ms:    (not reported by /data/bars)");
+    Ok(())
+}
+
 pub(crate) async fn fetch_openstock_all_stocks(
     settings: &OpenStockSettings,
     day: Option<&str>,

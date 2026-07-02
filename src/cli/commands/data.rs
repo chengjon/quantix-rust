@@ -381,4 +381,19 @@ pub enum OpenStockCommands {
         #[arg(long)]
         end: Option<String>,
     },
+
+    /// 拉取分钟级 K 线蜡烛 (P0.13b-1, OpenStock /data/bars period=1m|5m|15m|30m|60m)
+    FetchMinuteKlines {
+        #[arg(long)]
+        symbol: String,
+
+        #[arg(long, default_value = "1m")]
+        period: String,
+
+        #[arg(long)]
+        date: String,
+
+        #[arg(long, default_value = "none")]
+        adjust: String,
+    },
 }
