@@ -1173,10 +1173,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fetch_klines_propagates_non_2xx_as_quantix_error() {
+    async fn fetch_klines_propagates_4xx() {
         use crate::data::models::{AdjustType, BarPeriod};
-        use wiremock::matchers::method;
-        use wiremock::matchers::path;
+        use wiremock::matchers::{method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
         let server = MockServer::start().await;
@@ -1184,22 +1183,19 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/data/bars"))
-            .respond_with(ResponseTemplate::new(500).set_body_string("upstream broken"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_string(r#"{"code":"bad_request","message":"nope"}"#),
+            )
+            .expect(1) // no retry on 4xx — matches fetch_daily_klines
             .mount(&server)
             .await;
 
-        let result = client
+        let err = client
             .fetch_klines("600000", BarPeriod::Month, AdjustType::HFQ, None, None)
-            .await;
-        assert!(result.is_err(), "non-2xx must propagate as error");
-        let msg = match result.err() {
-            Some(QuantixError::Other(m)) | Some(QuantixError::Network(m)) => m,
-            other => format!("{:?}", other),
-        };
-        assert!(
-            msg.contains("/data/bars"),
-            "error message should mention /data/bars, got: {}",
-            msg
-        );
+            .await
+            .expect_err("should fail");
+        let msg = format!("{:?}", err);
+        assert!(msg.contains("/data/bars returned 400"), "msg={}", msg);
     }
 }
