@@ -364,6 +364,24 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 fetch_openstock_index(&rt.openstock, &symbol, start.as_deref(), end.as_deref())
                     .await?;
             }
+            OpenStockCommands::FetchKlines {
+                symbol,
+                period,
+                adjust,
+                start,
+                end,
+            } => {
+                let rt = CliRuntime::load();
+                fetch_openstock_klines(
+                    &rt.openstock,
+                    &symbol,
+                    &period,
+                    &adjust,
+                    start.as_deref(),
+                    end.as_deref(),
+                )
+                .await?;
+            }
             OpenStockCommands::FetchAllStocks { day } => {
                 let rt = CliRuntime::load();
                 fetch_openstock_all_stocks(&rt.openstock, day.as_deref()).await?;

@@ -358,4 +358,27 @@ pub enum OpenStockCommands {
         #[arg(long)]
         end: Option<String>,
     },
+
+    /// 实时拉取多周期 K 线（/data/bars，支持 day/week/month + none/qfq/hfq，联网，只读，不写库）
+    FetchKlines {
+        /// 标的代码（例如 600000、sh600000）
+        #[arg(long)]
+        symbol: String,
+
+        /// K 线周期：day | week | month（大小写不敏感，拒绝 daily/weekly/monthly 别名）
+        #[arg(long, default_value = "day")]
+        period: String,
+
+        /// 复权类型：none | qfq | hfq（大小写不敏感）
+        #[arg(long, default_value = "none")]
+        adjust: String,
+
+        /// YYYY-MM-DD，起始日期（含，可选）
+        #[arg(long)]
+        start: Option<String>,
+
+        /// YYYY-MM-DD，结束日期（含，可选）
+        #[arg(long)]
+        end: Option<String>,
+    },
 }

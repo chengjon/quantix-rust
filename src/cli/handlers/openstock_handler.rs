@@ -341,6 +341,59 @@ pub(crate) async fn fetch_openstock_index(
     Ok(())
 }
 
+/// 实时拉取多周期 K 线（P0.13a）。
+///
+/// 通过 `/data/bars` 端点拉取 day/week/month 周期 + none/qfq/hfq 复权的
+/// K 线数据。`--period` 与 `--adjust` 通过 `FromStr` 严格解析，非法值在
+/// 任何 HTTP 请求之前即以 `QuantixError::Config` 快速失败。
+///
+/// 注意：`/data/bars` 不返回 `/data/fetch` 信封中的 `source` /
+/// `artifact_hash` / `latency_ms` 字段，因此本 handler 不打印这些字段
+/// （与 `fetch_openstock_index` 不同）。
+pub(crate) async fn fetch_openstock_klines(
+    settings: &OpenStockSettings,
+    symbol: &str,
+    period: &str,
+    adjust: &str,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<()> {
+    use std::str::FromStr;
+
+    use crate::data::models::{AdjustType, BarPeriod};
+
+    let period =
+        BarPeriod::from_str(period).map_err(|e| QuantixError::Config(format!("--period {}", e)))?;
+    let adjust = AdjustType::from_str(adjust)
+        .map_err(|e| QuantixError::Config(format!("--adjust {}", e)))?;
+
+    let client = OpenStockClient::from_settings(settings)?;
+    let klines = client
+        .fetch_klines(symbol, period, adjust, start, end)
+        .await?;
+
+    println!(
+        "OpenStock live fetch (KLINES, symbol={}, period={}, adjust={:?})",
+        symbol,
+        period.as_str(),
+        adjust
+    );
+    println!("  记录数: {}", klines.len());
+    if let Some(first) = klines.first() {
+        println!(
+            "  首条: date={} open={} high={} low={} close={} volume={}",
+            first.date, first.open, first.high, first.low, first.close, first.volume
+        );
+    }
+    if let Some(last) = klines.last() {
+        println!(
+            "  末条: date={} open={} high={} low={} close={} volume={}",
+            last.date, last.open, last.high, last.low, last.close, last.volume
+        );
+    }
+    Ok(())
+}
+
 pub(crate) async fn fetch_openstock_all_stocks(
     settings: &OpenStockSettings,
     day: Option<&str>,
