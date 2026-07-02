@@ -1,0 +1,34 @@
+id: P0.13b-1
+title: "OpenStock minute-level K-line candles (KLINES minute periods)"
+state: in_progress
+scope:
+  allowed_paths:
+    - src/data/models.rs
+    - src/sources/openstock_client.rs
+    - src/cli/commands/data.rs
+    - src/cli/handlers/openstock_handler.rs
+    - src/cli/handlers/mod.rs
+    - src/cli/handlers/app_shell.rs
+    - tests/openstock_live_minute_klines.rs
+    - openspec/changes/openstock-data-consumption-p0-13b-1/**
+    - docs/reports/HANDOFF_TDX_API_TO_OPENSTOCK_DATA_CAPABILITY_GAPS_2026-06-30.md
+  forbidden_paths:
+    - src/db/**
+    - src/backtest/**
+    - src/execution/**
+    - src/sources/openstock.rs           # shadow persistence (legacy path)
+    - src/sources/openstock_shadow.rs   # shadow persistence (legacy path)
+    - src/sources/kline_aggregator.rs   # different semantic domain (P0.13a D6)
+    - src/sources/openstock_client.rs::fetch_klines   # P0.13a — do not modify
+    - src/data/models.rs::Kline         # P0.13a — do not modify
+    - src/data/models.rs::BarPeriod     # P0.13a — do not modify
+acceptance_gates:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --workspace -- -D warnings
+  - cargo test --workspace
+  - openspec validate openstock-data-consumption-p0-13b-1 --strict
+  - openspec validate --all --strict
+non_goals:
+  - "Time-share MINUTE_DATA via /data/fetch (P0.13b-2)"
+  - "Multi-day range queries (P0.13c)"
+  - "ClickHouse writes / shadow persistence"
