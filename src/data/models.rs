@@ -23,7 +23,7 @@ pub struct Kline {
 }
 
 /// 复权类型
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AdjustType {
     None = 0,
     QFQ = 1, // 前复权

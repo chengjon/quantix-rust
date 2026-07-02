@@ -566,6 +566,113 @@ impl OpenStockClient {
 
         Ok(klines)
     }
+
+    /// Fetch K-line bars from OpenStock `/data/bars` endpoint with explicit
+    /// period (day/week/month) and adjust (none/qfq/hfq) parameters.
+    ///
+    /// This is the multi-period generalisation of [`Self::fetch_daily_klines`].
+    /// Like that method, it uses a direct `reqwest` call (no retry, no circuit
+    /// breaker) per the P0.10 design decision for `/data/bars`. The returned
+    /// `Kline` records are stamped with the requested `adjust_type` (the
+    /// runtime does not echo it back — decision D2 request-driven).
+    ///
+    /// `AdjustType::None` causes the `adjust` field to be omitted entirely
+    /// from the request body (matches `fetch_daily_klines` wire shape).
+    pub async fn fetch_klines(
+        &self,
+        code: &str,
+        period: crate::data::models::BarPeriod,
+        adjust: crate::data::models::AdjustType,
+        start: Option<&str>,
+        end: Option<&str>,
+    ) -> Result<Vec<crate::data::models::Kline>> {
+        use std::str::FromStr;
+
+        let endpoint = self
+            .base_url
+            .join("data/bars")
+            .map_err(|e| QuantixError::Other(format!("url join failed: {}", e)))?;
+
+        let mut body = serde_json::json!({
+            "symbol": code,
+            "period": period.as_str(),
+        });
+        if let Some(adj) = adjust.as_openstock_param() {
+            body["adjust"] = Value::String(adj.to_string());
+        }
+        if let Some(start) = start {
+            body["start_date"] = Value::String(start.to_string());
+        }
+        if let Some(end) = end {
+            body["end_date"] = Value::String(end.to_string());
+        }
+
+        let resp = self
+            .http
+            .post(endpoint)
+            .header("X-API-Key", self.api_key.clone())
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars request failed: {}", e)))?;
+
+        let status = resp.status();
+        let raw = resp
+            .text()
+            .await
+            .map_err(|e| QuantixError::Network(format!("/data/bars body read failed: {}", e)))?;
+
+        if !status.is_success() {
+            return Err(QuantixError::Other(format!(
+                "/data/bars returned {}: {}",
+                status,
+                raw.chars().take(200).collect::<String>()
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BarsResponse {
+            data: Vec<BarRecord>,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BarRecord {
+            time: String,
+            open: f64,
+            high: f64,
+            low: f64,
+            close: f64,
+            volume: f64,
+            amount: f64,
+        }
+
+        let bars: BarsResponse = serde_json::from_str(&raw)
+            .map_err(|e| QuantixError::Other(format!("/data/bars parse failed: {}", e)))?;
+
+        let mut klines = Vec::with_capacity(bars.data.len());
+        for bar in bars.data {
+            // time format: "2026-06-01T15:00:00+08:00" → NaiveDate
+            let date = chrono::NaiveDate::parse_from_str(&bar.time[..10], "%Y-%m-%d")
+                .map_err(|e| QuantixError::DataParse(format!("解析 bars 日期失败: {}", e)))?;
+
+            klines.push(crate::data::models::Kline {
+                code: code.to_string(),
+                date,
+                open: rust_decimal::Decimal::from_str(&format!("{}", bar.open)).unwrap_or_default(),
+                high: rust_decimal::Decimal::from_str(&format!("{}", bar.high)).unwrap_or_default(),
+                low: rust_decimal::Decimal::from_str(&format!("{}", bar.low)).unwrap_or_default(),
+                close: rust_decimal::Decimal::from_str(&format!("{}", bar.close))
+                    .unwrap_or_default(),
+                volume: bar.volume as i64,
+                amount: Some(
+                    rust_decimal::Decimal::from_str(&format!("{}", bar.amount)).unwrap_or_default(),
+                ),
+                adjust_type: adjust,
+            });
+        }
+
+        Ok(klines)
+    }
 }
 
 /// Public post-parse view of a `/data/fetch` success response.
@@ -970,5 +1077,129 @@ mod tests {
             .await;
         let _ = client.fetch::<Rec>("STOCK_CODES", json!({})).await;
         // Verified by `expect(1)` on drop — circuit did NOT open.
+    }
+
+    // -----------------------------------------------------------------
+    // fetch_klines tests (wiremock-based, P0.13a Task 1.2)
+    // -----------------------------------------------------------------
+
+    #[tokio::test]
+    async fn fetch_klines_day_none_sends_period_day_and_omits_adjust() {
+        use crate::data::models::{AdjustType, BarPeriod};
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        let body = serde_json::json!({
+            "data": [
+                {
+                    "time": "2026-06-01T15:00:00+08:00",
+                    "open": 10.5,
+                    "high": 11.0,
+                    "low": 10.2,
+                    "close": 10.8,
+                    "volume": 1000000.0,
+                    "amount": 10800000.0,
+                }
+            ]
+        });
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .and(body_partial_json(serde_json::json!({
+                "symbol": "600000",
+                "period": "day",
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .mount(&server)
+            .await;
+
+        let klines = client
+            .fetch_klines("600000", BarPeriod::Day, AdjustType::None, None, None)
+            .await
+            .expect("fetch_klines ok");
+        assert_eq!(klines.len(), 1);
+        assert_eq!(klines[0].code, "600000");
+        assert_eq!(klines[0].adjust_type, AdjustType::None);
+    }
+
+    #[tokio::test]
+    async fn fetch_klines_qfq_sends_adjust_qfq_and_stamps_records() {
+        use crate::data::models::{AdjustType, BarPeriod};
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        let body = serde_json::json!({
+            "data": [
+                {
+                    "time": "2026-06-02T15:00:00+08:00",
+                    "open": 5.0,
+                    "high": 5.5,
+                    "low": 4.9,
+                    "close": 5.2,
+                    "volume": 2000000.0,
+                    "amount": 10400000.0,
+                }
+            ]
+        });
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .and(body_partial_json(serde_json::json!({
+                "symbol": "000001",
+                "period": "week",
+                "adjust": "qfq",
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .mount(&server)
+            .await;
+
+        let klines = client
+            .fetch_klines(
+                "000001",
+                BarPeriod::Week,
+                AdjustType::QFQ,
+                Some("2026-01-01"),
+                Some("2026-06-30"),
+            )
+            .await
+            .expect("fetch_klines ok");
+        assert_eq!(klines.len(), 1);
+        assert_eq!(klines[0].code, "000001");
+        assert_eq!(klines[0].adjust_type, AdjustType::QFQ);
+    }
+
+    #[tokio::test]
+    async fn fetch_klines_propagates_non_2xx_as_quantix_error() {
+        use crate::data::models::{AdjustType, BarPeriod};
+        use wiremock::matchers::method;
+        use wiremock::matchers::path;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+
+        Mock::given(method("POST"))
+            .and(path("/data/bars"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("upstream broken"))
+            .mount(&server)
+            .await;
+
+        let result = client
+            .fetch_klines("600000", BarPeriod::Month, AdjustType::HFQ, None, None)
+            .await;
+        assert!(result.is_err(), "non-2xx must propagate as error");
+        let msg = match result.err() {
+            Some(QuantixError::Other(m)) | Some(QuantixError::Network(m)) => m,
+            other => format!("{:?}", other),
+        };
+        assert!(
+            msg.contains("/data/bars"),
+            "error message should mention /data/bars, got: {}",
+            msg
+        );
     }
 }
