@@ -809,25 +809,62 @@ impl OpenStockClient {
     pub async fn fetch_minute_share(
         &self,
         code: &str,
+        date_or_range: crate::data::models::DateOrRange,
+    ) -> Result<Vec<crate::data::models::MinuteShare>> {
+        use crate::data::models::{DateOrRange, iter_dates_inclusive};
+
+        match date_or_range {
+            DateOrRange::Date(d) => self.fetch_minute_share_single(code, d).await,
+            DateOrRange::Range { start, end } => {
+                let mut all = Vec::new();
+                for d in iter_dates_inclusive(start, end) {
+                    let day_records = self.fetch_minute_share_single(code, d).await?;
+                    all.extend(day_records);
+                }
+                Ok(all)
+            }
+        }
+    }
+
+    /// Single-day helper for MINUTE_DATA fetches.
+    ///
+    /// Both `Date` and `Range` paths route here. The server wraps each result
+    /// in a `{meta: {trading_date}, points: [...]}` envelope; we extract
+    /// `trading_date` from the envelope (NOT from the request parameter) so
+    /// that records are stamped with the actual trading day the server
+    /// reported (INV-2C).
+    async fn fetch_minute_share_single(
+        &self,
+        code: &str,
         date: chrono::NaiveDate,
     ) -> Result<Vec<crate::data::models::MinuteShare>> {
         let params = serde_json::json!({
             "code": code,
             "date": date.format("%Y-%m-%d").to_string(),
         });
-        let resp = self.fetch::<RawMinuteRecord>("MINUTE_DATA", params).await?;
-        let records = resp.records;
-        let mut out = Vec::with_capacity(records.len());
-        for raw in records {
-            if let Some(share) = parse_minute_share(code, &raw, date) {
-                out.push(share);
-            } else {
-                tracing::warn!(
-                    code = code,
-                    date = %date,
-                    time_minutes = %raw.time_minutes,
-                    "MINUTE_DATA record missing required field or invalid time, skipping"
-                );
+        let resp = self
+            .fetch::<MinuteShareEnvelope>("MINUTE_DATA", params)
+            .await?;
+        let mut out = Vec::new();
+        for env in resp.records {
+            let actual_date = env
+                .meta
+                .trading_date
+                .as_deref()
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+                .unwrap_or(date);
+            for raw in env.points {
+                if let Some(share) = parse_minute_share(code, &raw, actual_date) {
+                    out.push(share);
+                } else {
+                    tracing::warn!(
+                        code = code,
+                        requested_date = %date,
+                        trading_date = %actual_date,
+                        time_minutes = %raw.time_minutes,
+                        "MINUTE_DATA record missing required field or invalid time, skipping"
+                    );
+                }
             }
         }
         Ok(out)
@@ -851,6 +888,30 @@ struct RawMinuteRecord {
     volume: Option<i64>,
     amount: Option<rust_decimal::Decimal>,
     avg_price: Option<rust_decimal::Decimal>,
+}
+
+/// OpenStock MINUTE_DATA envelope wrapper.
+///
+/// Each element of the `/data/fetch MINUTE_DATA` response `data` array is a
+/// `{meta, points}` wrapper (not a flat record). `trading_date` lives in
+/// `meta`, not inside each point — see spec §3.2 R1 evidence and
+/// `_eltdx_timeseries.py:181-208`.
+#[derive(Debug, serde::Deserialize)]
+struct MinuteShareEnvelope {
+    #[serde(default)]
+    meta: MinuteShareMeta,
+    #[serde(default)]
+    points: Vec<RawMinuteRecord>,
+}
+
+/// Meta block of the MINUTE_DATA envelope.
+#[derive(Debug, Default, serde::Deserialize)]
+struct MinuteShareMeta {
+    /// Server-reported trading day for the records in this envelope
+    /// (`YYYY-MM-DD`). Per INV-2C, per-record timestamps are stamped from
+    /// this value, not from the client-supplied request date.
+    #[serde(default)]
+    trading_date: Option<String>,
 }
 
 /// 解析 MINUTE_DATA 单条记录为 `MinuteShare`。
@@ -1643,8 +1704,13 @@ mod tests {
                 "artifact_hash": "abc123",
                 "latency_ms": 42,
                 "data": [
-                    { "time_minutes": "09:30", "price": 10.50, "volume": 12300, "amount": 129150.0, "avg_price": 10.50, "index": 0, "time": "2026-07-01T09:30:00", "price_milli": 10500 },
-                    { "time_minutes": "09:31", "price": 10.51, "volume": 8800, "amount": 92488.0, "avg_price": 10.505, "index": 1, "time": "2026-07-01T09:31:00", "price_milli": 10510 }
+                    {
+                        "meta": { "trading_date": "2026-07-01" },
+                        "points": [
+                            { "time_minutes": "09:30", "price": 10.50, "volume": 12300, "amount": 129150.0, "avg_price": 10.50, "index": 0, "time": "2026-07-01T09:30:00", "price_milli": 10500 },
+                            { "time_minutes": "09:31", "price": 10.51, "volume": 8800, "amount": 92488.0, "avg_price": 10.505, "index": 1, "time": "2026-07-01T09:31:00", "price_milli": 10510 }
+                        ]
+                    }
                 ]
             })))
             .expect(1)
@@ -1654,7 +1720,7 @@ mod tests {
         let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let shares = client
-            .fetch_minute_share("sh600000", date)
+            .fetch_minute_share("sh600000", crate::data::models::DateOrRange::Date(date))
             .await
             .expect("fetch ok");
         assert_eq!(shares.len(), 2);
@@ -1676,11 +1742,16 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "source": "eltdx",
                 "data": [
-                    { "time_minutes": "09:30", "price": 10.50, "volume": 100, "amount": 1050.0, "avg_price": 10.50 },
-                    { "time_minutes": "09:31", "price": 10.51, "volume": 200, "amount": 2102.0 },
-                    { "time_minutes": "09:32", "price": 10.52, "amount": 526.0, "avg_price": 10.52 },
-                    { "time_minutes": "99:99", "price": 10.53, "volume": 300, "amount": 3159.0, "avg_price": 10.53 },
-                    { "time_minutes": "1130", "price": 10.54, "volume": 400, "amount": 4216.0, "avg_price": 10.54 }
+                    {
+                        "meta": { "trading_date": "2026-07-01" },
+                        "points": [
+                            { "time_minutes": "09:30", "price": 10.50, "volume": 100, "amount": 1050.0, "avg_price": 10.50 },
+                            { "time_minutes": "09:31", "price": 10.51, "volume": 200, "amount": 2102.0 },
+                            { "time_minutes": "09:32", "price": 10.52, "amount": 526.0, "avg_price": 10.52 },
+                            { "time_minutes": "99:99", "price": 10.53, "volume": 300, "amount": 3159.0, "avg_price": 10.53 },
+                            { "time_minutes": "1130", "price": 10.54, "volume": 400, "amount": 4216.0, "avg_price": 10.54 }
+                        ]
+                    }
                 ]
             })))
             .expect(1)
@@ -1690,7 +1761,7 @@ mod tests {
         let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let shares = client
-            .fetch_minute_share("sh600000", date)
+            .fetch_minute_share("sh600000", crate::data::models::DateOrRange::Date(date))
             .await
             .expect("fetch ok");
         assert_eq!(
@@ -1721,13 +1792,134 @@ mod tests {
         let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
         let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let err = client
-            .fetch_minute_share("invalid_code", date)
+            .fetch_minute_share("invalid_code", crate::data::models::DateOrRange::Date(date))
             .await
             .expect_err("must error");
         let msg = format!("{err}");
         assert!(
             msg.contains("404") || msg.contains("NOT_FOUND") || msg.contains("unknown"),
             "expected error to mention status/error, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_share_range_loops_per_day() {
+        // W3: Range triggers N single-day requests, each yielding records
+        // stamped with meta.trading_date (NOT request date — INV-2C).
+        use crate::data::models::{DateOrRange, iter_dates_inclusive};
+        use wiremock::matchers::{body_partial_json, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        // Single Mock with closure responder: each call inspects params.date
+        // and returns a record stamped with the requested trading_date.
+        // wiremock 0.6 supports closure responders.
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .and(body_partial_json(
+                serde_json::json!({ "data_category": "MINUTE_DATA" }),
+            ))
+            .respond_with(|request: &wiremock::Request| {
+                let body: serde_json::Value =
+                    serde_json::from_slice(&request.body).unwrap_or_default();
+                let req_date = body["params"]["date"].as_str().unwrap_or("");
+                let resp = serde_json::json!({
+                    "status": "ok",
+                    "source": "eltdx",
+                    "artifact_hash": format!("hash-{}", req_date),
+                    "data": [{
+                        "meta": { "trading_date": req_date },
+                        "points": [{
+                            "time_minutes": "0931",
+                            "price": 10.0,
+                            "volume": 100,
+                            "amount": 1000.0,
+                            "avg_price": 10.0
+                        }]
+                    }]
+                });
+                ResponseTemplate::new(200).set_body_json(resp)
+            })
+            .expect(3)
+            .mount(&server)
+            .await;
+
+        let cfg = fast_test_cfg(server.uri());
+        let client = OpenStockClient::new(cfg).expect("client build");
+        let start = chrono::NaiveDate::from_ymd_opt(2026, 6, 28).unwrap();
+        let end = chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
+        let shares = client
+            .fetch_minute_share("sh600000", DateOrRange::Range { start, end })
+            .await
+            .expect("fetch ok");
+
+        assert_eq!(shares.len(), 3, "one record per day × 3 days");
+        let dates: Vec<chrono::NaiveDate> = shares.iter().map(|s| s.timestamp.date()).collect();
+        // Verify all days present
+        for d in iter_dates_inclusive(start, end) {
+            assert!(dates.contains(&d), "expected day {} in results", d);
+        }
+        // Verify ascending order
+        let mut sorted = dates.clone();
+        sorted.sort();
+        assert_eq!(dates, sorted, "results must be in ascending date order");
+    }
+
+    #[tokio::test]
+    async fn fetch_minute_share_range_skips_non_trading_days() {
+        // W5: Range iterates all days client-side; non-trading days return
+        // empty points arrays → no records contributed for that day.
+        use crate::data::models::DateOrRange;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .respond_with(|request: &wiremock::Request| {
+                let body: serde_json::Value =
+                    serde_json::from_slice(&request.body).unwrap_or_default();
+                let req_date = body["params"]["date"].as_str().unwrap_or("");
+                // For "2026-06-28" (Sunday) return empty points
+                let points: Vec<serde_json::Value> = if req_date == "2026-06-28" {
+                    vec![]
+                } else {
+                    vec![serde_json::json!({
+                        "time_minutes": "1000",
+                        "price": 10.0, "volume": 100,
+                        "amount": 1000.0, "avg_price": 10.0,
+                    })]
+                };
+                let resp = serde_json::json!({
+                    "status": "ok",
+                    "source": "eltdx",
+                    "artifact_hash": "x",
+                    "data": [{
+                        "meta": { "trading_date": req_date },
+                        "points": points
+                    }]
+                });
+                ResponseTemplate::new(200).set_body_json(resp)
+            })
+            .expect(3)
+            .mount(&server)
+            .await;
+
+        let cfg = fast_test_cfg(server.uri());
+        let client = OpenStockClient::new(cfg).expect("client build");
+        let start = chrono::NaiveDate::from_ymd_opt(2026, 6, 28).unwrap();
+        let end = chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
+        let shares = client
+            .fetch_minute_share("sh600000", DateOrRange::Range { start, end })
+            .await
+            .expect("fetch ok");
+
+        // Sunday returns empty, so only 2 trading days × 1 record = 2 records
+        assert_eq!(shares.len(), 2, "non-trading day must contribute 0 records");
+        let dates: Vec<chrono::NaiveDate> = shares.iter().map(|s| s.timestamp.date()).collect();
+        assert!(
+            !dates.contains(&start),
+            "non-trading day must not appear in results"
         );
     }
 

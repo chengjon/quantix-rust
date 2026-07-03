@@ -35,7 +35,10 @@ async fn fetch_minute_share_live_sh600000_recent_trading_day() {
     // Use a recent past date; adjust if market was closed (weekend/holiday)
     let date = chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
     let shares = client
-        .fetch_minute_share("sh600000", date)
+        .fetch_minute_share(
+            "sh600000",
+            quantix_cli::data::models::DateOrRange::Date(date),
+        )
         .await
         .expect("fetch ok");
     assert!(!shares.is_empty(), "expected non-empty time-share ticks");
@@ -72,7 +75,12 @@ async fn fetch_minute_share_live_weekend_returns_empty_or_error() {
     let client = OpenStockClient::from_settings(&settings).expect("client build");
     // 2026-06-27 is a Saturday -> market closed
     let saturday = chrono::NaiveDate::from_ymd_opt(2026, 6, 27).unwrap();
-    let result = client.fetch_minute_share("sh600000", saturday).await;
+    let result = client
+        .fetch_minute_share(
+            "sh600000",
+            quantix_cli::data::models::DateOrRange::Date(saturday),
+        )
+        .await;
     // Either empty Vec (graceful) or Err (envelope error) -- both acceptable
     match result {
         Ok(shares) => {
@@ -98,7 +106,12 @@ async fn fetch_minute_share_live_unknown_code_propagates_error() {
     };
     let client = OpenStockClient::from_settings(&settings).expect("client build");
     let date = chrono::NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
-    let result = client.fetch_minute_share("invalid_code_xyz", date).await;
+    let result = client
+        .fetch_minute_share(
+            "invalid_code_xyz",
+            quantix_cli::data::models::DateOrRange::Date(date),
+        )
+        .await;
     assert!(
         result.is_err(),
         "expected error for unknown code, got: {:?}",

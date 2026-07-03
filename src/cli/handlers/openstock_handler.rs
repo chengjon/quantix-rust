@@ -469,7 +469,9 @@ pub(crate) async fn fetch_openstock_minute_share(
     let date = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
         .map_err(|e| QuantixError::Other(format!("invalid date '{}': {}", date_str, e)))?;
     let started = std::time::Instant::now();
-    let shares = client.fetch_minute_share(&symbol, date).await?;
+    let shares = client
+        .fetch_minute_share(&symbol, crate::data::models::DateOrRange::Date(date))
+        .await?;
     let latency_ms = started.elapsed().as_millis();
 
     let base_url = settings.base_url.as_deref().unwrap_or("(not set)");
