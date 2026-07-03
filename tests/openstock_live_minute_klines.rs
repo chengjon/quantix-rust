@@ -11,7 +11,7 @@
 //! ```
 
 use quantix_cli::core::runtime::OpenStockSettings;
-use quantix_cli::data::models::{AdjustType, MinutePeriod};
+use quantix_cli::data::models::{AdjustType, DateOrRange, MinutePeriod};
 use quantix_cli::sources::openstock_client::OpenStockClient;
 
 fn settings_from_env() -> Option<OpenStockSettings> {
@@ -34,7 +34,12 @@ async fn fetch_minute_klines_live_1m_none() {
     let client = OpenStockClient::from_settings(&settings).expect("client ok");
     let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
     let bars = client
-        .fetch_minute_klines("sh600000", MinutePeriod::Minute1, date, AdjustType::None)
+        .fetch_minute_klines(
+            "sh600000",
+            MinutePeriod::Minute1,
+            DateOrRange::Date(date),
+            AdjustType::None,
+        )
         .await
         .expect("fetch ok");
     assert!(!bars.is_empty(), "expected non-empty 1m bars");
@@ -51,7 +56,12 @@ async fn fetch_minute_klines_live_5m_qfq() {
     let client = OpenStockClient::from_settings(&settings).expect("client ok");
     let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
     let bars = client
-        .fetch_minute_klines("sh600000", MinutePeriod::Minute5, date, AdjustType::QFQ)
+        .fetch_minute_klines(
+            "sh600000",
+            MinutePeriod::Minute5,
+            DateOrRange::Date(date),
+            AdjustType::QFQ,
+        )
         .await
         .expect("fetch ok");
     assert!(!bars.is_empty(), "expected non-empty 5m qfq bars");
@@ -69,7 +79,12 @@ async fn fetch_minute_klines_live_60m_hfq() {
     let client = OpenStockClient::from_settings(&settings).expect("client ok");
     let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
     let bars = client
-        .fetch_minute_klines("sh600000", MinutePeriod::Minute60, date, AdjustType::HFQ)
+        .fetch_minute_klines(
+            "sh600000",
+            MinutePeriod::Minute60,
+            DateOrRange::Date(date),
+            AdjustType::HFQ,
+        )
         .await
         .expect("fetch ok");
     assert!(!bars.is_empty(), "expected non-empty 60m hfq bars");

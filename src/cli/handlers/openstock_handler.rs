@@ -429,7 +429,12 @@ pub(crate) async fn fetch_openstock_minute_klines(
 
     let client = OpenStockClient::from_settings(settings)?;
     let bars = client
-        .fetch_minute_klines(&symbol, period_enum, date_parsed, adjust_enum)
+        .fetch_minute_klines(
+            &symbol,
+            period_enum,
+            crate::data::models::DateOrRange::Date(date_parsed),
+            adjust_enum,
+        )
         .await?;
 
     println!(
