@@ -35,7 +35,7 @@ OpenStock server **无服务端分页原语**（无 `limit/offset/cursor`，见 
 - 重构 batch API 为 `stream::collect`（D6 拒绝）
 - streaming 扩展到其他 fetcher（`fetch_klines` 日线、`fetch_index_klines` 等）—— 独立切片
 - P0.13c §13 R6（服务端 MINUTE_DATA range 支持）—— 等 OpenStock server
-- 为 klines 路径加 retry（R5 风险，留作 P0.13e 候选）
+- 为 klines 路径加 retry（R4 风险，留作 P0.13e 候选）
 
 ---
 
@@ -156,20 +156,32 @@ pub fn fetch_minute_share_stream(
 
 ### 4.3 CLI（`src/cli/commands/data.rs`）
 
-两个变体各加 `stream: bool` field：
+两个变体各加 `stream: bool` field（保留 P0.13c 既有 `default_value` 属性不变）：
 
 ```rust
 FetchMinuteKlines {
-    #[arg(long)] symbol: String,
-    #[arg(long)] period: String,
-    #[arg(long)] adjust: Option<String>,
-    #[arg(long)] date: Option<String>,
-    #[arg(long)] start: Option<String>,
-    #[arg(long)] end: Option<String>,
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
+    symbol: String,
+
+    #[arg(long, default_value = "1m")]      // P0.13c 既有
+    period: String,
+
+    #[arg(long, default_value = "none")]    // P0.13c 既有
+    adjust: String,
+
+    #[arg(long)]
+    date: Option<String>,
+
+    #[arg(long)]
+    start: Option<String>,
+
+    #[arg(long)]
+    end: Option<String>,
+
+    #[arg(long, default_value_t = false)]   // 新增
     stream: bool,
 }
-// FetchMinuteShare 同样加 stream: bool
+// FetchMinuteShare 同样加 stream: bool（保留 P0.13c 既有 default_value 属性）
 ```
 
 向后兼容：默认 false；现有 `--date` / `--start` / `--end` 调用形态行为不变。
@@ -292,7 +304,7 @@ Batch 路径 warning 文案改为 `"consider narrowing or use --stream"`。
 - INV-4A 直接保证
 - 等价性由 INV-1A（S5 测试）+ L1 live 验证
 
-**Rejected**：`fetch_minute_klines = stream.collect()`（DRY 但 batch 内存特征不变、引入 churn 风险、违反用户决策）、deprecate batch API（R3 风险再现）。
+**Rejected**：`fetch_minute_klines = stream.collect()`（DRY 但 batch 内存特征不变、引入 churn 风险、违反用户决策）、deprecate batch API（大规模 churn，所有 P0.13b/c 调用方需迁移）。
 
 ---
 
@@ -301,10 +313,11 @@ Batch 路径 warning 文案改为 `"consider narrowing or use --stream"`。
 | ID | 风险 | 缓解 |
 |---|---|---|
 | **R1** | stream 类型签名引入新公共 trait bound，下游 compile error | 公开方法返回 `impl Stream + '_`（不写 `Send`）；调用方 `use futures::StreamExt`；CI `cargo build --workspace` 兜底 |
-| **R2** | `futures` crate 不在 workspace `[dependencies]` | Cargo.toml 加 `futures = "0.3"`；S1-S7 单元测试编译验证 |
-| **R3** | chunk_range_weekly 边界 bug（off-by-one、漏覆盖） | S4 端到端覆盖测试 |
-| **R4** | CLI `--stream` flag 在 batch 路径下被忽略，行为歧义 | 设计保证：flag 默认 false；flag=true 时 handler 走完全独立的 stream 分支 |
-| **R5** | klines stream 无 retry，transient 5xx 导致大范围作业失败 | D5 已记录；作为已知不对称；可作 follow-up P0.13e |
+| **R2** | chunk_range_weekly 边界 bug（off-by-one、漏覆盖） | S4 端到端覆盖测试 |
+| **R3** | CLI `--stream` flag 在 batch 路径下被忽略，行为歧义 | 设计保证：flag 默认 false；flag=true 时 handler 走完全独立的 stream 分支 |
+| **R4** | klines stream 无 retry，transient 5xx 导致大范围作业失败 | D5 已记录；作为已知不对称；可作 follow-up P0.13e |
+
+> **R1 修订**：删除原 R2（`futures` crate 不在 workspace）—— 已验证 `Cargo.toml:38-39` 已声明 `futures = "0.3"` 与 `futures-util = "0.3"`，无需新增依赖。R3-R5 顺次重编号。
 
 ---
 
@@ -346,9 +359,10 @@ Batch 路径 warning 文案改为 `"consider narrowing or use --stream"`。
 | `tests/openstock_live_minute_share.rs` | L2 live 测试 | +50 |
 | `openspec/changes/openstock-data-consumption-p0-13d/{proposal,tasks,design}.md` + `specs/openstock-data-consumption/spec.md` | OpenSpec 4 文件 | +200 |
 | `.governance/programs/project-governance/cards/P0.13d.yaml` | 新建 governance card | +30 |
-| `Cargo.toml`（workspace root + quantix-cli package） | `futures = "0.3"` | +2 |
 
-**总估算：约 +580 行新增 / +30 行修改**（与 P0.13c 的 +540/+35 体量相当）。
+> R1 修订：删除原 `Cargo.toml` 行——`futures = "0.3"` 已在 workspace（`Cargo.toml:38`）。
+
+**总估算：约 +578 行新增 / +30 行修改**（与 P0.13c 的 +540/+35 体量相当）。
 
 ---
 
@@ -412,7 +426,7 @@ openspec validate --all --strict
 
 ## 13. 后续事项（超出 P0.13d 范围）
 
-- **P0.13e 候选**（R5 follow-up）：为 klines batch API 加 retry（stream 路径自动继承）；如生产环境出现 transient 5xx 失败率高，作为下一切片
+- **P0.13e 候选**（R4 follow-up）：为 klines batch API 加 retry（stream 路径自动继承）；如生产环境出现 transient 5xx 失败率高，作为下一切片
 - 服务端分页协议（若 OpenStock server 引入 `limit/offset`）
 - ClickHouse 多日 batch 写入（stream → batch insert）
 - 反压 / 流控
