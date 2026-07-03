@@ -1,0 +1,38 @@
+id: P0.13b-2
+title: "OpenStock MINUTE_DATA time-share ticks (分时点序列)"
+state: in_progress
+scope:
+  allowed_paths:
+    - src/data/models.rs
+    - src/sources/openstock_client.rs
+    - src/cli/commands/data.rs
+    - src/cli/handlers/openstock_handler.rs
+    - src/cli/handlers/mod.rs
+    - src/cli/handlers/app_shell.rs
+    - tests/openstock_live_minute_share.rs
+    - openspec/changes/openstock-data-consumption-p0-13b-2/**
+    - docs/superpowers/specs/2026-07-02-openstock-p0-13b-2-minute-share-design.md
+  forbidden_paths:
+    - src/db/**
+    - src/backtest/**
+    - src/execution/**
+    - src/sources/openstock.rs
+    - src/sources/openstock_shadow.rs
+    - src/sources/kline_aggregator.rs
+    - src/sources/openstock_client.rs::fetch_klines          # P0.13a
+    - src/sources/openstock_client.rs::fetch_minute_klines   # P0.13b-1
+    - src/data/models.rs::Kline                              # P0.13a
+    - src/data/models.rs::BarPeriod                          # P0.13a
+    - src/data/models.rs::MinutePeriod                       # P0.13b-1
+    - src/data/models.rs::MinuteBar                          # P0.13b-1
+acceptance_gates:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --workspace -- -D warnings
+  - cargo test --workspace
+  - openspec validate openstock-data-consumption-p0-13b-2 --strict
+  - openspec validate --all --strict
+non_goals:
+  - "Multi-day range queries (P0.13c)"
+  - "ClickHouse writes / shadow persistence"
+  - "Migrate existing parsers to dedicated module"
+  - "Modify P0.13b-1 symbols (MinuteBar, MinutePeriod, fetch_minute_klines)"
