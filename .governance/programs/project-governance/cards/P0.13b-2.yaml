@@ -1,6 +1,6 @@
 id: P0.13b-2
 title: "OpenStock MINUTE_DATA time-share ticks (分时点序列)"
-state: in_progress
+state: completed
 scope:
   allowed_paths:
     - src/data/models.rs
