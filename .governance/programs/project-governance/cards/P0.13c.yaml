@@ -1,6 +1,6 @@
 id: P0.13c
 title: "OpenStock multi-day range queries for minute-level fetchers"
-state: in_progress
+state: completed
 scope:
   allowed_paths:
     - src/data/models.rs
