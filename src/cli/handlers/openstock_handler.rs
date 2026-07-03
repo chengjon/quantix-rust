@@ -412,37 +412,37 @@ pub(crate) async fn fetch_openstock_minute_klines(
     settings: &OpenStockSettings,
     symbol: String,
     period: String,
-    date: String,
+    date: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
     adjust: String,
 ) -> Result<()> {
     use std::str::FromStr;
 
-    use crate::data::models::{AdjustType, MinutePeriod};
+    use crate::data::models::{AdjustType, DateOrRange, MinutePeriod};
     use crate::sources::openstock_client::OpenStockClient;
 
     let period_enum = MinutePeriod::from_str(&period)
         .map_err(|e| QuantixError::Config(format!("--period: {}", e)))?;
     let adjust_enum = AdjustType::from_str(&adjust)
         .map_err(|e| QuantixError::Config(format!("--adjust: {}", e)))?;
-    let date_parsed = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
-        .map_err(|e| QuantixError::Config(format!("--date: {}", e)))?;
+    let dor = DateOrRange::from_cli(date.as_deref(), start.as_deref(), end.as_deref())?;
 
     let client = OpenStockClient::from_settings(settings)?;
     let bars = client
-        .fetch_minute_klines(
-            &symbol,
-            period_enum,
-            crate::data::models::DateOrRange::Date(date_parsed),
-            adjust_enum,
-        )
+        .fetch_minute_klines(&symbol, period_enum, dor.clone(), adjust_enum)
         .await?;
 
+    let mode_label = match &dor {
+        DateOrRange::Date(d) => format!("date={}", d),
+        DateOrRange::Range { start, end } => format!("range={}..{}", start, end),
+    };
     println!(
-        "OpenStock live fetch (/data/bars, symbol={}, minute={})",
+        "OpenStock live fetch (/data/bars, symbol={}, minute={}, {})",
         symbol,
-        period_enum.as_str()
+        period_enum.as_str(),
+        mode_label
     );
-    println!("  Date:   {}", date);
     println!(
         "  Adjust: {}",
         adjust_enum
@@ -457,27 +457,40 @@ pub(crate) async fn fetch_openstock_minute_klines(
     println!("  Source:        (not reported by /data/bars)");
     println!("  artifact_hash: (not reported by /data/bars)");
     println!("  latency_ms:    (not reported by /data/bars)");
+    if bars.len() > 10_000 {
+        eprintln!(
+            "warning: range returns {} records, consider narrowing for faster responses",
+            bars.len()
+        );
+    }
     Ok(())
 }
 
 pub(crate) async fn fetch_openstock_minute_share(
     settings: &OpenStockSettings,
     symbol: String,
-    date_str: String,
+    date: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
 ) -> Result<()> {
+    use crate::data::models::DateOrRange;
+    use crate::sources::openstock_client::OpenStockClient;
+
+    let dor = DateOrRange::from_cli(date.as_deref(), start.as_deref(), end.as_deref())?;
+
     let client = OpenStockClient::from_settings(settings)?;
-    let date = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
-        .map_err(|e| QuantixError::Other(format!("invalid date '{}': {}", date_str, e)))?;
     let started = std::time::Instant::now();
-    let shares = client
-        .fetch_minute_share(&symbol, crate::data::models::DateOrRange::Date(date))
-        .await?;
+    let shares = client.fetch_minute_share(&symbol, dor.clone()).await?;
     let latency_ms = started.elapsed().as_millis();
 
     let base_url = settings.base_url.as_deref().unwrap_or("(not set)");
+    let mode_label = match &dor {
+        DateOrRange::Date(d) => format!("date={}", d),
+        DateOrRange::Range { start, end } => format!("range={}..{}", start, end),
+    };
     println!("OpenStock MINUTE_DATA (time-share ticks)");
     println!("  Code:     {}", symbol);
-    println!("  Date:     {}", date);
+    println!("  Mode:     {}", mode_label);
     println!("  Endpoint: {}/data/fetch", base_url);
     println!("  Records:  {}", shares.len());
     if let (Some(first), Some(last)) = (shares.first(), shares.last()) {
@@ -485,6 +498,17 @@ pub(crate) async fn fetch_openstock_minute_share(
         println!("  Last:     {:?}", last);
     }
     println!("  latency_ms: {}", latency_ms);
+    if let DateOrRange::Range { start, end } = &dor {
+        let n_days = (*end - *start).num_days() + 1;
+        if n_days > 10 {
+            eprintln!(
+                "warning: range spans {} days; client issued {} single-day requests ({:.1}s total)",
+                n_days,
+                n_days,
+                latency_ms as f64 / 1000.0
+            );
+        }
+    }
     Ok(())
 }
 

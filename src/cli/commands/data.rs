@@ -390,8 +390,17 @@ pub enum OpenStockCommands {
         #[arg(long, default_value = "1m")]
         period: String,
 
+        /// Single-day query (mutex with --start/--end)
         #[arg(long)]
-        date: String,
+        date: Option<String>,
+
+        /// Range start (inclusive). Must pair with --end.
+        #[arg(long)]
+        start: Option<String>,
+
+        /// Range end (inclusive). Must pair with --start.
+        #[arg(long)]
+        end: Option<String>,
 
         #[arg(long, default_value = "none")]
         adjust: String,
@@ -404,7 +413,17 @@ pub enum OpenStockCommands {
     FetchMinuteShare {
         #[arg(long)]
         symbol: String,
+
+        /// Single-day query (mutex with --start/--end)
         #[arg(long)]
-        date: String,
+        date: Option<String>,
+
+        /// Range start (inclusive). Must pair with --end.
+        #[arg(long)]
+        start: Option<String>,
+
+        /// Range end (inclusive). Must pair with --start.
+        #[arg(long)]
+        end: Option<String>,
     },
 }
