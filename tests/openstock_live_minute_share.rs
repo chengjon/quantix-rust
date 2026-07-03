@@ -119,3 +119,59 @@ async fn fetch_minute_share_live_unknown_code_propagates_error() {
     );
     println!("L3 unknown code -> error: {:?}", result.unwrap_err());
 }
+
+#[tokio::test]
+#[ignore = "live OpenStock HTTP; set QUANTIX_OPENSTOCK_LIVE=1 to run"]
+async fn live_fetch_minute_share_range_loops_per_day() {
+    // L2: client-side range loop; verifies meta.trading_date per response
+    if std::env::var("QUANTIX_OPENSTOCK_LIVE").ok().as_deref() != Some("1") {
+        return;
+    }
+    let Some(settings) = settings_from_env() else {
+        return;
+    };
+    let client = OpenStockClient::from_settings(&settings).expect("client build");
+    use quantix_cli::data::models::DateOrRange;
+    let start = chrono::NaiveDate::from_ymd_opt(2026, 6, 23).unwrap();
+    let end = chrono::NaiveDate::from_ymd_opt(2026, 6, 27).unwrap();
+    let shares = client
+        .fetch_minute_share("sh600000", DateOrRange::Range { start, end })
+        .await
+        .expect("live fetch ok");
+    assert!(
+        !shares.is_empty(),
+        "range should include at least one trading day"
+    );
+    let dates: Vec<chrono::NaiveDate> = shares.iter().map(|s| s.timestamp.date()).collect();
+    for d in &dates {
+        assert!(*d >= start && *d <= end, "date {} outside range", d);
+    }
+    let unique_dates: std::collections::BTreeSet<_> = dates.iter().collect();
+    assert!(
+        unique_dates.len() >= 2,
+        "expected multiple trading days, got {} unique dates",
+        unique_dates.len()
+    );
+    println!(
+        "L2 share range {}..{} -> {} records across {} trading days",
+        start,
+        end,
+        shares.len(),
+        unique_dates.len()
+    );
+}
+
+#[test]
+fn live_from_cli_start_after_end_errors_without_http() {
+    // L3: from_cli rejects start > end without touching network (CI-safe).
+    // Not marked #[ignore] because it is pure CLI validation.
+    use quantix_cli::data::models::DateOrRange;
+    let r = DateOrRange::from_cli(None, Some("2026-06-30"), Some("2026-06-01"));
+    assert!(r.is_err(), "start > end must error");
+    let msg = format!("{}", r.unwrap_err());
+    assert!(
+        msg.contains("--start") && msg.contains("--end"),
+        "error must name both flags: {}",
+        msg
+    );
+}

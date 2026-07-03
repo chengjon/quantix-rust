@@ -1,0 +1,40 @@
+id: P0.13c
+title: "OpenStock multi-day range queries for minute-level fetchers"
+state: in_progress
+scope:
+  allowed_paths:
+    - src/data/models.rs
+    - src/sources/openstock_client.rs
+    - src/cli/commands/data.rs
+    - src/cli/handlers/openstock_handler.rs
+    - src/cli/handlers/app_shell.rs
+    - tests/openstock_live_minute_klines.rs
+    - tests/openstock_live_minute_share.rs
+    - openspec/changes/openstock-data-consumption-p0-13c/**
+    - docs/superpowers/specs/2026-07-03-openstock-p0-13c-multi-day-range-design.md
+    - docs/superpowers/plans/2026-07-03-openstock-p0-13c-multi-day-range-plan.md
+  forbidden_paths:
+    - src/db/**
+    - src/backtest/**
+    - src/execution/**
+    - src/sources/openstock.rs
+    - src/sources/openstock_shadow.rs
+    - src/sources/kline_aggregator.rs
+    - src/sources/openstock_client.rs::fetch_klines
+    - src/data/models.rs::Kline
+    - src/data/models.rs::BarPeriod
+    - src/data/models.rs::MinutePeriod
+    - src/data/models.rs::MinuteBar
+    - src/data/models.rs::MinuteShare
+acceptance_gates:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --workspace -- -D warnings
+  - cargo test --workspace
+  - openspec validate openstock-data-consumption-p0-13c --strict
+  - openspec validate --all --strict
+non_goals:
+  - "ClickHouse writes / shadow persistence for multi-day data"
+  - "Pagination / streaming for huge ranges"
+  - "Cross-period candle merge"
+  - "Other categories' range extension"
+  - "Awaiting OpenStock server-side MINUTE_DATA range support (D6; switchable later without signature change)"

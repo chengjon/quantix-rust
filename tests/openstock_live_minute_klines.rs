@@ -91,3 +91,47 @@ async fn fetch_minute_klines_live_60m_hfq() {
     assert_eq!(bars[0].adjust_type, AdjustType::HFQ);
     println!("60m+hfq bars: {}", bars.len());
 }
+
+#[tokio::test]
+#[ignore = "live OpenStock HTTP; set QUANTIX_OPENSTOCK_LIVE=1 to run"]
+async fn live_fetch_minute_klines_range_returns_multi_day_records() {
+    // L1: multi-day server-side range via /data/bars start_date/end_date
+    if std::env::var("QUANTIX_OPENSTOCK_LIVE").ok().as_deref() != Some("1") {
+        return;
+    }
+    let settings = settings_from_env().expect("OPENSTOCK_BASE_URL + OPENSTOCK_API_KEY");
+    let client = OpenStockClient::from_settings(&settings).expect("client ok");
+    let start = chrono::NaiveDate::from_ymd_opt(2026, 6, 23).unwrap();
+    let end = chrono::NaiveDate::from_ymd_opt(2026, 6, 27).unwrap();
+    let bars = client
+        .fetch_minute_klines(
+            "sh600000",
+            MinutePeriod::Minute1,
+            DateOrRange::Range { start, end },
+            AdjustType::None,
+        )
+        .await
+        .expect("live fetch ok");
+    assert!(!bars.is_empty(), "5-day range should return non-empty bars");
+    let first_date = bars.first().unwrap().timestamp.date();
+    let last_date = bars.last().unwrap().timestamp.date();
+    assert!(
+        first_date >= start,
+        "first.date {} < start {}",
+        first_date,
+        start
+    );
+    assert!(last_date <= end, "last.date {} > end {}", last_date, end);
+    assert_ne!(
+        first_date, last_date,
+        "range must span multiple trading days"
+    );
+    println!(
+        "L1 range {}..{} -> {} bars, first={} last={}",
+        start,
+        end,
+        bars.len(),
+        first_date,
+        last_date
+    );
+}
