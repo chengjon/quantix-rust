@@ -364,6 +364,46 @@ pub fn iter_dates_inclusive(
     (0..=((end - start).num_days() as u64)).map(move |n| start + chrono::Duration::days(n as i64))
 }
 
+/// 把 `[start..=end]` 切成连续的 7 天段（P0.13d D2）。
+///
+/// 返回 `Vec<(NaiveDate, NaiveDate)>`，覆盖 `[start..=end]`：
+///   - 第一段从 `start` 开始
+///   - 每段长度 ≤ 7 天（含端点）
+///   - 段与段之间无 gap、无 overlap（`chunks[i].1 + 1 day == chunks[i+1].0`）
+///   - `start == end` 时返回单元素 `vec![(start, end)]`
+///   - `start > end` 时返回空 `Vec`（防御性，调用方应保证 `start <= end`）
+///
+/// 不依赖 `chrono::Weekday`；纯算术切片，便于测试。
+///
+/// 注：spec 描述为 "private"，此处使用 `pub(crate)` —— Rust 中 "crate 内部可见" 的惯用法，
+/// 以便 `src/sources/openstock_client.rs`（Task 3 的 stream 方法所在）等模块可直接复用。
+// 暂未被非 test 代码消费（P0.13d Task 3 将在 `openstock_client.rs` 中调用）；Task 3 合并后移除。
+#[allow(dead_code)]
+pub(crate) fn chunk_range_weekly(
+    start: chrono::NaiveDate,
+    end: chrono::NaiveDate,
+) -> Vec<(chrono::NaiveDate, chrono::NaiveDate)> {
+    // Defensive: caller (DateOrRange::from_cli) already guarantees start <= end,
+    // but the function is pure and should not panic on edge cases.
+    if start > end {
+        return vec![];
+    }
+    let mut out = Vec::new();
+    let mut cursor = start;
+    while cursor <= end {
+        // segment end = min(cursor + 6 days, end)
+        let seg_end = if (end - cursor).num_days() >= 7 {
+            cursor + chrono::Duration::days(6)
+        } else {
+            end
+        };
+        out.push((cursor, seg_end));
+        // next segment starts the day after seg_end; if seg_end == end loop exits
+        cursor = seg_end + chrono::Duration::days(1);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -493,7 +533,7 @@ mod tests {
 
 #[cfg(test)]
 mod date_or_range_tests {
-    use super::{DateOrRange, iter_dates_inclusive};
+    use super::{chunk_range_weekly, DateOrRange, iter_dates_inclusive};
     use chrono::NaiveDate;
 
     fn d(s: &str) -> NaiveDate {
@@ -583,5 +623,71 @@ mod date_or_range_tests {
     fn iter_dates_inclusive_single_day_yields_one() {
         let days: Vec<NaiveDate> = iter_dates_inclusive(d("2026-06-30"), d("2026-06-30")).collect();
         assert_eq!(days, vec![d("2026-06-30")]);
+    }
+
+    #[test]
+    fn chunk_range_weekly_single_day_returns_one_chunk() {
+        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 1));
+        assert_eq!(chunks, vec![(ymd(2026, 6, 1), ymd(2026, 6, 1))]);
+    }
+
+    #[test]
+    fn chunk_range_weekly_exact_7_day_returns_one_chunk() {
+        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        // 7 days inclusive: 2026-06-01..=2026-06-07
+        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 7));
+        assert_eq!(chunks, vec![(ymd(2026, 6, 1), ymd(2026, 6, 7))]);
+    }
+
+    #[test]
+    fn chunk_range_weekly_8_day_returns_two_chunks() {
+        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        // 8 days inclusive: 2026-06-01..=2026-06-08
+        // First chunk: 06-01..=06-07 (7 days); second chunk: 06-08..=06-08 (1 day)
+        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 8));
+        assert_eq!(
+            chunks,
+            vec![
+                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
+                (ymd(2026, 6, 8), ymd(2026, 6, 8)),
+            ]
+        );
+    }
+
+    #[test]
+    fn chunk_range_weekly_long_range_covers_full_window() {
+        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        // 30 days inclusive: 2026-06-01..=2026-06-30
+        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 30));
+        // Expected: 06-01..=06-07, 06-08..=06-14, 06-15..=06-21, 06-22..=06-28, 06-29..=06-30
+        assert_eq!(
+            chunks,
+            vec![
+                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
+                (ymd(2026, 6, 8), ymd(2026, 6, 14)),
+                (ymd(2026, 6, 15), ymd(2026, 6, 21)),
+                (ymd(2026, 6, 22), ymd(2026, 6, 28)),
+                (ymd(2026, 6, 29), ymd(2026, 6, 30)),
+            ]
+        );
+        // INV-1B: contiguous coverage
+        assert_eq!(chunks.first().unwrap().0, ymd(2026, 6, 1));
+        assert_eq!(chunks.last().unwrap().1, ymd(2026, 6, 30));
+        for window in chunks.windows(2) {
+            // chunks[i].1 + 1 day == chunks[i+1].0
+            assert_eq!(
+                window[0].1.succ_opt().unwrap(),
+                window[1].0,
+                "gap between {:?} and {:?}",
+                window[0],
+                window[1]
+            );
+        }
+        // INV-1C: each chunk ≤ 7 days inclusive
+        for (s, e) in &chunks {
+            let n = (*e - *s).num_days() + 1;
+            assert!(n <= 7, "chunk {:?}-{:?} is {} days, > 7", s, e, n);
+        }
     }
 }
