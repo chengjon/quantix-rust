@@ -280,6 +280,90 @@ pub struct CapitalChange {
     pub change_type: String,
 }
 
+/// CLI 互斥输入：单日（`--date`）或封闭范围（`--start`/`--end`）。
+///
+/// 由 `from_cli` 唯一构造——编译时强制半开区间和 `(None, None, None)` 不可达。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DateOrRange {
+    /// 单日查询（向后兼容 P0.13b-1/2 `--date` 路径）
+    Date(chrono::NaiveDate),
+    /// 多日范围（inclusive on both ends）
+    Range {
+        start: chrono::NaiveDate,
+        end: chrono::NaiveDate,
+    },
+}
+
+impl DateOrRange {
+    /// 从 CLI 三 `Option<&str>` 输入构造 `DateOrRange`。
+    ///
+    /// 校验规则（spec §3.1 + D5）：
+    ///   - `(Some(d), None, None)` → `Date(d)`
+    ///   - `(None, Some(s), Some(e))` → `Range { start: s, end: e }`（s ≤ e）
+    ///   - 其它所有形态 → `Err`
+    pub fn from_cli(
+        date: Option<&str>,
+        start: Option<&str>,
+        end: Option<&str>,
+    ) -> Result<Self, crate::core::error::QuantixError> {
+        use crate::core::error::QuantixError;
+
+        let has_date = date.is_some();
+        let has_range = start.is_some() || end.is_some();
+
+        if has_date && has_range {
+            return Err(QuantixError::Config(
+                "--date cannot be combined with --start/--end; use either --date for single day or --start/--end for range".to_string(),
+            ));
+        }
+        if has_date {
+            let parsed = parse_date_arg(date.unwrap(), "--date")?;
+            return Ok(DateOrRange::Date(parsed));
+        }
+        if has_range {
+            let (Some(s_str), Some(e_str)) = (start, end) else {
+                return Err(QuantixError::Config(
+                    "--start and --end must be provided together (semi-open ranges are not supported)".to_string(),
+                ));
+            };
+            let s = parse_date_arg(s_str, "--start")?;
+            let e = parse_date_arg(e_str, "--end")?;
+            if s > e {
+                return Err(QuantixError::Config(format!(
+                    "--start ({}) must be on or before --end ({})",
+                    s_str, e_str
+                )));
+            }
+            return Ok(DateOrRange::Range { start: s, end: e });
+        }
+        // 全 None
+        Err(QuantixError::Config(
+            "at least one of --date or (--start, --end) is required".to_string(),
+        ))
+    }
+}
+
+/// 解析单个 `YYYY-MM-DD` CLI 日期参数，失败时返回包含 flag 名的错误。
+fn parse_date_arg(
+    s: &str,
+    flag_name: &str,
+) -> Result<chrono::NaiveDate, crate::core::error::QuantixError> {
+    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|e| {
+        crate::core::error::QuantixError::Config(format!(
+            "{}: invalid date '{}': {}",
+            flag_name, s, e
+        ))
+    })
+}
+
+/// 生成 `start..=end` 的日历日迭代器（含非交易日，调用方负责处理空响应）。
+pub fn iter_dates_inclusive(
+    start: chrono::NaiveDate,
+    end: chrono::NaiveDate,
+) -> impl Iterator<Item = chrono::NaiveDate> {
+    (0..=((end - start).num_days() as u64)).map(move |n| start + chrono::Duration::days(n as i64))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,5 +488,100 @@ mod tests {
         assert_eq!(share.volume, None);
         assert_eq!(share.amount, None);
         assert_eq!(share.avg_price, None);
+    }
+}
+
+#[cfg(test)]
+mod date_or_range_tests {
+    use super::{DateOrRange, iter_dates_inclusive};
+    use chrono::NaiveDate;
+
+    fn d(s: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+    }
+
+    #[test]
+    fn u1_date_only_returns_date_variant() {
+        let r = DateOrRange::from_cli(Some("2026-06-30"), None, None).unwrap();
+        assert!(matches!(r, DateOrRange::Date(_)));
+        if let DateOrRange::Date(actual) = r {
+            assert_eq!(actual, d("2026-06-30"));
+        }
+    }
+
+    #[test]
+    fn u2_start_and_end_returns_range_variant() {
+        let r = DateOrRange::from_cli(None, Some("2026-06-01"), Some("2026-06-30")).unwrap();
+        if let DateOrRange::Range { start, end } = r {
+            assert_eq!(start, d("2026-06-01"));
+            assert_eq!(end, d("2026-06-30"));
+        } else {
+            panic!("expected Range, got {:?}", r);
+        }
+    }
+
+    #[test]
+    fn u3_start_only_errors() {
+        let r = DateOrRange::from_cli(None, Some("2026-06-01"), None);
+        assert!(r.is_err());
+        let msg = format!("{}", r.unwrap_err());
+        assert!(
+            msg.contains("--start") && msg.contains("--end"),
+            "error should name both flags: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn u4_end_only_errors() {
+        let r = DateOrRange::from_cli(None, None, Some("2026-06-30"));
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn u5_date_and_start_conflict_errors() {
+        let r = DateOrRange::from_cli(Some("2026-06-30"), Some("2026-06-01"), None);
+        assert!(r.is_err());
+        let msg = format!("{}", r.unwrap_err());
+        assert!(
+            msg.contains("--date") && msg.contains("--start"),
+            "msg: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn u6_start_after_end_errors() {
+        let r = DateOrRange::from_cli(None, Some("2026-06-30"), Some("2026-06-01"));
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn u7_all_none_errors() {
+        let r = DateOrRange::from_cli(None, None, None);
+        assert!(r.is_err());
+        let msg = format!("{}", r.unwrap_err());
+        assert!(
+            msg.contains("--date") || msg.contains("--start"),
+            "msg: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn iter_dates_inclusive_yields_all_days_in_order() {
+        let days: Vec<NaiveDate> = iter_dates_inclusive(d("2026-06-28"), d("2026-07-02")).collect();
+        assert_eq!(days.len(), 5);
+        assert_eq!(days[0], d("2026-06-28"));
+        assert_eq!(days[4], d("2026-07-02"));
+        // 跨月验证
+        assert_eq!(days[2], d("2026-06-30"));
+        assert_eq!(days[3], d("2026-07-01"));
+    }
+
+    #[test]
+    fn iter_dates_inclusive_single_day_yields_one() {
+        let days: Vec<NaiveDate> = iter_dates_inclusive(d("2026-06-30"), d("2026-06-30")).collect();
+        assert_eq!(days, vec![d("2026-06-30")]);
     }
 }
