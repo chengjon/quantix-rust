@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782973905837,
+  "lastUpdate": 1783059993786,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -4871,6 +4871,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 935744.4539760561,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "f859deae8e0b3c40496ac44600066bfe02690db3",
+          "message": "chore(governance): mark P0.13b-2 card as completed\n\nP0.13b-2 implementation merged: MinuteShare struct, fetch_minute_share\nclient method (envelope path with retry/circuit breaker), parse_minute_share\nparser with INV-2C skip semantics, FetchMinuteShare CLI subcommand, live\ntests, OpenSpec change archived as 2026-07-03-openstock-data-consumption-p0-13b-2.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-07-03T00:38:18Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/f859deae8e0b3c40496ac44600066bfe02690db3"
+        },
+        "date": 1783059993146,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 369539.1246820606,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 3446588.546961665,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 39887078.40951587,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1330311.1733114496,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 9545537.580900794,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 91371655.7961111,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 1414247.5470091575,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 10164585.54859127,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 101927193.09380952,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 15040.693279243806,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 157856.99878819182,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1664083.986347974,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 14939.364820198436,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 157723.2950691488,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1674085.830784603,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 38709.6629484303,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 394775.7923020636,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 4046514.9819999994,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 27470.69404220122,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 315763.9920841082,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 3362159.515712689,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 39127.50535242807,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 643211.6401360702,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 6712181.701333336,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 6269.074305599573,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 71772.21582523327,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 1233248.2283123755,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 8101.604685720641,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 95596.77286242325,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 48856.832685871355,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 16803.448281564903,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 147454.60951842065,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 74915.27915583337,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 52.8722957775071,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 50.469726145876265,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 74.43525443770292,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 1263.452716223905,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 12801.786994328397,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 127905.13147318563,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 9158.840402079757,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 92578.46728241352,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 939171.6681304538,
             "unit": "ns"
           }
         ]
