@@ -377,8 +377,6 @@ pub fn iter_dates_inclusive(
 ///
 /// 注：spec 描述为 "private"，此处使用 `pub(crate)` —— Rust 中 "crate 内部可见" 的惯用法，
 /// 以便 `src/sources/openstock_client.rs`（Task 3 的 stream 方法所在）等模块可直接复用。
-// 暂未被非 test 代码消费（P0.13d Task 3 将在 `openstock_client.rs` 中调用）；Task 3 合并后移除。
-#[allow(dead_code)]
 pub(crate) fn chunk_range_weekly(
     start: chrono::NaiveDate,
     end: chrono::NaiveDate,

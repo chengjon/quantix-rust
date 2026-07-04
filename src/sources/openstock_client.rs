@@ -9,6 +9,7 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use futures::stream::{self, StreamExt};
 use reqwest::Url;
 use reqwest::header::HeaderValue;
 use serde::de::DeserializeOwned;
@@ -706,6 +707,37 @@ impl OpenStockClient {
             .await
     }
 
+    /// 流式拉取分钟 K 线（P0.13d D1/D2）。
+    ///
+    /// 把 `date_or_range` 解析为 `(start, end)`，调用 `chunk_range_weekly`
+    /// 切成连续 ≤7 天段，每段一次 `fetch_minute_klines_range` 调用，yield
+    /// 一个 `Vec<MinuteBar>`。
+    ///
+    /// - `Date(d)`：单段 `(d, d)`，一个 batch
+    /// - `Range { start, end }`：从 start 起每 7 天一段；尾段可能短
+    /// - 错误：首个 batch 失败即 yield `Err`，后续 `next()` 返回 `None`（D4）
+    /// - 不经过 retry/circuit breaker（D5；与 batch klines 路径一致）
+    /// - Wire shape 由 `fetch_minute_klines_range` 保证（INV-2A）
+    pub fn fetch_minute_klines_stream<'a>(
+        &'a self,
+        code: &'a str,
+        period: crate::data::models::MinutePeriod,
+        date_or_range: crate::data::models::DateOrRange,
+        adjust: crate::data::models::AdjustType,
+    ) -> impl futures::Stream<
+        Item = Result<Vec<crate::data::models::MinuteBar>>,
+    > + 'a {
+        use crate::data::models::DateOrRange;
+        let (start, end) = match date_or_range {
+            DateOrRange::Date(d) => (d, d),
+            DateOrRange::Range { start, end } => (start, end),
+        };
+        let chunks = crate::data::models::chunk_range_weekly(start, end);
+        stream::iter(chunks).then(move |(s, e)| async move {
+            self.fetch_minute_klines_range(code, period, s, e, adjust).await
+        })
+    }
+
     /// Private helper: fetch minute klines for an inclusive `[start..=end]` sub-range.
     ///
     /// Wire body field selection (INV-2A, preserving P0.13b-1 / P0.13c):
@@ -845,6 +877,31 @@ impl OpenStockClient {
                 Ok(all)
             }
         }
+    }
+
+    /// 流式拉取分时点序列（P0.13d D1/D3）。
+    ///
+    /// 每个自然日（含非交易日）yield 一个 `Vec<MinuteShare>`；非交易日 yield
+    /// 空 Vec（D3；batch count == 日历天数，调用方可做完整性检查）。
+    ///
+    /// - 复用 P0.13c `fetch_minute_share_single`（带 retry + breaker）
+    /// - 错误：首个 batch 失败即 yield `Err`，后续 `next()` 返回 `None`（D4）
+    pub fn fetch_minute_share_stream<'a>(
+        &'a self,
+        code: &'a str,
+        date_or_range: crate::data::models::DateOrRange,
+    ) -> impl futures::Stream<
+        Item = Result<Vec<crate::data::models::MinuteShare>>,
+    > + 'a {
+        use crate::data::models::{iter_dates_inclusive, DateOrRange};
+        let (start, end) = match date_or_range {
+            DateOrRange::Date(d) => (d, d),
+            DateOrRange::Range { start, end } => (start, end),
+        };
+        let days: Vec<chrono::NaiveDate> = iter_dates_inclusive(start, end).collect();
+        stream::iter(days).then(move |d| async move {
+            self.fetch_minute_share_single(code, d).await
+        })
     }
 
     /// Single-day helper for MINUTE_DATA fetches.
