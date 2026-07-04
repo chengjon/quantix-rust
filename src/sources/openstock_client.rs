@@ -698,6 +698,31 @@ impl OpenStockClient {
         adjust: crate::data::models::AdjustType,
     ) -> Result<Vec<crate::data::models::MinuteBar>> {
         use crate::data::models::DateOrRange;
+        let (start, end) = match date_or_range {
+            DateOrRange::Date(d) => (d, d),
+            DateOrRange::Range { start, end } => (start, end),
+        };
+        self.fetch_minute_klines_range(code, period, start, end, adjust)
+            .await
+    }
+
+    /// Private helper: fetch minute klines for an inclusive `[start..=end]` sub-range.
+    ///
+    /// Wire body field selection (INV-2A, preserving P0.13b-1 / P0.13c):
+    ///   - `start == end` → body has only `date` (identical to P0.13b-1 single-day wire)
+    ///   - `start != end` → body has only `start_date` + `end_date`
+    ///
+    /// This helper is shared by:
+    ///   - `fetch_minute_klines` (batch API; dispatcher for `DateOrRange`)
+    ///   - `fetch_minute_klines_stream` (streaming API; one call per weekly chunk)
+    async fn fetch_minute_klines_range(
+        &self,
+        code: &str,
+        period: crate::data::models::MinutePeriod,
+        start: chrono::NaiveDate,
+        end: chrono::NaiveDate,
+        adjust: crate::data::models::AdjustType,
+    ) -> Result<Vec<crate::data::models::MinuteBar>> {
         use std::str::FromStr;
 
         let endpoint = self
@@ -712,15 +737,11 @@ impl OpenStockClient {
         if let Some(adj) = adjust.as_openstock_param() {
             body["adjust"] = serde_json::Value::String(adj.to_string());
         }
-        match date_or_range {
-            DateOrRange::Date(d) => {
-                body["date"] = serde_json::Value::String(d.format("%Y-%m-%d").to_string());
-            }
-            DateOrRange::Range { start, end } => {
-                body["start_date"] =
-                    serde_json::Value::String(start.format("%Y-%m-%d").to_string());
-                body["end_date"] = serde_json::Value::String(end.format("%Y-%m-%d").to_string());
-            }
+        if start == end {
+            body["date"] = serde_json::Value::String(start.format("%Y-%m-%d").to_string());
+        } else {
+            body["start_date"] = serde_json::Value::String(start.format("%Y-%m-%d").to_string());
+            body["end_date"] = serde_json::Value::String(end.format("%Y-%m-%d").to_string());
         }
 
         let resp = self
