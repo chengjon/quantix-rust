@@ -1,6 +1,6 @@
 id: P0.13d
 title: "OpenStock streaming fetch for minute-level data"
-state: in_progress
+state: complete
 scope:
   allowed_paths:
     - openspec/changes/openstock-data-consumption-p0-13d/**
