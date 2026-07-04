@@ -1,6 +1,6 @@
 id: P0.14
 title: "ClickHouse minute-level data persistence (klines + shares)"
-state: in_progress
+state: complete
 scope:
   allowed_paths:
     - src/db/clickhouse/mod.rs
