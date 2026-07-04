@@ -383,19 +383,63 @@ impl crate::db::clickhouse::minute::MinuteSink<crate::db::clickhouse::models::Mi
     }
 }
 
+// P0.13d froze the OpenStockClient stream API (no injectable source), so a
+// full happy-path unit test of `stream_minute_*_to_clickhouse` is not feasible
+// without modifying upstream code (forbidden). The two tests below exercise
+// the trait-dispatched `insert_batch` path through each mock sink: they
+// verify (a) trait+struct wiring compiles, (b) the sink records the batch,
+// (c) the sink returns Ok(batch_len). Full end-to-end coverage is L1/L2.
+
 #[tokio::test]
-async fn stream_minute_klines_to_clickhouse_inserts_all_batches_via_mock_sink() {
-    // P0.13d froze the OpenStockClient stream API (no injectable source),
-    // so a true happy-path unit test is not feasible without modifying
-    // upstream code (forbidden). We instead verify the mock sink type-checks
-    // and is constructible (U6). Happy-path end-to-end coverage is L1.
-    let _kline_sink = MockMinuteKlineSink {
+async fn minute_kline_mock_sink_records_batch_and_returns_inserted_count() {
+    use crate::db::clickhouse::minute::MinuteSink;
+
+    let sink = MockMinuteKlineSink {
         batches: Mutex::new(Vec::new()),
     };
-    let _share_sink = MockMinuteShareSink {
+    let row = crate::db::clickhouse::models::MinuteKlineCH {
+        timestamp: chrono::Utc::now(),
+        code: "sh600000".into(),
+        period: "1m".into(),
+        adjust: "none".into(),
+        open: 12.34,
+        high: 12.50,
+        low: 12.20,
+        close: 12.40,
+        volume: 1000.0,
+        amount: 12340.0,
+    };
+    let batch = vec![row.clone(), row];
+    let inserted = sink.insert_batch(&batch).await.expect("happy sink");
+    assert_eq!(inserted, 2);
+    let recorded = sink.batches.lock().unwrap();
+    assert_eq!(recorded.len(), 1, "exactly one batch recorded");
+    assert_eq!(recorded[0].len(), 2);
+    assert_eq!(recorded[0][0].code, "sh600000");
+}
+
+#[tokio::test]
+async fn minute_share_mock_sink_records_batch_and_returns_inserted_count() {
+    use crate::db::clickhouse::minute::MinuteSink;
+
+    let sink = MockMinuteShareSink {
         batches: Mutex::new(Vec::new()),
     };
-    // Test asserts trait+struct wiring compiles and constructs.
+    let row = crate::db::clickhouse::models::MinuteShareCH {
+        timestamp: chrono::Utc::now(),
+        code: "sh600000".into(),
+        price: 12.34,
+        volume: 1000.0,
+        amount: 12340.0,
+        avg_price: 12.34,
+    };
+    let batch = vec![row.clone(), row.clone(), row];
+    let inserted = sink.insert_batch(&batch).await.expect("happy sink");
+    assert_eq!(inserted, 3);
+    let recorded = sink.batches.lock().unwrap();
+    assert_eq!(recorded.len(), 1, "exactly one batch recorded");
+    assert_eq!(recorded[0].len(), 3);
+    assert_eq!(recorded[0][0].code, "sh600000");
 }
 
 // Verifies INV-3A: stream consumer short-circuits on the first error.
