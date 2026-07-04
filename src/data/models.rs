@@ -389,7 +389,11 @@ pub(crate) fn chunk_range_weekly(
     let mut out = Vec::new();
     let mut cursor = start;
     while cursor <= end {
-        // segment end = min(cursor + 6 days, end)
+        // (end - cursor).num_days() is exclusive of end; +1 gives inclusive count.
+        // Take a 7-day chunk only if MORE than 7 inclusive days remain.
+        // i.e. for an exact 7-day remaining span, num_days() == 6, so we take it
+        // whole (seg_end = end); for an 8-day span, num_days() == 7 >= 7, so we
+        // cut at cursor+6 and leave the extra day for the next chunk.
         let seg_end = if (end - cursor).num_days() >= 7 {
             cursor + chrono::Duration::days(6)
         } else {
@@ -651,6 +655,31 @@ mod date_or_range_tests {
                 (ymd(2026, 6, 8), ymd(2026, 6, 8)),
             ]
         );
+    }
+
+    #[test]
+    fn chunk_range_weekly_15_day_returns_three_chunks() {
+        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        // 15 days inclusive: 2026-06-01..=2026-06-15
+        // Boundary: 7-day chunks at exactly 7 inclusive days remaining are taken
+        // whole. (end - cursor).num_days() at cursor=06-01 vs end=06-15 is 14
+        // (>= 7) → cut at 06-07; at cursor=06-08 vs end=06-15 is 7 (>= 7) → cut
+        // at 06-14; at cursor=06-15 vs end=06-15 is 0 (< 7) → seg_end=end.
+        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 15));
+        assert_eq!(
+            chunks,
+            vec![
+                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
+                (ymd(2026, 6, 8), ymd(2026, 6, 14)),
+                (ymd(2026, 6, 15), ymd(2026, 6, 15)),
+            ]
+        );
+        // INV-1B: contiguous coverage
+        assert_eq!(chunks.first().unwrap().0, ymd(2026, 6, 1));
+        assert_eq!(chunks.last().unwrap().1, ymd(2026, 6, 15));
+        for window in chunks.windows(2) {
+            assert_eq!(window[0].1.succ_opt().unwrap(), window[1].0);
+        }
     }
 
     #[test]

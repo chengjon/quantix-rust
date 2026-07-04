@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use futures::stream::{self};
+use futures::stream;
 use reqwest::Url;
 use reqwest::header::HeaderValue;
 use serde::de::DeserializeOwned;
@@ -2046,9 +2046,9 @@ mod tests {
     // -----------------------------------------------------------------
 
     #[tokio::test]
-    async fn fetch_minute_klines_stream_collects_same_as_batch_per_chunk() {
-        // S5 / INV-1A: stream yields the same records as N batch calls, one per
-        // weekly chunk. 14-day range => 2 weekly chunks => 2 /data/bars calls.
+    async fn fetch_minute_klines_stream_yields_expected_chunk_count() {
+        // S5: stream yields one Vec per chunk with expected record count.
+        // INV-1A equivalence is enforced by L1 live test only.
         use crate::data::models::{AdjustType, DateOrRange, MinutePeriod};
         use chrono::NaiveDate;
         use futures::StreamExt;
@@ -2085,7 +2085,7 @@ mod tests {
             let batch = batch.expect("batch ok");
             total += batch.len();
         }
-        assert_eq!(total, 4, "2 chunks × 2 records = 4"); // INV-1A
+        assert_eq!(total, 4, "2 chunks × 2 records = 4");
     }
 
     #[tokio::test]
