@@ -50,11 +50,6 @@ pub struct KlineDataCH {
 ///
 /// 与 `KlineDataCH` 类型约定一致（DateTime<Utc> + String period/adjust + Float64）。
 /// 表 DDL 见 `schema.rs::create_minute_klines_table`。
-//
-// `dead_code` allowed: T1 only defines the type and DDL; T2 (`minute.rs`) will
-// construct instances via `bar_to_row` / `share_to_row`. Remove this attribute
-// once T2 lands.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct MinuteKlineCH {
     pub timestamp: DateTime<Utc>,
@@ -72,9 +67,6 @@ pub struct MinuteKlineCH {
 /// 分钟分笔成交 (ClickHouse Row) — P0.14
 ///
 /// `MinuteShare` 没有 period/adjust 概念（分笔是逐笔成交），表结构反映领域差异。
-//
-// `dead_code` allowed: see `MinuteKlineCH` above. T2 will construct instances.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct MinuteShareCH {
     pub timestamp: DateTime<Utc>,

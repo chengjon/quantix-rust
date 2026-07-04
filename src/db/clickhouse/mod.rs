@@ -1,6 +1,7 @@
 mod fundamentals;
 mod gbbq;
 mod kline;
+mod minute;
 mod models;
 mod schema;
 mod shadow_kline;
@@ -8,9 +9,12 @@ mod shadow_kline;
 #[cfg(test)]
 mod tests;
 
+pub use self::minute::{
+    StreamStats, stream_minute_klines_to_clickhouse, stream_minute_shares_to_clickhouse,
+};
 pub use self::models::{
     GbbqEventCH, KlineDataCH, LimitUpEventCH, MarketFundamentalSnapshotCH, MarketSentimentDailyCH,
-    NorthFlowDailyCH, SectorDailyCH, StockInfoCH, StockQuoteCH,
+    MinuteKlineCH, MinuteShareCH, NorthFlowDailyCH, SectorDailyCH, StockInfoCH, StockQuoteCH,
 };
 
 use crate::core::runtime::ClickHouseSettings;
