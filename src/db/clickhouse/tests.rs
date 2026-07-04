@@ -168,3 +168,54 @@ fn test_market_fundamental_snapshot_row_deserializes_json_each_row_payload() {
     assert_eq!(row.profit_source, "report");
     assert_eq!(row.pe_dynamic, Some(27.4));
 }
+
+#[test]
+fn models_minute_kline_ch_has_expected_fields() {
+    use crate::db::clickhouse::models::MinuteKlineCH;
+    use chrono::{TimeZone, Utc};
+
+    let row = MinuteKlineCH {
+        timestamp: Utc.from_utc_datetime(
+            &chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
+                .unwrap()
+                .and_hms_opt(9, 30, 0)
+                .unwrap(),
+        ),
+        code: "sh600000".into(),
+        period: "1m".into(),
+        adjust: "none".into(),
+        open: 12.34,
+        high: 12.50,
+        low: 12.20,
+        close: 12.40,
+        volume: 123456.0,
+        amount: 1_530_000.0,
+    };
+    assert_eq!(row.code, "sh600000");
+    assert_eq!(row.period, "1m");
+    assert_eq!(row.adjust, "none");
+    assert_eq!(row.volume, 123456.0);
+}
+
+#[test]
+fn models_minute_share_ch_has_expected_fields() {
+    use crate::db::clickhouse::models::MinuteShareCH;
+    use chrono::{TimeZone, Utc};
+
+    let row = MinuteShareCH {
+        timestamp: Utc.from_utc_datetime(
+            &chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
+                .unwrap()
+                .and_hms_opt(9, 30, 0)
+                .unwrap(),
+        ),
+        code: "sh600000".into(),
+        price: 12.34,
+        volume: 1000.0,
+        amount: 12340.0,
+        avg_price: 12.34,
+    };
+    assert_eq!(row.code, "sh600000");
+    assert_eq!(row.price, 12.34);
+    assert_eq!(row.avg_price, 12.34);
+}

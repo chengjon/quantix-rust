@@ -25,6 +25,8 @@ impl ClickHouseClient {
         self.create_limit_up_events_table().await?;
         self.create_gbbq_events_table().await?;
         self.create_market_tables().await?;
+        self.create_minute_klines_table().await?;
+        self.create_minute_shares_table().await?;
 
         info!("所有 ClickHouse 表创建成功");
         Ok(())
@@ -213,6 +215,64 @@ impl ClickHouseClient {
             info!("{} 表创建成功", table_name);
         }
 
+        Ok(())
+    }
+
+    async fn create_minute_klines_table(&self) -> Result<()> {
+        let sql = r#"
+            CREATE TABLE IF NOT EXISTS minute_klines ON CLUSTER '{cluster}' (
+                timestamp DateTime,
+                code String,
+                period String,
+                adjust String,
+                open Float64,
+                high Float64,
+                low Float64,
+                close Float64,
+                volume Float64,
+                amount Float64,
+                date MATERIALIZED toDate(timestamp)
+            )
+            ENGINE = MergeTree()
+            PARTITION BY (period, toYYYYMM(timestamp))
+            ORDER BY (date, code, period, adjust, timestamp)
+            SETTINGS index_granularity = 8192
+        "#;
+        self.client
+            .query(sql.replace("'{cluster}'", "single_cluster").as_str())
+            .execute()
+            .await
+            .map_err(|e| {
+                QuantixError::DatabaseConnection(format!("创建 minute_klines 表失败: {}", e))
+            })?;
+        info!("minute_klines 表创建成功");
+        Ok(())
+    }
+
+    async fn create_minute_shares_table(&self) -> Result<()> {
+        let sql = r#"
+            CREATE TABLE IF NOT EXISTS minute_shares ON CLUSTER '{cluster}' (
+                timestamp DateTime,
+                code String,
+                price Float64,
+                volume Float64,
+                amount Float64,
+                avg_price Float64,
+                date MATERIALIZED toDate(timestamp)
+            )
+            ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(timestamp)
+            ORDER BY (date, code, timestamp)
+            SETTINGS index_granularity = 8192
+        "#;
+        self.client
+            .query(sql.replace("'{cluster}'", "single_cluster").as_str())
+            .execute()
+            .await
+            .map_err(|e| {
+                QuantixError::DatabaseConnection(format!("创建 minute_shares 表失败: {}", e))
+            })?;
+        info!("minute_shares 表创建成功");
         Ok(())
     }
 }
