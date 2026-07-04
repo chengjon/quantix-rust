@@ -62,8 +62,8 @@ SETTINGS index_granularity = 8192
 |---|---|---|
 | `timestamp: NaiveDateTime` | `timestamp: DateTime<Utc>` | `DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)`（见 §2.1） |
 | `code: String` | `code: String` | 直接 clone |
-| `period: MinutePeriod` | `period: String` | `MinutePeriod::as_openstock_str()` 产出的 `"1m"`/`"5m"`/`"15m"`/`"30m"`/`"60m"` 字面量 |
-| `adjust_type: AdjustType` | `adjust: String` | `AdjustType::as_openstock_str()` 产出的 `"none"`/`"qfq"`/`"hfq"` 字面量 |
+| —（不在 MinuteBar 上） | `period: String` | `period` 是 `fetch_minute_klines_stream` 的输入参数（`MinuteBar` 本身没有 `period` 字段，见 `data/models.rs:138-148`）；`bar_to_row` 接受独立 `period: MinutePeriod` 参数，通过 `period_as_str` 转 `"1m"`/`"5m"`/`"15m"`/`"30m"`/`"60m"` 字面量 |
+| `adjust_type: AdjustType` | `adjust: String` | `AdjustType` 经 `adjust_as_str` 转换为 `"none"`/`"qfq"`/`"hfq"` 字面量 |
 | `open/high/low/close: Decimal` | `open/high/low/close: Float64` | `dec.to_f64().unwrap_or(0.0)` |
 | `volume: i64` | `volume: Float64` | `bar.volume as f64`；i64→f64 cast 在 ≤ 10^9 范围无损（A 股单 bar 远小于此） |
 | `amount: Option<Decimal>` | `amount: Float64` | parser 已保证非 None（见下文 Option 处理说明），`bar.amount.unwrap_or_default().to_f64().unwrap_or(0.0)` |
@@ -214,11 +214,13 @@ fn decimal_to_f64(v: rust_decimal::Decimal) -> f64 {
 
 // ─── 行转换 ────────────────────────────────────────────────────────────────
 
-fn bar_to_row(bar: &MinuteBar) -> MinuteKlineCH {
+fn bar_to_row(bar: &MinuteBar, period: MinutePeriod) -> MinuteKlineCH {
     MinuteKlineCH {
         timestamp: naive_to_utc(bar.timestamp),
         code: bar.code.clone(),
-        period: period_as_str(&bar.period).to_string(),
+        // MinuteBar 本身没有 period 字段（data/models.rs:138-148）；
+        // period 来自 stream 函数的输入参数，通过独立参数传入。
+        period: period_as_str(&period).to_string(),
         adjust: adjust_as_str(&bar.adjust_type).to_string(),
         open: decimal_to_f64(bar.open),
         high: decimal_to_f64(bar.high),
@@ -332,7 +334,7 @@ pub async fn stream_minute_klines_to_clickhouse<S: MinuteSink<MinuteKlineCH>>(
         stats.batches += 1;
         stats.input_records += batch.len() as u64;
 
-        let rows: Vec<MinuteKlineCH> = batch.iter().map(bar_to_row).collect();
+        let rows: Vec<MinuteKlineCH> = batch.iter().map(|b| bar_to_row(b, period)).collect();
         let inserted = sink
             .insert_batch(&rows)
             .await
