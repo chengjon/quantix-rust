@@ -58,14 +58,18 @@ SETTINGS index_granularity = 8192;
 
 | MinuteBar 字段 | CH 列 | 备注 |
 |---|---|---|
-| `timestamp: DateTime<FixedOffset>` | `timestamp` | 已带 +08:00 偏移 |
+| `timestamp: NaiveDateTime` | `timestamp` | 由 naive + +08:00 偏移构造为 `DateTime<FixedOffset>`（见 §2.1 `naive_to_shanghai`） |
 | `code: String` | `code` | LowCardinality 收益显著（≤ 10k 个 code） |
-| `period: MinutePeriod` | `period` | Enum8 转换 |
-| `adjust_type: AdjustType` | `adjust` | Enum8 转换 |
+| `period: MinutePeriod` | `period` | Enum8 转换（见 §2.5 Rust enum ↔ CH Enum8 映射） |
+| `adjust_type: AdjustType` | `adjust` | Enum8 转换（同上） |
 | `open/high/low/close: Decimal` | `open/high/low/close` | 见 §1.3 decimal_to_f64 |
-| `volume: Decimal` | `volume` | 同上 |
-| `amount: Decimal` | `amount` | 同上 |
+| `volume: i64` | `volume` | `bar.volume as f64`；i64→f64 cast 在 ≤ 10^9 范围无损（A 股单 bar 远小于此） |
+| `amount: Option<Decimal>` | `amount` | parser 已保证非 None（见下文 Option 处理说明），`bar.amount.unwrap()` 后 `decimal_to_f64` |
 | —（CH 默认） | `ingested_at` | `DEFAULT now64(3)`，写入时不显式赋值 |
+
+**Option 字段处理说明（INV-2B-Option）**
+
+`MinuteBar.amount` 实际为 `Option<Decimal>`（`data/models.rs:146`），但 `parse_minute_klines`/`parse_minute_share` 已在 parser 阶段对关键字段做 `?` 解包——任一字段缺失该条记录直接被 warn + skip，不会到达 `MinuteBar`。因此 `bar_to_row` 中 `bar.amount.unwrap()`（或 `expect("parser guarantees Some")`）是安全的，运行时绝不可能 panic。`share_to_row` 对 `MinuteShare` 的 4 个 Option 字段同理。
 
 **ORDER BY 依据**
 
@@ -97,13 +101,15 @@ SETTINGS index_granularity = 8192;
 
 | MinuteShare 字段 | CH 列 | 备注 |
 |---|---|---|
-| `timestamp: DateTime<FixedOffset>` | `timestamp` | 由 `trading_date` + 时间分量构造 |
+| `timestamp: NaiveDateTime` | `timestamp` | 由 naive + +08:00 偏移构造为 `DateTime<FixedOffset>`（见 §2.1 `naive_to_shanghai`） |
 | `code: String` | `code` | LowCardinality |
-| `price: Decimal` | `price` | decimal_to_f64 |
-| `volume: i64` | `volume` | i64 → f64（写入时强制 cast，见 §2.1） |
-| `amount: Decimal` | `amount` | decimal_to_f64 |
-| `avg_price: Decimal` | `avg_price` | decimal_to_f64 |
+| `price: Option<Decimal>` | `price` | parser 已保证非 None，`share.price.unwrap()` 后 `decimal_to_f64` |
+| `volume: Option<i64>` | `volume` | 同上，`share.volume.unwrap() as f64`；i64→f64 cast 在 ≤ 10^9 范围无损 |
+| `amount: Option<Decimal>` | `amount` | 同上，unwrap 后 `decimal_to_f64` |
+| `avg_price: Option<Decimal>` | `avg_price` | 同上 |
 | —（CH 默认） | `ingested_at` | `DEFAULT now64(3)` |
+
+Option 处理路径与 §1.1 同理：parser 在 `parse_minute_share` 中已对 price/volume/amount/avg_price 做了 `?` 解包，到达 `MinuteShare` 的字段必为 `Some`，`unwrap` 不会 panic。
 
 **为何 share 没有 `period` / `adjust`**
 
@@ -115,22 +121,24 @@ A 股数值范围下 `Decimal → f64` 精度安全：
 
 | 字段 | 实际范围 | f64 可表示精度 |
 |---|---|---|
-| 价格 | [0.01, 9999.99]（含涨跌停） | f64 尾数 52 bit，可精确表示所有 ≤ 2^53 的整数；价格区间远小于此 |
-| 成交量 | 单 bar ≤ 10^9（1 分钟内不可能更多） | 同上 |
-| 成交额 | 单 bar ≤ 10^12（极端情况） | 同上；即便 10^15 仍可精确 |
+| 价格 (Decimal) | [0.01, 9999.99]（含涨跌停） | f64 尾数 52 bit，可精确表示所有 ≤ 2^53 的整数；价格区间远小于此 |
+| 成交量 (i64) | 单 bar ≤ 10^9（1 分钟内不可能更多） | `i64 as f64` 在 ≤ 2^53 ≈ 9×10^15 内无损；A 股成交量远小于此 |
+| 成交额 (Decimal) | 单 bar ≤ 10^12（极端情况） | 同上；即便 10^15 仍可精确 |
 
 > **A 股数值范围约束注释**（必须出现在 helper 注释中）：
 >
 > ```rust
 > /// Convert Decimal to f64 for ClickHouse Float64 columns.
 > ///
-> /// A 股行情数值范围内（|v| < 10^15）Decimal → f64 转换无损：
+> /// A 股数值范围内（|v| < 10^15）Decimal → f64 转换无损：
 > /// - 价格：[0.01, 9999.99]，远低于 2^53
-> /// - 成交量：单 bar ≤ 10^9
 > /// - 成交额：单 bar ≤ 10^12
 > ///
 > /// 任何超出 10^15 的值会被 `try_into` 拒绝并记录 warning，回退到 0.0。
 > /// 这是 P0.14 的明确决策（见设计 §1.3），不在运行时降级到更高精度类型。
+> ///
+> /// 注意：volume 是 `i64` 而非 `Decimal`，由调用方直接 `as f64`（见 §1.1）。
+> /// `decimal_to_f64` 不处理 volume。
 > fn decimal_to_f64(v: Decimal) -> f64 { ... }
 > ```
 
@@ -142,6 +150,10 @@ A 股数值范围下 `Decimal → f64` 精度安全：
 3. 调用方继续写入（不阻塞流）
 
 不抛错、不中断流，因为单条坏值不应阻塞整个 batch；运行时通过 `StreamStats::skipped_records` 反映。
+
+**i64 volume 不走 `decimal_to_f64`**
+
+`MinuteBar.volume: i64` 和 `MinuteShare.volume: Option<i64>`（unwrap 后）直接 `as f64`。A 股单 bar volume ≤ 10^9，远低于 2^53，cast 无损。
 
 ---
 
@@ -252,7 +264,7 @@ pub struct StreamStats {
 /// than requiring the caller to pin — the function is the natural owner
 /// of the pinning scope.
 pub async fn stream_minute_klines_to_clickhouse(
-    client: &OpenStockClient<'_>,
+    client: &OpenStockClient,
     clickhouse: &Client,
     code: &str,
     period: MinutePeriod,
@@ -262,12 +274,98 @@ pub async fn stream_minute_klines_to_clickhouse(
 ) -> Result<StreamStats, crate::error::QuantixError> { ... }
 
 pub async fn stream_minute_shares_to_clickhouse(
-    client: &OpenStockClient<'_>,
+    client: &OpenStockClient,
     clickhouse: &Client,
     code: &str,
     start: NaiveDate,
     end: NaiveDate,
 ) -> Result<StreamStats, crate::error::QuantixError> { ... }
+```
+
+### 2.5 Rust enum ↔ CH Enum8 映射（period / adjust）
+
+`clickhouse = "0.12"` crate 的 `Row` derive 要求 Rust enum ↔ CH Enum8 编号严格对应。本切片新增两个内部 enum（仅在 `models.rs` 中作为 CH 行类型的一部分），变体顺序与 §1.1 DDL 中 Enum8 编号锁定一致：
+
+```rust
+// src/db/clickhouse/models.rs
+
+#[derive(Debug, Clone, clickhouse::Row, Serialize, Deserialize)]
+pub struct MinuteKlineCH {
+    pub timestamp: DateTime<FixedOffset>,
+    pub code: String,
+    pub period: PeriodCH,
+    pub adjust: AdjustCH,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+    pub amount: f64,
+    // ingested_at 由 CH DEFAULT now64(3) 处理，Rust 侧不写
+}
+
+/// CH Enum8 编号必须与 DDL `Enum8('1m'=1,'5m'=2,'15m'=3,'30m'=4,'60m'=5)` 一致。
+/// 变体顺序即编号顺序；不可调整。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i8)]
+pub enum PeriodCH {
+    Minute1 = 1,
+    Minute5 = 2,
+    Minute15 = 3,
+    Minute30 = 4,
+    Minute60 = 5,
+}
+
+/// CH Enum8 编号必须与 DDL `Enum8('none'=1,'qfq'=2,'hfq'=3)` 一致。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i8)]
+pub enum AdjustCH {
+    None = 1,
+    QFQ = 2,
+    HFQ = 3,
+}
+```
+
+**业务 enum ↔ CH enum 转换**（在 `minute.rs` 中，私有 helper）：
+
+```rust
+fn period_to_ch(p: MinutePeriod) -> PeriodCH {
+    match p {
+        MinutePeriod::Minute1 => PeriodCH::Minute1,
+        MinutePeriod::Minute5 => PeriodCH::Minute5,
+        MinutePeriod::Minute15 => PeriodCH::Minute15,
+        MinutePeriod::Minute30 => PeriodCH::Minute30,
+        MinutePeriod::Minute60 => PeriodCH::Minute60,
+    }
+}
+
+fn adjust_to_ch(a: AdjustType) -> AdjustCH {
+    match a {
+        AdjustType::None => AdjustCH::None,
+        AdjustType::QFQ => AdjustCH::QFQ,
+        AdjustType::HFQ => AdjustCH::HFQ,
+    }
+}
+```
+
+**exhaustive match 保证**：未来若 `MinutePeriod` / `AdjustType` 新增变体，编译期会强制这两个 match 添加分支——这是 R4（Enum8 编号漂移）的编译期防线。`MinuteShareCH` 不含 enum 字段，结构更简单。
+
+### 2.6 schema.rs：在 init_database 中注册新表创建调用
+
+`src/db/clickhouse/schema.rs` 的 `init_database()` 函数当前依次调用 `create_kline_data_table()` 等六个建表方法。本切片新增的两个方法 **必须** 在 `init_database()` 中按相同模式追加调用，否则 INV-1A 不成立：
+
+```rust
+// src/db/clickhouse/schema.rs
+pub async fn init_database(client: &Client) -> Result<(), ...> {
+    create_kline_data_table(client).await?;
+    create_fundamentals_table(client).await?;
+    create_gbbq_table(client).await?;
+    create_shadow_kline_table(client).await?;
+    // ↓ P0.14 新增 ↓
+    create_minute_klines_table(client).await?;
+    create_minute_shares_table(client).await?;
+    Ok(())
+}
 ```
 
 ### 2.2 批量插入实现（async_insert=1）
@@ -308,7 +406,7 @@ async fn insert_batch(&self, batch: &[MinuteKlineCH]) -> Result<usize, clickhous
 
 ```rust
 pub async fn stream_minute_klines_to_clickhouse(
-    client: &OpenStockClient<'_>,
+    client: &OpenStockClient,
     clickhouse: &Client,
     code: &str,
     period: MinutePeriod,
@@ -349,9 +447,11 @@ pub async fn stream_minute_klines_to_clickhouse(
 | 项 | 可见性 | 说明 |
 |---|---|---|
 | `decimal_to_f64` / `naive_to_shanghai` / `shanghai_offset` | 私有 | 仅模块内 |
-| `bar_to_row` / `share_to_row` | 私有 | 仅模块内 |
+| `bar_to_row` / `share_to_row` / `period_to_ch` / `adjust_to_ch` | 私有 | 仅模块内 |
 | `MinuteSink<T>` trait | `pub(crate)` | **仅测试**注入 mock；非公共 API |
 | `ClickHouseMinuteKlineSink` / `ClickHouseMinuteShareSink` | `pub(crate)` | 同上 |
+| `PeriodCH` / `AdjustCH` enums | `pub` | 作为 `MinuteKlineCH` 公共字段类型，必须可访问；非测试目的 |
+| `MinuteKlineCH` / `MinuteShareCH` structs | `pub` | CH 行类型，给 L1/L2 实时测试反查用 |
 | `insert_minute_klines_batch` / `insert_minute_shares_batch` | `pub` | 给 P0.15 CLI dispatcher 用 |
 | `stream_minute_*_to_clickhouse` | `pub` | 给 P0.15 CLI dispatcher 用 |
 | `StreamStats` | `pub` | 流式结果报告 |
@@ -365,9 +465,11 @@ pub async fn stream_minute_klines_to_clickhouse(
 **INV-1B**：两张表的 `ENGINE` 必须为 `MergeTree`（与 `kline_data` 一致），不使用 `ReplacingMergeTree`。
 
 ### INV-2：类型映射
-**INV-2A**：`MinuteBar::timestamp` 的 `DateTime<FixedOffset>` 必须以 +08:00 偏移写入 `DateTime64(3, 'Asia/Shanghai')`，写入和读回的 wall-clock 时刻必须相等。
-**INV-2B**：`MinuteShare::volume: i64` 写入 `Float64` 列时，读回值必须与原值在数值上相等（i64 ≤ 10^9 时 f64 精确）。
-**INV-2C**：`MinuteBar::period` / `adjust_type` 的 Enum 枚举值在 Rust ↔ CH 两侧必须按 §1.1 表的映射严格对应；变体顺序不能漂移。
+**INV-2A**：`MinuteBar::timestamp` (实际类型 `NaiveDateTime`) 必须经 `naive_to_shanghai()` 抬升到 `DateTime<FixedOffset>` (+08:00) 后写入 `DateTime64(3, 'Asia/Shanghai')`；写入和读回的 wall-clock 时刻必须相等。`MinuteShare::timestamp` 同理。
+**INV-2B**：`MinuteBar::volume: i64` 与 `MinuteShare::volume: Option<i64>`（unwrap 后）通过 `as f64` 写入 `Float64` 列；读回值必须与原值在数值上相等（i64 ≤ 10^9 时 f64 精确）。
+**INV-2C**：`MinuteBar::period` / `adjust_type` 通过 `period_to_ch` / `adjust_to_ch` 转换为 `PeriodCH` / `AdjustCH`，再写入 CH Enum8 列；变体顺序与 §2.5 DDL Enum8 编号严格锁定一致。
+**INV-2D（Option unwrap 安全性）**：`bar_to_row` / `share_to_row` 对 `MinuteBar.amount: Option<Decimal>` 和 `MinuteShare::{price, volume, amount, avg_price}` 等 Option 字段直接 `unwrap()` 是安全的——parser 阶段已通过 `?` 操作过滤 None；运行时绝不可能 panic。任何新增的 Option 字段必须在 parser 阶段同步加入「字段缺失 → warn + skip」逻辑，才能在 row helper 中 unwrap。
+**INV-2E（Enum8 编号锁定）**：`PeriodCH` / `AdjustCH` 的 `#[repr(i8)]` 编号必须与 §1.1 / §2.5 DDL 中 Enum8 字面量编号严格对应。未来若 `MinutePeriod` / `AdjustType` 业务 enum 新增变体，`period_to_ch` / `adjust_to_ch` 的 exhaustive match 会在编译期强制要求新增对应分支——这是 R4 的编译期防线。
 
 ### INV-3：流语义继承
 **INV-3A**：`stream_minute_klines_to_clickhouse` 必须在第一个流错误时短路（`?`），不再继续消费后续 batch。继承自 P0.13d D4。
@@ -393,12 +495,13 @@ pub async fn stream_minute_klines_to_clickhouse(
 |---|---|---|
 | U1 | `decimal_to_f64_normal_range_is_lossless` | 1.23 / 9999.99 / 0 转换为 f64 后 `==` 精确值 |
 | U2 | `decimal_to_f64_huge_value_falls_back_with_warn` | 构造超出 f64 精度的 Decimal，返回 0.0 + warn（用 `tracing::mock` 或 `assert_eq!(result, 0.0)` 验证回退） |
-| U3 | `naive_to_shanghai_applies_east_8_offset` | UTC 0:00 NaiveDate → DateTime 带 +08:00，与 8:00 UTC 等价 |
-| U4 | `bar_to_row_maps_all_minute_bar_fields` | 构造 `MinuteBar`，断言 `MinuteKlineCH` 字段逐一相等（含 period/adjust enum 映射） |
-| U5 | `share_to_row_maps_all_minute_share_fields` | 同上，对 `MinuteShare` → `MinuteShareCH` |
+| U3 | `naive_to_shanghai_applies_east_8_offset` | UTC 0:00 NaiveDateTime → DateTime 带 +08:00，与 8:00 UTC 等价 |
+| U4 | `bar_to_row_maps_all_minute_bar_fields` | 构造 `MinuteBar` (volume=i64, amount=Some(Decimal))，断言 `MinuteKlineCH` 字段逐一相等；覆盖 INV-2B/2D |
+| U5 | `share_to_row_maps_all_minute_share_fields` | 构造 `MinuteShare`（4 个 Option 字段全 Some），断言 `MinuteShareCH` 字段逐一相等；覆盖 INV-2D |
 | U6 | `stream_minute_klines_to_clickhouse_inserts_all_batches_via_mock_sink` | 注入 `MockMinuteKlineSink`，验证 batches/input_records/inserted_records 计数；stream 来自 P0.13d mock client |
 | U7 | `stream_minute_shares_to_clickhouse_inserts_all_batches_via_mock_sink` | 同上，对 share 流 |
 | U8 | `stream_minute_klines_to_clickhouse_short_circuits_on_first_error` | 注入第 2 batch 失败的 stream，验证函数返回 Err 且 `inserted_records` 只反映第 1 batch |
+| U9 | `period_to_ch_and_adjust_to_ch_map_all_variants` | 遍历 `MinutePeriod` × `AdjustType` 全部组合，断言 Rust enum → `PeriodCH`/`AdjustCH` 映射与 DDL Enum8 编号一致；覆盖 INV-2C/2E |
 
 **Mock 注入机制**
 
@@ -470,10 +573,12 @@ async fn live_stream_minute_klines_to_clickhouse_round_trip() {
 
 | INV | 覆盖 |
 |---|---|
-| INV-1 | schema.rs 测试（沿用现有 `init_database` 测试模式）+ L1/L2 反查 |
+| INV-1 | schema.rs 测试（沿用现有 `init_database` 测试模式，验证 §2.6 新调用链）+ L1/L2 反查 |
 | INV-2A | L1（timestamp 反查）、U3（时区构造） |
-| INV-2B | L2（volume 反查）、U5 |
-| INV-2C | U4 + U5（enum 映射） |
+| INV-2B | U4（volume=i64 as f64）、L2（volume 反查） |
+| INV-2C | U9（period/adjust enum 映射表） |
+| INV-2D | U4 + U5（Option 字段 unwrap 后字段值匹配） |
+| INV-2E | U9 + 编译期 exhaustive match 保证 |
 | INV-3A | U8 |
 | INV-3B | U8（share 对应版本） |
 | INV-3C | U6/U7（不 catch）+ U8（首错即止） |
@@ -488,22 +593,22 @@ async fn live_stream_minute_klines_to_clickhouse_round_trip() {
 
 | 文件 | 改动 | 预估行数 |
 |---|---|---|
-| `src/db/clickhouse/models.rs` | 新增 `MinuteKlineCH` / `MinuteShareCH` 结构体 + DbRow derive | +50 |
-| `src/db/clickhouse/schema.rs` | 新增 `create_minute_klines_table()` / `create_minute_shares_table()` 方法；从 `init_database` 调用 | +60 |
+| `src/db/clickhouse/models.rs` | 新增 `MinuteKlineCH` / `MinuteShareCH` 结构体 + `PeriodCH` / `AdjustCH` enum（含 `#[repr(i8)]` 编号锁定，见 §2.5） | +90 |
+| `src/db/clickhouse/schema.rs` | 新增 `create_minute_klines_table()` / `create_minute_shares_table()` 方法；**在 `init_database()` 中追加调用**（见 §2.6，INV-1A 必需） | +70 |
 | `src/db/clickhouse/mod.rs` | `pub mod minute;` + `pub use minute::{StreamStats, stream_minute_*_to_clickhouse};` | +5 |
-| `src/db/clickhouse/tests.rs` | U1-U8 单元测试 | +250 |
+| `src/db/clickhouse/tests.rs` | U1-U9 单元测试（U9 为 enum 映射表测试，覆盖 INV-2C/2E） | +275 |
 
 ### 5.2 新建（5 处）
 
 | 文件 | 用途 | 预估行数 |
 |---|---|---|
-| `src/db/clickhouse/minute.rs` | 转换 helper + Sink trait + 批量插入 + 流消费 | +200 |
+| `src/db/clickhouse/minute.rs` | 转换 helper + enum 映射 + Sink trait + 批量插入 + 流消费 | +230 |
 | `tests/clickhouse_live_minute_klines.rs` | L1 实时测试 | +80 |
 | `tests/clickhouse_live_minute_shares.rs` | L2 实时测试 | +80 |
 | `openspec/changes/openstock-data-consumption-p0-14/{proposal,tasks,design}.md` + `specs/openstock-data-consumption/spec.md` | OpenSpec change（与 P0.13 系列同形） | +300 |
 | `.governance/programs/project-governance/cards/P0.14.yaml` | 治理卡片，范围严格限定到 db/clickhouse 子树 | +40 |
 
-**总预估：~1080 行新增 / 0 行删除**
+**总预估：~1170 行新增 / 0 行删除**
 
 ### 5.3 不动（forbidden_paths）
 
@@ -677,8 +782,8 @@ cargo test --test clickhouse_live_minute_klines --test clickhouse_live_minute_sh
 
 建议任务拆分（每个任务一个独立可测试交付）：
 
-1. **T1：DDL + 模型**：`schema.rs` 新增两个 `create_*_table()` 方法；`models.rs` 新增 `MinuteKlineCH` / `MinuteShareCH`；在 `init_database` 调用新方法；schema 单元测试
-2. **T2：转换 helper**：`minute.rs` 新建；`decimal_to_f64` / `naive_to_shanghai` / `bar_to_row` / `share_to_row`；U1-U5 单元测试
+1. **T1：DDL + 模型 + enum**：`schema.rs` 新增两个 `create_*_table()` 方法并在 `init_database()` 中追加调用（§2.6）；`models.rs` 新增 `MinuteKlineCH` / `MinuteShareCH` + `PeriodCH` / `AdjustCH`（含 `#[repr(i8)]` 编号锁定，§2.5）；schema 单元测试（验证 INV-1A/2E）
+2. **T2：转换 helper + enum 映射**：`minute.rs` 新建；`decimal_to_f64` / `naive_to_shanghai` / `period_to_ch` / `adjust_to_ch` / `bar_to_row` / `share_to_row`；U1-U5 + U9 单元测试（U9 覆盖 INV-2C/2E enum 映射）
 3. **T3：Sink trait + 批量插入**：`MinuteSink<T>` trait + 两个 ClickHouse sink 实现；可注入 sink 的 `insert_minute_*_batch` 函数
 4. **T4：流消费**：`stream_minute_*_to_clickhouse`；U6-U8 单元测试（含 mock 注入）
 5. **T5：实时测试**：L1/L2 文件，`#[ignore]` + 环境变量门控
