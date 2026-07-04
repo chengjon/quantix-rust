@@ -1,0 +1,39 @@
+id: P0.14
+title: "ClickHouse minute-level data persistence (klines + shares)"
+state: in_progress
+scope:
+  allowed_paths:
+    - src/db/clickhouse/mod.rs
+    - src/db/clickhouse/models.rs
+    - src/db/clickhouse/schema.rs
+    - src/db/clickhouse/minute.rs
+    - src/db/clickhouse/tests.rs
+    - openspec/changes/openstock-data-consumption-p0-14/**
+    - docs/superpowers/specs/2026-07-04-openstock-p0-14-clickhouse-minute-persistence-design.md
+    - docs/superpowers/plans/2026-07-05-openstock-p0-14-clickhouse-minute-persistence-plan.md
+    - .governance/programs/project-governance/cards/P0.14.yaml
+  forbidden_paths:
+    - src/sources/**
+    - src/cli/**
+    - src/scheduler/**
+    - src/db/clickhouse/kline.rs
+    - src/db/clickhouse/fundamentals.rs
+    - src/db/clickhouse/gbbq.rs
+    - src/db/clickhouse/shadow_kline.rs
+linked_openspec: openstock-data-consumption-p0-14
+started: "2026-07-05"
+acceptance_gates:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --workspace -- -D warnings
+  - cargo test --workspace
+  - openspec validate openstock-data-consumption-p0-14 --strict
+  - openspec validate --all --strict
+non_goals:
+  - "CLI subcommands for minute-* persistence (P0.15)"
+  - "scheduler / cron triggers (P0.15)"
+  - "ReplacingMergeTree / deduplication (MergeTree + upstream uniqueness)"
+  - "Parquet / DuckDB / alternative sinks"
+  - "Migration of legacy minute_klines_* tables"
+  - "Enum8 column types (would diverge from kline_data convention)"
+  - "DateTime64(3, 'Asia/Shanghai') column type (would diverge from kline_data convention)"
+  - "Unified timezone semantic refactor (separate slice)"
