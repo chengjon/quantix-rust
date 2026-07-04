@@ -724,9 +724,7 @@ impl OpenStockClient {
         period: crate::data::models::MinutePeriod,
         date_or_range: crate::data::models::DateOrRange,
         adjust: crate::data::models::AdjustType,
-    ) -> impl futures::Stream<
-        Item = Result<Vec<crate::data::models::MinuteBar>>,
-    > + 'a {
+    ) -> impl futures::Stream<Item = Result<Vec<crate::data::models::MinuteBar>>> + 'a {
         use crate::data::models::DateOrRange;
         let (start, end) = match date_or_range {
             DateOrRange::Date(d) => (d, d),
@@ -743,7 +741,9 @@ impl OpenStockClient {
                 return None;
             }
             let (s, e) = iter.next()?;
-            let res = self.fetch_minute_klines_range(code, period, s, e, adjust).await;
+            let res = self
+                .fetch_minute_klines_range(code, period, s, e, adjust)
+                .await;
             let next_errored = res.is_err();
             Some((res, (iter, next_errored)))
         })
@@ -901,10 +901,8 @@ impl OpenStockClient {
         &'a self,
         code: &'a str,
         date_or_range: crate::data::models::DateOrRange,
-    ) -> impl futures::Stream<
-        Item = Result<Vec<crate::data::models::MinuteShare>>,
-    > + 'a {
-        use crate::data::models::{iter_dates_inclusive, DateOrRange};
+    ) -> impl futures::Stream<Item = Result<Vec<crate::data::models::MinuteShare>>> + 'a {
+        use crate::data::models::{DateOrRange, iter_dates_inclusive};
         let (start, end) = match date_or_range {
             DateOrRange::Date(d) => (d, d),
             DateOrRange::Range { start, end } => (start, end),

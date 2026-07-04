@@ -408,6 +408,7 @@ pub(crate) async fn fetch_openstock_klines(
 /// 注意：`/data/bars` 不返回 `/data/fetch` 信封中的 `source` /
 /// `artifact_hash` / `latency_ms` 字段，因此本 handler 不打印这些字段
 /// （与 `fetch_openstock_klines` 一致）。
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn fetch_openstock_minute_klines(
     settings: &OpenStockSettings,
     symbol: String,
@@ -416,11 +417,13 @@ pub(crate) async fn fetch_openstock_minute_klines(
     start: Option<String>,
     end: Option<String>,
     adjust: String,
+    stream: bool,
 ) -> Result<()> {
     use std::str::FromStr;
 
     use crate::data::models::{AdjustType, DateOrRange, MinutePeriod};
     use crate::sources::openstock_client::OpenStockClient;
+    use futures::StreamExt;
 
     let period_enum = MinutePeriod::from_str(&period)
         .map_err(|e| QuantixError::Config(format!("--period: {}", e)))?;
@@ -429,6 +432,54 @@ pub(crate) async fn fetch_openstock_minute_klines(
     let dor = DateOrRange::from_cli(date.as_deref(), start.as_deref(), end.as_deref())?;
 
     let client = OpenStockClient::from_settings(settings)?;
+
+    if stream {
+        let mode_label = match &dor {
+            DateOrRange::Date(d) => format!("date={}", d),
+            DateOrRange::Range { start, end } => format!("range={}..{}", start, end),
+        };
+        println!(
+            "OpenStock stream fetch (/data/bars, symbol={}, minute={}, {})",
+            symbol,
+            period_enum.as_str(),
+            mode_label
+        );
+        println!(
+            "  Adjust: {}",
+            adjust_enum
+                .as_openstock_param()
+                .unwrap_or("none (field omitted)")
+        );
+        eprintln!("  Streaming weekly chunks:");
+        let s = client.fetch_minute_klines_stream(&symbol, period_enum, dor.clone(), adjust_enum);
+        futures::pin_mut!(s);
+        let mut total = 0usize;
+        let mut batches = 0usize;
+        let started = std::time::Instant::now();
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            total += batch.len();
+            eprintln!(
+                "  [batch {}] +{} bars (cumulative: {}, elapsed: {:?})",
+                batches,
+                batch.len(),
+                total,
+                started.elapsed()
+            );
+            for bar in &batch {
+                println!("{:?}", bar);
+            }
+        }
+        eprintln!(
+            "  Done. Total: {} bars across {} batches, {:?} total",
+            total,
+            batches,
+            started.elapsed()
+        );
+        return Ok(());
+    }
+
     let bars = client
         .fetch_minute_klines(&symbol, period_enum, dor.clone(), adjust_enum)
         .await?;
@@ -459,7 +510,7 @@ pub(crate) async fn fetch_openstock_minute_klines(
     println!("  latency_ms:    (not reported by /data/bars)");
     if bars.len() > 10_000 {
         eprintln!(
-            "warning: range returns {} records, consider narrowing for faster responses",
+            "warning: range returns {} records, consider narrowing or use --stream",
             bars.len()
         );
     }
@@ -472,13 +523,59 @@ pub(crate) async fn fetch_openstock_minute_share(
     date: Option<String>,
     start: Option<String>,
     end: Option<String>,
+    stream: bool,
 ) -> Result<()> {
     use crate::data::models::DateOrRange;
     use crate::sources::openstock_client::OpenStockClient;
+    use futures::StreamExt;
 
     let dor = DateOrRange::from_cli(date.as_deref(), start.as_deref(), end.as_deref())?;
-
     let client = OpenStockClient::from_settings(settings)?;
+
+    if stream {
+        let mode_label = match &dor {
+            DateOrRange::Date(d) => format!("date={}", d),
+            DateOrRange::Range { start, end } => format!("range={}..{}", start, end),
+        };
+        println!("OpenStock MINUTE_DATA stream (time-share ticks)");
+        println!("  Code:     {}", symbol);
+        println!("  Mode:     {}", mode_label);
+        eprintln!("  Streaming one batch per calendar day:");
+        let s = client.fetch_minute_share_stream(&symbol, dor.clone());
+        futures::pin_mut!(s);
+        let mut total = 0usize;
+        let mut batches = 0usize;
+        let mut empty_batches = 0usize;
+        let started = std::time::Instant::now();
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            if batch.is_empty() {
+                empty_batches += 1;
+            }
+            total += batch.len();
+            eprintln!(
+                "  [batch {}] +{} records (cumulative: {}, empty: {}, elapsed: {:?})",
+                batches,
+                batch.len(),
+                total,
+                empty_batches,
+                started.elapsed()
+            );
+            for share in &batch {
+                println!("{:?}", share);
+            }
+        }
+        eprintln!(
+            "  Done. Total: {} records across {} batches ({} empty), {:?} total",
+            total,
+            batches,
+            empty_batches,
+            started.elapsed()
+        );
+        return Ok(());
+    }
+
     let started = std::time::Instant::now();
     let shares = client.fetch_minute_share(&symbol, dor.clone()).await?;
     let latency_ms = started.elapsed().as_millis();
@@ -502,10 +599,8 @@ pub(crate) async fn fetch_openstock_minute_share(
         let n_days = (*end - *start).num_days() + 1;
         if n_days > 10 {
             eprintln!(
-                "warning: range spans {} days; client issued {} single-day requests ({:.1}s total)",
-                n_days,
-                n_days,
-                latency_ms as f64 / 1000.0
+                "warning: range spans {} days; consider using --stream for live progress",
+                n_days
             );
         }
     }

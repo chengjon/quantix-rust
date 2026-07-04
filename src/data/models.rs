@@ -531,7 +531,7 @@ mod tests {
 
 #[cfg(test)]
 mod date_or_range_tests {
-    use super::{chunk_range_weekly, DateOrRange, iter_dates_inclusive};
+    use super::{DateOrRange, chunk_range_weekly, iter_dates_inclusive};
     use chrono::NaiveDate;
 
     fn d(s: &str) -> NaiveDate {

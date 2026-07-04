@@ -404,6 +404,11 @@ pub enum OpenStockCommands {
 
         #[arg(long, default_value = "none")]
         adjust: String,
+
+        /// Stream batches (P0.13d). Emits per-batch progress to stderr.
+        /// Default false; when absent, batch API behavior is unchanged.
+        #[arg(long, default_value_t = false)]
+        stream: bool,
     },
 
     /// Fetch OpenStock MINUTE_DATA category (intraday time-share ticks).
@@ -425,5 +430,10 @@ pub enum OpenStockCommands {
         /// Range end (inclusive). Must pair with --start.
         #[arg(long)]
         end: Option<String>,
+
+        /// Stream batches (P0.13d). Emits per-batch progress to stderr.
+        /// Default false; when absent, batch API behavior is unchanged.
+        #[arg(long, default_value_t = false)]
+        stream: bool,
     },
 }
