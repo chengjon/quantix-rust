@@ -439,7 +439,7 @@ async fn create_minute_klines_table(&self) -> Result<()> {
 **INV-4A**：`MinuteSink<T>` trait 的可见性必须为 `pub(crate)`，**不得**出现在 `lib.rs` 的 `pub use` 中。
 **INV-4B**：`ClickHouseMinuteKlineSink` / `ClickHouseMinuteShareSink` 同样 `pub(crate)`，仅测试可注入。
 **INV-4C**：上游调用方（P0.15 dispatcher）只能通过 `stream_minute_*_to_clickhouse` 公共函数消费流，不能直接持有 sink。
-**INV-4D**：`stream_minute_*_to_clickhouse<S: MinuteSink<...>>` 是公共函数，但类型参数 `S` 受 `pub(crate) trait MinuteSink` 约束——外部 crate 无法构造满足 trait 的具体类型，从而无法调用这两个函数。这是有意为之的「内部 API」标记；P0.15 dispatcher 在本 crate 内，可正常构造 `ClickHouseMinuteKlineSink` 传入。
+**INV-4D**：`stream_minute_*_to_clickhouse<S: MinuteSink<...>>` 是公共函数。Rust E0445 强制 trait 在公共函数泛型约束中必须 `pub`（不能 `pub(crate)`），因此 `MinuteSink<T>` trait 实际为 `pub`。但 INV-4D 通过 **模块私有性**（mod.rs 中 `mod minute;` 而非 `pub mod minute;`）保留：外部 crate 无法命名 trait 路径 `quantix_cli::db::clickhouse::minute::MinuteSink`，无法 `impl` 它，从而无法构造满足 `S: MinuteSink<...>` 的具体类型。`ClickHouseMinuteKlineSink` / `ClickHouseMinuteShareSink` 同时保持 `pub(crate)`。最终效果与 trait 私有等价：外部 crate 不可调用这两个公共函数。
 
 ### INV-5：DDL 集群一致性
 **INV-5A**：两张表的 DDL 必须保留 `ON CLUSTER '{cluster}'`，与现有 `kline_data` / `fundamentals` 等表一致。

@@ -122,10 +122,11 @@ pub(crate) fn share_to_row_for_test(share: &MinuteShare) -> MinuteShareCH {
 /// Internal sink abstraction. Used **only** by unit tests to inject a mock
 /// without touching the real ClickHouse. Not part of any public API.
 //
-// INV-4A/B: trait + concrete sinks are `pub(crate)`. The public stream
-// consumers below take `<S: MinuteSink<...>>`, but because the trait itself
-// is `pub(crate)`, external crates cannot construct a satisfying type —
-// effectively making the public functions internal-only (INV-4D).
+// INV-4A/B: trait is `pub` only because E0445 forces it (the public
+// consumers below reference it in their generic bound). Concrete sinks
+// remain `pub(crate)`. The module itself is private (`mod minute;` in
+// mod.rs), so external crates cannot name `MinuteSink` — INV-4D holds
+// via module privacy rather than trait privacy.
 #[async_trait]
 pub trait MinuteSink<T: Send + Sync>: Send + Sync {
     async fn insert_batch(&self, batch: &[T]) -> Result<usize, clickhouse::error::Error>;
