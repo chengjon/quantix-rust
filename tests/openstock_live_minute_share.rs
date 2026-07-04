@@ -175,3 +175,41 @@ fn live_from_cli_start_after_end_errors_without_http() {
         msg
     );
 }
+
+#[tokio::test]
+#[ignore = "live OpenStock HTTP; set QUANTIX_OPENSTOCK_LIVE=1 to run"]
+async fn live_fetch_minute_share_stream_one_day_per_batch() {
+    // L2: share stream yields one batch per calendar day; non-trading days
+    // produce empty Vec.
+    use futures::StreamExt;
+
+    if std::env::var("QUANTIX_OPENSTOCK_LIVE").ok().as_deref() != Some("1") {
+        return;
+    }
+    let settings = settings_from_env().expect("OPENSTOCK_BASE_URL + OPENSTOCK_API_KEY");
+    let client = OpenStockClient::from_settings(&settings).expect("client from settings");
+
+    use chrono::NaiveDate;
+    let start = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+    let end = NaiveDate::from_ymd_opt(2026, 6, 7).unwrap();
+    let dor = quantix_cli::data::models::DateOrRange::Range { start, end };
+
+    let s = client.fetch_minute_share_stream("600000", dor);
+    futures::pin_mut!(s);
+    let mut batches = 0usize;
+    let mut total = 0usize;
+    while let Some(batch) = s.next().await {
+        let batch = batch.expect("stream batch ok");
+        batches += 1;
+        total += batch.len();
+    }
+    // INV-5B: exactly one batch per calendar day (7)
+    assert_eq!(
+        batches, 7,
+        "share stream must yield one batch per calendar day"
+    );
+    eprintln!(
+        "live share stream: {} batches, {} total records",
+        batches, total
+    );
+}
