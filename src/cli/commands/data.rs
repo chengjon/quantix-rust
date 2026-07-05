@@ -436,4 +436,52 @@ pub enum OpenStockCommands {
         #[arg(long, default_value_t = false)]
         stream: bool,
     },
+
+    /// Import minute klines into ClickHouse `minute_klines` (OpenStock).
+    /// Default is dry-run; pass --apply AND set QUANTIX_OPENSTOCK_MINUTE_APPLY=yes to write.
+    ImportMinuteKlines {
+        /// 股票代码 (e.g. sh600000)
+        #[arg(short, long)]
+        code: String,
+
+        /// 周期: 1m / 5m / 15m / 30m / 60m
+        #[arg(long, default_value = "1m")]
+        period: String,
+
+        /// 复权: none / qfq / hfq
+        #[arg(long, default_value = "none")]
+        adjust: String,
+
+        /// 起始日期 (YYYY-MM-DD, inclusive)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYY-MM-DD, inclusive)
+        #[arg(long)]
+        end: Option<String>,
+
+        /// 实际写入 ClickHouse (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_MINUTE_APPLY=yes)
+        #[arg(long, default_value_t = false)]
+        apply: bool,
+    },
+
+    /// Import minute shares into ClickHouse `minute_shares` (OpenStock).
+    /// Default is dry-run; pass --apply AND set QUANTIX_OPENSTOCK_MINUTE_APPLY=yes to write.
+    ImportMinuteShare {
+        /// 股票代码 (e.g. sh600000)
+        #[arg(short, long)]
+        code: String,
+
+        /// 起始日期 (YYYY-MM-DD, inclusive)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// 结束日期 (YYYY-MM-DD, inclusive)
+        #[arg(long)]
+        end: Option<String>,
+
+        /// 实际写入 ClickHouse (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_MINUTE_APPLY=yes)
+        #[arg(long, default_value_t = false)]
+        apply: bool,
+    },
 }
