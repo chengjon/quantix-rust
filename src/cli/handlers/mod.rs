@@ -31,7 +31,7 @@ mod monitor_handler;
 mod monitor_output;
 mod news;
 mod notify;
-mod openstock_handler;
+pub(crate) mod openstock_handler;
 mod performance_handler;
 mod risk;
 mod safety;

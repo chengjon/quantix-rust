@@ -24,6 +24,29 @@ use crate::sources::openstock_shadow::{
 };
 use crate::sources::parse_daily_kline_json;
 
+/// P0.15a double-key gate env-var name.
+///
+/// Writes to ClickHouse `minute_klines` / `minute_shares` occur iff
+/// `--apply == true` AND this env var is `"yes"` (verbatim).
+/// Mirrors `QUANTIX_OPENSTOCK_KLINE_APPLY` semantics (openstock_handler.rs:1055).
+// Consumed by Task 3 (klines handler) and Task 4 (share handler).
+#[allow(dead_code)]
+pub(crate) const MINUTE_APPLY_ENV: &str = "QUANTIX_OPENSTOCK_MINUTE_APPLY";
+
+/// Compute whether to actually write to ClickHouse.
+///
+/// Returns `true` iff `apply` (from `--apply` CLI flag) AND the env var
+/// `QUANTIX_OPENSTOCK_MINUTE_APPLY` is `"yes"` (verbatim). Anything else
+/// returns `false` (dry-run).
+///
+/// Reading the env internally (rather than passing `env: Option<&str>`)
+/// forces tests U2/U3 to set the real env-var name, exercising the contract.
+// Consumed by Task 3 (klines handler) and Task 4 (share handler).
+#[allow(dead_code)]
+pub(crate) fn compute_apply(apply: bool) -> bool {
+    apply && std::env::var(MINUTE_APPLY_ENV).ok().as_deref() == Some("yes")
+}
+
 pub(crate) fn validate_openstock_fixture(file: &str) -> Result<()> {
     let content = fs::read_to_string(file).map_err(|error| {
         QuantixError::Other(format!("读取 OpenStock fixture 失败 ({}): {}", file, error))

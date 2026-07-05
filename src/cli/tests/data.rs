@@ -147,3 +147,32 @@ fn parses_data_import_fundamentals_command() {
         other => panic!("unexpected command: {:?}", other),
     }
 }
+
+#[cfg(test)]
+mod tests_p0_15a {
+    use crate::cli::handlers::openstock_handler::compute_apply;
+
+    #[test]
+    fn compute_apply_returns_false_when_apply_flag_false() {
+        // U3: --apply not set → false regardless of env
+        unsafe { std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "yes") };
+        assert!(!compute_apply(false));
+        unsafe { std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY") };
+    }
+
+    #[test]
+    fn compute_apply_reads_env_var() {
+        // U2: env var must be exactly "yes" (not "true", not "1", not unset)
+        unsafe { std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "yes") };
+        assert!(compute_apply(true));
+
+        unsafe { std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "true") };
+        assert!(!compute_apply(true)); // wrong value
+
+        unsafe { std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "1") };
+        assert!(!compute_apply(true)); // wrong value
+
+        unsafe { std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY") };
+        assert!(!compute_apply(true)); // unset
+    }
+}
