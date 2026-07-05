@@ -125,8 +125,7 @@ pub(crate) async fn import_openstock_minute_klines(
 3. `let dor = DateOrRange::from_cli(None, start.as_deref(), end.as_deref())?;` (returns `Range` because step 1-3 of `from_cli` require either `date` or paired `start/end`; if `start/end` are both `None`, this errors with the message at `models.rs:340-342`)
 4. Extract `(start_date, end_date)`: `dor` is guaranteed to be a `Range` because step 3 calls `from_cli(None, start, end)` (no `date`), but use a safe pattern: `let (start_date, end_date) = match dor { DateOrRange::Range { start, end } => (start, end), DateOrRange::Date(_) => return Err(QuantixError::Config("internal: DateOrRange unexpectedly Date".into())) };` — avoids `unreachable!()` so a future parser change cannot panic the handler
 5. `let client = OpenStockClient::from_settings(settings)?;`
-6. `let env_confirmed = std::env::var("QUANTIX_OPENSTOCK_MINUTE_APPLY").ok().as_deref() == Some("yes");`
-7. `let will_apply = apply && env_confirmed;`
+6. `let will_apply = compute_apply(apply);` — see D3 for definition. Internally reads `QUANTIX_OPENSTOCK_MINUTE_APPLY` env var.
 
 **Dry-run branch (`!will_apply`):**
 
@@ -158,8 +157,16 @@ return Ok(());
 **Apply branch (`will_apply`):**
 
 ```
+use crate::db::clickhouse::minute::{ClickHouseMinuteKlineSink, stream_minute_klines_to_clickhouse};
+// ↑ the sink structs are pub(crate) inside minute.rs (mod minute; is private — INV-4D from P0.14)
+// stream_minute_* are also re-exported at mod.rs:12-14; either path works. Spec uses the
+// minute:: path for symmetry with the sink type. Implementation may use either.
+
 let ch = ClickHouseClient::with_default_config().await?;
 let sink = ClickHouseMinuteKlineSink { client: ch.client() };
+// ↑ lifetime is inferred: ClickHouseMinuteKlineSink<'a> where 'a borrows from `ch`.
+//   `ch` and `sink` must outlive the await call below; this is satisfied because
+//   both are in the same scope as `stream_minute_klines_to_clickhouse(...).await`.
 println!("OpenStock import-minute-klines (apply)");
 println!("  code: {}, period: {}, adjust: {}", code, period_enum.as_str(), adjust_enum.as_str());
 println!("  range: {} .. {}", start_date, end_date);
@@ -178,7 +185,8 @@ Symmetric to §3.1, with these differences:
 
 - No `period` / `adjust` parameters or parsing
 - Calls `fetch_minute_share_stream(&code, dor.clone())` (dry-run) or `stream_minute_shares_to_clickhouse(&client, &sink, &code, start_date, end_date)` (apply)
-- Constructs `ClickHouseMinuteShareSink { client: ch.client() }`
+- Inline import: `use crate::db::clickhouse::minute::{ClickHouseMinuteShareSink, stream_minute_shares_to_clickhouse};`
+- Constructs `ClickHouseMinuteShareSink { client: ch.client() }` (same lifetime-inference pattern as klines)
 - Output labels use `share` not `kline`
 
 ---
@@ -235,7 +243,32 @@ Symmetric to §3.1, with these differences:
 
 ---
 
-## 6. OpenSpec requirements (preview)
+## 6. Test matrix
+
+### Unit tests (U1-U3) — `src/cli/tests/data.rs`
+
+Test-isolation baseline: every test that touches `compute_apply` starts with `std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY")` and ends the same way, so cargo's serial default keeps tests independent. Codebase precedent: `src/cli/tests/risk.rs:352-353` uses plain `std::env::set_var` without `serial_test`.
+
+- **U1: `import_minute_args_validate_period_and_adjust`** — sanity test. Wires `MinutePeriod::from_str("1m")` + `AdjustType::from_str("none")` + `DateOrRange::from_cli(None, Some("2026-01-01"), Some("2026-01-05"))` and asserts the parsed values match expectations. Confirms the new handler invokes the existing parsers without breaking them.
+- **U2: `compute_apply_reads_env_var`** — env-integration test (not a tautology). Calls `std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "yes"); assert!(compute_apply(true));` then `std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY"); assert!(!compute_apply(true));`. If the env-var name is misspelled anywhere, this test fails. Mirrors `src/cli/tests/risk.rs:352-353` pattern.
+- **U3: `compute_apply_returns_false_when_apply_flag_false`** — `assert!(!compute_apply(false));` with env var unset. Covers the case where `--apply` flag is missing.
+
+### Live tests (L1/L2) — new file `tests/openstock_live_import_minute.rs`
+
+Gated by `QUANTIX_OPENSTOCK_LIVE=1` + `QUANTIX_CLICKHOUSE_LIVE=1` + `OPENSTOCK_*` + `CLICKHOUSE_*` env vars. Both `#[ignore]` by default.
+
+- **L1: `cli_import_minute_klines_round_trip`** — sets env, invokes `import_openstock_minute_klines` for one code × one day, queries ClickHouse: `SELECT count() FROM minute_klines WHERE code = 'sh600000' AND timestamp >= ? AND timestamp < ?`, asserts count > 0, cleans up (DELETE by code + date range).
+- **L2: `cli_import_minute_share_round_trip`** — symmetric against `minute_shares`.
+
+### Not covered (deferred)
+
+- Full ClickHouse insert path — already covered by P0.14 U1-U8 + L1/L2; re-testing would violate DRY.
+- Scheduler orchestration (per-code iteration) — P0.15b scope.
+- `assert_cmd` subprocess CLI tests — P0.15a's unit tests + live tests suffice; `assert_cmd` would add a test dependency for marginal coverage.
+
+---
+
+## 7. OpenSpec requirements (preview)
 
 5 new requirements to be added to `openstock-data-consumption/spec.md` as `REQ-PERSIST-006` through `REQ-PERSIST-010`:
 
@@ -249,7 +282,7 @@ Each requirement has 2-3 scenarios (happy path, gate refusal, dry-run count).
 
 ---
 
-## 7. Decisions
+## 8. Decisions
 
 ### D1: `import-` prefix (not `fetch-` or `persist-`)
 **Choice:** Subcommands named `import-minute-klines` / `import-minute-share`.
@@ -261,10 +294,20 @@ Each requirement has 2-3 scenarios (happy path, gate refusal, dry-run count).
 **Rationale:** The two operations are always used together in the future scheduler (every code gets both). One env var simplifies operator workflow.
 **Rejected:** Separate `QUANTIX_OPENSTOCK_MINUTE_KLINES_APPLY` + `QUANTIX_OPENSTOCK_MINUTE_SHARE_APPLY` (operator friction without security benefit — both are equally privileged operations on the same tables).
 
-### D3: `compute_apply` extracted as a helper
-**Choice:** A `pub(crate) fn compute_apply(apply: bool, env: Option<&str>) -> bool` function lives in `openstock_handler.rs` and both handlers + U2/U3 call it.
-**Rationale:** Makes the gate logic testable without constructing an entire handler. Without this, U2/U3 would need `OpenStockSettings` + `CliRuntime` mocks.
-**Rejected:** Inline `let will_apply = apply && env_confirmed;` (untestable in isolation).
+### D3: `compute_apply` extracted as an env-aware helper
+**Choice:** A `pub(crate) fn compute_apply(apply: bool) -> bool` function lives in `openstock_handler.rs`, reads `QUANTIX_OPENSTOCK_MINUTE_APPLY` from the environment internally, and both handlers + U2/U3 call it.
+
+```rust
+const MINUTE_APPLY_ENV: &str = "QUANTIX_OPENSTOCK_MINUTE_APPLY";
+
+pub(crate) fn compute_apply(apply: bool) -> bool {
+    apply && std::env::var(MINUTE_APPLY_ENV).ok().as_deref() == Some("yes")
+}
+```
+
+**Rationale:** A unit test that hardcodes `compute_apply(true, Some("yes"))` is a tautology — it tests `&&`, not the env contract. By reading the env internally, U2/U3 must `std::env::set_var(MINUTE_APPLY_ENV, "yes")` (then `remove_var` for cleanup) to make the test pass, exercising the real env-var name. Mirrors the existing pattern in `src/cli/tests/risk.rs:352-353` (`std::env::set_var("QUANTIX_RISK_PATH", ...)`).
+**Test isolation:** Tests run serially by default in `cargo test`. U2/U3 use `std::env::set_var` + `std::env::remove_var(MINUTE_APPLY_ENV)` at start/end so subsequent tests see the default (unset) state.
+**Rejected:** (a) Inline `let will_apply = apply && env_confirmed;` (untestable). (b) `compute_apply(apply: bool, env: Option<&str>)` (tautological test). (c) `serial_test` crate (overkill — codebase already uses plain `set_var` without it).
 
 ### D4: Dry-run prints to stdout, batch progress to stderr
 **Choice:** `println!` for summary (`dry_run`, `would_insert_total`, `batches`); `eprintln!` for per-batch progress.
@@ -281,18 +324,18 @@ Each requirement has 2-3 scenarios (happy path, gate refusal, dry-run count).
 
 ---
 
-## 8. Risks
+## 9. Risks
 
 | # | Risk | Likelihood | Mitigation |
 |---|------|-----------|------------|
-| R1 | Borrow-lifetime friction: `ClickHouseMinuteKlineSink { client: ch.client() }` borrows from `ch`, both must outlive the `stream_minute_*_to_clickhouse` await | Low | Plan task will verify the pattern compiles; if not, lift `ch` to a longer-lived scope or restructure. Existing `kline.rs` uses this pattern successfully. |
+| R1 | Borrow-lifetime friction: `ClickHouseMinuteKlineSink<'a>` borrows from `ch`, both must outlive the `stream_minute_*_to_clickhouse` await | Low | Lifetime is inferred from struct-literal field assignment (`client: ch.client()`); no turbofish needed. Both `ch` and `sink` declared in same scope as the await call. Existing `kline.rs` uses the same `ClickHouseClient::client()` borrow pattern successfully. Plan task verifies with a compile check. |
 | R2 | Operator confusion: `--apply` set but env not set → silent dry-run | Medium | Hint message at end of dry-run output (`hint: set QUANTIX_OPENSTOCK_MINUTE_APPLY=yes to actually insert`) mirrors `persist_openstock_live` L821-823. |
 | R3 | Partial-failure confusion: 3 of 5 batches committed, error on batch 4 — operator believes write failed entirely | Medium | INV-FLOW-1 docs + handler output prints `batches` + `inserted_records` so the operator sees partial progress. |
 | R4 | Range too large (year+) exhausts memory in dry-run | Low | Dry-run does not buffer — it streams and counts (`fetch_minute_*_stream` yields `Vec<MinuteBar>` per chunk, but each chunk is at most 1 week). Documented in `non_goals`. |
 
 ---
 
-## 9. Non-goals
+## 10. Non-goals
 
 - Scheduler / cron triggers (P0.15b)
 - Multi-code orchestration per invocation (P0.15b scheduler iterates codes)
@@ -305,7 +348,7 @@ Each requirement has 2-3 scenarios (happy path, gate refusal, dry-run count).
 
 ---
 
-## 10. Acceptance gates
+## 11. Acceptance gates
 
 ```bash
 cargo fmt --all -- --check
@@ -333,7 +376,7 @@ cargo run -q -- data openstock import-minute-klines --code sh600000 --start 2026
 
 ---
 
-## 11. Glossary
+## 12. Glossary
 
 - **Apply branch:** code path that actually writes to ClickHouse (`will_apply == true`)
 - **Dry-run branch:** code path that counts only, no ClickHouse construction (`will_apply == false`)
