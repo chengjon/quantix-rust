@@ -415,6 +415,35 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 fetch_openstock_minute_share(&rt.openstock, symbol, date, start, end, stream)
                     .await?;
             }
+            OpenStockCommands::ImportMinuteKlines {
+                code,
+                period,
+                adjust,
+                start,
+                end,
+                apply,
+            } => {
+                let rt = CliRuntime::load();
+                import_openstock_minute_klines(
+                    &rt.openstock,
+                    code,
+                    period,
+                    adjust,
+                    start,
+                    end,
+                    apply,
+                )
+                .await?;
+            }
+            OpenStockCommands::ImportMinuteShare {
+                code,
+                start,
+                end,
+                apply,
+            } => {
+                let rt = CliRuntime::load();
+                import_openstock_minute_share(&rt.openstock, code, start, end, apply).await?;
+            }
             OpenStockCommands::FetchAllStocks { day } => {
                 let rt = CliRuntime::load();
                 fetch_openstock_all_stocks(&rt.openstock, day.as_deref()).await?;
