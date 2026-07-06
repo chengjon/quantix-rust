@@ -733,6 +733,89 @@ pub(crate) async fn import_openstock_minute_klines(
     Ok(())
 }
 
+/// P0.15a: `quantix data openstock import-minute-share`.
+///
+/// Persists minute shares (time-share ticks) to ClickHouse `minute_shares`
+/// (P0.14 table) for a single code + date range. Default is dry-run.
+/// Writes occur iff `--apply == true` AND
+/// `env QUANTIX_OPENSTOCK_MINUTE_APPLY == "yes"` (see `compute_apply`).
+///
+/// Stream-only (P0.13d weekly chunking). Partial failure leaves committed
+/// batches in place (INV-FLOW-1).
+pub(crate) async fn import_openstock_minute_share(
+    settings: &OpenStockSettings,
+    code: String,
+    start: Option<String>,
+    end: Option<String>,
+    apply: bool,
+) -> Result<()> {
+    use crate::data::models::DateOrRange;
+    use crate::sources::openstock_client::OpenStockClient;
+    use futures::StreamExt;
+
+    let dor = DateOrRange::from_cli(None, start.as_deref(), end.as_deref())?;
+    let (start_date, end_date) = match dor {
+        DateOrRange::Range { start, end } => (start, end),
+        DateOrRange::Date(_) => {
+            return Err(QuantixError::Config(
+                "internal: DateOrRange unexpectedly Date".into(),
+            ));
+        }
+    };
+
+    let client = OpenStockClient::from_settings(settings)?;
+    let will_apply = compute_apply(apply);
+
+    println!(
+        "OpenStock import-minute-share ({})",
+        if will_apply { "apply" } else { "dry-run" }
+    );
+    println!("  code: {}", code);
+    println!("  range: {} .. {}", start_date, end_date);
+
+    if !will_apply {
+        eprintln!("  Streaming weekly chunks (counting only, no ClickHouse writes):");
+        let s = client.fetch_minute_share_stream(&code, dor.clone());
+        futures::pin_mut!(s);
+        let mut batches = 0usize;
+        let mut total = 0usize;
+        let started = std::time::Instant::now();
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            total += batch.len();
+            eprintln!(
+                "  [batch {}] would_insert: +{} (cumulative: {})",
+                batches,
+                batch.len(),
+                total
+            );
+        }
+        println!("  dry_run: true, applied: false");
+        println!("  would_insert_total: {}", total);
+        println!("  batches: {}, elapsed: {:?}", batches, started.elapsed());
+        if apply {
+            println!("  hint: set {}=yes to actually insert", MINUTE_APPLY_ENV);
+        }
+        return Ok(());
+    }
+
+    use crate::db::ClickHouseClient;
+    use crate::db::clickhouse::{ClickHouseMinuteShareSink, stream_minute_shares_to_clickhouse};
+
+    let ch = ClickHouseClient::with_default_config().await?;
+    let sink = ClickHouseMinuteShareSink {
+        client: ch.client(),
+    };
+    let stats =
+        stream_minute_shares_to_clickhouse(&client, &sink, &code, start_date, end_date).await?;
+    println!("  batches: {}", stats.batches);
+    println!("  input_records: {}", stats.input_records);
+    println!("  inserted_records: {}", stats.inserted_records);
+    println!("  dry_run: false, applied: true");
+    Ok(())
+}
+
 pub(crate) async fn fetch_openstock_all_stocks(
     settings: &OpenStockSettings,
     day: Option<&str>,
