@@ -175,4 +175,26 @@ mod tests_p0_15a {
         unsafe { std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY") };
         assert!(!compute_apply(true)); // unset
     }
+
+    #[test]
+    fn import_minute_args_validate_period_and_adjust() {
+        use crate::data::models::{AdjustType, DateOrRange, MinutePeriod};
+        use std::str::FromStr;
+
+        // Mirror the parsing the handler will do.
+        let period_enum = MinutePeriod::from_str("1m").expect("1m parses");
+        let adjust_enum = AdjustType::from_str("none").expect("none parses");
+        let dor = DateOrRange::from_cli(None, Some("2026-01-01"), Some("2026-01-05"))
+            .expect("range parses");
+
+        assert_eq!(period_enum.as_str(), "1m");
+        assert_eq!(adjust_enum.as_str(), "none");
+        match dor {
+            DateOrRange::Range { start, end } => {
+                assert_eq!(start.to_string(), "2026-01-01");
+                assert_eq!(end.to_string(), "2026-01-05");
+            }
+            DateOrRange::Date(_) => panic!("expected Range, got Date"),
+        }
+    }
 }

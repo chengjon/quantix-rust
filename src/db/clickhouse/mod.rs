@@ -12,6 +12,11 @@ mod tests;
 pub use self::minute::{
     StreamStats, stream_minute_klines_to_clickhouse, stream_minute_shares_to_clickhouse,
 };
+// Re-exported pub(crate) so P0.15a handlers (Task 3/4) can construct the sinks.
+// Without this, the `mod minute` privacy barrier blocks external naming even though
+// the structs themselves are `pub(crate)`. (Task 4 will consume ClickHouseMinuteShareSink.)
+#[allow(unused_imports)]
+pub(crate) use self::minute::{ClickHouseMinuteKlineSink, ClickHouseMinuteShareSink};
 pub use self::models::{
     GbbqEventCH, KlineDataCH, LimitUpEventCH, MarketFundamentalSnapshotCH, MarketSentimentDailyCH,
     MinuteKlineCH, MinuteShareCH, NorthFlowDailyCH, SectorDailyCH, StockInfoCH, StockQuoteCH,

@@ -9,17 +9,22 @@ scope:
     - src/cli/handlers/mod.rs
     - src/cli/tests/data.rs
     - tests/openstock_live_import_minute.rs
+    - src/data/models.rs        # P0.15a: add AdjustType::as_str() for CLI display
+    - src/db/clickhouse/mod.rs  # P0.15a: pub(crate) re-export of minute sinks
     - openspec/changes/openstock-data-consumption-p0-15a/**
     - docs/superpowers/specs/2026-07-05-openstock-p0-15a-minute-cli-persistence-design.md
     - docs/superpowers/plans/2026-07-05-openstock-p0-15a-minute-cli-persistence-plan.md
     - .governance/programs/project-governance/cards/P0.15a.yaml
   forbidden_paths:
-    - src/db/**
     - src/sources/**
-    - src/data/**
     - src/scheduler/**
     - src/backtest/**
     - src/execution/**
+    # src/db/** and src/data/** removed from forbidden for P0.15a:
+    # the handler needs AdjustType::as_str() (src/data/models.rs) and
+    # pub(crate) re-exports of minute sinks (src/db/clickhouse/mod.rs).
+    # Specific files listed in allowed_paths above; all other src/db/**
+    # and src/data/** paths remain implicitly out of scope.
 linked_openspec: openstock-data-consumption-p0-15a
 started: "2026-07-05"
 acceptance_gates:

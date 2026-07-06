@@ -29,8 +29,6 @@ use crate::sources::parse_daily_kline_json;
 /// Writes to ClickHouse `minute_klines` / `minute_shares` occur iff
 /// `--apply == true` AND this env var is `"yes"` (verbatim).
 /// Mirrors `QUANTIX_OPENSTOCK_KLINE_APPLY` semantics (openstock_handler.rs:1055).
-// Consumed by Task 3 (klines handler) and Task 4 (share handler).
-#[allow(dead_code)]
 pub(crate) const MINUTE_APPLY_ENV: &str = "QUANTIX_OPENSTOCK_MINUTE_APPLY";
 
 /// Compute whether to actually write to ClickHouse.
@@ -41,8 +39,6 @@ pub(crate) const MINUTE_APPLY_ENV: &str = "QUANTIX_OPENSTOCK_MINUTE_APPLY";
 ///
 /// Reading the env internally (rather than passing `env: Option<&str>`)
 /// forces tests U2/U3 to set the real env-var name, exercising the contract.
-// Consumed by Task 3 (klines handler) and Task 4 (share handler).
-#[allow(dead_code)]
 pub(crate) fn compute_apply(apply: bool) -> bool {
     apply && std::env::var(MINUTE_APPLY_ENV).ok().as_deref() == Some("yes")
 }
@@ -627,6 +623,113 @@ pub(crate) async fn fetch_openstock_minute_share(
             );
         }
     }
+    Ok(())
+}
+
+/// P0.15a: `quantix data openstock import-minute-klines`.
+///
+/// Persists minute klines to ClickHouse `minute_klines` (P0.14 table) for a
+/// single code + date range. Default is dry-run (stream + count, no
+/// ClickHouse). Writes occur iff `--apply == true` AND
+/// `env QUANTIX_OPENSTOCK_MINUTE_APPLY == "yes"` (see `compute_apply`).
+///
+/// Stream-only (P0.13d weekly chunking); never uses the batch API.
+/// Partial failure leaves committed batches in place (INV-FLOW-1).
+pub(crate) async fn import_openstock_minute_klines(
+    settings: &OpenStockSettings,
+    code: String,
+    period: String,
+    adjust: String,
+    start: Option<String>,
+    end: Option<String>,
+    apply: bool,
+) -> Result<()> {
+    use crate::data::models::{AdjustType, DateOrRange, MinutePeriod};
+    use crate::sources::openstock_client::OpenStockClient;
+    use futures::StreamExt;
+    use std::str::FromStr;
+
+    let period_enum = MinutePeriod::from_str(&period)
+        .map_err(|e| QuantixError::Config(format!("--period: {}", e)))?;
+    let adjust_enum = AdjustType::from_str(&adjust)
+        .map_err(|e| QuantixError::Config(format!("--adjust: {}", e)))?;
+    let dor = DateOrRange::from_cli(None, start.as_deref(), end.as_deref())?;
+    let (start_date, end_date) = match dor {
+        DateOrRange::Range { start, end } => (start, end),
+        DateOrRange::Date(_) => {
+            return Err(QuantixError::Config(
+                "internal: DateOrRange unexpectedly Date".into(),
+            ));
+        }
+    };
+
+    let client = OpenStockClient::from_settings(settings)?;
+    let will_apply = compute_apply(apply);
+
+    println!(
+        "OpenStock import-minute-klines ({})",
+        if will_apply { "apply" } else { "dry-run" }
+    );
+    println!(
+        "  code: {}, period: {}, adjust: {}",
+        code,
+        period_enum.as_str(),
+        adjust_enum.as_str()
+    );
+    println!("  range: {} .. {}", start_date, end_date);
+
+    if !will_apply {
+        eprintln!("  Streaming weekly chunks (counting only, no ClickHouse writes):");
+        let s = client.fetch_minute_klines_stream(&code, period_enum, dor.clone(), adjust_enum);
+        futures::pin_mut!(s);
+        let mut batches = 0usize;
+        let mut total = 0usize;
+        let started = std::time::Instant::now();
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            total += batch.len();
+            eprintln!(
+                "  [batch {}] would_insert: +{} (cumulative: {})",
+                batches,
+                batch.len(),
+                total
+            );
+        }
+        println!("  dry_run: true, applied: false");
+        println!("  would_insert_total: {}", total);
+        println!("  batches: {}, elapsed: {:?}", batches, started.elapsed());
+        if apply {
+            // --apply was set but env var was not "yes" — give the operator a hint.
+            println!("  hint: set {}=yes to actually insert", MINUTE_APPLY_ENV);
+        }
+        return Ok(());
+    }
+
+    // Apply branch — construct ClickHouse client + sink, call P0.14 consumer.
+    use crate::db::ClickHouseClient;
+    use crate::db::clickhouse::{ClickHouseMinuteKlineSink, stream_minute_klines_to_clickhouse};
+
+    let ch = ClickHouseClient::with_default_config().await?;
+    // Lifetime is inferred: ClickHouseMinuteKlineSink<'a> borrows from `ch`.
+    // `ch` and `sink` both live in this scope, outliving the await below.
+    let sink = ClickHouseMinuteKlineSink {
+        client: ch.client(),
+    };
+    let stats = stream_minute_klines_to_clickhouse(
+        &client,
+        &sink,
+        &code,
+        period_enum,
+        start_date,
+        end_date,
+        adjust_enum,
+    )
+    .await?;
+    println!("  batches: {}", stats.batches);
+    println!("  input_records: {}", stats.input_records);
+    println!("  inserted_records: {}", stats.inserted_records);
+    println!("  dry_run: false, applied: true");
     Ok(())
 }
 

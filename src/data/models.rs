@@ -179,6 +179,16 @@ impl AdjustType {
             Self::HFQ => Some("hfq"),
         }
     }
+
+    /// Stable string form for CLI display (`none` | `qfq` | `hfq`).
+    /// Mirrors the values accepted by `FromStr`.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::QFQ => "qfq",
+            Self::HFQ => "hfq",
+        }
+    }
 }
 
 impl std::str::FromStr for AdjustType {
