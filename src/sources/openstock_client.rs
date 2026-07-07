@@ -956,7 +956,8 @@ impl OpenStockClient {
                         code = code,
                         requested_date = %date,
                         trading_date = %actual_date,
-                        time_minutes = %raw.time_minutes,
+                        time_minutes = ?raw.time_minutes,
+                        time = ?raw.time,
                         "MINUTE_DATA record missing required field or invalid time, skipping"
                     );
                 }
@@ -978,7 +979,13 @@ impl OpenStockClient {
 /// 若 live 测试发现字符串格式数值漂移，切换到 `serde_json::Value` + parse_decimal。
 #[derive(Debug, serde::Deserialize)]
 struct RawMinuteRecord {
-    time_minutes: String,
+    /// Primary time field. Live OpenStock may return `null` (BUG-B in
+    /// OPENSTOCK_HANDOFF_2026-07-07.md) — fall back to `time` below.
+    #[serde(default)]
+    time_minutes: Option<String>,
+    /// Secondary time field (e.g. `"09:31"`). Used when `time_minutes` is null.
+    #[serde(default)]
+    time: Option<String>,
     price: Option<rust_decimal::Decimal>,
     volume: Option<i64>,
     amount: Option<rust_decimal::Decimal>,
@@ -1011,29 +1018,30 @@ struct MinuteShareMeta {
 
 /// 解析 MINUTE_DATA 单条记录为 `MinuteShare`。
 ///
-/// 丢弃字段：`index`（内部序号）、`time`（ISO 冗余）、`price_milli`（毫表示）。
-/// 保留字段：`time_minutes, price, volume, amount, avg_price`。
+/// 丢弃字段：`index`（内部序号）、`price_milli`（毫表示）。
+/// 保留字段：`time_minutes | time, price, volume, amount, avg_price`。
 ///
-/// 返回 `Option<MinuteShare>`：当 4 个关键字段（price/volume/amount/avg_price）
-/// 任一为 None，或 `time_minutes` 解析失败时返回 None，调用方 warn + skip（INV-2C）。
+/// 返回 `Option<MinuteShare>`：仅当 **time 和 time_minutes 都缺** 或无法解析
+/// 时返回 None（调用方 warn + skip，INV-2C）。数值字段（price/volume/amount/
+/// avg_price）各自独立可选——live OpenStock 经常对 amount/avg_price 返回 null
+/// （见 OPENSTOCK_HANDOFF_2026-07-07.md BUG-C），不应让一条缺字段的记录拖累
+/// 整个 envelope。
 fn parse_minute_share(
     code: &str,
     raw: &RawMinuteRecord,
     date: chrono::NaiveDate,
 ) -> Option<crate::data::models::MinuteShare> {
-    let price = raw.price?;
-    let volume = raw.volume?;
-    let amount = raw.amount?;
-    let avg_price = raw.avg_price?;
-    let (hh, mm) = parse_time_minutes(&raw.time_minutes)?;
+    // BUG-B fallback: prefer `time_minutes`, fall back to `time` when null.
+    let time_str = raw.time_minutes.as_deref().or(raw.time.as_deref())?;
+    let (hh, mm) = parse_time_minutes(time_str)?;
     let timestamp = date.and_hms_opt(hh, mm, 0)?;
     Some(crate::data::models::MinuteShare {
         code: code.to_string(),
         timestamp,
-        price: Some(price),
-        volume: Some(volume),
-        amount: Some(amount),
-        avg_price: Some(avg_price),
+        price: raw.price,
+        volume: raw.volume,
+        amount: raw.amount,
+        avg_price: raw.avg_price,
     })
 }
 
@@ -1802,8 +1810,8 @@ mod tests {
                     {
                         "meta": { "trading_date": "2026-07-01" },
                         "points": [
-                            { "time_minutes": "09:30", "price": 10.50, "volume": 12300, "amount": 129150.0, "avg_price": 10.50, "index": 0, "time": "2026-07-01T09:30:00", "price_milli": 10500 },
-                            { "time_minutes": "09:31", "price": 10.51, "volume": 8800, "amount": 92488.0, "avg_price": 10.505, "index": 1, "time": "2026-07-01T09:31:00", "price_milli": 10510 }
+                            { "time_minutes": null, "time": "09:30", "price": 10.50, "volume": 12300, "amount": 129150.0, "avg_price": 10.50, "index": 0, "price_milli": 10500 },
+                            { "time_minutes": null, "time": "09:31", "price": 10.51, "volume": 8800, "amount": 92488.0, "avg_price": 10.505, "index": 1, "price_milli": 10510 }
                         ]
                     }
                 ]
@@ -1826,8 +1834,52 @@ mod tests {
         assert_eq!(shares[1].timestamp, date.and_hms_opt(9, 31, 0).unwrap());
     }
 
+    /// Regression test for BUG-B (OPENSTOCK_HANDOFF_2026-07-07.md): live
+    /// OpenStock returns `time_minutes: null` and populates `time: "HH:MM"`
+    /// instead. The parser must fall back to `time` rather than fail the
+    /// whole envelope deserialization.
     #[tokio::test]
-    async fn fetch_minute_share_skips_records_with_missing_required_field() {
+    async fn fetch_minute_share_falls_back_to_time_when_time_minutes_null() {
+        use rust_decimal_macros::dec;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/data/fetch"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "source": "eltdx",
+                "data": [
+                    {
+                        "meta": { "trading_date": "2026-07-03" },
+                        "points": [
+                            { "time_minutes": null, "time": "09:31", "price": 8.71, "volume": 100, "amount": 871.0, "avg_price": 8.71, "index": 0 },
+                            { "time_minutes": null, "time": "09:32", "price": 8.72, "volume": 200, "amount": 1744.0, "avg_price": 8.715, "index": 1 }
+                        ]
+                    }
+                ]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenStockClient::new(fast_test_cfg(server.uri())).expect("client build");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 3).unwrap();
+        let shares = client
+            .fetch_minute_share("sh600000", crate::data::models::DateOrRange::Date(date))
+            .await
+            .expect("fetch ok despite null time_minutes");
+        assert_eq!(shares.len(), 2, "both records must parse via time fallback");
+        assert_eq!(shares[0].timestamp, date.and_hms_opt(9, 31, 0).unwrap());
+        assert_eq!(shares[1].timestamp, date.and_hms_opt(9, 32, 0).unwrap());
+        assert_eq!(shares[0].price, Some(dec!(8.71)));
+    }
+
+    /// A record skips only when time is unparseable. Numeric fields are
+    /// independently optional — missing price/volume/amount/avg_price does
+    /// NOT skip (BUG-C, OPENSTOCK_HANDOFF_2026-07-07.md).
+    #[tokio::test]
+    async fn fetch_minute_share_skips_records_with_unparseable_time_only() {
         use wiremock::matchers::{method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -1840,11 +1892,16 @@ mod tests {
                     {
                         "meta": { "trading_date": "2026-07-01" },
                         "points": [
+                            // ok: all fields
                             { "time_minutes": "09:30", "price": 10.50, "volume": 100, "amount": 1050.0, "avg_price": 10.50 },
-                            { "time_minutes": "09:31", "price": 10.51, "volume": 200, "amount": 2102.0 },
-                            { "time_minutes": "09:32", "price": 10.52, "amount": 526.0, "avg_price": 10.52 },
+                            // ok: numeric fields partially missing — still kept
+                            { "time_minutes": "09:31", "price": 10.51, "volume": 200 },
+                            // skip: invalid time "99:99"
                             { "time_minutes": "99:99", "price": 10.53, "volume": 300, "amount": 3159.0, "avg_price": 10.53 },
-                            { "time_minutes": "1130", "price": 10.54, "volume": 400, "amount": 4216.0, "avg_price": 10.54 }
+                            // skip: time_minutes and time both absent
+                            { "price": 10.54, "volume": 400, "amount": 4216.0, "avg_price": 10.54 },
+                            // ok: time_minutes null + time "11:30" fallback (BUG-B)
+                            { "time_minutes": null, "time": "11:30", "price": 10.55, "volume": 500 }
                         ]
                     }
                 ]
@@ -1861,12 +1918,19 @@ mod tests {
             .expect("fetch ok");
         assert_eq!(
             shares.len(),
-            2,
-            "expected 2 valid records, got {:?}",
+            3,
+            "expected 3 valid records (only time failures skip), got {:?}",
             shares
         );
         assert_eq!(shares[0].timestamp, date.and_hms_opt(9, 30, 0).unwrap());
-        assert_eq!(shares[1].timestamp, date.and_hms_opt(11, 30, 0).unwrap());
+        // record 1 had only price+volume — those should be Some, others None
+        assert_eq!(shares[1].timestamp, date.and_hms_opt(9, 31, 0).unwrap());
+        assert_eq!(shares[1].price, Some(rust_decimal_macros::dec!(10.51)));
+        assert_eq!(shares[1].volume, Some(200));
+        assert_eq!(shares[1].amount, None);
+        assert_eq!(shares[1].avg_price, None);
+        // record 4 used BUG-B time fallback
+        assert_eq!(shares[2].timestamp, date.and_hms_opt(11, 30, 0).unwrap());
     }
 
     #[tokio::test]
