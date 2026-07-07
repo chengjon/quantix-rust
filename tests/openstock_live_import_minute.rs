@@ -102,7 +102,36 @@ async fn import_minute_klines_apply_writes_to_clickhouse() {
     if !live_gates_set() {
         return;
     }
-    // T1 body — Task 3
+    ch_delete(TEST_CODE, TEST_DATE, "minute_klines").await;
+
+    let args = [
+        "data",
+        "openstock",
+        "import-minute-klines",
+        "--code",
+        TEST_CODE,
+        "--period",
+        "5m",
+        "--start",
+        TEST_DATE,
+        "--end",
+        TEST_DATE,
+        "--apply",
+    ];
+    let (status, stdout, stderr) = run_cli(args, Some("yes")).await;
+    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        stdout.contains("OpenStock import-minute-klines (apply)"),
+        "missing apply header in stdout:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("applied: true"),
+        "missing applied:true marker:\n{stdout}"
+    );
+
+    let count = ch_count(TEST_CODE, TEST_DATE, "minute_klines").await;
+    assert!(count > 0, "expected rows in minute_klines for {TEST_CODE} {TEST_DATE}, got 0");
+    println!("T1 minute_klines rows: {count}");
 }
 
 #[tokio::test]
