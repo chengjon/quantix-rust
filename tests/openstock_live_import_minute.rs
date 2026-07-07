@@ -141,7 +141,34 @@ async fn import_minute_share_apply_writes_to_clickhouse() {
     if !live_gates_set() {
         return;
     }
-    // T2 body — Task 4
+    ch_delete(TEST_CODE, TEST_DATE, "minute_shares").await;
+
+    let args = [
+        "data",
+        "openstock",
+        "import-minute-share",
+        "--code",
+        TEST_CODE,
+        "--start",
+        TEST_DATE,
+        "--end",
+        TEST_DATE,
+        "--apply",
+    ];
+    let (status, stdout, stderr) = run_cli(args, Some("yes")).await;
+    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        stdout.contains("OpenStock import-minute-share (apply)"),
+        "missing apply header in stdout:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("applied: true"),
+        "missing applied:true marker:\n{stdout}"
+    );
+
+    let count = ch_count(TEST_CODE, TEST_DATE, "minute_shares").await;
+    assert!(count > 0, "expected rows in minute_shares for {TEST_CODE} {TEST_DATE}, got 0");
+    println!("T2 minute_shares rows: {count}");
 }
 
 #[tokio::test]
