@@ -1,0 +1,126 @@
+//! Live integration tests for P0.15a CLI apply-path.
+//!
+//! Drives the actual CLI binary via `cargo run` and asserts ClickHouse state
+//! changes. Closes the acceptance gap from P0.15a design §11.
+//!
+//! Skipped by default. Run with:
+//!   QUANTIX_OPENSTOCK_LIVE=1 QUANTIX_CLICKHOUSE_LIVE=1 \
+//!   OPENSTOCK_BASE_URL=http://192.168.123.104:8040 \
+//!   OPENSTOCK_API_KEY=<key> \
+//!   CLICKHOUSE_URL=http://192.168.123.104:8123 \
+//!   CLICKHOUSE_USER=default CLICKHOUSE_PASSWORD=<pass> \
+//!   cargo test --test openstock_live_import_minute -- --ignored
+
+#![cfg(test)]
+
+use quantix_cli::db::ClickHouseClient;
+use std::process::Stdio;
+
+const TEST_CODE: &str = "sh600000";
+const TEST_DATE: &str = "2026-07-03";
+
+/// True iff both live gates are set. Each test must call this and early-return
+/// if false, so `cargo test` without env passes vacuously.
+fn live_gates_set() -> bool {
+    let os = std::env::var("QUANTIX_OPENSTOCK_LIVE").ok().as_deref() == Some("1");
+    let ch = std::env::var("QUANTIX_CLICKHOUSE_LIVE").ok().as_deref() == Some("1");
+    os && ch
+}
+
+/// Construct a ClickHouseClient from env (mirrors handler's
+/// `with_default_config` which reads `ClickHouseSettings::from_env`).
+async fn ch_from_env() -> ClickHouseClient {
+    ClickHouseClient::with_default_config()
+        .await
+        .expect("ClickHouse client from CLICKHOUSE_* env")
+}
+
+/// Run `ALTER TABLE <table> DELETE WHERE code='<code>' AND
+/// toDateString(timestamp)='<date>'. Lightweight delete (CH 23.3+, default on).
+async fn ch_delete(code: &str, date: &str, table: &str) {
+    let ch = ch_from_env().await;
+    let sql = format!(
+        "ALTER TABLE {table} DELETE WHERE code = '{code}' AND toDateString(timestamp) = '{date}'"
+    );
+    ch.query_json::<serde_json::Value>(&sql)
+        .await
+        .expect(&format!("delete on {table} ok"));
+}
+
+/// Count rows where code matches and timestamp falls within the given
+/// calendar date. Uses HTTP JSON path (bypasses RowBinary).
+async fn ch_count(code: &str, date: &str, table: &str) -> u64 {
+    let ch = ch_from_env().await;
+    let sql = format!(
+        "SELECT count() as cnt FROM {table} WHERE code = '{code}' \
+         AND timestamp >= '{date} 00:00:00' AND timestamp <= '{date} 23:59:59'"
+    );
+    #[derive(serde::Deserialize)]
+    struct Row {
+        cnt: u64,
+    }
+    let rows: Vec<Row> = ch
+        .query_json(&sql)
+        .await
+        .expect(&format!("count on {table} ok"));
+    rows.first().map(|r| r.cnt).unwrap_or(0)
+}
+
+/// Spawn `cargo run -q -- <args>` with QUANTIX_OPENSTOCK_MINUTE_APPLY set or
+/// unset per `apply_env`. Returns (exit_status, stdout, stderr).
+async fn run_cli<I, S>(args: I, apply_env: Option<&str>) -> (std::process::ExitStatus, String, String)
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    let mut cmd = tokio::process::Command::new("cargo");
+    cmd.arg("run").arg("-q").arg("--");
+    for a in args {
+        cmd.arg(a);
+    }
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    // Inherit OPENSTOCK_*, CLICKHOUSE_* env vars; set apply env only if Some.
+    if let Some(v) = apply_env {
+        cmd.env("QUANTIX_OPENSTOCK_MINUTE_APPLY", v);
+    } else {
+        cmd.env_remove("QUANTIX_OPENSTOCK_MINUTE_APPLY");
+    }
+    let output = cmd.output().await.expect("cargo run spawn ok");
+    (
+        output.status,
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+#[tokio::test]
+#[serial_test::serial]
+#[ignore = "live OpenStock + ClickHouse; set QUANTIX_OPENSTOCK_LIVE=1 + QUANTIX_CLICKHOUSE_LIVE=1"]
+async fn import_minute_klines_apply_writes_to_clickhouse() {
+    if !live_gates_set() {
+        return;
+    }
+    // T1 body — Task 3
+}
+
+#[tokio::test]
+#[serial_test::serial]
+#[ignore = "live OpenStock + ClickHouse; set QUANTIX_OPENSTOCK_LIVE=1 + QUANTIX_CLICKHOUSE_LIVE=1"]
+async fn import_minute_share_apply_writes_to_clickhouse() {
+    if !live_gates_set() {
+        return;
+    }
+    // T2 body — Task 4
+}
+
+#[tokio::test]
+#[serial_test::serial]
+#[ignore = "live OpenStock + ClickHouse; set QUANTIX_OPENSTOCK_LIVE=1 + QUANTIX_CLICKHOUSE_LIVE=1"]
+async fn import_minute_klines_dry_run_no_env_does_not_write() {
+    if !live_gates_set() {
+        return;
+    }
+    // T3 body — Task 5
+}
