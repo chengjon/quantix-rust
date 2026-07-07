@@ -150,6 +150,7 @@ fn parses_data_import_fundamentals_command() {
 
 #[cfg(test)]
 mod tests_p0_15a {
+    use super::*;
     use crate::cli::handlers::openstock_handler::compute_apply;
 
     #[test]
@@ -196,5 +197,145 @@ mod tests_p0_15a {
             }
             DateOrRange::Date(_) => panic!("expected Range, got Date"),
         }
+    }
+
+    /// REQ-PERSIST-006 scenario C: missing both --start and --end is rejected
+    /// by DateOrRange::from_cli before any client is constructed.
+    #[test]
+    fn import_minute_klines_rejects_missing_start_and_end() {
+        use crate::data::models::DateOrRange;
+
+        let err =
+            DateOrRange::from_cli(None, None, None).expect_err("missing start+end must error");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("at least one of --date or (--start, --end)"),
+            "expected from_cli error mentioning required flags, got: {msg}"
+        );
+    }
+
+    /// REQ-PERSIST-006 scenario B: invalid period value must fail enum parse,
+    /// producing a Config error before any OpenStockClient is constructed.
+    #[test]
+    fn import_minute_klines_rejects_invalid_period() {
+        use crate::data::models::MinutePeriod;
+        use std::str::FromStr;
+
+        let err = MinutePeriod::from_str("7m").expect_err("7m must not parse");
+        // handler wraps this in QuantixError::Config("--period: ...")
+        let msg = format!("{err}");
+        assert!(
+            !msg.is_empty(),
+            "MinutePeriod::from_str error must be non-empty"
+        );
+
+        // Sanity: valid periods still parse (negative-case confirmation)
+        assert!(MinutePeriod::from_str("1m").is_ok());
+        assert!(MinutePeriod::from_str("5m").is_ok());
+        assert!(MinutePeriod::from_str("15m").is_ok());
+        assert!(MinutePeriod::from_str("30m").is_ok());
+        assert!(MinutePeriod::from_str("60m").is_ok());
+    }
+
+    /// REQ-PERSIST-007 scenario B: ImportMinuteShare variant must NOT accept
+    /// --period or --adjust flags (clap rejects as unknown argument).
+    #[test]
+    fn import_minute_share_rejects_period_and_adjust_flags() {
+        // Direct parse: --period must be rejected
+        let res = Cli::try_parse_from([
+            "quantix",
+            "data",
+            "openstock",
+            "import-minute-share",
+            "--code",
+            "sh600000",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-31",
+            "--period",
+            "5m",
+        ]);
+        assert!(
+            res.is_err(),
+            "--period must be rejected by import-minute-share"
+        );
+
+        // Same for --adjust
+        let res = Cli::try_parse_from([
+            "quantix",
+            "data",
+            "openstock",
+            "import-minute-share",
+            "--code",
+            "sh600000",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-31",
+            "--adjust",
+            "qfq",
+        ]);
+        assert!(
+            res.is_err(),
+            "--adjust must be rejected by import-minute-share"
+        );
+
+        // Sanity: ImportMinuteShare variant has only 4 fields (code, start, end, apply)
+        let ok = Cli::try_parse_from([
+            "quantix",
+            "data",
+            "openstock",
+            "import-minute-share",
+            "--code",
+            "sh600000",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-31",
+        ])
+        .expect("valid invocation without --period/--adjust must parse");
+        match ok.command {
+            Commands::Data(DataCommands::OpenStock(OpenStockCommands::ImportMinuteShare {
+                code,
+                start,
+                end,
+                apply,
+            })) => {
+                assert_eq!(code, "sh600000");
+                assert_eq!(start.as_deref(), Some("2026-01-01"));
+                assert_eq!(end.as_deref(), Some("2026-01-31"));
+                assert!(!apply, "apply must default to false");
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    /// REQ-PERSIST-009 invariant: when compute_apply returns false, the
+    /// handler must not even construct an OpenStockClient — much less a
+    /// ClickHouseClient. We can't unit-test the handler body without
+    /// starting a wiremock, but we CAN assert the env+flag combinations
+    /// that the dry-run branch keys on. This pins INV-CLI-2 ("no
+    /// ClickHouse credentials required for dry-run") at the boundary.
+    #[test]
+    fn import_minute_dry_run_gates_known_env_combinations() {
+        // The four combinations compute_apply can return:
+        //  (apply=false, env=*)    → false (U3 already covered)
+        //  (apply=true,  env="yes") → true  (U2 already covered)
+        //  (apply=true,  env=unset) → false
+        //  (apply=true,  env="no")  → false
+        unsafe { std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY") };
+        assert!(
+            !compute_apply(true),
+            "env unset + apply=true must produce dry-run (no CH write)"
+        );
+
+        unsafe { std::env::set_var("QUANTIX_OPENSTOCK_MINUTE_APPLY", "no") };
+        assert!(
+            !compute_apply(true),
+            "env='no' + apply=true must produce dry-run"
+        );
+
+        unsafe { std::env::remove_var("QUANTIX_OPENSTOCK_MINUTE_APPLY") };
     }
 }
