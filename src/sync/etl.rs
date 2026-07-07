@@ -216,7 +216,9 @@ impl DataSync {
 
             for kline in chunk {
                 let kline_ch = KlineDataCH {
-                    timestamp: kline.timestamp,
+                    timestamp: crate::db::clickhouse::datetime_utc_to_offsetdatetime(
+                        kline.timestamp,
+                    ),
                     code: kline.code.clone(),
                     name: kline.name.clone(),
                     period: kline.period.as_str().to_string(),

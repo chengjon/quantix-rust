@@ -4,7 +4,7 @@
 //! (P0.13d) and writes batches to `quantix.minute_klines` / `minute_shares`.
 //!
 //! Type mapping follows `KlineDataCH` / `kline_data` exactly:
-//! - `DateTime<Utc>` for `timestamp`
+//! - `time::OffsetDateTime` for `timestamp` (P0.15a root-cause fix; chrono unsupported by clickhouse-rs 0.12)
 //! - `String` for `period` / `adjust`
 //! - `Float64` for OHLCV / amount
 //! - `dec.to_f64().unwrap_or(0.0)` for Decimal→f64 (matches kline.rs:213-219)
@@ -12,9 +12,9 @@
 use crate::core::QuantixError;
 use crate::data::models::{AdjustType, DateOrRange, MinuteBar, MinutePeriod, MinuteShare};
 use crate::db::clickhouse::models::{MinuteKlineCH, MinuteShareCH};
+use crate::db::clickhouse::naive_to_offsetdatetime;
 use crate::sources::openstock_client::OpenStockClient;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use clickhouse::Client;
 use futures::StreamExt;
 use rust_decimal::Decimal;
@@ -22,13 +22,13 @@ use rust_decimal::prelude::*;
 
 // ─── Conversion helpers (private) ──────────────────────────────────────────
 
-/// Lift a NaiveDateTime to a UTC-tagged DateTime for ClickHouse `DateTime` columns.
+/// Lift a NaiveDateTime to an OffsetDateTime for ClickHouse `DateTime` columns.
 ///
-/// 与 `src/db/clickhouse/kline.rs:210` 完全一致。OpenStock 返回的 naive 时间
-/// 是北京时间 wall-clock；按 `kline_data` 表的约定写入为 `DateTime<Utc>`，
-/// 读回时调用方按 A 股东八区语义解读。
-fn naive_to_utc(naive: chrono::NaiveDateTime) -> DateTime<Utc> {
-    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
+/// 与 `src/db/clickhouse/kline.rs` 完全一致（P0.15a 根因修复后统一为 OffsetDateTime）。
+/// OpenStock 返回的 naive 时间是北京时间 wall-clock；按 `kline_data` 表的约定
+/// 写入为 `OffsetDateTime` (assume_utc)，读回时调用方按 A 股东八区语义解读。
+fn naive_to_ch_timestamp(naive: chrono::NaiveDateTime) -> time::OffsetDateTime {
+    naive_to_offsetdatetime(naive)
 }
 
 /// Convert Decimal to f64 for ClickHouse Float64 columns.
@@ -67,7 +67,7 @@ fn adjust_as_str(a: &AdjustType) -> &'static str {
 
 fn bar_to_row(bar: &MinuteBar, period: MinutePeriod) -> MinuteKlineCH {
     MinuteKlineCH {
-        timestamp: naive_to_utc(bar.timestamp),
+        timestamp: naive_to_ch_timestamp(bar.timestamp),
         code: bar.code.clone(),
         // NOTE: MinuteBar has no `period` field (per data/models.rs:138-148);
         // period is the input parameter to `fetch_minute_klines_stream`, so
@@ -86,7 +86,7 @@ fn bar_to_row(bar: &MinuteBar, period: MinutePeriod) -> MinuteKlineCH {
 
 fn share_to_row(share: &MinuteShare) -> MinuteShareCH {
     MinuteShareCH {
-        timestamp: naive_to_utc(share.timestamp),
+        timestamp: naive_to_ch_timestamp(share.timestamp),
         code: share.code.clone(),
         // INV-2D: parser guarantees non-None for all four fields.
         price: share.price.unwrap_or_default().to_f64().unwrap_or(0.0),
@@ -105,8 +105,8 @@ pub(crate) fn decimal_to_f64_for_test(v: Decimal) -> f64 {
     decimal_to_f64(v)
 }
 #[cfg(test)]
-pub(crate) fn naive_to_utc_for_test(naive: chrono::NaiveDateTime) -> DateTime<Utc> {
-    naive_to_utc(naive)
+pub(crate) fn naive_to_ch_timestamp_for_test(naive: chrono::NaiveDateTime) -> time::OffsetDateTime {
+    naive_to_ch_timestamp(naive)
 }
 #[cfg(test)]
 pub(crate) fn bar_to_row_for_test(bar: &MinuteBar, period: MinutePeriod) -> MinuteKlineCH {
@@ -154,8 +154,7 @@ impl<'a> MinuteSink<MinuteKlineCH> for ClickHouseMinuteKlineSink<'a> {
         let mut insert = self
             .client
             .insert("minute_klines")?
-            .with_option("async_insert", "1")
-            .with_option("wait_for_async_insert", "1");
+            .with_option("async_insert", "0");
         for row in batch {
             insert.write(row).await?;
         }
@@ -176,8 +175,7 @@ impl<'a> MinuteSink<MinuteShareCH> for ClickHouseMinuteShareSink<'a> {
         let mut insert = self
             .client
             .insert("minute_shares")?
-            .with_option("async_insert", "1")
-            .with_option("wait_for_async_insert", "1");
+            .with_option("async_insert", "0");
         for row in batch {
             insert.write(row).await?;
         }

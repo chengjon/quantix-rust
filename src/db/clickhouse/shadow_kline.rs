@@ -8,12 +8,12 @@
 //! table defined in `db/schema/quantix_shadow_init.sql`. No method
 //! here touches the production `kline_data` table.
 
-use chrono::{DateTime, Utc};
 use clickhouse::Row;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::core::{QuantixError, Result};
+use crate::db::clickhouse::datetime_utc_to_offsetdatetime;
 use crate::sources::openstock_shadow::ShadowKlineRow;
 
 /// Wire shape for `quantix_shadow.openstock_daily_kline_shadow`.
@@ -37,7 +37,8 @@ pub struct ShadowKlineRowCH {
     pub batch_id: String,
     pub artifact_hash: String,
     pub ingested_by: String,
-    pub ingested_at: DateTime<Utc>,
+    #[serde(with = "clickhouse::serde::time::datetime")]
+    pub ingested_at: time::OffsetDateTime,
 }
 
 impl From<&ShadowKlineRow> for ShadowKlineRowCH {
@@ -57,7 +58,7 @@ impl From<&ShadowKlineRow> for ShadowKlineRowCH {
             batch_id: row.batch_id.clone(),
             artifact_hash: row.artifact_hash.clone(),
             ingested_by: row.ingested_by.clone(),
-            ingested_at: row.ingested_at,
+            ingested_at: datetime_utc_to_offsetdatetime(row.ingested_at),
         }
     }
 }

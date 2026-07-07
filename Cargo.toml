@@ -25,7 +25,15 @@ tokio-cron-scheduler = "0.10"
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "mysql", "chrono", "rust_decimal", "json", "sqlite"] }
 # ClickHouse (主存储)
-clickhouse = "0.12"
+# `time` feature needed for OffsetDateTime serialization in RowBinary.
+# Without it, `DateTime<Utc>` from chrono silently serializes as a struct
+# and ClickHouse rejects the bytes ("Bytes read: 7 expected 8"). See
+# docs/superpowers/specs/2026-07-05-openstock-p0-15a-design-review-meta.md
+# and P0.15a apply-path validation (2026-07-07).
+clickhouse = { version = "0.12", features = ["lz4", "time"] }
+# `time` crate required to construct `OffsetDateTime` values for clickhouse's
+# `serde::time::datetime` adapter (see comment on `clickhouse` above).
+time = "0.3"
 # TDengine (通过 REST API，可选)
 
 # HTTP (共享数据源)

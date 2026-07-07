@@ -172,11 +172,11 @@ fn test_market_fundamental_snapshot_row_deserializes_json_each_row_payload() {
 #[test]
 fn models_minute_kline_ch_has_expected_fields() {
     use crate::db::clickhouse::models::MinuteKlineCH;
-    use chrono::{TimeZone, Utc};
+    use crate::db::clickhouse::naive_to_offsetdatetime;
 
     let row = MinuteKlineCH {
-        timestamp: Utc.from_utc_datetime(
-            &chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
+        timestamp: naive_to_offsetdatetime(
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
                 .unwrap()
                 .and_hms_opt(9, 30, 0)
                 .unwrap(),
@@ -200,11 +200,11 @@ fn models_minute_kline_ch_has_expected_fields() {
 #[test]
 fn models_minute_share_ch_has_expected_fields() {
     use crate::db::clickhouse::models::MinuteShareCH;
-    use chrono::{TimeZone, Utc};
+    use crate::db::clickhouse::naive_to_offsetdatetime;
 
     let row = MinuteShareCH {
-        timestamp: Utc.from_utc_datetime(
-            &chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
+        timestamp: naive_to_offsetdatetime(
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 4)
                 .unwrap()
                 .and_hms_opt(9, 30, 0)
                 .unwrap(),
@@ -264,17 +264,23 @@ fn decimal_to_f64_extreme_value_falls_back_to_zero() {
 }
 
 #[test]
-fn naive_to_utc_preserves_wall_clock() {
-    use crate::db::clickhouse::minute::naive_to_utc_for_test;
+fn naive_to_offsetdatetime_preserves_wall_clock() {
+    use crate::db::clickhouse::minute::naive_to_ch_timestamp_for_test;
     use chrono::NaiveDate;
 
     let naive = NaiveDate::from_ymd_opt(2026, 7, 4)
         .unwrap()
         .and_hms_opt(9, 30, 0)
         .unwrap();
-    let utc = naive_to_utc_for_test(naive);
-    // Wall-clock moment preserved (this is the kline_data convention).
-    assert_eq!(utc.naive_utc(), naive);
+    let dt = naive_to_ch_timestamp_for_test(naive);
+    // Wall-clock Y/M/D/H/M/S preserved (this is the kline_data convention —
+    // Beijing wall-clock tagged UTC, no timezone conversion).
+    assert_eq!(dt.year(), 2026);
+    assert_eq!(dt.month() as u32, 7);
+    assert_eq!(dt.day(), 4);
+    assert_eq!(dt.hour(), 9);
+    assert_eq!(dt.minute(), 30);
+    assert_eq!(dt.second(), 0);
 }
 
 // ─── P0.14 T2 — U4/U5: row conversion tests ────────────────────────────────
@@ -398,7 +404,7 @@ async fn minute_kline_mock_sink_records_batch_and_returns_inserted_count() {
         batches: Mutex::new(Vec::new()),
     };
     let row = crate::db::clickhouse::models::MinuteKlineCH {
-        timestamp: chrono::Utc::now(),
+        timestamp: crate::db::clickhouse::datetime_utc_to_offsetdatetime(chrono::Utc::now()),
         code: "sh600000".into(),
         period: "1m".into(),
         adjust: "none".into(),
@@ -426,7 +432,7 @@ async fn minute_share_mock_sink_records_batch_and_returns_inserted_count() {
         batches: Mutex::new(Vec::new()),
     };
     let row = crate::db::clickhouse::models::MinuteShareCH {
-        timestamp: chrono::Utc::now(),
+        timestamp: crate::db::clickhouse::datetime_utc_to_offsetdatetime(chrono::Utc::now()),
         code: "sh600000".into(),
         price: 12.34,
         volume: 1000.0,
@@ -483,7 +489,7 @@ async fn minute_kline_sink_failure_surfaces_as_database_query_error() {
         calls: Mutex::new(0),
     };
     let row = crate::db::clickhouse::models::MinuteKlineCH {
-        timestamp: chrono::Utc::now(),
+        timestamp: crate::db::clickhouse::datetime_utc_to_offsetdatetime(chrono::Utc::now()),
         code: "sh600000".into(),
         period: "1m".into(),
         adjust: "none".into(),

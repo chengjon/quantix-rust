@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 /// 股票基本信息 (ClickHouse Row)
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
@@ -30,9 +30,14 @@ pub struct StockQuoteCH {
 }
 
 /// K线数据 (ClickHouse Row)
+///
+/// `timestamp` uses `time::OffsetDateTime` with `clickhouse::serde::time::datetime`
+/// because clickhouse-rs 0.12 has no chrono feature — chrono's `DateTime<Utc>`
+/// silently mis-serializes in RowBinary (P0.15a root-cause, 2026-07-07).
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct KlineDataCH {
-    pub timestamp: DateTime<Utc>,
+    #[serde(with = "clickhouse::serde::time::datetime")]
+    pub timestamp: OffsetDateTime,
     pub code: String,
     pub name: String,
     pub period: String,
@@ -48,11 +53,12 @@ pub struct KlineDataCH {
 
 /// 分钟 K 线数据 (ClickHouse Row) — P0.14
 ///
-/// 与 `KlineDataCH` 类型约定一致（DateTime<Utc> + String period/adjust + Float64）。
+/// 与 `KlineDataCH` 类型约定一致（OffsetDateTime + String period/adjust + Float64）。
 /// 表 DDL 见 `schema.rs::create_minute_klines_table`。
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct MinuteKlineCH {
-    pub timestamp: DateTime<Utc>,
+    #[serde(with = "clickhouse::serde::time::datetime")]
+    pub timestamp: OffsetDateTime,
     pub code: String,
     pub period: String,
     pub adjust: String,
@@ -69,7 +75,8 @@ pub struct MinuteKlineCH {
 /// `MinuteShare` 没有 period/adjust 概念（分笔是逐笔成交），表结构反映领域差异。
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct MinuteShareCH {
-    pub timestamp: DateTime<Utc>,
+    #[serde(with = "clickhouse::serde::time::datetime")]
+    pub timestamp: OffsetDateTime,
     pub code: String,
     pub price: f64,
     pub volume: f64,
@@ -80,7 +87,8 @@ pub struct MinuteShareCH {
 /// 涨停事件 (ClickHouse Row)
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
 pub struct LimitUpEventCH {
-    pub limit_time: DateTime<Utc>,
+    #[serde(with = "clickhouse::serde::time::datetime")]
+    pub limit_time: OffsetDateTime,
     pub code: String,
     pub name: String,
     pub limit_type: String,

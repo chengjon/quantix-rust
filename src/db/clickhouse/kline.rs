@@ -57,7 +57,7 @@ impl ClickHouseClient {
             .into_iter()
             .map(|r| crate::data::models::Kline {
                 code: r.code.clone(),
-                date: r.timestamp.date_naive(),
+                date: crate::db::clickhouse::offsetdatetime_to_naivedate(r.timestamp),
                 open: Decimal::from_str(&format!("{}", r.open)).unwrap_or_default(),
                 high: Decimal::from_str(&format!("{}", r.high)).unwrap_or_default(),
                 low: Decimal::from_str(&format!("{}", r.low)).unwrap_or_default(),
@@ -205,9 +205,9 @@ impl ClickHouseClient {
                 .with_option("wait_for_async_insert", "1");
 
             for kline in chunk {
-                let timestamp = kline.date.and_time(chrono::NaiveTime::MIN);
+                let naive = kline.date.and_time(chrono::NaiveTime::MIN);
                 let row = KlineDataCH {
-                    timestamp: DateTime::<Utc>::from_naive_utc_and_offset(timestamp, Utc),
+                    timestamp: naive_to_offsetdatetime(naive),
                     code: kline.code.clone(),
                     name: kline.code.clone(),
                     period: period.to_string(),
@@ -250,7 +250,8 @@ impl ClickHouseClient {
         );
         #[derive(Deserialize, clickhouse::Row)]
         struct Row {
-            latest: Option<DateTime<Utc>>,
+            #[serde(with = "clickhouse::serde::time::datetime::option")]
+            latest: Option<time::OffsetDateTime>,
         }
         let rows: Vec<Row> = self
             .client
@@ -260,7 +261,7 @@ impl ClickHouseClient {
             .map_err(|e| QuantixError::DatabaseQuery(format!("查询最新日期失败: {}", e)))?;
         Ok(rows
             .first()
-            .and_then(|r| r.latest.map(|dt| dt.date_naive())))
+            .and_then(|r| r.latest.map(offsetdatetime_to_naivedate)))
     }
 
     /// 聚合查询：从分钟线聚合为日线
