@@ -40,7 +40,7 @@ async fn ch_from_env() -> ClickHouseClient {
 async fn ch_delete(code: &str, date: &str, table: &str) {
     let ch = ch_from_env().await;
     let sql = format!(
-        "ALTER TABLE {table} DELETE WHERE code = '{code}' AND toDateString(timestamp) = '{date}'"
+        "ALTER TABLE {table} DELETE WHERE code = '{code}' AND toDate(timestamp) = '{date}'"
     );
     ch.query_json::<serde_json::Value>(&sql)
         .await
