@@ -1442,7 +1442,7 @@ pub(crate) async fn import_openstock_minute_all(
 ///
 /// Queries `quantix.import_state` for the given date, prints the latest
 /// batch summary plus failure detail (code, kind, reason).
-pub(crate) async fn query_import_status(
+pub async fn query_import_status(
     pg_url: &str,
     date: String,
     format: crate::cli::command_types::OutputFormat,
