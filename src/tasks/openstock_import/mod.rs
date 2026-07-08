@@ -9,4 +9,4 @@ pub mod fetcher;
 pub mod scheduler;
 pub mod state;
 
-pub use state::{ImportStateStoreTrait, Status};
+pub use state::{ImportStateStore, ImportStateStoreTrait, Status};

@@ -127,4 +127,10 @@ impl PostgresClient {
 
         Ok(rows)
     }
+
+    /// Borrow the underlying pool for raw queries not covered by helpers.
+    /// Used by P0.15b ImportStateStore to read/write `quantix.import_state`.
+    pub fn pool(&self) -> &sqlx::Pool<sqlx::Postgres> {
+        &self.pool
+    }
 }
