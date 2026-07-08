@@ -8,5 +8,5 @@ pub mod scheduler;
 
 pub use collect_scheduler::{CollectScheduler, SchedulerConfig, SchedulerState};
 pub use cron::CronExpression;
-pub use openstock_import::{ImportStateStoreTrait, Status};
+pub use openstock_import::{ImportStateStoreTrait, Status, StockListFetchTrait, StockListFetcher};
 pub use scheduler::{ScheduledTask, SchedulerStats, TaskScheduler, TaskTemplates};

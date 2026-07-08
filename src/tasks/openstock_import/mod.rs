@@ -9,4 +9,7 @@ pub mod fetcher;
 pub mod scheduler;
 pub mod state;
 
+#[cfg(test)]
+pub use fetcher::MockFetcher;
+pub use fetcher::{StockListFetchTrait, StockListFetcher};
 pub use state::{ImportStateStore, ImportStateStoreTrait, Status};
