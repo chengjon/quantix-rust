@@ -178,5 +178,42 @@ async fn import_minute_klines_dry_run_no_env_does_not_write() {
     if !live_gates_set() {
         return;
     }
-    // T3 body — Task 5
+    let before = ch_count(TEST_CODE, TEST_DATE, "minute_klines").await;
+
+    let args = [
+        "data",
+        "openstock",
+        "import-minute-klines",
+        "--code",
+        TEST_CODE,
+        "--period",
+        "5m",
+        "--start",
+        TEST_DATE,
+        "--end",
+        TEST_DATE,
+        "--apply",
+    ];
+    // apply_env=None — env var is unset, must stay dry-run.
+    let (status, stdout, stderr) = run_cli(args, None).await;
+    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        stdout.contains("OpenStock import-minute-klines (dry-run)"),
+        "missing dry-run header in stdout:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("dry_run: true, applied: false"),
+        "missing dry_run marker:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("hint: set QUANTIX_OPENSTOCK_MINUTE_APPLY=yes to actually insert"),
+        "missing hint message:\n{stdout}"
+    );
+
+    let after = ch_count(TEST_CODE, TEST_DATE, "minute_klines").await;
+    assert_eq!(
+        before, after,
+        "row count changed despite dry-run: before={before}, after={after}"
+    );
+    println!("T3 dry-run preserved row count: {before}");
 }
