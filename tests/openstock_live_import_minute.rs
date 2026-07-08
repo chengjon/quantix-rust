@@ -44,7 +44,7 @@ async fn ch_delete(code: &str, date: &str, table: &str) {
     );
     ch.query_json::<serde_json::Value>(&sql)
         .await
-        .expect(&format!("delete on {table} ok"));
+        .unwrap_or_else(|_| panic!("delete on {table} ok"));
 }
 
 /// Count rows where code matches and timestamp falls within the given
@@ -62,13 +62,16 @@ async fn ch_count(code: &str, date: &str, table: &str) -> u64 {
     let rows: Vec<Row> = ch
         .query_json(&sql)
         .await
-        .expect(&format!("count on {table} ok"));
+        .unwrap_or_else(|_| panic!("count on {table} ok"));
     rows.first().map(|r| r.cnt).unwrap_or(0)
 }
 
 /// Spawn `cargo run -q -- <args>` with QUANTIX_OPENSTOCK_MINUTE_APPLY set or
 /// unset per `apply_env`. Returns (exit_status, stdout, stderr).
-async fn run_cli<I, S>(args: I, apply_env: Option<&str>) -> (std::process::ExitStatus, String, String)
+async fn run_cli<I, S>(
+    args: I,
+    apply_env: Option<&str>,
+) -> (std::process::ExitStatus, String, String)
 where
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
@@ -119,7 +122,10 @@ async fn import_minute_klines_apply_writes_to_clickhouse() {
         "--apply",
     ];
     let (status, stdout, stderr) = run_cli(args, Some("yes")).await;
-    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        status.success(),
+        "exit not success: {status}\nstderr: {stderr}"
+    );
     assert!(
         stdout.contains("OpenStock import-minute-klines (apply)"),
         "missing apply header in stdout:\n{stdout}"
@@ -130,7 +136,10 @@ async fn import_minute_klines_apply_writes_to_clickhouse() {
     );
 
     let count = ch_count(TEST_CODE, TEST_DATE, "minute_klines").await;
-    assert!(count > 0, "expected rows in minute_klines for {TEST_CODE} {TEST_DATE}, got 0");
+    assert!(
+        count > 0,
+        "expected rows in minute_klines for {TEST_CODE} {TEST_DATE}, got 0"
+    );
     println!("T1 minute_klines rows: {count}");
 }
 
@@ -156,7 +165,10 @@ async fn import_minute_share_apply_writes_to_clickhouse() {
         "--apply",
     ];
     let (status, stdout, stderr) = run_cli(args, Some("yes")).await;
-    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        status.success(),
+        "exit not success: {status}\nstderr: {stderr}"
+    );
     assert!(
         stdout.contains("OpenStock import-minute-share (apply)"),
         "missing apply header in stdout:\n{stdout}"
@@ -167,7 +179,10 @@ async fn import_minute_share_apply_writes_to_clickhouse() {
     );
 
     let count = ch_count(TEST_CODE, TEST_DATE, "minute_shares").await;
-    assert!(count > 0, "expected rows in minute_shares for {TEST_CODE} {TEST_DATE}, got 0");
+    assert!(
+        count > 0,
+        "expected rows in minute_shares for {TEST_CODE} {TEST_DATE}, got 0"
+    );
     println!("T2 minute_shares rows: {count}");
 }
 
@@ -196,7 +211,10 @@ async fn import_minute_klines_dry_run_no_env_does_not_write() {
     ];
     // apply_env=None — env var is unset, must stay dry-run.
     let (status, stdout, stderr) = run_cli(args, None).await;
-    assert!(status.success(), "exit not success: {status}\nstderr: {stderr}");
+    assert!(
+        status.success(),
+        "exit not success: {status}\nstderr: {stderr}"
+    );
     assert!(
         stdout.contains("OpenStock import-minute-klines (dry-run)"),
         "missing dry-run header in stdout:\n{stdout}"
