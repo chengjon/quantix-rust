@@ -4,6 +4,11 @@
 //! per-date, per-kind import outcomes. Latest-wins semantics: a rerun
 //! queries `ORDER BY imported_at DESC LIMIT 1` to decide whether to skip.
 
+#[cfg(test)]
+use std::collections::HashMap;
+#[cfg(test)]
+use std::sync::Mutex;
+
 use chrono::NaiveDate;
 
 use async_trait::async_trait;
@@ -140,5 +145,135 @@ impl<'a> ImportStateStoreTrait for ImportStateStore<'a> {
         .await
         .map_err(|e| crate::core::error::QuantixError::DatabaseQuery(e.to_string()))?;
         Ok(())
+    }
+}
+
+/// In-memory `ImportStateStoreTrait` for unit tests.
+///
+/// Keyed by `(code, date, kind)`. Each value is a Vec of `(Status,
+/// batch_id)` pairs in insertion order; `get_status` returns the last
+/// entry (matching the production "ORDER BY imported_at DESC LIMIT 1"
+/// semantics).
+#[cfg(test)]
+type MockStateMap = HashMap<(String, NaiveDate, String), Vec<(Status, String)>>;
+
+#[cfg(test)]
+#[derive(Debug, Default)]
+pub struct MockStateStore {
+    inner: Mutex<MockStateMap>,
+}
+
+#[cfg(test)]
+impl MockStateStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl ImportStateStoreTrait for MockStateStore {
+    async fn get_status(&self, code: &str, date: NaiveDate, kind: &str) -> Result<Option<Status>> {
+        let key = (code.to_string(), date, kind.to_string());
+        let guard = self.inner.lock().expect("mock state mutex poisoned");
+        Ok(guard
+            .get(&key)
+            .and_then(|history| history.last())
+            .map(|(status, _)| status.clone()))
+    }
+
+    async fn record(
+        &self,
+        code: &str,
+        date: NaiveDate,
+        kind: &str,
+        status: &Status,
+        batch_id: &str,
+    ) -> Result<()> {
+        let key = (code.to_string(), date, kind.to_string());
+        let mut guard = self.inner.lock().expect("mock state mutex poisoned");
+        guard
+            .entry(key)
+            .or_default()
+            .push((status.clone(), batch_id.to_string()));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(y: i32, m: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, day).unwrap()
+    }
+
+    #[tokio::test]
+    async fn get_status_returns_none_when_no_record() {
+        let store = MockStateStore::new();
+        let got = store.get_status("sh600000", d(2026, 7, 8), "klines").await;
+        assert!(got.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn record_then_get_returns_latest() {
+        let store = MockStateStore::new();
+        let date = d(2026, 7, 8);
+        store
+            .record(
+                "sh600000",
+                date,
+                "klines",
+                &Status::Failed {
+                    reason: "first attempt".into(),
+                },
+                "batch-1",
+            )
+            .await
+            .unwrap();
+        store
+            .record("sh600000", date, "klines", &Status::Success, "batch-1")
+            .await
+            .unwrap();
+
+        let got = store.get_status("sh600000", date, "klines").await.unwrap();
+        assert_eq!(got, Some(Status::Success));
+    }
+
+    #[tokio::test]
+    async fn different_kinds_are_independent() {
+        let store = MockStateStore::new();
+        let date = d(2026, 7, 8);
+        store
+            .record("sh600000", date, "klines", &Status::Success, "b1")
+            .await
+            .unwrap();
+        let klines_status = store.get_status("sh600000", date, "klines").await.unwrap();
+        let share_status = store.get_status("sh600000", date, "share").await.unwrap();
+        assert_eq!(klines_status, Some(Status::Success));
+        assert_eq!(share_status, None);
+    }
+
+    #[tokio::test]
+    async fn failed_carries_reason() {
+        let store = MockStateStore::new();
+        let date = d(2026, 7, 8);
+        store
+            .record(
+                "sh600000",
+                date,
+                "klines",
+                &Status::Failed {
+                    reason: "OpenStock 404".into(),
+                },
+                "b1",
+            )
+            .await
+            .unwrap();
+        let got = store.get_status("sh600000", date, "klines").await.unwrap();
+        match got {
+            Some(Status::Failed { reason }) => assert_eq!(reason, "OpenStock 404"),
+            other => panic!("expected Failed, got {:?}", other),
+        }
     }
 }
