@@ -626,6 +626,55 @@ pub(crate) async fn fetch_openstock_minute_share(
     Ok(())
 }
 
+/// Inner import logic — accepts already-constructed client + sink.
+///
+/// Used by both the CLI handler (which builds clients per invocation)
+/// and the BatchScheduler (which builds clients once and reuses across
+/// all codes). Bypasses all CLI output (`println!`) — the caller is
+/// responsible for surfacing results.
+///
+/// `will_apply=true` triggers real ClickHouse writes; `false` is a
+/// dry-run that streams through but writes nothing.
+#[allow(dead_code, clippy::too_many_arguments)] // consumed by BatchScheduler in Task 7
+pub(crate) async fn import_minute_klines_inner(
+    client: &OpenStockClient,
+    sink: &crate::db::clickhouse::ClickHouseMinuteKlineSink<'_>,
+    code: &str,
+    period: crate::data::models::MinutePeriod,
+    start: chrono::NaiveDate,
+    end: chrono::NaiveDate,
+    adjust: crate::data::models::AdjustType,
+    will_apply: bool,
+) -> Result<crate::db::clickhouse::StreamStats> {
+    use crate::data::models::DateOrRange;
+    use crate::db::clickhouse::stream_minute_klines_to_clickhouse;
+
+    if !will_apply {
+        // Dry-run path: stream and count, do not call the sink.
+        // Mirrors the CLI dry-run branch but returns stats instead of printing.
+        use futures::StreamExt;
+        let dor = DateOrRange::Range { start, end };
+        let s = client.fetch_minute_klines_stream(code, period, dor, adjust);
+        futures::pin_mut!(s);
+        let mut batches = 0u64;
+        let mut total = 0u64;
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            total += batch.len() as u64;
+        }
+        return Ok(crate::db::clickhouse::StreamStats {
+            batches,
+            input_records: total,
+            inserted_records: 0,
+        });
+    }
+
+    let stats =
+        stream_minute_klines_to_clickhouse(client, sink, code, period, start, end, adjust).await?;
+    Ok(stats)
+}
+
 /// P0.15a: `quantix data openstock import-minute-klines`.
 ///
 /// Persists minute klines to ClickHouse `minute_klines` (P0.14 table) for a
@@ -731,6 +780,45 @@ pub(crate) async fn import_openstock_minute_klines(
     println!("  inserted_records: {}", stats.inserted_records);
     println!("  dry_run: false, applied: true");
     Ok(())
+}
+
+/// Inner import logic for minute share — accepts pre-built client + sink.
+///
+/// Mirrors `import_minute_klines_inner`. Used by both the CLI handler
+/// and the BatchScheduler.
+#[allow(dead_code)] // consumed by BatchScheduler in Task 7
+pub(crate) async fn import_minute_share_inner(
+    client: &OpenStockClient,
+    sink: &crate::db::clickhouse::ClickHouseMinuteShareSink<'_>,
+    code: &str,
+    start: chrono::NaiveDate,
+    end: chrono::NaiveDate,
+    will_apply: bool,
+) -> Result<crate::db::clickhouse::StreamStats> {
+    use crate::data::models::DateOrRange;
+    use crate::db::clickhouse::stream_minute_shares_to_clickhouse;
+
+    if !will_apply {
+        use futures::StreamExt;
+        let dor = DateOrRange::Range { start, end };
+        let s = client.fetch_minute_share_stream(code, dor);
+        futures::pin_mut!(s);
+        let mut batches = 0u64;
+        let mut total = 0u64;
+        while let Some(result) = s.next().await {
+            let batch = result?;
+            batches += 1;
+            total += batch.len() as u64;
+        }
+        return Ok(crate::db::clickhouse::StreamStats {
+            batches,
+            input_records: total,
+            inserted_records: 0,
+        });
+    }
+
+    let stats = stream_minute_shares_to_clickhouse(client, sink, code, start, end).await?;
+    Ok(stats)
 }
 
 /// P0.15a: `quantix data openstock import-minute-share`.
