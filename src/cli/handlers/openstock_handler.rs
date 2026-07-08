@@ -1370,3 +1370,224 @@ pub(crate) async fn import_openstock_klines(
     );
     Ok(())
 }
+
+/// P0.15b: `quantix data openstock import-minute-all`.
+///
+/// Iterates active codes from `quantix.stock_info`, runs P0.15a import
+/// logic per code, tracks outcome in `quantix.import_state`. Default
+/// behavior matches `import-minute-klines` re: env var
+/// QUANTIX_OPENSTOCK_MINUTE_APPLY=yes.
+pub(crate) async fn import_openstock_minute_all(
+    settings: &OpenStockSettings,
+    pg_url: &str,
+    date: Option<String>,
+    format: crate::cli::command_types::OutputFormat,
+    dry_run: bool,
+) -> Result<()> {
+    use crate::cli::command_types::OutputFormat;
+    use crate::data::models::{AdjustType, MinutePeriod};
+    use crate::db::PostgresClient;
+    use crate::tasks::openstock_import::fetcher::StockListFetcher;
+    use crate::tasks::openstock_import::scheduler::BatchScheduler;
+    use crate::tasks::openstock_import::state::ImportStateStore;
+    use chrono::{Local, NaiveDate};
+    use std::str::FromStr;
+
+    let trade_date = match date.as_deref() {
+        Some("today") | None => Local::now().date_naive(),
+        Some(s) => {
+            NaiveDate::from_str(s).map_err(|e| QuantixError::Config(format!("--date: {}", e)))?
+        }
+    };
+
+    let will_apply = compute_apply(true);
+    let period = MinutePeriod::Minute5;
+    let adjust = AdjustType::QFQ;
+
+    let pg = PostgresClient::new(pg_url).await?;
+    let fetcher = StockListFetcher::new(&pg);
+    let state = ImportStateStore::new(&pg);
+
+    let sched = BatchScheduler::new(&fetcher, &state, settings, period, adjust, will_apply);
+
+    println!(
+        "OpenStock import-minute-all ({})",
+        if dry_run {
+            "dry-run"
+        } else if will_apply {
+            "apply"
+        } else {
+            "no-env-apply"
+        }
+    );
+    println!("  date: {}", trade_date);
+    println!("  will_apply: {}", will_apply);
+
+    let summary = sched.run(trade_date, dry_run).await?;
+
+    match format {
+        OutputFormat::Json => {
+            let json = serde_json::to_string_pretty(&summary)
+                .map_err(|e| QuantixError::Other(format!("json serialize: {}", e)))?;
+            println!("{}", json);
+        }
+        OutputFormat::Text => {
+            print_summary_text(&summary);
+        }
+    }
+    Ok(())
+}
+
+/// P0.15b: `quantix data openstock import-status`.
+///
+/// Queries `quantix.import_state` for the given date, prints the latest
+/// batch summary plus failure detail (code, kind, reason).
+pub(crate) async fn query_import_status(
+    pg_url: &str,
+    date: String,
+    format: crate::cli::command_types::OutputFormat,
+) -> Result<()> {
+    use crate::cli::command_types::OutputFormat;
+    use crate::db::PostgresClient;
+    use chrono::NaiveDate;
+    use std::str::FromStr;
+
+    let trade_date =
+        NaiveDate::from_str(&date).map_err(|e| QuantixError::Config(format!("--date: {}", e)))?;
+
+    let pg = PostgresClient::new(pg_url).await?;
+
+    // Latest batch_id for this date (most recent imported_at).
+    let batch_row: Option<(String,)> = sqlx::query_as(
+        "SELECT batch_id FROM quantix.import_state \
+         WHERE trade_date = $1 \
+         GROUP BY batch_id \
+         ORDER BY MAX(imported_at) DESC LIMIT 1",
+    )
+    .bind(trade_date)
+    .fetch_optional(pg.pool())
+    .await
+    .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+
+    let batch_id = match batch_row {
+        Some((id,)) => id,
+        None => {
+            let msg = format!("No import_state records for {}", trade_date);
+            match format {
+                OutputFormat::Json => {
+                    println!(
+                        "{{\"date\":\"{}\",\"found\":false,\"message\":\"{}\"}}",
+                        trade_date, msg
+                    );
+                }
+                OutputFormat::Text => println!("{}", msg),
+            }
+            return Ok(());
+        }
+    };
+
+    // All rows for that batch.
+    let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+        "SELECT code, kind, status, reason FROM quantix.import_state \
+         WHERE trade_date = $1 AND batch_id = $2",
+    )
+    .bind(trade_date)
+    .bind(&batch_id)
+    .fetch_all(pg.pool())
+    .await
+    .map_err(|e| QuantixError::DatabaseQuery(e.to_string()))?;
+
+    let mut success_klines = 0u32;
+    let mut success_share = 0u32;
+    let mut failed_klines = 0u32;
+    let mut failed_share = 0u32;
+    let mut failures: Vec<(String, String, String)> = Vec::new();
+    for (code, kind, status, reason) in &rows {
+        if status == "success" {
+            if kind == "klines" {
+                success_klines += 1;
+            } else {
+                success_share += 1;
+            }
+        } else {
+            let reason_str = reason.clone().unwrap_or_else(|| "unknown".into());
+            if kind == "klines" {
+                failed_klines += 1;
+            } else {
+                failed_share += 1;
+            }
+            failures.push((code.clone(), kind.clone(), reason_str));
+        }
+    }
+
+    match format {
+        OutputFormat::Json => {
+            let failures_json: Vec<serde_json::Value> = failures
+                .into_iter()
+                .map(|(code, kind, reason)| {
+                    serde_json::json!({"code": code, "kind": kind, "reason": reason})
+                })
+                .collect();
+            let payload = serde_json::json!({
+                "date": trade_date.to_string(),
+                "batch_id": batch_id,
+                "success_count": {"klines": success_klines, "share": success_share},
+                "failed_count": {"klines": failed_klines, "share": failed_share},
+                "failures": failures_json,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&payload)
+                    .map_err(|e| QuantixError::Other(format!("json: {}", e)))?
+            );
+        }
+        OutputFormat::Text => {
+            println!("Import status for {}", trade_date);
+            println!();
+            println!("  batch_id: {}", batch_id);
+            println!(
+                "    success: klines={} share={}",
+                success_klines, success_share
+            );
+            println!(
+                "    failed:  klines={} share={}",
+                failed_klines, failed_share
+            );
+            if !failures.is_empty() {
+                println!("  ── failed ──");
+                for (code, kind, reason) in &failures {
+                    println!("    {} {}: {}", code, kind, reason);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Render a `BatchSummary` as human-readable text.
+fn print_summary_text(summary: &crate::tasks::openstock_import::scheduler::BatchSummary) {
+    println!("BatchSummary");
+    println!("  batch_id: {}", summary.batch_id);
+    println!("  date: {}", summary.date);
+    println!("  started_at: {}", summary.started_at);
+    if let Some(fin) = summary.finished_at {
+        println!("  finished_at: {}", fin);
+        let elapsed = fin.signed_duration_since(summary.started_at);
+        println!("  elapsed: {:?}", elapsed);
+    }
+    println!("  total_codes: {}", summary.total_codes);
+    println!(
+        "  success: klines={} share={}",
+        summary.success_count.klines, summary.success_count.share
+    );
+    println!(
+        "  failed:  klines={} share={}",
+        summary.failed_count.klines, summary.failed_count.share
+    );
+    if !summary.failures.is_empty() {
+        println!("  ── failed detail ──");
+        for f in &summary.failures {
+            println!("  {} ({}): {}", f.code, f.kind, f.reason);
+        }
+    }
+}

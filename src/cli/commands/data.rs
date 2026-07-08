@@ -1,5 +1,12 @@
 use clap::{Subcommand, ValueEnum};
 
+/// Output format for `import-minute-all` / `import-status` summaries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    Text,
+    Json,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum DataCommands {
     /// 数据源管理
@@ -483,5 +490,36 @@ pub enum OpenStockCommands {
         /// 实际写入 ClickHouse (默认 dry-run; 需配合 QUANTIX_OPENSTOCK_MINUTE_APPLY=yes)
         #[arg(long, default_value_t = false)]
         apply: bool,
+    },
+
+    /// Import minute klines + shares for ALL active codes (P0.15b scheduler).
+    /// Iterates `quantix.stock_info`, runs P0.15a import per code, tracks
+    /// outcome in `quantix.import_state`. Default is dry-run; set
+    /// QUANTIX_OPENSTOCK_MINUTE_APPLY=yes to actually write.
+    ImportMinuteAll {
+        /// Trade date to import. Defaults to today (Asia/Shanghai).
+        /// Format: YYYY-MM-DD, or the literal "today".
+        #[arg(long)]
+        date: Option<String>,
+
+        /// Output format for BatchSummary. Default: text.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+
+        /// Dry-run: print plan (codes + batch_id) without writing.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
+
+    /// Query `quantix.import_state` for a date and print the latest batch
+    /// summary (success/fail counts, failure detail) in text or json.
+    ImportStatus {
+        /// Trade date to query. Format: YYYY-MM-DD.
+        #[arg(long)]
+        date: String,
+
+        /// Output format. Default: text.
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
     },
 }
