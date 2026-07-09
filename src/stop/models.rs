@@ -54,6 +54,7 @@ pub enum StopHistoryEventType {
 }
 
 impl StopHistoryEventType {
+    /// 返回事件类型的稳定字符串标识（"set"/"update"/"remove"/"trigger"），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Set => "set",
@@ -63,6 +64,7 @@ impl StopHistoryEventType {
         }
     }
 
+    /// 反向解析事件类型字符串；未知值返回 None（调用方需处理）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "set" => Some(Self::Set),
@@ -83,6 +85,7 @@ pub enum StopHistoryTriggerKind {
 }
 
 impl StopHistoryTriggerKind {
+    /// 返回触发类型的稳定字符串标识（"loss"/"profit"/"trailing"），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Loss => "loss",
@@ -91,6 +94,7 @@ impl StopHistoryTriggerKind {
         }
     }
 
+    /// 反向解析触发类型字符串；未知值返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "loss" => Some(Self::Loss),
@@ -140,6 +144,7 @@ pub enum StopAnchorSource {
 }
 
 impl StopAnchorSource {
+    /// 返回锚定来源的稳定字符串标识（"position_cost"/"reference_price"），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PositionCost => "position_cost",
