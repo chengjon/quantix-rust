@@ -1091,6 +1091,19 @@ impl<T> OpenStockResponse<T> {
     }
 }
 
+mod klines;
+mod minute;
+mod reference;
+
+#[cfg(test)]
+mod tests_core;
+#[cfg(test)]
+mod tests_klines;
+#[cfg(test)]
+mod tests_minute;
+#[cfg(test)]
+mod tests_reference;
+
 #[cfg(test)]
 mod tests {
     use super::*;
