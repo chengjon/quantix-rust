@@ -40,6 +40,7 @@ pub enum CanonicalCase {
 }
 
 impl CanonicalCase {
+    /// 返回 Case 编号的稳定字符串标识（"Case01".."Case20"），用于入库与跨模块对齐。
     pub fn id(&self) -> &'static str {
         match self {
             Self::Case01 => "Case01",
@@ -65,6 +66,7 @@ impl CanonicalCase {
         }
     }
 
+    /// 返回 Case 对应的中文展示名（"一字线"/"T字线"/"光头光脚阳线"/...），用于 UI 与报告。
     pub fn display_name(&self) -> &'static str {
         match self {
             Self::Case01 => "一字线",
@@ -168,6 +170,7 @@ pub struct CandlePattern {
     pub features: CandleFeatures,
 }
 
+/// 对单根 K 线做形态识别：以 reference 为参考价、config.epsilon 为容差，依据开盘/收盘/最高/最低相对 reference 的位置归入 20 个 CanonicalCase 之一，返回包含 case / body_type / market_bias 的 CandlePattern。输入非法（NaN、高低乱序、epsilon≤0 等）返回 PatternError。
 pub fn recognize_single(
     candle: &CandleInput,
     reference: Decimal,
@@ -208,6 +211,7 @@ pub fn recognize_single(
     })
 }
 
+/// 对 K 线序列逐根做形态识别：依据 policy 选择参考价——Explicit(reference) 用固定值；PreviousClose 用前一根收盘价（首根无前收时返回 MissingPreviousCloseReference）；Vwap 用累计 vwap（需 vwap 列非空）。逐根结果以 Vec 返回，顺序与输入一致；任一根识别失败透传。
 pub fn recognize_sequence(
     candles: &[CandleInput],
     policy: &ReferencePricePolicy,
