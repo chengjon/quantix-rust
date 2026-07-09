@@ -1,17 +1,47 @@
 //! miniQMT market artifact contract boundary.
 //!
-//! This module is intentionally kept as the current facade for miniQMT market
-//! dataset intake until the split plan has enough behavioral coverage. Its
-//! owned responsibilities are:
+//! This module is the public facade for miniQMT market dataset intake. Its
+//! owned responsibilities are split across sibling modules:
 //!
-//! - manifest validation and intake;
-//! - artifact selection and local artifact resolution;
-//! - controlled persistence policy checks;
-//! - Quantix regression report and evidence generation;
-//! - local payload sampling and hash verification helpers.
+//! - [`manifest`] — manifest validation and intake;
+//! - [`selection`] — artifact selection, local artifact resolution,
+//!   controlled persistence policy;
+//! - [`regression`] — Quantix regression report and evidence generation;
+//! - [`sampling`] — local payload sampling and hash verification helpers;
+//! - [`request`] (re-exported as [`MarketArtifactRequest`]) — public request
+//!   facade.
 //!
-//! Keep `MarketArtifactRequest` as the public request facade when extracting
-//! these responsibilities into smaller modules.
+//! All types are re-exported here so callers can keep using
+//! `crate::miniqmt_market::<Type>` paths unchanged.
+
+pub mod manifest;
+pub mod regression;
+pub mod sampling;
+pub mod selection;
+
+#[cfg(test)]
+mod tests_facade;
+#[cfg(test)]
+mod tests_manifest;
+#[cfg(test)]
+mod tests_regression;
+#[cfg(test)]
+mod tests_sampling;
+#[cfg(test)]
+mod tests_selection;
+
+pub use manifest::{
+    ManifestIntake, ManifestQuality, ManifestSource, ManifestValidator, MarketDatasetArtifact,
+    MarketDatasetManifest,
+};
+pub use regression::{
+    QuantixClickHouseReadOnlySummary, QuantixConsumerBuild, QuantixEvidenceEnvironment,
+    QuantixEvidenceResultSummary, QuantixRegressionArtifact, QuantixRegressionComparison,
+    QuantixRegressionContext, QuantixRegressionEvidence, QuantixRegressionReport,
+    QuantixRegressionStatus, QuantixSourceOfTruthSummary, RawReportReference,
+};
+pub use sampling::ArtifactPayloadSample;
+pub use selection::{ControlledPersistencePolicy, MarketArtifactSelector, ResolvedMarketArtifact};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
