@@ -46,10 +46,12 @@ fn intraday_position_expr() -> Expr {
     (col("close") - col("open")) / ((col("high") - col("low")) + lit(1e-12))
 }
 
+/// Alpha191 #101：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_101(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, intraday_position_expr())
 }
 
+/// Alpha191 #102：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_102(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(
         df,
@@ -59,6 +61,7 @@ pub fn alpha191_102(df: &DataFrame) -> PolarsResult<Series> {
     )
 }
 
+/// Alpha191 #103：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_103(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(
         df,
@@ -66,6 +69,7 @@ pub fn alpha191_103(df: &DataFrame) -> PolarsResult<Series> {
     )
 }
 
+/// Alpha191 #104：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_104(df: &DataFrame) -> PolarsResult<Series> {
     let mut frame = collect_intermediate(
         df,
@@ -85,6 +89,7 @@ pub fn alpha191_104(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_104_corr")))
 }
 
+/// Alpha191 #105：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_105(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate_two_stage(
         df,
@@ -108,6 +113,7 @@ pub fn alpha191_105(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// Alpha191 #106：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_106(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -122,6 +128,7 @@ pub fn alpha191_106(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// Alpha191 #107：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_107(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -134,14 +141,17 @@ pub fn alpha191_107(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_107_ratio")))
 }
 
+/// Alpha191 #108：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_108(df: &DataFrame) -> PolarsResult<Series> {
     alpha191_103(df)
 }
 
+/// Alpha191 #109：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_109(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, lit(-1.0) * ts_delta_expr(col("close"), 5))
 }
 
+/// Alpha191 #110：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_110(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -150,6 +160,7 @@ pub fn alpha191_110(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_110_gap_down")))
 }
 
+/// Alpha191 #111：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_111(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -164,6 +175,7 @@ pub fn alpha191_111(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_111_ratio")))
 }
 
+/// Alpha191 #112：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_112(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -177,6 +189,7 @@ pub fn alpha191_112(df: &DataFrame) -> PolarsResult<Series> {
     )
 }
 
+/// Alpha191 #113：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_113(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate_two_stage(
         df,
@@ -200,14 +213,17 @@ pub fn alpha191_113(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// Alpha191 #114：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_114(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, cs_rank_expr(intraday_position_expr()))
 }
 
+/// Alpha191 #115：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_115(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, lit(-1.0) * ts_delta_expr(col("close"), 7))
 }
 
+/// Alpha191 #116：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_116(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -222,10 +238,12 @@ pub fn alpha191_116(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// Alpha191 #117：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_117(df: &DataFrame) -> PolarsResult<Series> {
     alpha191_103(df)
 }
 
+/// Alpha191 #118：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_118(df: &DataFrame) -> PolarsResult<Series> {
     let mut frame = collect_intermediate(
         df,
@@ -245,10 +263,12 @@ pub fn alpha191_118(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(&frame, cs_rank_expr(col("__alpha191_118_corr")))
 }
 
+/// Alpha191 #119：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_119(df: &DataFrame) -> PolarsResult<Series> {
     collect_factor_value(df, lit(-1.0) * ts_delta_expr(col("close"), 3))
 }
 
+/// Alpha191 #120：按 191Alpha 公式集计算的横截面因子，输入 DataFrame 至少包含 OHLCV 列，返回单 Series。
 pub fn alpha191_120(df: &DataFrame) -> PolarsResult<Series> {
     let mut frame = collect_intermediate(
         df,
