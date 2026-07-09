@@ -46,6 +46,7 @@ pub struct BatchSummary {
 }
 
 impl BatchSummary {
+    /// 构造 BatchSummary：started_at=now、finished_at=None、所有计数清零、failures 为空。
     pub fn new(batch_id: String, date: NaiveDate) -> Self {
         Self {
             batch_id,
@@ -59,6 +60,7 @@ impl BatchSummary {
         }
     }
 
+    /// 累加单个 code 的 klines 与 share 结果：成功各自 +1；失败各自记入 failures 列表（kind="klines"/"share"），同时 failed_count 对应字段 +1。total_codes 始终 +1。
     pub fn push(&mut self, result: CodeResult) {
         self.total_codes += 1;
         match result.klines {
@@ -85,6 +87,7 @@ impl BatchSummary {
         }
     }
 
+    /// 标记批次结束：finished_at=Some(Utc::now())。仅写时间戳，不做任何统计运算。
     pub fn finish(&mut self) {
         self.finished_at = Some(Utc::now());
     }
@@ -103,6 +106,7 @@ pub struct BatchScheduler<'a, F: StockListFetchTrait, S: ImportStateStoreTrait> 
 }
 
 impl<'a, F: StockListFetchTrait, S: ImportStateStoreTrait> BatchScheduler<'a, F, S> {
+    /// 构造 BatchScheduler：注入 fetcher / state_store / settings / period / adjust / will_apply。注入后调用 run(date, dry_run) 才会真正连 OpenStock/ClickHouse。
     pub fn new(
         fetcher: &'a F,
         state_store: &'a S,
@@ -121,6 +125,7 @@ impl<'a, F: StockListFetchTrait, S: ImportStateStoreTrait> BatchScheduler<'a, F,
         }
     }
 
+    /// 执行一次批量导入：拉取活跃 code 列表，依次对每个 code 调用 OpenStock 取 klines + share 并写入 ClickHouse（will_apply=false 时只读不写）。dry_run=true 时跳过所有外部调用，仅返回 total_codes 与时间戳的 BatchSummary。任一外部依赖失败透传。
     pub async fn run(&self, date: NaiveDate, dry_run: bool) -> Result<BatchSummary> {
         let codes = self.fetcher.list_active_codes().await?;
         let batch_id = Uuid::new_v4().to_string();
