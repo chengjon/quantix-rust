@@ -102,7 +102,9 @@ pub fn run_menu() -> Result<TuiMenuAction> {
     enable_raw_mode().map_err(to_tui_error)?;
     let mut stdout = io::stdout();
     if let Err(error) = execute!(stdout, EnterAlternateScreen) {
-        let _ = disable_raw_mode();
+        if let Err(err) = disable_raw_mode() {
+            tracing::warn!("TUI 退出 raw_mode 失败: {}", err);
+        }
         return Err(to_tui_error(error));
     }
 
@@ -110,7 +112,9 @@ pub fn run_menu() -> Result<TuiMenuAction> {
     let mut terminal = match Terminal::new(backend) {
         Ok(terminal) => terminal,
         Err(error) => {
-            let _ = disable_raw_mode();
+            if let Err(err) = disable_raw_mode() {
+                tracing::warn!("TUI 退出 raw_mode 失败: {}", err);
+            }
             return Err(to_tui_error(error));
         }
     };

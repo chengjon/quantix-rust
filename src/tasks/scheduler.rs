@@ -87,7 +87,9 @@ impl TaskScheduler {
         if let Some(scheduler) = &*self.scheduler.read().await {
             if let Some(old_task) = tasks.get(&task_name) {
                 if let Some(job_id) = &old_task.job_id {
-                    let _ = scheduler.remove(job_id).await;
+                    if let Err(err) = scheduler.remove(job_id).await {
+                        warn!("删除旧任务失败 job_id={}: {}", job_id, err);
+                    }
                 }
             }
         }

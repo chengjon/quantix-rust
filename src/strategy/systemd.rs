@@ -159,13 +159,19 @@ impl StrategyUserServiceInstaller {
         }
 
         if let Err(err) = std::fs::write(&unit_path, self.render_unit()) {
-            let _ = std::fs::remove_file(&wrapper_path);
+            if let Err(cleanup_err) = std::fs::remove_file(&wrapper_path) {
+                tracing::warn!("回滚删除 wrapper 失败: {}", cleanup_err);
+            }
             return Err(err.into());
         }
 
         if let Err(err) = self.run_systemctl("daemon-reload") {
-            let _ = std::fs::remove_file(&unit_path);
-            let _ = std::fs::remove_file(&wrapper_path);
+            if let Err(cleanup_err) = std::fs::remove_file(&unit_path) {
+                tracing::warn!("回滚删除 unit 失败: {}", cleanup_err);
+            }
+            if let Err(cleanup_err) = std::fs::remove_file(&wrapper_path) {
+                tracing::warn!("回滚删除 wrapper 失败: {}", cleanup_err);
+            }
             return Err(err);
         }
 

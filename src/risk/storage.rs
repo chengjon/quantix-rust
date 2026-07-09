@@ -53,8 +53,11 @@ impl RiskStore for JsonRiskStore {
             Ok(())
         })();
 
-        if write_result.is_err() && temp_path.exists() {
-            let _ = fs::remove_file(&temp_path);
+        if write_result.is_err()
+            && temp_path.exists()
+            && let Err(err) = fs::remove_file(&temp_path)
+        {
+            tracing::warn!("清理临时文件失败: {}", err);
         }
 
         write_result?;
