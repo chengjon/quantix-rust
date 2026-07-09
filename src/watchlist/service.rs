@@ -6,16 +6,19 @@ use crate::watchlist::models::{
 };
 use chrono::{DateTime, Utc};
 
+/// 自选股列表的领域服务，封装分组的增删改查、标签管理与历史事件流水。
 #[derive(Debug, Clone)]
 pub struct WatchlistService {
     history_limit: usize,
 }
 
 impl WatchlistService {
+    /// 用指定历史容量上限构造服务；超过上限时丢弃最旧的事件。
     pub fn new(history_limit: usize) -> Self {
         Self { history_limit }
     }
 
+    /// 把 code 加入指定分组（缺省取 default_group）；已存在或不合法时返回错误，并写 `Add` 历史事件。
     pub fn add(
         &self,
         store: &mut WatchlistStore,
@@ -60,6 +63,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 从所有分组中移除 code 及其 entry；任何分组都没找到时返回错误，成功时写 `Remove` 历史事件。
     pub fn remove(&self, store: &mut WatchlistStore, code: &str, now: DateTime<Utc>) -> Result<()> {
         validate_code(code)?;
         let mut removed = false;
@@ -89,6 +93,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 新建命名分组；分组名为空或已存在时返回错误，成功时写 `GroupCreate` 历史事件。
     pub fn create_group(
         &self,
         store: &mut WatchlistStore,
@@ -118,6 +123,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 将 code 从所有其他分组移除并加入 target_group；目标分组不存在或源处未持有 code 时返回错误。
     pub fn move_code(
         &self,
         store: &mut WatchlistStore,
@@ -167,6 +173,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 给 code 追加一个标签；股票不存在或标签已存在时返回错误，成功时写 `TagAdd` 历史事件。
     pub fn add_tag(
         &self,
         store: &mut WatchlistStore,
@@ -200,6 +207,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 从 code 上移除一个标签；股票或标签不存在时返回错误，成功时写 `TagRemove` 历史事件。
     pub fn remove_tag(
         &self,
         store: &mut WatchlistStore,
@@ -234,6 +242,7 @@ impl WatchlistService {
         Ok(())
     }
 
+    /// 列出自选股条目，可按 group 和 tag 过滤；结果按 (group, code) 排序后返回。
     pub fn list(
         &self,
         store: &WatchlistStore,
@@ -276,6 +285,7 @@ impl WatchlistService {
         items
     }
 
+    /// 返回历史事件，倒序（最新在前）；可按 code 过滤并截断到 `limit` 条。
     pub fn history(
         &self,
         store: &WatchlistStore,
