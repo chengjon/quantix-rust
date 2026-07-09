@@ -237,6 +237,7 @@ impl WebSocketClient {
                                                 Message::Text(text) => {
                                                     if let Some(quote) = Self::parse_message(&text) {
                                                         if let Some(tx) = message_tx.lock().await.as_ref() {
+                                                            // send 失败仅意味着无活跃订阅者，正常丢弃
                                                             let _ = tx.send(quote);
                                                         }
                                                     }
