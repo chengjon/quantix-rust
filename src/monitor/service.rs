@@ -48,6 +48,7 @@ where
     RQ: MonitorQuoteReader,
     RS: MonitorAlertStore,
 {
+    /// 构造 MonitorService：注入 watchlist reader / quote reader / alert store；三层职责清晰（read-only 数据读取、行情拉取、告警持久化）。
     pub fn new(watchlist_reader: RW, quote_reader: RQ, alert_store: RS) -> Self {
         Self {
             watchlist_reader,
@@ -56,6 +57,7 @@ where
         }
     }
 
+    /// 拉取当前 watchlist 快照：列出 watchlist items、按 code 批量查最新行情、合并为 MonitorWatchlistSnapshot。行情缺失的 code 会带 warning 但不阻断；任一 reader 失败透传。
     pub async fn load_watchlist_snapshot(&self) -> Result<MonitorWatchlistSnapshot> {
         let items = self.watchlist_reader.list_items().await?;
         if items.is_empty() {
@@ -120,6 +122,7 @@ where
         })
     }
 
+    /// 添加价格告警：透传到 alert_store.add_alert，传入 code / kind（向上/向下突破）/ target_price / now；返回持久化后的 PriceAlert（含 id）。
     pub async fn add_alert(
         &self,
         code: &str,
@@ -132,10 +135,12 @@ where
             .await
     }
 
+    /// 列出所有价格告警（无过滤）；透传到 alert_store.list_alerts，顺序与底层一致。
     pub async fn list_alerts(&self) -> Result<Vec<PriceAlert>> {
         self.alert_store.list_alerts().await
     }
 
+    /// 按 id 删除价格告警；返回是否真实删除了一行（true=命中并删除，false=id 不存在）。SQL 失败透传。
     pub async fn remove_alert(&self, id: i64) -> Result<bool> {
         self.alert_store.remove_alert(id).await
     }
