@@ -53,6 +53,7 @@ pub struct MarketArtifactRequest {
 }
 
 impl MarketArtifactRequest {
+    /// 构造请求：必填 dataset_version 与 artifact_type；schema_version 与 artifact hash 默认不约束，需通过 require_* 链式补充。
     pub fn new(
         expected_dataset_version: impl Into<String>,
         artifact_type: impl Into<String>,
@@ -65,21 +66,25 @@ impl MarketArtifactRequest {
         }
     }
 
+    /// 链式设置期望的 schema_version，由后续 resolve_* 在 manifest 校验阶段强制比对；返回 self 以便链式调用。
     pub fn require_schema_version(mut self, schema_version: impl Into<String>) -> Self {
         self.schema_version = Some(schema_version.into());
         self
     }
 
+    /// 链式设置期望的 artifact sha256 hash，由后续 resolve_* 在 artifact 落盘后强制比对；返回 self 以便链式调用。
     pub fn require_artifact_hash(mut self, expected_artifact_hash: impl Into<String>) -> Self {
         self.expected_artifact_hash = Some(expected_artifact_hash.into());
         self
     }
 
+    /// 从内存 manifest 字节流解析并解析 artifact：跑 manifest 校验（dataset_version + 可选 schema_version + 可选 artifact hash），落盘后比对 hash，返回 ResolvedMarketArtifact。任何校验或 IO 失败以 Err(String) 形式返回（不携带文件落盘副作用以外的状态）。
     pub fn resolve_from_slice(&self, bytes: &[u8]) -> Result<ResolvedMarketArtifact, String> {
         self.intake()
             .resolve_artifact_from_slice(bytes, &self.selector())
     }
 
+    /// 与 resolve_from_slice 相同，但 manifest 来自 path 指向的文件；适合已落盘的 manifest 重用场景。失败语义同上。
     pub fn resolve_from_path(
         &self,
         path: impl AsRef<Path>,
