@@ -16,6 +16,7 @@ pub struct MarketArtifactSelector {
 }
 
 impl MarketArtifactSelector {
+    /// 以目标 artifact_type 构造选择器；schema_version 约束默认未设置，可通过 require_schema_version 链式补充。
     pub fn new(artifact_type: impl Into<String>) -> Self {
         Self {
             artifact_type: artifact_type.into(),
@@ -23,11 +24,13 @@ impl MarketArtifactSelector {
         }
     }
 
+    /// Builder：要求 artifact 的 schema_version 必须精确匹配给定值；返回 self 便于链式构造。
     pub fn require_schema_version(mut self, schema_version: impl Into<String>) -> Self {
         self.schema_version = Some(schema_version.into());
         self
     }
 
+    /// 在 manifest.artifacts 中按 type（+可选 schema_version）过滤；恰好一个匹配返回 Ok，0 个或多个匹配均返回带 dataset_version 上下文的 Err。
     pub fn select<'a>(
         &self,
         manifest: &'a MarketDatasetManifest,
@@ -82,6 +85,7 @@ pub struct ResolvedMarketArtifact {
 }
 
 impl ResolvedMarketArtifact {
+    /// 从 manifest 元数据 + manifest 内的 artifact 条目组装 ResolvedMarketArtifact；computed_hash / computed_row_count / sample_* 字段初始为空，待 verify_artifact_file_hash 填充。
     pub fn from_manifest_artifact(
         manifest: &MarketDatasetManifest,
         artifact: &MarketDatasetArtifact,
@@ -109,11 +113,13 @@ impl ResolvedMarketArtifact {
         }
     }
 
+    /// 把 resolved artifact 序列化为格式化 JSON 字符串；序列化失败返回带原因的 Err。
     pub fn to_pretty_json(&self) -> Result<String, String> {
         serde_json::to_string_pretty(self)
             .map_err(|err| format!("failed to serialize resolved market artifact: {err}"))
     }
 
+    /// 解析 artifact 本地路径并校验文件 sha256 与 manifest.hash 一致（大小写不敏感）；匹配成功时填充 computed_hash/computed_row_count/sample_symbols/sample_dates，失配或路径解析失败返回带 uri 上下文的 Err。
     pub fn verify_artifact_file_hash(
         &mut self,
         manifest_path: impl AsRef<Path>,
@@ -174,6 +180,7 @@ pub enum ControlledPersistencePolicy {
 }
 
 impl ControlledPersistencePolicy {
+    /// 把 database_target 字符串解析为策略枚举：dry-run-only / clickhouse-shadow:<table> / clickhouse-production:<table>；table 为空或前缀未识别均返回稳定错误码字符串。
     pub fn parse(database_target: &str) -> Result<Self, String> {
         if database_target == "dry-run-only" {
             return Ok(Self::DryRunOnly);
@@ -202,6 +209,7 @@ impl ControlledPersistencePolicy {
         Err("unsupported_database_target".to_string())
     }
 
+    /// 校验当前策略与 writes_performed 是否自洽（dry-run 不得写、shadow 必须显式 writes、production 暂未实现）；不一致时返回稳定错误码字符串，一致时返回对应的 check 标识。
     pub fn validate_writes_performed(
         &self,
         writes_performed: bool,
