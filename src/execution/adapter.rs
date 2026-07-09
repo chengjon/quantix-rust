@@ -53,6 +53,7 @@ pub enum ExecutionChannel {
 }
 
 impl ExecutionChannel {
+    /// 返回该执行通道的稳定字符串标识（"paper_immediate" / "mock_live" / "qmt_live"），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PaperImmediate => "paper_immediate",
@@ -70,6 +71,7 @@ pub enum ExecutionStatusSource {
 }
 
 impl ExecutionStatusSource {
+    /// 返回状态来源的稳定字符串标识（"local_immediate_accounting" / "local_simulated_lifecycle" / "broker"）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::LocalImmediateAccounting => "local_immediate_accounting",
@@ -87,6 +89,7 @@ pub enum ExecutionFillSource {
 }
 
 impl ExecutionFillSource {
+    /// 返回成交来源的稳定字符串标识（"local_immediate_accounting" / "local_simulated_matcher" / "broker"）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::LocalImmediateAccounting => "local_immediate_accounting",
@@ -104,6 +107,7 @@ pub enum ExecutionCancelSemantics {
 }
 
 impl ExecutionCancelSemantics {
+    /// 返回撤单语义的稳定字符串标识（"already_filled_only" / "local_lifecycle" / "broker"）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::AlreadyFilledOnly => "already_filled_only",
