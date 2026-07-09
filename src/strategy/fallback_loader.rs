@@ -28,10 +28,12 @@ pub struct FallbackStrategyBarLoader<P> {
 }
 
 impl<P> FallbackStrategyBarLoader<P> {
+    /// 以 primary 为首选、`tdx_root` 为 fallback 根目录构造 loader；primary_source_id 默认为 "primary"。
     pub fn new(primary: P, tdx_root: Option<PathBuf>) -> Self {
         Self::with_options(primary, "primary", tdx_root, None)
     }
 
+    /// 同 new，但允许显式指定 primary_source_id（用于上报/审计中区分上游来源）。
     pub fn with_primary_source_id(
         primary: P,
         primary_source_id: &'static str,
@@ -40,6 +42,7 @@ impl<P> FallbackStrategyBarLoader<P> {
         Self::with_options(primary, primary_source_id, tdx_root, None)
     }
 
+    /// 全参数构造：primary、primary_source_id、tdx_root、preferred_market（市场小写化）。
     pub fn with_options(
         primary: P,
         primary_source_id: &'static str,
@@ -55,10 +58,12 @@ impl<P> FallbackStrategyBarLoader<P> {
         }
     }
 
+    /// 从 QUANTIX_TDX_ROOT/TDX_ROOT 与 QUANTIX_TDX_MARKET/TDX_MARKET 环境变量构造 loader。
     pub fn from_env(primary: P) -> Self {
         Self::from_env_with_primary_source_id(primary, "primary")
     }
 
+    /// 同 from_env，但允许显式指定 primary_source_id。
     pub fn from_env_with_primary_source_id(primary: P, primary_source_id: &'static str) -> Self {
         let tdx_root = std::env::var_os(STRATEGY_TDX_ROOT_ENV)
             .or_else(|| std::env::var_os(LEGACY_TDX_ROOT_ENV))
@@ -69,6 +74,7 @@ impl<P> FallbackStrategyBarLoader<P> {
         Self::with_options(primary, primary_source_id, tdx_root, preferred_market)
     }
 
+    /// 返回最近一次 load_daily_bars 实际命中的来源（primary 或 tdx-day-file）；尚未加载时为 `None`。
     pub fn last_source(&self) -> Option<StrategyBarLoadSource> {
         self.last_source_guard().clone()
     }

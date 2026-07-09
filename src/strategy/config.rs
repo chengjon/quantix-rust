@@ -62,12 +62,14 @@ pub struct JsonStrategyConfigStore {
 }
 
 impl JsonStrategyConfigStore {
+    /// 用显式路径构造 JSON 配置存储，文件不要求存在（load/save 时创建）。
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),
         }
     }
 
+    /// 用 `$HOME/.quantix/strategy/config.json` 构造；HOME 未设置时返回 Config 错误。
     pub fn with_default_path() -> Result<Self> {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
@@ -77,6 +79,7 @@ impl JsonStrategyConfigStore {
         ))
     }
 
+    /// 加载配置；文件不存在时写入默认配置并返回（首次启动引导）。
     pub fn load_or_create(&self) -> Result<StrategyDaemonConfig> {
         if !self.path.exists() {
             let config = StrategyDaemonConfig::default();
@@ -87,11 +90,13 @@ impl JsonStrategyConfigStore {
         self.load()
     }
 
+    /// 读取并反序列化配置文件；文件缺失或 JSON 非法时返回错误。
     pub fn load(&self) -> Result<StrategyDaemonConfig> {
         let contents = std::fs::read_to_string(&self.path)?;
         Ok(serde_json::from_str(&contents)?)
     }
 
+    /// 原子保存：先写 .tmp 再 rename；父目录按需创建，避免半截文件污染配置。
     pub fn save(&self, config: &StrategyDaemonConfig) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             if !parent.as_os_str().is_empty() {
@@ -105,6 +110,7 @@ impl JsonStrategyConfigStore {
         Ok(())
     }
 
+    /// 返回底层配置文件路径（只读）。
     pub fn path(&self) -> &Path {
         &self.path
     }
