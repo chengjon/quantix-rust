@@ -88,6 +88,9 @@ impl Default for FeeConfig {
 }
 
 impl FeeConfig {
+    /// 从 CLI 输入构造 [`FeeConfig`]，缺失字段回退到 [`FeeConfig::default`]。
+    ///
+    /// 负值会被 [`QuantixError`] 拒绝。
     pub fn from_inputs(
         commission_rate: Option<f64>,
         commission_min: Option<f64>,
@@ -203,6 +206,7 @@ pub struct InitAccountRequest {
 }
 
 impl InitAccountRequest {
+    /// 从 CLI 输入构造初始化账户请求；`capital` 缺省回退到 `1_000_000`。
     pub fn new(
         capital: Option<f64>,
         commission_rate: Option<f64>,
@@ -231,6 +235,7 @@ pub struct TradeOrderRequest {
 }
 
 impl TradeOrderRequest {
+    /// 构造交易下单请求，校验代码非空、价格 / 数量为正。
     pub fn new(code: impl Into<String>, price: f64, volume: i64) -> Result<Self> {
         let code = code.into().trim().to_string();
         if code.is_empty() {

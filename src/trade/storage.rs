@@ -7,16 +7,19 @@ use uuid::Uuid;
 use crate::core::Result;
 use crate::trade::{PaperTradeState, PaperTradeStore};
 
+/// JSON 文件持久化的模拟交易账本存储，写入采用临时文件 + rename 的原子模式。
 #[derive(Debug, Clone)]
 pub struct JsonPaperTradeStore {
     path: PathBuf,
 }
 
 impl JsonPaperTradeStore {
+    /// 用指定路径构造存储。
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
+    /// 返回底层文件路径。
     pub fn path(&self) -> &Path {
         &self.path
     }
