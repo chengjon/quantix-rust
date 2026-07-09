@@ -58,6 +58,7 @@ pub struct SqliteStopRuleStore {
 }
 
 impl SqliteStopRuleStore {
+    /// 打开（必要时创建父目录并初始化 stop_rules/stop_history 表）SQLite 止损库；传入路径后自动跑 migrations 并返回 SqliteStopRuleStore。文件创建、目录创建或 migration 失败透传。
     pub async fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -186,6 +187,7 @@ impl SqliteStopRuleStore {
         })
     }
 
+    /// 按 code 查询单条 stop_rule；未命中返回 Ok(None)，命中时反序列化所有价格/百分比/时间戳字段，任一列读取或类型转换失败返回 DataParse。
     pub async fn get_rule(&self, code: &str) -> Result<Option<StopRule>> {
         let row = sqlx::query(
             r#"
@@ -212,6 +214,7 @@ WHERE code = ?
         row.map(Self::row_to_rule).transpose()
     }
 
+    /// 向 stop_history 追加一条事件（主键 id），写入 code/event_type/trigger_kind/trigger_price/anchor_price/anchor_source/snapshot_json/created_at；SQL 执行失败透传。
     pub async fn append_history(&self, event: StopHistoryEvent) -> Result<()> {
         sqlx::query(
             r#"
@@ -243,6 +246,7 @@ INSERT INTO stop_history (
         Ok(())
     }
 
+    /// 按 filter 查询 stop_history：可选 code 精确匹配、date 精确匹配、event_type 过滤、limit 截断；默认按 created_at DESC 排序。逐行反序列化为 StopHistoryEvent，任一行失败聚合返回错误。
     pub async fn list_history(&self, filter: StopHistoryFilter) -> Result<Vec<StopHistoryEvent>> {
         let mut builder = QueryBuilder::<Sqlite>::new(
             r#"
