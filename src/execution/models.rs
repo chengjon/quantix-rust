@@ -12,6 +12,7 @@ use crate::core::{QuantixError, Result};
 mod mock_live;
 pub use mock_live::{MockLiveFaultInjection, MockLiveFillStep, MockLiveOrderState};
 
+/// 策略单次运行的状态：Running 运行中、Success 成功完成、Failed 失败。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StrategyRunStatus {
     Running,
@@ -40,6 +41,7 @@ impl StrategyRunStatus {
     }
 }
 
+/// 订单全生命周期状态：PendingSubmit→Submitted→Accepted→（PartiallyFilled）→Filled，或 PendingCancel→Canceled，或 Rejected；Unknown 兜底用于 broker 返回未知字符串。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderStatus {
     PendingSubmit,
@@ -86,6 +88,7 @@ impl OrderStatus {
     }
 }
 
+/// 信号状态：New 新建、Superseded 被更新版本替代、Expired 已过期不再可执行。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignalStatus {
     New,
@@ -114,6 +117,7 @@ impl SignalStatus {
     }
 }
 
+/// 信号审批状态：Pending 待审批、Approved 已批准可执行、Rejected 已拒绝、AutoApproved 自动批准（无需人工）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalStatus {
     Pending,
@@ -142,6 +146,7 @@ impl ApprovalStatus {
     }
 }
 
+/// 执行请求状态：Pending 待处理、InProgress 已派发执行中、Completed 已完成、Failed 执行失败、Canceled 已撤销。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionRequestStatus {
     Pending,
