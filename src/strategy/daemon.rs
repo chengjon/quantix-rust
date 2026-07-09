@@ -36,6 +36,7 @@ impl<L> StrategySignalDaemon<L>
 where
     L: StrategyBarLoader + StrategyBarLoadTelemetry,
 {
+    /// 构造 StrategyDaemon：装载 strategy_config_store（首次加载 active stocks + check_interval_secs 等运行参数），不持有 execution_config_store（live/paper execution 配置若需要请用 with_execution_config_store）。装载失败透传。
     pub fn new(
         loader: L,
         store: StrategyRuntimeStore,
@@ -57,6 +58,7 @@ where
         })
     }
 
+    /// 与 new 相同，但额外注入 execution_config_store 用于运行期读取/校验 live/paper execution 配置；返回新 daemon。
     pub fn with_execution_config_store(
         loader: L,
         store: StrategyRuntimeStore,
@@ -68,6 +70,7 @@ where
         Ok(daemon)
     }
 
+    /// 单轮 daemon tick：先 reload_config_if_changed（基于文件 mtime），再对每个 active stock 跑策略 runner、写 signal/run/checkpoint 记录；任一步骤失败聚合返回错误。多股票之间相互独立，单股失败不阻断其它股票。
     pub async fn run_once(&mut self) -> Result<()> {
         self.reload_config_if_changed()?;
 
@@ -200,6 +203,7 @@ where
         Ok(())
     }
 
+    /// 返回 daemon tick 间隔（秒），调用方据此 sleep 后再次调用 run_once。
     pub fn check_interval_secs(&self) -> u64 {
         self.config.check_interval_secs
     }
