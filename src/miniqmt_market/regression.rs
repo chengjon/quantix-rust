@@ -40,6 +40,7 @@ pub struct QuantixRegressionReport {
 }
 
 impl QuantixRegressionReport {
+    /// 以 resolved artifact + context 构造回归报告（不带 double-read comparison）；等价于 comparison=None 调用 from_resolved_artifact_with_comparison。
     pub fn from_resolved_artifact(
         resolved: &ResolvedMarketArtifact,
         context: QuantixRegressionContext,
@@ -47,6 +48,7 @@ impl QuantixRegressionReport {
         Self::from_resolved_artifact_with_comparison(resolved, context, None)
     }
 
+    /// 构造完整回归报告：聚合 manifest/artifact 校验项、ControlledPersistencePolicy 校验、payload 采样与行数验证；可选 comparison 触发 double-read 对比项，决定最终 comparison_summary。
     pub fn from_resolved_artifact_with_comparison(
         resolved: &ResolvedMarketArtifact,
         context: QuantixRegressionContext,
@@ -168,6 +170,7 @@ impl QuantixRegressionReport {
         }
     }
 
+    /// 把 report 序列化为格式化 JSON 字符串；序列化失败返回带原因的 Err。
     pub fn to_pretty_json(&self) -> Result<String, String> {
         serde_json::to_string_pretty(self)
             .map_err(|err| format!("failed to serialize quantix regression report: {err}"))
@@ -223,6 +226,7 @@ pub struct QuantixRegressionComparison {
 }
 
 impl QuantixRegressionComparison {
+    /// 以本地参考 artifact 文件为基准构造 comparison：解析路径、计算 sha256、采样 payload 后逐项（行数/symbols/dates）比对。
     pub fn from_local_reference_artifact(
         resolved: &ResolvedMarketArtifact,
         reference_artifact: impl AsRef<str>,
@@ -248,6 +252,7 @@ impl QuantixRegressionComparison {
         })
     }
 
+    /// 以 source-of-truth summary JSON 为基准构造 comparison：解析路径→读取→反序列化→校验 dataset_version/lineage_id/payload_hash 一致性→比对行数与样本。
     pub fn from_source_of_truth_summary(
         resolved: &ResolvedMarketArtifact,
         source_of_truth_summary: impl AsRef<str>,
@@ -315,6 +320,7 @@ impl QuantixRegressionComparison {
         })
     }
 
+    /// 以 ClickHouse 只读 summary 为基准构造 comparison：先校验 dataset_version 一致，再用 summary 行数/样本对比 resolved 的对应字段；reference_hash 由 summary 内容序列化后 sha256 得到。
     pub fn from_clickhouse_read_only_summary(
         resolved: &ResolvedMarketArtifact,
         summary: QuantixClickHouseReadOnlySummary,
@@ -383,6 +389,7 @@ pub struct QuantixClickHouseReadOnlySummary {
 }
 
 impl QuantixClickHouseReadOnlySummary {
+    /// 返回该 summary 的稳定引用 URI（clickhouse://{database}.{table}?dataset_version=...），用于 evidence/comparison 记录。
     pub fn reference_source_uri(&self) -> String {
         format!(
             "clickhouse://{}.{}?dataset_version={}",
@@ -440,6 +447,7 @@ pub struct QuantixRegressionEvidence {
 }
 
 impl QuantixRegressionEvidence {
+    /// 从已通过（passed=true 且 failed_checks 为空）的 regression report 构造受控 evidence；传入失败 report 时返回带 failed_checks 详情的 Err。
     pub fn from_report(
         report: &QuantixRegressionReport,
         raw_report: RawReportReference,
@@ -482,12 +490,14 @@ impl QuantixRegressionEvidence {
         })
     }
 
+    /// 把 evidence 序列化为格式化 JSON 字符串；序列化失败返回带原因的 Err。
     pub fn to_pretty_json(&self) -> Result<String, String> {
         serde_json::to_string_pretty(self)
             .map_err(|err| format!("failed to serialize quantix regression evidence: {err}"))
     }
 }
 
+/// 收集指定 report 文件的 path/sha256/size 作为 RawReportReference；stat 或 hash 失败返回带路径信息的 Err。
 pub fn raw_report_reference(path: impl AsRef<Path>) -> Result<RawReportReference, String> {
     let path = path.as_ref();
     let metadata = fs::metadata(path).map_err(|err| {
