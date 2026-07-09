@@ -93,6 +93,7 @@ pub struct SqliteLiveImportStore {
 }
 
 impl SqliteLiveImportStore {
+    /// 打开（必要时创建）SQLite 文件并初始化全部 live_import_* 表；父目录按需创建。
     pub async fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -127,6 +128,7 @@ impl SqliteLiveImportStore {
         Ok(())
     }
 
+    /// 批量导入 records：逐条按 (account_id, external_id) 去重，完全一致跳过，payload 不同写 conflict，其余插入；最后写 batch 汇总。返回 LiveImportBatchSummary。
     pub async fn import_records(
         &self,
         account_id: &str,
@@ -230,6 +232,7 @@ INSERT INTO live_import_batches (
         })
     }
 
+    /// 列出指定账户的全部 import records，按 external_id 升序；payload_json 反序列化为 LiveImportRecord。
     pub async fn list_records(&self, account_id: &str) -> Result<Vec<LiveImportRecord>> {
         let rows = sqlx::query(
             r#"
@@ -251,6 +254,7 @@ ORDER BY external_id ASC
             .collect()
     }
 
+    /// 列出指定 batch 的冲突流水，按 created_at 升序。
     pub async fn list_conflicts(&self, batch_id: &str) -> Result<Vec<LiveImportConflict>> {
         let rows = sqlx::query(
             r#"
@@ -275,6 +279,7 @@ ORDER BY created_at ASC
         rows.into_iter().map(row_to_conflict).collect()
     }
 
+    /// 单事务整体覆盖指定账户的 mirror account：upsert 头部字段 + 先删后插全部 positions，失败回滚。
     pub async fn replace_mirror_account(&self, mirror: &LiveImportMirrorAccount) -> Result<()> {
         let mut tx = self.pool.begin().await?;
 
@@ -344,6 +349,7 @@ INSERT INTO live_import_mirror_positions (
         Ok(())
     }
 
+    /// 读取指定账户最新的 mirror account（含 positions，按 code 升序）；无记录返回 `None`。
     pub async fn get_latest_mirror_account(
         &self,
         account_id: &str,
@@ -417,6 +423,7 @@ ORDER BY code ASC
         }))
     }
 
+    /// 追加一条 rebuild 审计流水（rebuild_id 自动生成），用于重建 mirror account 的事后追溯。
     pub async fn append_rebuild_audit(
         &self,
         account_id: &str,
