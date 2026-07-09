@@ -58,6 +58,7 @@ impl RiskIndustryResolver for IndustryResolver {
     }
 }
 
+/// 风控服务：管理规则、计算实时持仓比例、生成日亏损 / 行业集中度等告警。
 #[derive(Debug, Clone)]
 pub struct RiskService<Store> {
     store: Store,
@@ -66,6 +67,7 @@ pub struct RiskService<Store> {
     industry_resolver: Option<Arc<dyn RiskIndustryResolver>>,
 }
 
+/// 运行时复合服务：持有 base 与惰性构建的 buy_checks 两份 [`RiskService`] 实例。
 #[derive(Debug, Clone)]
 pub struct RuntimeJsonRiskServices {
     store: JsonRiskStore,
@@ -74,6 +76,7 @@ pub struct RuntimeJsonRiskServices {
 }
 
 impl RuntimeJsonRiskServices {
+    /// 用 base 服务 + 共享 store 构造，buy_checks 在首次访问时惰性初始化。
     pub fn new(store: JsonRiskStore) -> Self {
         Self {
             base: RiskService::new(store.clone()),
@@ -82,10 +85,14 @@ impl RuntimeJsonRiskServices {
         }
     }
 
+    /// 返回基础风控服务（只读、规则管理）。
     pub fn base(&self) -> &RiskService<JsonRiskStore> {
         &self.base
     }
 
+    /// 返回带完整依赖（bar_loader / industry_resolver）的买入校验服务。
+    ///
+    /// 首次调用时从 store 重建并缓存，后续调用复用缓存实例。
     pub async fn buy_checks(&self) -> Result<RiskService<JsonRiskStore>> {
         let mut guard = self.buy_checks.lock().await;
         if let Some(service) = guard.as_ref() {
@@ -102,6 +109,7 @@ impl<Store> RiskService<Store>
 where
     Store: RiskStore,
 {
+    /// 用默认 bar_loader 与无行业解析器构造服务。
     pub fn new(store: Store) -> Self {
         Self::with_dependencies(
             store,
@@ -110,6 +118,7 @@ where
         )
     }
 
+    /// 用自定义 bar_loader 构造（无行业解析器）。
     pub fn with_bar_loader<Loader>(store: Store, bar_loader: Loader) -> Self
     where
         Loader: RiskBarLoader + 'static,
@@ -117,6 +126,7 @@ where
         Self::with_dependencies(store, bar_loader, None::<IndustryResolver>)
     }
 
+    /// 用自定义行业解析器构造（bar_loader 用默认）。
     pub fn with_industry_resolver<Resolver>(store: Store, industry_resolver: Resolver) -> Self
     where
         Resolver: RiskIndustryResolver + 'static,
@@ -128,6 +138,7 @@ where
         )
     }
 
+    /// 同时指定 bar_loader 与行业解析器。
     pub fn with_bar_loader_and_industry_resolver<Loader, Resolver>(
         store: Store,
         bar_loader: Loader,
@@ -140,6 +151,7 @@ where
         Self::with_dependencies(store, bar_loader, Some(industry_resolver))
     }
 
+    /// 完整依赖注入入口，其他构造函数都委托到这里。
     pub fn with_dependencies<Loader, Resolver>(
         store: Store,
         bar_loader: Loader,
@@ -157,6 +169,7 @@ where
         }
     }
 
+    /// 创建或更新规则，并写入 `RuleSet` 日志事件。
     pub async fn set_rule(
         &self,
         rule_type: &str,
@@ -182,12 +195,14 @@ where
         Ok(rule)
     }
 
+    /// 列出所有规则（按类型升序）。
     pub async fn list_rules(&self) -> Result<Vec<RiskRule>> {
         let mut rules = self.load_state().await?.rules;
         rules.sort_by_key(|rule| rule.rule_type);
         Ok(rules)
     }
 
+    /// 查询日志事件，按时间倒序、可按日期 / 事件类型过滤；`limit` 缺省 20。
     pub async fn list_log(
         &self,
         limit: Option<usize>,
@@ -212,14 +227,17 @@ where
             .collect())
     }
 
+    /// 启用指定规则，并写入 `RuleEnabled` 日志事件。
     pub async fn enable_rule(&self, rule_type: &str, now: DateTime<Utc>) -> Result<RiskRule> {
         self.toggle_rule(rule_type, true, now).await
     }
 
+    /// 禁用指定规则，并写入 `RuleDisabled` 日志事件。
     pub async fn disable_rule(&self, rule_type: &str, now: DateTime<Utc>) -> Result<RiskRule> {
         self.toggle_rule(rule_type, false, now).await
     }
 
+    /// 基于账户快照生成风控状态：日盈亏、买入锁状态、持仓比例、规则快照、自动减仓建议。
     pub async fn status(
         &self,
         snapshot: &RiskAccountSnapshot,
@@ -231,6 +249,9 @@ where
         Ok(status)
     }
 
+    /// 买入前风控校验：刷新状态 → 检查买入锁 → 仓位 / 波动率 / 行业集中度等规则。
+    ///
+    /// 通过返回 `Ok(())`，违反任一规则返回 [`QuantixError`]。
     pub async fn check_buy(
         &self,
         snapshot: &RiskAccountSnapshot,
@@ -284,6 +305,7 @@ where
         Ok(())
     }
 
+    /// 交易后状态同步：等同 [`Self::status`]，用于 trade 模块触发刷新。
     pub async fn sync_after_trade_snapshot(
         &self,
         snapshot: &RiskAccountSnapshot,
@@ -292,6 +314,7 @@ where
         self.status(snapshot, now).await
     }
 
+    /// trade init/reset 后同步：重置日基准为今日 + 当前总资产，并清除买入锁（写日志）。
     pub async fn sync_after_trade_reset(
         &self,
         snapshot: &RiskAccountSnapshot,
@@ -322,6 +345,7 @@ where
         Ok(status)
     }
 
+    /// 手动释放买入锁：标记当日已释放（不影响锁本身的状态），并写日志事件。
     pub async fn release_buy_lock(&self, now: DateTime<Utc>) -> Result<BuyLockState> {
         let mut state = self.load_state().await?;
         let trading_date = now.date_naive();
@@ -442,6 +466,7 @@ where
 }
 
 impl RiskService<JsonRiskStore> {
+    /// 从 JSON store 构造带完整行业解析器的服务（行业映射来自同一目录的 SQLite）。
     pub async fn from_json_store(store: JsonRiskStore) -> Result<Self> {
         let industry_store = SqliteIndustryStore::from_risk_state_path(store.path()).await?;
         Ok(Self::with_industry_resolver(

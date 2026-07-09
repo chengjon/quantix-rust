@@ -59,6 +59,7 @@ pub enum RiskRuleType {
 }
 
 impl RiskRuleType {
+    /// 从 CLI 字符串解析（`"position-limit"` / `"daily-loss-limit"` / 等）。
     pub fn parse(value: &str) -> Result<Self> {
         match value.trim() {
             "position-limit" => Ok(Self::PositionLimit),
@@ -73,6 +74,7 @@ impl RiskRuleType {
         }
     }
 
+    /// 返回 CLI 标识串，与 [`Self::parse`] 互逆。
     pub fn as_cli_str(self) -> &'static str {
         match self {
             Self::PositionLimit => "position-limit",
@@ -84,6 +86,7 @@ impl RiskRuleType {
         }
     }
 
+    /// 返回面向用户的中文标签。
     pub fn display_label(self) -> &'static str {
         match self {
             Self::PositionLimit => "单票仓位上限",
@@ -104,6 +107,13 @@ pub enum RuleValue {
 }
 
 impl RuleValue {
+    /// 按 `rule_type` 期望的格式解析原始字符串。
+    ///
+    /// - `IndustryBlocklist`: 逗号分隔行业名 → `TextList`，至少一个。
+    /// - `PositionLimit`/`VolatilityLimit`/`IndustryLimit`: 仅支持百分比值（如 `20%`）。
+    /// - `DailyLossLimit`/`AutoReduce`: 既支持百分比也支持金额。
+    ///
+    /// 数值必须 > 0。
     pub fn parse(rule_type: RiskRuleType, raw: &str) -> Result<Self> {
         if rule_type == RiskRuleType::IndustryBlocklist {
             let values = raw
@@ -167,6 +177,7 @@ impl RuleValue {
         }
     }
 
+    /// 转回面向用户的展示字符串（` Percentage → "20%"`，`Amount → "5000"`，`TextList → "a,b"`）。
     pub fn display(&self) -> String {
         match self {
             Self::Percentage(value) => format!("{value}%"),
@@ -206,6 +217,7 @@ pub enum RiskLogEventType {
 }
 
 impl RiskLogEventType {
+    /// 从 CLI 字符串解析事件类型。
     pub fn parse(value: &str) -> Result<Self> {
         match value.trim() {
             "rule-set" => Ok(Self::RuleSet),
@@ -223,6 +235,7 @@ impl RiskLogEventType {
         }
     }
 
+    /// 返回 CLI 标识串，与 [`Self::parse`] 互逆。
     pub fn as_cli_str(self) -> &'static str {
         match self {
             Self::RuleSet => "rule-set",
@@ -237,6 +250,7 @@ impl RiskLogEventType {
         }
     }
 
+    /// 返回面向用户的中文标签。
     pub fn display_label(self) -> &'static str {
         match self {
             Self::RuleSet => "规则设置",
@@ -310,6 +324,7 @@ pub struct RiskAccountSnapshot {
 }
 
 impl RiskAccountSnapshot {
+    /// 用账户 ID、总资产和 `(code, market_value)` 持仓元组列表构造快照。
     pub fn new(
         account_id: impl Into<String>,
         total_assets: Decimal,
@@ -340,6 +355,7 @@ pub struct ProjectedBuyImpact {
 }
 
 impl ProjectedBuyImpact {
+    /// 构造买入后的预估快照（持仓市值 + 总资产）。
     pub fn new(
         code: impl Into<String>,
         projected_position_value: Decimal,
@@ -361,6 +377,7 @@ pub enum RiskAccountSource {
 }
 
 impl RiskAccountSource {
+    /// 从字符串解析（`"paper"` / `"live_import"`），未匹配返回 `None`。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "paper" => Some(Self::Paper),
@@ -369,6 +386,7 @@ impl RiskAccountSource {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Paper => "paper",
@@ -385,6 +403,7 @@ pub enum LiveImportRecordType {
 }
 
 impl LiveImportRecordType {
+    /// 从字符串解析（`"trade"` / `"cash"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "trade" => Some(Self::Trade),
@@ -393,6 +412,7 @@ impl LiveImportRecordType {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Trade => "trade",
@@ -409,6 +429,7 @@ pub enum LiveImportTradeSide {
 }
 
 impl LiveImportTradeSide {
+    /// 从字符串解析（`"buy"` / `"sell"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "buy" => Some(Self::Buy),
@@ -417,6 +438,7 @@ impl LiveImportTradeSide {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Buy => "buy",
@@ -433,6 +455,7 @@ pub enum LiveImportCashBusinessType {
 }
 
 impl LiveImportCashBusinessType {
+    /// 从字符串解析（`"deposit"` / `"withdraw"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "deposit" => Some(Self::Deposit),
@@ -441,6 +464,7 @@ impl LiveImportCashBusinessType {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Deposit => "deposit",
