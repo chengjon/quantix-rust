@@ -23,7 +23,7 @@ pub fn quantix_test_url() -> String {
 pub async fn truncate_state_for_date(date: chrono::NaiveDate) -> Result<()> {
     use quantix_cli::db::PostgresClient;
     let pg = PostgresClient::new(&quantix_test_url()).await?;
-    sqlx::query("DELETE FROM import_state WHERE trade_date = $1")
+    sqlx::query("DELETE FROM quantix.import_state WHERE trade_date = $1")
         .bind(date)
         .execute(pg.pool())
         .await

@@ -65,13 +65,13 @@ async fn import_minute_all_live_smoke() {
 
     // Insert 3 real codes into quantix_test.stock_info for this test.
     let pg = pg().await;
-    sqlx::query("DELETE FROM stock_info WHERE code IN ('sh600000','sz000001','sh600004')")
+    sqlx::query("DELETE FROM quantix.stock_info WHERE code IN ('sh600000','sz000001','sh600004','sh999999')")
         .execute(pg.pool())
         .await
         .unwrap();
     for code in &["sh600000", "sz000001", "sh600004"] {
         sqlx::query(
-            "INSERT INTO stock_info (code, name, market, trade_status) \
+            "INSERT INTO quantix.stock_info (code, name, market, trade_status) \
              VALUES ($1, $2, 'SSE', '1') ON CONFLICT (code) DO UPDATE SET trade_status='1'",
         )
         .bind(code)
@@ -105,7 +105,7 @@ async fn import_minute_all_live_smoke() {
 
     // Verify state rows: 3 codes x 2 kinds = 6 success records.
     let count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM import_state WHERE trade_date=$1 AND status='success'",
+        "SELECT count(*) FROM quantix.import_state WHERE trade_date=$1 AND status='success'",
     )
     .bind(date)
     .fetch_one(pg.pool())
@@ -126,7 +126,7 @@ async fn import_minute_all_continue_on_error() {
     truncate_state_for_date(date).await.unwrap();
 
     let pg = pg().await;
-    sqlx::query("DELETE FROM stock_info WHERE code IN ('sh600000','sz000001','sh999999')")
+    sqlx::query("DELETE FROM quantix.stock_info WHERE code IN ('sh600000','sz000001','sh600004','sh999999')")
         .execute(pg.pool())
         .await
         .unwrap();
@@ -136,7 +136,7 @@ async fn import_minute_all_continue_on_error() {
         ("sh999999", "1"), // fake code, will 404
     ] {
         sqlx::query(
-            "INSERT INTO stock_info (code, name, market, trade_status) \
+            "INSERT INTO quantix.stock_info (code, name, market, trade_status) \
              VALUES ($1, $2, 'SSE', $3) ON CONFLICT (code) DO UPDATE SET trade_status=$3",
         )
         .bind(code)
@@ -190,12 +190,12 @@ async fn import_minute_all_skips_already_success() {
     truncate_state_for_date(date).await.unwrap();
 
     let pg = pg().await;
-    sqlx::query("DELETE FROM stock_info WHERE code IN ('sh600000')")
+    sqlx::query("DELETE FROM quantix.stock_info WHERE code IN ('sh600000','sz000001','sh600004','sh999999')")
         .execute(pg.pool())
         .await
         .unwrap();
     sqlx::query(
-        "INSERT INTO stock_info (code, name, market, trade_status) \
+        "INSERT INTO quantix.stock_info (code, name, market, trade_status) \
          VALUES ('sh600000', 'test', 'SSE', '1') ON CONFLICT (code) DO UPDATE SET trade_status='1'",
     )
     .execute(pg.pool())
@@ -218,7 +218,7 @@ async fn import_minute_all_skips_already_success() {
     let s1 = sched.run(date, false).await.unwrap();
     assert_eq!(s1.total_codes, 1);
     let success_after_run1: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM import_state WHERE trade_date=$1 AND status='success'",
+        "SELECT count(*) FROM quantix.import_state WHERE trade_date=$1 AND status='success'",
     )
     .bind(date)
     .fetch_one(pg.pool())
@@ -229,7 +229,7 @@ async fn import_minute_all_skips_already_success() {
     let s2 = sched.run(date, false).await.unwrap();
     assert_eq!(s2.total_codes, 1);
     let success_after_run2: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM import_state WHERE trade_date=$1 AND status='success'",
+        "SELECT count(*) FROM quantix.import_state WHERE trade_date=$1 AND status='success'",
     )
     .bind(date)
     .fetch_one(pg.pool())
@@ -255,12 +255,12 @@ async fn import_status_query() {
     truncate_state_for_date(date).await.unwrap();
 
     let pg = pg().await;
-    sqlx::query("DELETE FROM stock_info WHERE code IN ('sh600000')")
+    sqlx::query("DELETE FROM quantix.stock_info WHERE code IN ('sh600000','sz000001','sh600004','sh999999')")
         .execute(pg.pool())
         .await
         .unwrap();
     sqlx::query(
-        "INSERT INTO stock_info (code, name, market, trade_status) \
+        "INSERT INTO quantix.stock_info (code, name, market, trade_status) \
          VALUES ('sh600000', 'test', 'SSE', '1') ON CONFLICT (code) DO UPDATE SET trade_status='1'",
     )
     .execute(pg.pool())
