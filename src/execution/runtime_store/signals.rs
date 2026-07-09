@@ -1,6 +1,7 @@
 use super::*;
 
 impl StrategyRuntimeStore {
+    /// 把 StrategySignalRecord 全字段插入 signals 表（signal_id 主键），metadata_json 序列化失败或 SQL 执行失败均透传 sqlx/QuantixError。
     pub async fn insert_signal(&self, signal: &StrategySignalRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -40,6 +41,7 @@ INSERT INTO signals (
         Ok(())
     }
 
+    /// 按 signal_id 查询单条 signal；不存在返回 Ok(None)，时间戳/枚举/json 反序列化失败返回 DataParse 错误。
     pub async fn get_signal(&self, signal_id: &str) -> Result<Option<StrategySignalRecord>> {
         let row = sqlx::query(
             r#"
@@ -68,6 +70,7 @@ WHERE signal_id = ?
         row.map(Self::row_to_signal).transpose()
     }
 
+    /// 列出全部 signals，按 created_at DESC, signal_id DESC 排序；逐行通过 row_to_signal 反序列化，任一行失败聚合返回错误。
     pub async fn list_signals(&self) -> Result<Vec<StrategySignalRecord>> {
         let rows = sqlx::query(
             r#"
@@ -95,6 +98,7 @@ ORDER BY created_at DESC, signal_id DESC
         rows.into_iter().map(Self::row_to_signal).collect()
     }
 
+    /// 按 (strategy_instance_id, symbol, timeframe) 唯一键 upsert daemon checkpoint：冲突时更新 checkpoint_id/strategy_name/last_processed_bar/last_run_id/state_json/updated_at；序列化或 SQL 失败透传。
     pub async fn upsert_daemon_checkpoint(
         &self,
         checkpoint: &StrategyDaemonCheckpointRecord,
@@ -140,6 +144,7 @@ ON CONFLICT(strategy_instance_id, symbol, timeframe) DO UPDATE SET
         Ok(())
     }
 
+    /// 按 (strategy_instance_id, symbol, timeframe) 查找 daemon checkpoint；未命中返回 Ok(None)，命中时反序列化时间戳/state_json，失败透传。
     pub async fn find_daemon_checkpoint(
         &self,
         strategy_instance_id: &str,
