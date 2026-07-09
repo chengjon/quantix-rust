@@ -24,6 +24,7 @@ pub struct BoardRankRow {
 }
 
 impl BoardRankRow {
+    /// 构造 BoardRankRow：按参数填充 board_code/board_name/board_type/rank/change_pct。
     pub fn new(
         board_code: impl Into<String>,
         board_name: impl Into<String>,
@@ -51,6 +52,7 @@ pub struct NorthFlowSnapshot {
 }
 
 impl NorthFlowSnapshot {
+    /// 构造 NorthFlowSnapshot：按参数填充 trade_date/sh_amount/sz_amount/total_amount/balance。
     pub fn new(
         trade_date: NaiveDate,
         sh_amount: f64,
@@ -81,6 +83,7 @@ pub struct MarketSentimentSnapshot {
 }
 
 impl MarketSentimentSnapshot {
+    /// 构造 MarketSentimentSnapshot：按参数填充当日涨跌停/封板/炸板等市场情绪字段。
     pub fn new(
         trade_date: NaiveDate,
         up_count: usize,
@@ -121,6 +124,7 @@ pub struct LeaderRow {
 }
 
 impl LeaderRow {
+    /// 构造 LeaderRow：按参数填充 code/name/sector_name/concept_name/change_pct。
     pub fn new(
         code: impl Into<String>,
         name: impl Into<String>,
