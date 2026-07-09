@@ -13,6 +13,7 @@ pub enum ClassificationStandard {
 }
 
 impl ClassificationStandard {
+    /// 返回该分类标准的稳定字符串标识（"shenwan" / "csrc"），用于入库与序列化。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Shenwan => "shenwan",
@@ -20,6 +21,7 @@ impl ClassificationStandard {
         }
     }
 
+    /// 反向解析 "shenwan"/"csrc"；未知值返回错误。
     pub fn parse(value: &str) -> Result<Self> {
         match value {
             "shenwan" => Ok(Self::Shenwan),
@@ -37,12 +39,14 @@ pub enum IndustryClassificationLevel {
 }
 
 impl IndustryClassificationLevel {
+    /// 返回该分类层级的稳定字符串标识（当前仅 "first_level"）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::FirstLevel => "first_level",
         }
     }
 
+    /// 反向解析 "first_level"；未知值返回错误。
     pub fn parse(value: &str) -> Result<Self> {
         match value {
             "first_level" => Ok(Self::FirstLevel),
@@ -107,6 +111,7 @@ pub struct ShenwanHistoricalSeedRow {
     pub source: String,
 }
 
+/// 标准化证券代码：去掉前后空白、去掉 `.SH`/`.SZ` 等后缀（取 `.` 之前部分），转大写。
 pub fn normalize_security_code(code: &str) -> String {
     code.trim()
         .split('.')
@@ -116,6 +121,7 @@ pub fn normalize_security_code(code: &str) -> String {
         .to_ascii_uppercase()
 }
 
+/// 把 NaiveDate 转成 `YYYY-MM` 字符串，作为 snapshot_month 的查询键。
 pub fn snapshot_month(query_date: NaiveDate) -> String {
     format!("{:04}-{:02}", query_date.year(), query_date.month())
 }

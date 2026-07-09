@@ -14,18 +14,22 @@ pub struct IndustryResolver {
 }
 
 impl IndustryResolver {
+    /// 用底层 SqliteIndustryStore 构造 resolver。
     pub fn new(store: SqliteIndustryStore) -> Self {
         Self { store }
     }
 
+    /// 返回当前激活的分类标准（项目级常量 ACTIVE_CLASSIFICATION_STANDARD，目前为 Shenwan）。
     pub fn active_standard(&self) -> ClassificationStandard {
         ACTIVE_CLASSIFICATION_STANDARD
     }
 
+    /// 返回当前激活的分类层级（项目级常量 ACTIVE_INDUSTRY_LEVEL，目前为 FirstLevel）。
     pub fn active_level(&self) -> IndustryClassificationLevel {
         ACTIVE_INDUSTRY_LEVEL
     }
 
+    /// 单事务刷新 shenwan current 表（refresh_shenwan_current_rows 的代理调用）。
     pub async fn sync_shenwan_current_rows(
         &self,
         rows: &[ShenwanCurrentSeedRow],
@@ -36,6 +40,7 @@ impl IndustryResolver {
             .await
     }
 
+    /// 单事务刷新 shenwan history 表（refresh_shenwan_history_rows 的代理调用）。
     pub async fn sync_shenwan_history_rows(
         &self,
         rows: &[ShenwanHistoricalSeedRow],
@@ -46,6 +51,7 @@ impl IndustryResolver {
             .await
     }
 
+    /// 按 current → snapshot_month → historical → latest_snapshot 顺序解析行业归属；任一命中即返回并标注 source_tier，全部未命中返回错误。
     pub async fn resolve(
         &self,
         code: &str,
