@@ -1,0 +1,12 @@
+# P0.15b: quantix-openstock-import deployment on NAS.
+# Triggered by Synology DSM scheduled task via `docker compose run --rm`.
+# Stateless — all state lives in PostgreSQL (quantix.import_state).
+services:
+  quantix-openstock-import:
+    image: quantix-openstock-import:nas
+    container_name: quantix-openstock-import
+    network_mode: host
+    env_file:
+      - .env
+    # No volumes — stateless.
+    # No ports — not a server.
