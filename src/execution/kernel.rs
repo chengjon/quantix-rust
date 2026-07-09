@@ -103,6 +103,7 @@ pub struct ExecutionKernel<A, F, R> {
 }
 
 impl<A, R> ExecutionKernel<A, NoopFillDeltaApplier, R> {
+    /// 构造 ExecutionKernel：注入 store / adapter / risk；不挂 fill delta（内部用 NoopFillDeltaApplier，覆盖价不计入 broker 模拟价差）。
     pub fn new(store: StrategyRuntimeStore, adapter: A, risk: R) -> Self {
         Self {
             store,
@@ -114,6 +115,7 @@ impl<A, R> ExecutionKernel<A, NoopFillDeltaApplier, R> {
 }
 
 impl<A, F, R> ExecutionKernel<A, F, R> {
+    /// 构造 ExecutionKernel 并注入 fill_delta：用于 paper/回测模式下对 broker 成交价做滑点或价差模拟，与真实 adapter 协同写入成交细节。
     pub fn with_fill_delta(
         store: StrategyRuntimeStore,
         adapter: A,
@@ -135,6 +137,7 @@ where
     F: FillDeltaApplier,
     R: RiskEvaluator,
 {
+    /// 处理已构造好的 PreparedExecutionRequest：先 insert_run、再 risk gate、再 adapter submit、再根据返回状态写入 signal/fill/run 状态。整套事务保证 dedupe key 不重复执行；任一环节失败会把 strategy_run_status 标记为 failed 并透传错误。
     pub async fn execute_request(
         &self,
         request: PreparedExecutionRequest,
@@ -171,6 +174,7 @@ where
         self.execute_prepared_order_flow(request).await
     }
 
+    /// 单次执行入口：从 envelope + ExecutionRunRequest 组装 PreparedExecutionRequest 并走 execute_request。若已有相同 dedupe key 的成功执行，直接返回已有结果而不重复下单；避免重复入金/重复成交。
     pub async fn execute_once(
         &self,
         request: ExecutionRunRequest,
