@@ -20,6 +20,7 @@ pub enum StrategyRunStatus {
 }
 
 impl StrategyRunStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Running => "running",
@@ -28,6 +29,7 @@ impl StrategyRunStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "running" => Some(Self::Running),
@@ -52,6 +54,7 @@ pub enum OrderStatus {
 }
 
 impl OrderStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PendingSubmit => "pending_submit",
@@ -66,6 +69,7 @@ impl OrderStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending_submit" => Some(Self::PendingSubmit),
@@ -90,6 +94,7 @@ pub enum SignalStatus {
 }
 
 impl SignalStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::New => "new",
@@ -98,6 +103,7 @@ impl SignalStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "new" => Some(Self::New),
@@ -116,6 +122,7 @@ pub enum ApprovalStatus {
 }
 
 impl ApprovalStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -124,6 +131,7 @@ impl ApprovalStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending" => Some(Self::Pending),
@@ -144,6 +152,7 @@ pub enum ExecutionRequestStatus {
 }
 
 impl ExecutionRequestStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -154,6 +163,7 @@ impl ExecutionRequestStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending" => Some(Self::Pending),
@@ -173,6 +183,7 @@ pub enum OrderSide {
 }
 
 impl OrderSide {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Buy => "buy",
@@ -180,6 +191,7 @@ impl OrderSide {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "buy" => Some(Self::Buy),
@@ -196,6 +208,7 @@ pub enum OrderType {
 }
 
 impl OrderType {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Market => "market",
@@ -203,6 +216,7 @@ impl OrderType {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "market" => Some(Self::Market),
@@ -245,6 +259,7 @@ pub struct SignalEnvelope {
 }
 
 impl SignalEnvelope {
+    /// 用信号构造 envelope，`metadata_json` 初始化为空对象。
     pub fn new(signal: Signal) -> Self {
         Self {
             signal,
@@ -339,6 +354,7 @@ pub struct QmtLiveRuntimeMetadata {
 }
 
 impl QmtLiveTaskIdentity {
+    /// 用入参回填缺失字段（空串视为缺失），返回新的 identity 实例。
     pub fn recover_missing_fields(
         &self,
         task_id: &str,
@@ -371,6 +387,7 @@ impl QmtLiveTaskIdentity {
 }
 
 impl QmtLiveRuntimeMetadata {
+    /// 从单字段推断完整 identity（用于崩溃恢复 / 重启场景）。
     pub fn recover_task_identity(
         &self,
         task_id: &str,
@@ -507,6 +524,7 @@ pub struct StrategyDaemonCheckpointRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 将策略信号 envelope 翻译为可执行的交易意图（含价格 / 数量 / 方向 / 时间戳）。
 pub fn translate_signal(
     envelope: &SignalEnvelope,
     symbol: &str,
