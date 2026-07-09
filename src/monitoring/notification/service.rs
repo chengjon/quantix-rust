@@ -16,6 +16,7 @@ pub struct NotificationService {
 }
 
 impl NotificationService {
+    /// 按 config.enabled_channels 实例化各 sender；Webhook/WechatWork/Feishu 缺 URL 时静默跳过，Email/Telegram 等暂未实现的渠道忽略。
     pub fn new(config: NotificationConfig) -> Self {
         let mut senders: Vec<Box<dyn NotificationSender>> = Vec::new();
 
@@ -59,10 +60,12 @@ impl NotificationService {
         }
     }
 
+    /// 用默认 NotificationConfig 构造 service，便于无外部配置的场景。
     pub fn with_defaults() -> Self {
         Self::new(NotificationConfig::default())
     }
 
+    /// 按最低级别 / 静默时段过滤后逐个 sender 投递；任一成功即 `Ok`，全部失败返回错误。notification 始终写历史（成功/失败标记）。
     pub async fn notify(&mut self, mut notification: Notification) -> Result<()> {
         if notification.level < self.config.min_level {
             tracing::debug!(
@@ -112,6 +115,7 @@ impl NotificationService {
         }
     }
 
+    /// 便捷封装：构造 Notification 后调用 notify；title/message/level 三元组即触发。
     pub async fn send_notification(
         &mut self,
         title: impl Into<String>,
@@ -122,10 +126,12 @@ impl NotificationService {
         self.notify(notification).await
     }
 
+    /// 返回历史通知的只读切片（按插入顺序，超过 max_history 自动滚动旧条目）。
     pub fn get_history(&self) -> &[Notification] {
         &self.notification_history
     }
 
+    /// 清空历史通知缓冲。
     pub fn clear_history(&mut self) {
         self.notification_history.clear();
     }
