@@ -11,6 +11,7 @@ pub struct IndicatorCacheKey {
 }
 
 impl IndicatorCacheKey {
+    /// 用 dataset 指纹 + 指标实例 ID + 行范围构造 cache key；三者共同决定 cache 命中。
     pub fn new(
         dataset_fingerprint: impl Into<String>,
         instance_id: IndicatorInstanceId,
@@ -30,10 +31,12 @@ pub struct IndicatorCache {
 }
 
 impl IndicatorCache {
+    /// 构造空 IndicatorCache（Default::default() 的别名）。
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// 命中则返回 clone；未命中调用 compute 计算后写入并返回；compute 失败直接透传错误且不污染 cache。
     pub fn get_or_compute<F>(
         &mut self,
         key: IndicatorCacheKey,
@@ -51,10 +54,12 @@ impl IndicatorCache {
         Ok(computed)
     }
 
+    /// 返回当前 cache 条目数。
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    /// 判断 cache 是否为空。
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }

@@ -16,6 +16,7 @@ pub struct IndicatorSpec {
 }
 
 impl IndicatorSpec {
+    /// 用 name + params 构造 IndicatorSpec；instance_id 由 from_parts 自动推导（参数规范化排序）。
     pub fn new(name: impl Into<String>, params: HashMap<String, Value>) -> Self {
         let name = name.into();
         let instance_id = IndicatorInstanceId::from_parts(&name, &params);
@@ -27,14 +28,17 @@ impl IndicatorSpec {
         }
     }
 
+    /// 返回指标名（只读）。
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// 返回参数 map（只读）。
     pub fn params(&self) -> &HashMap<String, Value> {
         &self.params
     }
 
+    /// 返回由 name + params 推导出的稳定 instance_id，用作 cache key 一部分。
     pub fn instance_id(&self) -> &IndicatorInstanceId {
         &self.instance_id
     }
@@ -46,6 +50,7 @@ pub struct IndicatorPipelineConfig {
 }
 
 impl IndicatorInstanceId {
+    /// 用 name + params 生成规范化 instance_id：params 为空时退化为 `name`；否则追加按键排序后的 JSON 字符串 `name:{...}`。
     pub fn from_parts(name: &str, params: &HashMap<String, Value>) -> Self {
         if params.is_empty() {
             return Self(name.to_string());
