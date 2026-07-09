@@ -4,6 +4,7 @@ use super::*;
 use crate::execution::models::QmtLiveRuntimeMetadata;
 
 impl StrategyRuntimeStore {
+    /// 插入一条 order 记录；主键冲突直接失败。
     pub async fn insert_order(&self, order: &OrderRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -53,6 +54,7 @@ INSERT INTO orders (
         Ok(())
     }
 
+    /// 插入一条 order_events 流水记录（用于审计/状态机回放）。
     pub async fn insert_order_event(&self, event: &OrderEventRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -78,6 +80,7 @@ INSERT INTO order_events (
         Ok(())
     }
 
+    /// 按 client_order_id 查找订单；不存在返回 `None`。
     pub async fn find_order_by_client_order_id(
         &self,
         client_order_id: &str,
@@ -114,6 +117,7 @@ WHERE client_order_id = ?
         row.map(Self::row_to_order).transpose()
     }
 
+    /// 返回某个 run 下最早一笔订单（按 created_at, order_id 升序），无则 `None`。
     pub async fn find_first_order_for_run(&self, run_id: &str) -> Result<Option<OrderRecord>> {
         let row = sqlx::query(
             r#"
@@ -149,6 +153,7 @@ LIMIT 1
         row.map(Self::row_to_order).transpose()
     }
 
+    /// 用 status/filled/avg 价覆盖订单；remaining_quantity 由 SQL 端重新计算，version 自增。order 不存在时静默无影响。
     pub async fn update_order(
         &self,
         order_id: &str,
@@ -183,6 +188,7 @@ WHERE order_id = ?
         Ok(())
     }
 
+    /// 写入某 order 的 mock-live 状态（含 adapter 端 order_id 可选），用于在进程重启后重建模拟行情。
     pub async fn insert_mock_live_order_state(
         &self,
         order_id: &str,
@@ -207,6 +213,7 @@ INSERT INTO mock_live_orders (
         Ok(())
     }
 
+    /// 读取某 order 的 mock-live 状态；无记录时返回 `None`。
     pub async fn get_mock_live_order_state(
         &self,
         order_id: &str,
@@ -229,6 +236,7 @@ WHERE order_id = ?
         .transpose()
     }
 
+    /// 列出所有 mock-live 状态仍在途（Submitted/Accepted/PartiallyFilled/Unknown/PendingCancel）的订单，按 updated_at 升序。
     pub async fn list_recoverable_mock_live_orders(&self) -> Result<Vec<OrderRecord>> {
         let rows = sqlx::query(
             r#"
@@ -268,6 +276,7 @@ ORDER BY o.updated_at ASC, o.order_id ASC
         rows.into_iter().map(Self::row_to_order).collect()
     }
 
+    /// 用 adapter_order_id 与 state 覆盖 mock-live 状态；order 不存在时静默无影响。
     pub async fn update_mock_live_order_state(
         &self,
         order_id: &str,
@@ -290,6 +299,7 @@ WHERE order_id = ?
         Ok(())
     }
 
+    /// 乐观锁更新：仅当 DB 中 version 等于 expected_version 时才覆盖 status/filled/remaining/avg；成功返回 `true`。
     pub async fn try_update_order_with_version(
         &self,
         order_id: &str,
@@ -327,6 +337,7 @@ WHERE order_id = ? AND version = ?
         Ok(result.rows_affected() == 1)
     }
 
+    /// 乐观锁更新：仅当 version 匹配时才替换 payload_json；成功返回 `true`。
     pub async fn try_update_order_payload_with_version(
         &self,
         order_id: &str,
@@ -353,6 +364,7 @@ WHERE order_id = ? AND version = ?
         Ok(result.rows_affected() == 1)
     }
 
+    /// 乐观锁更新：仅当 version 匹配时同时替换 status/filled/remaining/avg 与 payload_json；成功返回 `true`。
     pub async fn try_update_order_state_and_payload_with_version(
         &self,
         order_id: &str,
@@ -393,6 +405,7 @@ WHERE order_id = ? AND version = ?
         Ok(result.rows_affected() == 1)
     }
 
+    /// 把 QMT 实盘元数据合并进 order.payload_json.qmt_live（保留既有 external_order_id），并乐观锁写回。
     pub async fn try_update_order_qmt_live_metadata(
         &self,
         order: &OrderRecord,
@@ -415,6 +428,7 @@ WHERE order_id = ? AND version = ?
         .await
     }
 
+    /// upsert runner_checkpoints：冲突时整体覆盖（除主键外的所有字段），按 (strategy_name, mode, symbol, timeframe) 唯一。
     pub async fn upsert_checkpoint(&self, checkpoint: &RunnerCheckpointRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -456,6 +470,7 @@ ON CONFLICT(strategy_name, mode, symbol, timeframe) DO UPDATE SET
         Ok(())
     }
 
+    /// 按 (strategy_name, mode, symbol, timeframe) 加载 runner_checkpoints；不存在返回 `None`。
     pub async fn load_checkpoint(
         &self,
         strategy_name: &str,
@@ -489,6 +504,7 @@ WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ?
         row.map(Self::row_to_checkpoint).transpose()
     }
 
+    /// 列出某 order 的全部事件流水，按 (event_time, event_id) 升序。
     pub async fn list_order_events(&self, order_id: &str) -> Result<Vec<OrderEventRecord>> {
         let rows = sqlx::query(
             r#"
@@ -511,6 +527,7 @@ ORDER BY event_time ASC, event_id ASC
         rows.into_iter().map(Self::row_to_order_event).collect()
     }
 
+    /// 列出全部订单，按 created_at 倒序返回。
     pub async fn list_orders(&self) -> Result<Vec<OrderRecord>> {
         let rows = sqlx::query(
             r#"
@@ -547,6 +564,7 @@ ORDER BY created_at DESC
         Ok(orders)
     }
 
+    /// 列出未完结订单（status 不在 filled/canceled/rejected 中），按 created_at 倒序返回。
     pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
         let rows = sqlx::query(
             r#"
