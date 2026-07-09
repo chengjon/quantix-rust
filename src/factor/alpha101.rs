@@ -120,6 +120,7 @@ fn rolling_corr_values(
     out
 }
 
+/// WorldQuant Alpha101 #002：-1 * cs_rank(Δlog₁₀(volume,2)) 与 cs_rank(intraday return) 的 6 期截面滚动相关；缺失/0 分母按 None 处理。输入列：close/open/volume/symbol。
 pub fn alpha101_002(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate_two_stage(
         df,
@@ -145,6 +146,7 @@ pub fn alpha101_002(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// WorldQuant Alpha101 #003：-1 * cs_rank(open) 与 cs_rank(volume) 的 10 期截面滚动相关；输入需含 open/volume/symbol 列。
 pub fn alpha101_003(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -163,6 +165,7 @@ pub fn alpha101_003(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// WorldQuant Alpha101 #005：cs_rank(open - vwap.rolling_mean(10)) * (-1 * |cs_rank(close - vwap)|)，按 symbol 分组；输入需含 open/close/high/low/volume（vwap 由 vwap_expr 派生）。
 pub fn alpha101_005(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate_two_stage(
         df,
@@ -185,6 +188,7 @@ pub fn alpha101_005(df: &DataFrame) -> PolarsResult<Series> {
     )
 }
 
+/// WorldQuant Alpha101 #006：-1 * open 与 volume 的 10 期截面滚动相关；输入需含 open/volume/symbol 列。
 pub fn alpha101_006(df: &DataFrame) -> PolarsResult<Series> {
     let frame = collect_intermediate(
         df,
@@ -199,6 +203,7 @@ pub fn alpha101_006(df: &DataFrame) -> PolarsResult<Series> {
     Ok(values)
 }
 
+/// WorldQuant Alpha101 #012：sign(Δvolume,1) * (-1) * Δclose,1；输入需含 close/volume 列。
 pub fn alpha101_012(df: &DataFrame) -> PolarsResult<Series> {
     let volume_delta = ts_delta_expr(col("volume").cast(DataType::Float64), 1);
     let volume_sign = when(volume_delta.clone().gt(lit(0.0)))
