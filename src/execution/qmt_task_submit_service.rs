@@ -78,6 +78,7 @@ impl QmtLiveCompatibilityDescriptor {
         }
     }
 
+    /// 判断当前 bridge 的 qmt.live 能力是否已就绪（Enabled + live 模式 + 支持 order_submit 三者全满足）。
     pub fn is_ready(&self) -> bool {
         self.readiness == QmtLiveCapabilityReadiness::Ready
     }
@@ -94,12 +95,14 @@ pub struct QmtLiveCapabilitySnapshot {
 }
 
 impl QmtLiveCapabilitySnapshot {
+    /// 判断 snapshot 的 qmt.supports 列表中是否包含指定能力（精确字符串匹配）。
     pub fn supports(&self, capability: &str) -> bool {
         self.qmt_supports
             .iter()
             .any(|supported| supported == capability)
     }
 
+    /// 判断当前 snapshot 是否满足 qmt_live 提交条件（委托给 compatibility.is_ready）。
     pub fn is_live_order_submit_ready(&self) -> bool {
         self.compatibility.is_ready()
     }
@@ -125,6 +128,7 @@ pub enum QmtLiveErrorCategory {
 }
 
 impl QmtLiveErrorCategory {
+    /// 返回该错误类别的稳定字符串标识，用于写入 diagnostics 与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::LocalValidationRejected => "local_validation_rejected",
@@ -145,6 +149,7 @@ impl QmtLiveErrorCategory {
         }
     }
 
+    /// 把 BridgeError 映射到本地 QmtLiveErrorCategory；InvalidResult 中含 identity mismatch 关键字时归类为 TaskIdentityMismatch。
     pub fn from_bridge_error(error: &BridgeError) -> Self {
         match error {
             BridgeError::Config(_) => Self::LocalValidationRejected,
@@ -162,6 +167,7 @@ impl QmtLiveErrorCategory {
         }
     }
 
+    /// 根据 task 终态结果推导错误类别：Rejected → BrokerRejected，Unknown → BrokerUnknownState，其余返回 `None`。
     pub fn from_task_result(result: &QmtTaskResolvedResult) -> Option<Self> {
         match result.latest_status {
             OrderStatus::Rejected => Some(Self::BrokerRejected),
@@ -192,6 +198,7 @@ pub struct QmtTaskResolvedResult {
 }
 
 impl QmtTaskSubmitService {
+    /// 构造 QMT 任务提交服务；poll_interval_ms / poll_timeout_ms 为 0 时返回 BridgeError::Config。
     pub fn new(
         client: BridgeHttpClient,
         poll_interval_ms: u64,
@@ -216,6 +223,7 @@ impl QmtTaskSubmitService {
         })
     }
 
+    /// 拉取 bridge /api/v1/capabilities 并聚合为 QmtLiveCapabilitySnapshot；bridge_contract_version / miniqmt_version 字段暂以 Unknown 占位。
     pub async fn qmt_live_capability_snapshot(
         &self,
     ) -> Result<QmtLiveCapabilitySnapshot, BridgeError> {
@@ -239,6 +247,7 @@ impl QmtTaskSubmitService {
         })
     }
 
+    /// 通过 bridge task_execute qmt submit_order 提交订单，返回任务回执；bridge 返回非 BridgeTaskAccepted 时以 BridgeError::Protocol 失败。
     pub async fn submit_order(
         &self,
         request: &AdapterOrderRequest,
@@ -279,6 +288,7 @@ impl QmtTaskSubmitService {
         })
     }
 
+    /// 单次查询指定 task_id 的结果，并在返回 Completed/Failed 时校验 (client_order_id, local_submission_id) 一致性。
     pub async fn query_task_result_once(
         &self,
         task_id: &str,
@@ -289,6 +299,7 @@ impl QmtTaskSubmitService {
             .await
     }
 
+    /// 仅按 task_id 单次查询结果（不做 identity 校验），适合从异常恢复路径中按 adapter_order_id 反查。
     pub async fn query_task_result_by_task_id(
         &self,
         task_id: &str,
@@ -296,6 +307,7 @@ impl QmtTaskSubmitService {
         self.query_task_result_internal(task_id, None).await
     }
 
+    /// 周期性轮询 task 结果直到脱离 PendingSubmit 或超过 poll_timeout；超时返回 BridgeError::Timeout。
     pub async fn poll_task_result_until_terminal(
         &self,
         task_id: &str,
