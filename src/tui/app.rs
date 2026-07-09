@@ -59,6 +59,7 @@ const MENU_ITEMS: &[TuiMenuItem] = &[
     },
 ];
 
+/// 返回 TUI 菜单项的静态切片（包含 label + action）；长度与顺序与 MENU_ITEMS 常量一致。
 pub fn menu_items() -> &'static [TuiMenuItem] {
     MENU_ITEMS
 }
@@ -69,10 +70,12 @@ pub struct TuiMenuState {
 }
 
 impl TuiMenuState {
+    /// 把选中位置下移一项，到末尾后回绕到 0。
     pub fn next(&mut self) {
         self.selected = (self.selected + 1) % menu_items().len();
     }
 
+    /// 把选中位置上移一项，到 0 后回绕到末尾。
     pub fn previous(&mut self) {
         self.selected = self
             .selected
@@ -80,6 +83,7 @@ impl TuiMenuState {
             .unwrap_or_else(|| menu_items().len() - 1);
     }
 
+    /// 返回当前选中项的 TuiMenuAction，供 dispatcher 据此路由到子命令。
     pub fn selected_action(&self) -> TuiMenuAction {
         menu_items()[self.selected].action
     }
