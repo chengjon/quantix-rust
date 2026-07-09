@@ -16,6 +16,27 @@ use crate::core::runtime::OpenStockSettings;
 use crate::core::{QuantixError, Result};
 use crate::sources::openstock_client::OpenStockClient;
 
+/// Resolve the PostgreSQL connection URL for OpenStock batch commands.
+///
+/// Prefers `QUANTIX_POSTGRES_URL` if set (full URL override); otherwise
+/// assembles one from the individual `POSTGRESQL_*` env vars with sensible
+/// defaults (port 5438, database `quantix`). Returns `QuantixError::Config`
+/// if any required var is missing.
+pub(super) fn resolve_pg_url() -> Result<String> {
+    if let Ok(url) = std::env::var("QUANTIX_POSTGRES_URL") {
+        return Ok(url);
+    }
+    let host = std::env::var("POSTGRESQL_HOST")
+        .map_err(|_| QuantixError::Config("POSTGRESQL_HOST not set".into()))?;
+    let port = std::env::var("POSTGRESQL_PORT").unwrap_or_else(|_| "5438".into());
+    let user = std::env::var("POSTGRESQL_USER")
+        .map_err(|_| QuantixError::Config("POSTGRESQL_USER not set".into()))?;
+    let pass = std::env::var("POSTGRESQL_PASSWORD")
+        .map_err(|_| QuantixError::Config("POSTGRESQL_PASSWORD not set".into()))?;
+    let db = std::env::var("POSTGRESQL_DATABASE").unwrap_or_else(|_| "quantix".into());
+    Ok(format!("postgres://{user}:{pass}@{host}:{port}/{db}"))
+}
+
 /// Inner import logic — accepts already-constructed client + sink.
 ///
 /// Used by both the CLI handler (which builds clients per invocation)

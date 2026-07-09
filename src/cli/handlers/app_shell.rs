@@ -450,39 +450,11 @@ pub async fn run_data_command(cmd: DataCommands) -> Result<()> {
                 dry_run,
             } => {
                 let rt = CliRuntime::load();
-                let pg_url = std::env::var("QUANTIX_POSTGRES_URL").or_else(|_| {
-                    let host = std::env::var("POSTGRESQL_HOST")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_HOST not set".into()))?;
-                    let port = std::env::var("POSTGRESQL_PORT").unwrap_or_else(|_| "5438".into());
-                    let user = std::env::var("POSTGRESQL_USER")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_USER not set".into()))?;
-                    let pass = std::env::var("POSTGRESQL_PASSWORD")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_PASSWORD not set".into()))?;
-                    let db =
-                        std::env::var("POSTGRESQL_DATABASE").unwrap_or_else(|_| "quantix".into());
-                    Ok::<_, QuantixError>(format!(
-                        "postgres://{}:{}@{}:{}/{}",
-                        user, pass, host, port, db
-                    ))
-                })?;
+                let pg_url = resolve_pg_url()?;
                 import_openstock_minute_all(&rt.openstock, &pg_url, date, format, dry_run).await?;
             }
             OpenStockCommands::ImportStatus { date, format } => {
-                let pg_url = std::env::var("QUANTIX_POSTGRES_URL").or_else(|_| {
-                    let host = std::env::var("POSTGRESQL_HOST")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_HOST not set".into()))?;
-                    let port = std::env::var("POSTGRESQL_PORT").unwrap_or_else(|_| "5438".into());
-                    let user = std::env::var("POSTGRESQL_USER")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_USER not set".into()))?;
-                    let pass = std::env::var("POSTGRESQL_PASSWORD")
-                        .map_err(|_| QuantixError::Config("POSTGRESQL_PASSWORD not set".into()))?;
-                    let db =
-                        std::env::var("POSTGRESQL_DATABASE").unwrap_or_else(|_| "quantix".into());
-                    Ok::<_, QuantixError>(format!(
-                        "postgres://{}:{}@{}:{}/{}",
-                        user, pass, host, port, db
-                    ))
-                })?;
+                let pg_url = resolve_pg_url()?;
                 query_import_status(&pg_url, date, format).await?;
             }
             OpenStockCommands::FetchAllStocks { day } => {
