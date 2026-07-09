@@ -7,7 +7,7 @@
 
 use chrono::NaiveDate;
 
-use crate::cli::handlers::openstock_handler::{
+use crate::cli::handlers::openstock_batch_handler::{
     import_minute_klines_inner, import_minute_share_inner,
 };
 use crate::core::error::Result;

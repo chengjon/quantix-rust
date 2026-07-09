@@ -21,7 +21,7 @@ use common::pg::{quantix_test_url, truncate_state_for_date};
 
 use chrono::NaiveDate;
 use quantix_cli::cli::command_types::OutputFormat;
-use quantix_cli::cli::handlers::openstock_handler::query_import_status;
+use quantix_cli::cli::handlers::openstock_batch_handler::query_import_status;
 use quantix_cli::core::runtime::OpenStockSettings;
 use quantix_cli::data::models::{AdjustType, MinutePeriod};
 use quantix_cli::db::PostgresClient;

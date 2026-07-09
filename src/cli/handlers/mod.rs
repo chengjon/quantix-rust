@@ -31,6 +31,7 @@ mod monitor_handler;
 mod monitor_output;
 mod news;
 mod notify;
+pub mod openstock_batch_handler;
 pub mod openstock_handler;
 mod performance_handler;
 mod risk;
@@ -125,14 +126,14 @@ use self::monitor_output::{
 };
 pub use self::news::run_news_command;
 pub use self::notify::run_notify_command;
+use self::openstock_batch_handler::{import_openstock_minute_all, query_import_status};
 use self::openstock_handler::{
     fetch_openstock_all_stocks, fetch_openstock_calendar, fetch_openstock_codes,
     fetch_openstock_index, fetch_openstock_klines, fetch_openstock_minute_klines,
-    fetch_openstock_minute_share, fetch_openstock_workdays, import_openstock_minute_all,
-    import_openstock_minute_klines, import_openstock_minute_share, persist_openstock_live,
-    query_import_status, shadow_rollback, shadow_verify, validate_openstock_calendar,
-    validate_openstock_codes, validate_openstock_fixture, validate_openstock_index,
-    validate_openstock_live,
+    fetch_openstock_minute_share, fetch_openstock_workdays, import_openstock_minute_klines,
+    import_openstock_minute_share, persist_openstock_live, shadow_rollback, shadow_verify,
+    validate_openstock_calendar, validate_openstock_codes, validate_openstock_fixture,
+    validate_openstock_index, validate_openstock_live,
 };
 pub(crate) use self::performance_handler::run_performance_command;
 pub use self::risk::run_risk_command;
