@@ -16,12 +16,14 @@ pub struct JsonMonitorServiceConfigStore {
 }
 
 impl JsonMonitorServiceConfigStore {
+    /// 构造指向指定 path 的 JSON 配置 store；不读不写，仅记录路径。
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),
         }
     }
 
+    /// 构造指向 $HOME/.quantix/monitor/service.json 的默认 store；HOME 环境变量缺失返回 Config 错误。
     pub fn with_default_path() -> Result<Self> {
         let home = std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| {
             QuantixError::Config("HOME is required for monitor service config".into())
@@ -31,6 +33,7 @@ impl JsonMonitorServiceConfigStore {
         ))
     }
 
+    /// 从 path 读取并反序列化为 MonitorServiceConfig；文件不存在返回 Config 错误，读取或 JSON 解析失败透传。
     pub fn load(&self) -> Result<MonitorServiceConfig> {
         if !self.path.exists() {
             return Err(QuantixError::Config(format!(
@@ -43,6 +46,7 @@ impl JsonMonitorServiceConfigStore {
         Ok(serde_json::from_str(&contents)?)
     }
 
+    /// 原子写入：先序列化为 pretty JSON 写入 .tmp 临时文件，再 rename 到目标路径；自动创建父目录。序列化、目录创建、写入或 rename 失败透传。
     pub fn save(&self, config: &MonitorServiceConfig) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             if !parent.as_os_str().is_empty() {
@@ -56,6 +60,7 @@ impl JsonMonitorServiceConfigStore {
         Ok(())
     }
 
+    /// 校验 quantix_bin_path 必须是绝对路径、文件存在、（unix）至少含一位可执行权限位（mode & 0o111 != 0）。任一不满足返回带路径的 Config 错误。
     pub fn validate(config: &MonitorServiceConfig) -> Result<()> {
         let path = &config.quantix_bin_path;
 
