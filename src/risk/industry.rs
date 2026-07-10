@@ -6,6 +6,7 @@ pub const ACTIVE_CLASSIFICATION_STANDARD: ClassificationStandard = Classificatio
 pub const ACTIVE_INDUSTRY_LEVEL: IndustryClassificationLevel =
     IndustryClassificationLevel::FirstLevel;
 
+/// 行业分类标准：Shenwan 申万、Csrc 证监会。当前 ACTIVE_CLASSIFICATION_STANDARD 为 Shenwan。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClassificationStandard {
     Shenwan,
@@ -33,6 +34,7 @@ impl ClassificationStandard {
     }
 }
 
+/// 行业分类层级：当前仅 FirstLevel（一级行业），保留枚举供后续扩展二/三级行业。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndustryClassificationLevel {
     FirstLevel,
@@ -57,6 +59,7 @@ impl IndustryClassificationLevel {
     }
 }
 
+/// 行业来源层级（优先级从高到低）：CurrentActive 当前生效、SnapshotMonth 指定月份快照、Historical 历史回溯、LatestSnapshot 最近可用快照。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndustrySourceTier {
     CurrentActive,
@@ -65,6 +68,7 @@ pub enum IndustrySourceTier {
     LatestSnapshot,
 }
 
+/// 已解析出的行业归属：code 标的、industry_name 行业名、standard 分类标准、level 层级、source_tier 来源层级、query_month 查询月份（YYYY-MM）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedIndustry {
     pub code: String,
@@ -75,6 +79,7 @@ pub struct ResolvedIndustry {
     pub query_month: String,
 }
 
+/// 行业参照表记录（reference 表行）：code、industry_name、standard、level、source 来源标识。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndustryReferenceRecord {
     pub code: String,
@@ -84,6 +89,7 @@ pub struct IndustryReferenceRecord {
     pub source: String,
 }
 
+/// 行业快照表记录（snapshot 表行）：code、industry_name、standard、level、snapshot_month 月份键、source 来源、captured_at 抓取时间。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndustrySnapshotRecord {
     pub code: String,
@@ -95,6 +101,7 @@ pub struct IndustrySnapshotRecord {
     pub captured_at: DateTime<Utc>,
 }
 
+/// 申万当前生效种子行：security_code 证券代码、industry_name 行业名、source 来源标识。用于回填 reference/snapshot 表。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShenwanCurrentSeedRow {
     pub security_code: String,
@@ -102,6 +109,7 @@ pub struct ShenwanCurrentSeedRow {
     pub source: String,
 }
 
+/// 申万历史种子行：security_code、industry_name、effective_from 生效起、effective_to 可选生效止（None 表示至今）、source 来源。用于历史回溯快照。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShenwanHistoricalSeedRow {
     pub security_code: String,
