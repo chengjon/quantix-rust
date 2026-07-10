@@ -9,6 +9,7 @@ use crate::core::{QuantixError, Result};
 pub const DEFAULT_ACCOUNT_ID: &str = "default";
 pub const PAPER_TRADE_STATE_VERSION: u32 = 1;
 
+/// 纸面交易持久化根：版本号、可选账户、交易记录列表。Default 使用 PAPER_TRADE_STATE_VERSION + 空 account + 空 records。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaperTradeState {
     pub version: u32,
@@ -26,6 +27,7 @@ impl Default for PaperTradeState {
     }
 }
 
+/// 纸面交易账户：account_id 账户 ID、initial_capital 初始资金、available_cash 可用现金、fee_config 费率配置、positions 持仓字典、created_at/updated_at 时间戳。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaperTradeAccount {
     pub account_id: String,
@@ -37,6 +39,7 @@ pub struct PaperTradeAccount {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 单只标的的纸面持仓：code、volume 持仓量、avg_cost 平均成本、last_trade_price 最近成交价、opened_at 建仓时间、updated_at 最近更新时间。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TradePosition {
     pub code: String,
@@ -47,6 +50,7 @@ pub struct TradePosition {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 单条交易入库记录：id 主键、code/side/price/volume/amount 订单信息、commission/stamp_duty/transfer_fee/total_fee 费用分解、executed_at 成交时间。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TradeRecord {
     pub id: String,
@@ -62,12 +66,14 @@ pub struct TradeRecord {
     pub executed_at: DateTime<Utc>,
 }
 
+/// 交易方向：Buy 买入、Sell 卖出。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TradeSide {
     Buy,
     Sell,
 }
 
+/// 手续费率配置：commission_rate 佣金率、commission_min 最低佣金、stamp_duty_rate 印花税率、transfer_fee_rate 过户费率。Default 为 A 股常见费率。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FeeConfig {
     pub commission_rate: Decimal,
@@ -124,6 +130,7 @@ impl FeeConfig {
     }
 }
 
+/// 单笔交易费用分解：commission 佣金、stamp_duty 印花税、transfer_fee 过户费、total_fee 合计。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FeeBreakdown {
     pub commission: Decimal,
@@ -132,6 +139,7 @@ pub struct FeeBreakdown {
     pub total_fee: Decimal,
 }
 
+/// 资金快照：initial_capital 初始资金、available_cash 可用现金、estimated_position_value 估算持仓市值、estimated_total_assets 估算总资产。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CashSnapshot {
     pub initial_capital: Decimal,
@@ -140,6 +148,7 @@ pub struct CashSnapshot {
     pub estimated_total_assets: Decimal,
 }
 
+/// 交易历史展示行：executed_at/code/side/price/volume/amount、total_fee 总费用、net_cash_impact 净现金流影响（买入为负，卖出为正）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeHistoryRow {
     pub executed_at: DateTime<Utc>,
@@ -152,6 +161,7 @@ pub struct TradeHistoryRow {
     pub net_cash_impact: Decimal,
 }
 
+/// 单笔交易费用展示行：executed_at/code/side + commission/stamp_duty/transfer_fee/total_fee，用于费用分析报表。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeFeeRow {
     pub executed_at: DateTime<Utc>,
@@ -163,6 +173,7 @@ pub struct TradeFeeRow {
     pub total_fee: Decimal,
 }
 
+/// 账户总览：初始资金/可用现金/账面持仓市值/账面总资产/交易笔数/持仓数/累计买入/累计卖出/累计费用，可选实时估值与行情覆盖率（已取/总数）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeOverview {
     pub initial_capital: Decimal,
@@ -179,6 +190,7 @@ pub struct TradeOverview {
     pub quote_coverage: Option<(usize, usize)>,
 }
 
+/// 持仓行情状态：BookOnly 仅有账面价、Live 已取到实时行情、Missing 缺失行情（用于 TradeOverview 的 quote_coverage 统计）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TradeQuoteStatus {
     BookOnly,
@@ -186,6 +198,7 @@ pub enum TradeQuoteStatus {
     Missing,
 }
 
+/// 持仓当前展示行：账面字段（code/volume/avg_cost/last_trade_price）+ 实时字段（current_price/current_market_value/unrealized_pnl/unrealized_pnl_pct，无行情时为 None）+ quote_status。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradePositionCurrentRow {
     pub code: String,
@@ -199,6 +212,7 @@ pub struct TradePositionCurrentRow {
     pub quote_status: TradeQuoteStatus,
 }
 
+/// trade init 命令请求：capital 初始资金、fee_config 费率配置；由 InitAccountRequest::new 从 CLI 输入解析。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InitAccountRequest {
     pub capital: Decimal,
@@ -227,6 +241,7 @@ impl InitAccountRequest {
     }
 }
 
+/// trade order 命令请求：code 标的代码、price 价格、volume 数量；由 TradeOrderRequest::new 校验代码格式与价格/数量为正。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeOrderRequest {
     pub code: String,
