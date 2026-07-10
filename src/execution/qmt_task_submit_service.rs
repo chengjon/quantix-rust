@@ -12,6 +12,7 @@ use crate::bridge::models::{
 use crate::execution::adapter::AdapterOrderRequest;
 use crate::execution::models::{OrderSide, OrderStatus};
 
+/// QMT 实盘任务提交服务：封装 bridge task/execute + task/result 轮询契约，对外暴露 submit/cancel/query 能力。持有 BridgeHttpClient 与轮询参数。
 #[derive(Debug, Clone)]
 pub struct QmtTaskSubmitService {
     client: BridgeHttpClient,
@@ -19,6 +20,7 @@ pub struct QmtTaskSubmitService {
     poll_timeout: Duration,
 }
 
+/// QMT 任务提交回执：task_id、client_order_id、local_submission_id 三元幂等键，bridge_contract_version 契约版本、source_name 数据源。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QmtTaskSubmitReceipt {
     pub task_id: String,
@@ -28,12 +30,14 @@ pub struct QmtTaskSubmitReceipt {
     pub source_name: String,
 }
 
+/// bridge 能力字段值（带"未知"语义）：Known 已知值、Unknown bridge 未上报该字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QmtLiveCapabilityValue {
     Known(String),
     Unknown,
 }
 
+/// QMT 实盘就绪状态：Ready 就绪、Disabled 未启用、NonLiveMode 非 live 模式、MissingOrderSubmit 缺 order_submit 能力。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QmtLiveCapabilityReadiness {
     Ready,
@@ -42,6 +46,7 @@ pub enum QmtLiveCapabilityReadiness {
     MissingOrderSubmit,
 }
 
+/// QMT 实盘兼容性描述：readiness 就绪状态、missing_required_supports 缺失的必需能力列表（如 ["order_submit"]）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QmtLiveCompatibilityDescriptor {
     pub readiness: QmtLiveCapabilityReadiness,
@@ -84,6 +89,7 @@ impl QmtLiveCompatibilityDescriptor {
     }
 }
 
+/// QMT 实盘能力快照：qmt_enabled 是否启用、qmt_mode 模式、qmt_supports 能力列表、compatibility 兼容性描述、bridge_contract_version/miniqmt_version 版本（可能 Unknown）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QmtLiveCapabilitySnapshot {
     pub qmt_enabled: bool,
@@ -108,6 +114,7 @@ impl QmtLiveCapabilitySnapshot {
     }
 }
 
+/// QMT 实盘错误类别：本地校验/风控拒绝、bridge infra 失败（超时/不可达/鉴权/契约版本/方法/协议/HTTP/结果无效）、broker 业务拒绝/未知态、身份不匹配、需人工介入。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QmtLiveErrorCategory {
     LocalValidationRejected,
@@ -183,6 +190,7 @@ fn is_identity_mismatch_error(message: &str) -> bool {
         || message.contains("live_bridge_identity_mismatch")
 }
 
+/// QMT 任务终态解析结果：adapter_order_id 适配器单号、latest_status 终态、filled_quantity/avg_fill_price 成交明细、rejection_reason 可选拒单原因、broker_event_type/external_order_id/client_order_id/local_submission_id/source_name broker 与身份上下文。
 #[derive(Debug, Clone, PartialEq)]
 pub struct QmtTaskResolvedResult {
     pub adapter_order_id: String,
