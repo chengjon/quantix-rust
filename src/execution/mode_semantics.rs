@@ -17,6 +17,7 @@ pub const PAPER_SIM_LIFECYCLE_RISK_NOTICE: &str =
 pub const QMT_LIVE_RISK_NOTICE: &str =
     "[qmt_live] real-money execution path; miniQMT and broker state are authoritative";
 
+/// 执行模式存储绑定：configured_mode 配置值、channel 通道名、storage_namespace 存储命名空间、runtime_switching_allowed 是否允许运行时切换（当前固定 false，paper/qmt 不可互切）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionModeStorageBinding {
     pub configured_mode: &'static str,

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::core::{QuantixError, Result};
 
+/// 自动审批模式：Manual 人工批准（默认）、Always daemon 自动批准所有 pending request。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AutoApprovalMode {
@@ -12,11 +13,13 @@ pub enum AutoApprovalMode {
     Always,
 }
 
+/// 自动审批配置：mode 决定 daemon 对 pending request 的批准策略。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutoApprovalConfig {
     pub mode: AutoApprovalMode,
 }
 
+/// 执行 daemon 配置：poll_interval_secs 轮询间隔、max_requests_per_iteration 单轮处理上限、auto_approval 自动审批策略。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionDaemonConfig {
     pub poll_interval_secs: u64,
@@ -36,6 +39,7 @@ impl Default for ExecutionDaemonConfig {
     }
 }
 
+/// JSON 文件执行的配置存储：load/load_or_create/save，原子保存（.tmp + rename）。默认路径 `$HOME/.quantix/execution/config.json`。
 #[derive(Debug, Clone)]
 pub struct JsonExecutionConfigStore {
     path: PathBuf,
