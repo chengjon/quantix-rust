@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// risk 命令族 clap 枚举（容器）：Import 实盘导入、Sync 同步、Rebuild 重建、Rule 规则、Log 日志、Lock 买入锁、Status/Pnl/Position 状态查询。
 #[derive(Subcommand, Debug)]
 pub enum RiskCommands {
     /// 导入标准化实盘流水
@@ -69,6 +70,7 @@ pub enum RiskCommands {
     },
 }
 
+/// risk import 子命令枚举：LiveTrades 导入标准化实盘流水（account + input 文件路径）。
 #[derive(Subcommand, Debug)]
 pub enum RiskImportCommands {
     /// 导入标准化实盘流水
@@ -83,6 +85,7 @@ pub enum RiskImportCommands {
     },
 }
 
+/// risk sync 子命令枚举：Industry 同步行业分类引用表（standard，目前仅支持 shenwan）。
 #[derive(Subcommand, Debug)]
 pub enum RiskSyncCommands {
     /// 同步行业分类引用表
@@ -93,6 +96,7 @@ pub enum RiskSyncCommands {
     },
 }
 
+/// risk rebuild 子命令枚举：LiveAccount 重建实盘镜像账户。
 #[derive(Subcommand, Debug)]
 pub enum RiskRebuildCommands {
     /// 重建实盘镜像账户
@@ -103,12 +107,14 @@ pub enum RiskRebuildCommands {
     },
 }
 
+/// risk lock 子命令枚举：Release 手动释放当日买入锁。
 #[derive(Subcommand, Debug)]
 pub enum RiskLockCommands {
     /// 手动释放当日买入锁
     Release,
 }
 
+/// risk rule 子命令枚举：Set 设置规则（type+value）、List 列出、Enable/Disable 启停。
 #[derive(Subcommand, Debug)]
 pub enum RiskRuleCommands {
     /// 设置风控规则
