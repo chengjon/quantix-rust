@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use super::sampling::{file_uri_local_path_candidates, sample_artifact_payload, sha256_file};
 use super::selection::{ControlledPersistencePolicy, ResolvedMarketArtifact};
 
+/// 回归运行上下文（由调用方提供）：source_command 触发命令、run_at 运行时间、consumer_build_commit 提交、database_target 目标库、writes_performed 是否实际写库。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuantixRegressionContext {
     pub source_command: String,
@@ -17,6 +18,7 @@ pub struct QuantixRegressionContext {
     pub writes_performed: bool,
 }
 
+/// Quantix 回归报告根（schema=quantix_regression_report.v1）：来源/运行时间/消费方系统、dataset_version/lineage_id/payload_hash/rows_hash、artifact 元数据、行数、样本 symbols/dates、回归状态、消费方构建信息、redaction_notes/warnings。由 QuantixRegressionReport::from_resolved_artifact_with_comparison 构造。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixRegressionReport {
     pub schema_version: String,
@@ -177,6 +179,7 @@ impl QuantixRegressionReport {
     }
 }
 
+/// 回归报告内嵌的 artifact 元数据：type/uri/schema_version/row_count/hash 四个 manifest 字段 + computed_hash/computed_row_count/rows_hash 三个本地复算字段，对比二者构成校验项。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixRegressionArtifact {
     #[serde(rename = "type")]
@@ -193,6 +196,7 @@ pub struct QuantixRegressionArtifact {
     pub rows_hash: Option<String>,
 }
 
+/// 回归校验状态：passed 是否全部通过、failed_checks 失败项列表、checks 全部检查项（含通过）、comparison_summary 对比结论摘要、可选 comparison 详情。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixRegressionStatus {
     pub passed: bool,
@@ -203,6 +207,7 @@ pub struct QuantixRegressionStatus {
     pub comparison: Option<QuantixRegressionComparison>,
 }
 
+/// Double-read 对比详情：comparison_type 对比类型（local_reference_artifact/source_of_truth_summary/direct_clickhouse_read_only）、reference_uri/reference_hash 参考基准、行数与样本（symbols/dates）是否匹配、参考样本详情。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixRegressionComparison {
     pub comparison_type: String,
@@ -358,6 +363,7 @@ impl QuantixRegressionComparison {
     }
 }
 
+/// Source-of-truth summary JSON 反序列化结构：source_system/source_uri 来源、dataset_version/lineage_id/payload_hash 三元一致性键、row_count 行数、sample_symbols/sample_dates 样本、generated_at 生成时间。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixSourceOfTruthSummary {
     pub source_system: String,
@@ -376,6 +382,7 @@ pub struct QuantixSourceOfTruthSummary {
     pub generated_at: Option<String>,
 }
 
+/// ClickHouse 只读查询返回的 summary：database/table 来源、dataset_version、row_count、sample_symbols/sample_dates。用于 from_clickhouse_read_only_summary 对比基准。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixClickHouseReadOnlySummary {
     pub database: String,
@@ -422,6 +429,7 @@ fn comparison_failure_summary(comparison_type: &str) -> &'static str {
     }
 }
 
+/// 消费方构建信息：repo 仓库名、commit 提交 SHA、database_target 目标库（用于 ControlledPersistencePolicy 校验）、writes_performed 是否实际写库。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixConsumerBuild {
     pub repo: String,
@@ -430,6 +438,7 @@ pub struct QuantixConsumerBuild {
     pub writes_performed: bool,
 }
 
+/// 原始报告文件引用：path 路径、hash sha256、size_bytes 字节数，由 raw_report_reference() 收集并嵌入 evidence。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawReportReference {
     pub path: String,
@@ -437,6 +446,7 @@ pub struct RawReportReference {
     pub size_bytes: u64,
 }
 
+/// 受控 evidence（schema=evidence.v1）：仅能从 passed=true 的 regression report 构造，作为 dataset 升级 / 消费方回归通过的不可篡改证据。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixRegressionEvidence {
     pub schema_version: String,
@@ -555,12 +565,14 @@ fn resolve_source_of_truth_summary_path(source_of_truth_summary: &str) -> Result
     Ok(PathBuf::from(source_of_truth_summary))
 }
 
+/// Evidence 运行环境：consumer_system 消费方系统名、consumer_build 消费方提交 SHA。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixEvidenceEnvironment {
     pub consumer_system: String,
     pub consumer_build: String,
 }
 
+/// Evidence 结果摘要：evidence_type 固定 "promotion_consumer_regression"、消费方/dataset/lineage/payload_hash/rows_hash/artifact/regression/row_count/samples/consumer_build/raw_report/warnings/redaction_notes/generated_at 全量快照。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuantixEvidenceResultSummary {
     pub evidence_type: String,
