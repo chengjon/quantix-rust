@@ -44,6 +44,7 @@ pub enum SentimentLevel {
 }
 
 impl SentimentLevel {
+    /// 把 [-1, 1] 区间的得分映射到 7 档情绪：≥0.6 VeryBullish、≥0.4 Bullish、≥0.2 SlightlyBullish、≥-0.2 Neutral、≥-0.4 SlightlyBearish、≥-0.6 Bearish、其余 VeryBearish。
     pub fn from_score(score: f64) -> Self {
         if score >= 0.6 {
             Self::VeryBullish
@@ -62,6 +63,7 @@ impl SentimentLevel {
         }
     }
 
+    /// 返回对应 emoji（🚀/📈/🙂/😐/😟/📉/🔥），用于 CLI 与报告可视化。
     pub fn emoji(&self) -> &'static str {
         match self {
             Self::VeryBullish => "🚀",
@@ -74,6 +76,7 @@ impl SentimentLevel {
         }
     }
 
+    /// 返回中文情绪标签（"非常看多"/"看多"/"中性偏多"/"中性"/"中性偏空"/"看空"/"非常看空"）。
     pub fn label(&self) -> &'static str {
         match self {
             Self::VeryBullish => "非常看多",

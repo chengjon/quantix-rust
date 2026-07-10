@@ -17,6 +17,7 @@ const DEFAULT_BOARD_LIMIT: usize = 10;
 const DEFAULT_LEADER_LIMIT: usize = 10;
 const DEFAULT_OVERVIEW_TOP: usize = 5;
 
+/// 市场数据读取 trait：抽象 ClickHouse/其他后端的板块排名/北向资金/市场情绪/龙头股查询。Send + Sync 以适配 MarketService 的并发模型。
 #[async_trait]
 pub trait MarketDataReader: Send + Sync {
     /// 按 board_type/sort_by 加载板块排名；date 为 `None` 时取 ClickHouse 中最新交易日；limit 限制返回行数。
@@ -43,6 +44,7 @@ pub trait MarketDataReader: Send + Sync {
     ) -> Result<Vec<LeaderRow>>;
 }
 
+/// 市场服务：注入 MarketDataReader，对外封装 get_board_rankings/get_leaders 等带默认值的高层 API。泛型 R 让后端可插拔。
 #[derive(Debug, Clone)]
 pub struct MarketService<R> {
     reader: R,
