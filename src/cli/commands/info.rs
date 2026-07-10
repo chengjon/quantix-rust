@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// notify 命令族 clap 枚举：Test 发送测试通知（可指定渠道）、Status 渠道配置状态。
 #[derive(Subcommand, Debug)]
 pub enum NotifyCommands {
     /// 发送测试通知
@@ -43,6 +44,7 @@ pub enum NotifyCommands {
     },
 }
 
+/// ai 命令族 clap 枚举：Analyze AI 分析股票、Chat 多轮对话。
 #[derive(Subcommand, Debug)]
 pub enum AiCommands {
     /// AI 分析股票
@@ -109,6 +111,7 @@ pub enum AiCommands {
     },
 }
 
+/// news 命令族 clap 枚举：Search 搜索新闻、Hot 热点、Detail 详情。
 #[derive(Subcommand, Debug)]
 pub enum NewsCommands {
     /// 搜索新闻
@@ -164,6 +167,7 @@ pub enum NewsCommands {
     Providers,
 }
 
+/// fundamental 命令族 clap 枚举：Show 基本面数据、Sync 同步快照。
 #[derive(Subcommand, Debug)]
 pub enum FundamentalCommands {
     /// 显示基本面数据
@@ -232,6 +236,7 @@ pub enum FundamentalCommands {
     },
 }
 
+/// sentiment 命令族 clap 枚举：Show 显示舆情数据、Trend 趋势分析。
 #[derive(Subcommand, Debug)]
 pub enum SentimentCommands {
     /// 显示舆情数据
@@ -264,6 +269,7 @@ pub enum SentimentCommands {
     },
 }
 
+/// import 命令族 clap 枚举：FromImage 从图片识别股票代码、FromText 从文本提取标的。
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum ImportCommands {

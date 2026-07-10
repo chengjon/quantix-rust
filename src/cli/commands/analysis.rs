@@ -1,5 +1,6 @@
 use clap::{ArgGroup, Subcommand};
 
+/// task 命令族 clap 枚举：Add/List/Remove 定时任务管理（Foundation P0 阶段为占位，Add/Remove 不支持具体执行）。
 #[derive(Subcommand, Debug)]
 pub enum TaskCommands {
     /// 添加定时任务（Foundation P0 不支持）
@@ -34,6 +35,7 @@ pub enum TaskCommands {
     Status,
 }
 
+/// analyze 命令族 clap 枚举：Indicators 技术指标、Pattern 蜡图形态、Report 综合分析、Backtest 策略回测、Pick 选股。
 #[derive(Subcommand, Debug)]
 pub enum AnalyzeCommands {
     /// 计算技术指标
@@ -118,6 +120,7 @@ pub enum AnalyzeCommands {
     Screener(ScreenerCommands),
 }
 
+/// screener 命令族 clap 枚举：PresetList 列出内置模板、Run 运行选股。
 #[derive(Subcommand, Debug)]
 pub enum ScreenerCommands {
     /// 列出内置筛选条件模板

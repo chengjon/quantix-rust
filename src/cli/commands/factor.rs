@@ -1,5 +1,6 @@
 use clap::{Subcommand, ValueEnum};
 
+/// factor 输出格式：Table 终端表格、CSV 文本、JSON 结构化、Parquet 列式文件。
 #[derive(Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum FactorOutputFormat {
     Table,
@@ -8,6 +9,7 @@ pub enum FactorOutputFormat {
     Parquet,
 }
 
+/// factor 命令族 clap 枚举：List 列出注册因子、Compute 批量计算、Show 查看因子定义、Validate 校验实现。
 #[derive(Subcommand, Debug)]
 pub enum FactorCommands {
     /// List registered factor definitions
