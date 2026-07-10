@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783579060505,
+  "lastUpdate": 1783665395680,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -6495,6 +6495,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 935570.9547477986,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "3ee41c416e85813c97bc6c6755b35eebe3f0ec12",
+          "message": "docs(p0.15b-pre): add versioned DDL for stock_info + import_state\n\nP0.15b spec §7 defined the schema for quantix.stock_info and\nquantix.import_state, but the DDL only lived inside the spec doc —\noperators had no runnable file. Task 9 of P0.15b created the tables\nout-of-band on the NAS Postgres instance; this commit captures that\nDDL as a proper versioned artifact.\n\n- db/schema/quantix_openstock_import_init.sql: operator-runbook DDL\n  (same convention as quantix_shadow_init.sql — intentionally NOT\n  applied by automated CI migration; opt-in write path). Idempotent\n  (IF NOT EXISTS on every object). Verified clean-run + idempotent-run\n  on quantix_test database.\n\n- deploy/nas/quantix-openstock-import/README.md: deployment guide\n  pointing at the DDL file as a precondition, plus build/load/run\n  instructions for the NAS host.\n\nAll 4 live integration tests (T1-T4) re-verified green after applying\nthe new DDL file to a fresh quantix_test schema.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-07-09T05:50:23Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/3ee41c416e85813c97bc6c6755b35eebe3f0ec12"
+        },
+        "date": 1783665395133,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 382572.53161350545,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 3189660.294212615,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 39748710.87943651,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1300102.7682865646,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 9744494.21530284,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 93200234.7200397,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 1436930.9588913887,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 10784231.911760036,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 107674992.69315477,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 17902.591688717905,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 176317.6657999472,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1940872.9363476026,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 18080.876062658008,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 176770.09658458695,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1960867.4904718352,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 44308.274514942736,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 428380.0532916364,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 4665099.31727273,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 24545.600369265252,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 286069.53255801916,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 3411623.2210685126,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 42071.218669350965,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 641537.7288754284,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 7361797.156428573,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 6623.811720808015,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 74249.01562147956,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 1300420.2347361273,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 7757.700146610112,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 93464.36512714061,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 47147.748686689796,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 18950.88720601683,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 157313.91812108076,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 80775.71847794787,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 54.09517907939563,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 53.03236463043969,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 76.62942244117885,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 1108.4016484273138,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 11002.363272772076,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 109393.74380896226,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 11117.299728260661,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 112133.46112277784,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 1131306.5229481193,
             "unit": "ns"
           }
         ]
