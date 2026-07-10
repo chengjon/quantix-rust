@@ -3,17 +3,20 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+/// 板块类型：Sector 行业板块、Concept 概念板块。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoardType {
     Sector,
     Concept,
 }
 
+/// 板块排名排序字段：当前仅 ChangePct 涨跌幅，保留枚举供后续扩展。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoardSortBy {
     ChangePct,
 }
 
+/// 板块排名展示行：board_code 板块代码、board_name 名称、board_type 类型、rank 排名、change_pct 涨跌幅。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BoardRankRow {
     pub board_code: String,
@@ -42,6 +45,7 @@ impl BoardRankRow {
     }
 }
 
+/// 北向资金快照：trade_date 日期、sh_amount 沪股通净流入、sz_amount 深股通净流入、total_amount 合计、balance 当日余额。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NorthFlowSnapshot {
     pub trade_date: NaiveDate,
@@ -70,6 +74,7 @@ impl NorthFlowSnapshot {
     }
 }
 
+/// 市场情绪快照：trade_date 日期、up_count/down_count 涨跌家数、limit_up_count/limit_down_count 涨跌停数、seal_rate 封板率、break_rate 炸板率、consecutive_board_count 连板数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MarketSentimentSnapshot {
     pub trade_date: NaiveDate,
@@ -107,6 +112,7 @@ impl MarketSentimentSnapshot {
     }
 }
 
+/// 龙头查询过滤器：Sector 按行业、Concept 按概念、All 全市场。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LeaderFilter {
     Sector(String),
@@ -114,6 +120,7 @@ pub enum LeaderFilter {
     All,
 }
 
+/// 龙头展示行：code、name、sector_name 可选所属行业、concept_name 可选所属概念、change_pct 涨跌幅。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LeaderRow {
     pub code: String,
@@ -142,6 +149,7 @@ impl LeaderRow {
     }
 }
 
+/// 市场总览：top_sectors 行业榜、top_concepts 概念榜、north_flow 可选北向资金快照、sentiment 可选情绪快照。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MarketOverview {
     pub top_sectors: Vec<BoardRankRow>,
