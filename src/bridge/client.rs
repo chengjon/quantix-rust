@@ -14,6 +14,7 @@ use crate::bridge::models::{
 };
 use crate::core::runtime::{DEFAULT_BRIDGE_CONTRACT_VERSION, DEFAULT_BRIDGE_TIMEOUT_MS};
 
+/// bridge HTTP 客户端：封装 TDX/QMT 数据接口与 task contract 任务接口，内置 contract_version 与 timeout，支持 api_key（legacy）与 bearer_token（task contract）两种鉴权头。
 #[derive(Debug, Clone)]
 pub struct BridgeHttpClient {
     client: Client,
@@ -156,7 +157,7 @@ impl BridgeHttpClient {
 
     // ============ Live Order Methods ============
 
-    /// Submit a real order to QMT (LIVE TRADING)
+    /// POST /api/v1/broker/qmt/orders 提交真实订单（实盘交易）。payload 序列化或 bridge 错误均透传。
     pub async fn qmt_submit_order(
         &self,
         payload: &BridgeQmtOrderRequest,
@@ -169,7 +170,7 @@ impl BridgeHttpClient {
         self.send_legacy_json(self.with_api_key(request)).await
     }
 
-    /// Query order status
+    /// GET /api/v1/broker/qmt/orders/{order_id} 查询订单状态。
     pub async fn qmt_query_order(&self, order_id: &str) -> Result<BridgeQmtOrderQueryResponse> {
         let request = self.client.get(format!(
             "{}/api/v1/broker/qmt/orders/{}",
@@ -179,7 +180,7 @@ impl BridgeHttpClient {
         self.send_legacy_json(self.with_api_key(request)).await
     }
 
-    /// Cancel an order
+    /// DELETE /api/v1/broker/qmt/orders/{order_id} 撤销订单。
     pub async fn qmt_cancel_order(&self, order_id: &str) -> Result<BridgeQmtCancelResponse> {
         let request = self.client.delete(format!(
             "{}/api/v1/broker/qmt/orders/{}",
@@ -189,7 +190,7 @@ impl BridgeHttpClient {
         self.send_legacy_json(self.with_api_key(request)).await
     }
 
-    /// Get account status
+    /// GET /api/v1/broker/qmt/account 查询账户状态（含 mode/sdk_available/connected/account_masked）。
     pub async fn qmt_account_status(&self) -> Result<BridgeQmtAccountStatusResponse> {
         let request = self.client.get(format!(
             "{}/api/v1/broker/qmt/account/status",
@@ -199,7 +200,7 @@ impl BridgeHttpClient {
         self.send_legacy_json(self.with_api_key(request)).await
     }
 
-    /// Get all positions
+    /// GET /api/v1/broker/qmt/positions 查询所有持仓。
     pub async fn qmt_positions(&self) -> Result<Vec<BridgeQmtPosition>> {
         let request = self
             .client
@@ -208,7 +209,7 @@ impl BridgeHttpClient {
         self.send_legacy_json(self.with_api_key(request)).await
     }
 
-    /// Get account asset
+    /// GET /api/v1/broker/qmt/asset 查询账户资产（total_asset/cash/market_value/account_id）。
     pub async fn qmt_asset(&self) -> Result<BridgeQmtAsset> {
         let request = self
             .client
