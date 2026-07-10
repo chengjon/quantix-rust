@@ -431,14 +431,8 @@ pub fn from_kline_vec(klines: &[crate::data::models::Kline]) -> BatchKlineData {
     let mut amount = Vec::with_capacity(klines.len());
 
     for kline in klines {
-        timestamps.push(
-            kline
-                .date
-                .and_hms_opt(0, 0, 0)
-                .unwrap()
-                .and_utc()
-                .timestamp(),
-        );
+        let midnight = kline.date.and_hms_opt(0, 0, 0).unwrap_or_default();
+        timestamps.push(midnight.and_utc().timestamp());
         open.push(kline.open.to_f64().unwrap_or(0.0));
         high.push(kline.high.to_f64().unwrap_or(0.0));
         low.push(kline.low.to_f64().unwrap_or(0.0));

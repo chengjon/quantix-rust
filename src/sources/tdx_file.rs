@@ -14,7 +14,7 @@ use std::io::Read;
 use std::path::Path;
 
 fn fallback_date() -> NaiveDate {
-    NaiveDate::from_ymd_opt(1970, 1, 1).expect("fallback date must be valid")
+    NaiveDate::from_ymd_opt(1970, 1, 1).unwrap_or_default()
 }
 
 // ============================================================================

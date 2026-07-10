@@ -223,7 +223,7 @@ pub(crate) fn naive_to_offsetdatetime(naive: chrono::NaiveDateTime) -> time::Off
         .try_into()
         .unwrap_or(time::Month::January);
     let date = time::Date::from_calendar_date(naive.year(), month, naive.day() as u8)
-        .unwrap_or_else(|_| time::Date::from_ordinal_date(1970, 1).unwrap());
+        .unwrap_or(time::Date::MIN);
     let t = time::Time::from_hms(
         naive.hour() as u8,
         naive.minute() as u8,
@@ -235,7 +235,7 @@ pub(crate) fn naive_to_offsetdatetime(naive: chrono::NaiveDateTime) -> time::Off
 
 pub(crate) fn offsetdatetime_to_naivedate(dt: time::OffsetDateTime) -> chrono::NaiveDate {
     chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-        .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap())
+        .unwrap_or(chrono::NaiveDate::default())
 }
 
 pub(crate) fn datetime_utc_to_offsetdatetime(dt: chrono::DateTime<Utc>) -> time::OffsetDateTime {

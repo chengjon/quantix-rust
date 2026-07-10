@@ -252,8 +252,9 @@ impl<P> StrategyBarLoadTelemetry for FallbackStrategyBarLoader<P> {
 fn normalize_daily_bar_end(date: chrono::NaiveDate) -> Result<DateTime<Utc>> {
     let shanghai = FixedOffset::east_opt(8 * 3600)
         .ok_or_else(|| QuantixError::Other("无法构造 Asia/Shanghai 时区偏移".to_string()))?;
+    let close_time = NaiveTime::from_hms_opt(15, 0, 0).unwrap_or_else(NaiveTime::default);
     let local = shanghai
-        .from_local_datetime(&date.and_time(NaiveTime::from_hms_opt(15, 0, 0).unwrap()))
+        .from_local_datetime(&date.and_time(close_time))
         .single()
         .ok_or_else(|| QuantixError::Other(format!("无法规范化日线结束时间: {date}")))?;
     Ok(local.with_timezone(&Utc))

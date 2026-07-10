@@ -112,7 +112,7 @@ impl BacktestEngine {
             calculator,
             pending_orders: Vec::new(),
             position_info: HashMap::new(),
-            current_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            current_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap_or_else(NaiveDate::default),
         }
     }
 
