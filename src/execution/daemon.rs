@@ -32,6 +32,7 @@ use helpers::{
     merge_execution_request_payload, remap_trade_request_error, sync_risk_from_trade_store,
 };
 
+/// execution daemon 单轮迭代摘要：claimed 本轮领取的 pending 数、completed 完成数、failed 失败数、request 本轮处理的首个请求（便于排查）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExecutionDaemonIterationSummary {
     pub claimed: usize,

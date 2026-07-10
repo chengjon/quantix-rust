@@ -5,6 +5,7 @@ pub const QMT_LIVE_BRIDGE_MODE_REQUIREMENT: &str = "bridge qmt.mode=live";
 pub const QMT_LIVE_BRIDGE_COMMAND: &str = "execution bridge qmt-live";
 pub const QMT_LIVE_SUBMIT_SUPPORT_REQUIREMENT: &str = "bridge qmt.supports includes order_submit";
 
+/// qmt_live gate 失败原因：CapabilityCheckFailed capability 检查异常（如 503/超时）、CapabilityDisabled bridge qmt capability 未启用、ModeNotLive bridge qmt.mode 不是 live、MissingOrderSubmitSupport 缺少 order_submit 能力。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QmtLiveGateFailure {
     CapabilityCheckFailed(String),
@@ -13,6 +14,7 @@ pub enum QmtLiveGateFailure {
     MissingOrderSubmitSupport,
 }
 
+/// ModeNotLive 的细分：NonLive 明确非 live（如 preview_only）、Ambiguous 模糊（空串、首尾空白、unknown/unsupported/unavailable 等占位值）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QmtLiveModeFailureKind {
     NonLive,
