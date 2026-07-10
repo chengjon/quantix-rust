@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+/// mock_live 单步成交计划：quantity 本步成交量、delay_secs 距上一步的延迟秒数。多步组成 fill_plan 模拟分批成交。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct MockLiveFillStep {
     #[serde(default)]
@@ -35,6 +36,7 @@ pub struct MockLiveFaultInjection {
     pub timeout_seconds: Option<i64>,
 }
 
+/// mock_live 订单运行时状态：fill_plan 分批计划、next_step_index 当前步、simulated_fill_price/planned_fill_time 模拟成交价与时间、fault_injection 故障注入、unknown_until/cancel_requested/last_applied_fill_id 等用于 mock 状态机推进与崩溃恢复。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct MockLiveOrderState {
     #[serde(default)]

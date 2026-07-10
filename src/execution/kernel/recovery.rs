@@ -8,6 +8,7 @@ where
     F: FillDeltaApplier,
     R: RiskEvaluator,
 {
+    /// 崩溃恢复入口：扫描 list_recoverable_mock_live_orders，逐笔 query_order 比对状态/成交量，应用 fill delta、CAS 更新订单（version 守护）、写 fill_applied / recovery_exhausted 事件。返回 scanned/recovered/unchanged/failed/skipped 汇总。
     pub async fn recover_pending_orders(&self) -> Result<RecoverySummary> {
         let mut summary = RecoverySummary {
             scanned: 0,

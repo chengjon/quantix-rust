@@ -146,6 +146,7 @@ where
     }
 }
 
+/// daemon 单轮迭代：领取下一个 pending request 并执行；无 pending 返回 claimed=0，成功返回 claimed=completed=1，失败把 request 标 Failed 并返回 failed=1（错误在 request 已成功落 Failed 时吞掉，否则透传）。
 pub async fn consume_next_pending_request_with_components<TS>(
     store: &StrategyRuntimeStore,
     trade_store: TS,
@@ -191,6 +192,7 @@ where
     }
 }
 
+/// 按 request_id 执行 pending 请求：加载默认 kill switch（`$HOME/.quantix/...`），转发到带 kill_switch 的变体。返回最终落库的 ExecutionRequestRecord。
 pub async fn execute_request_by_id_with_components<TS>(
     store: &StrategyRuntimeStore,
     request_id: &str,
@@ -211,6 +213,7 @@ where
     .await
 }
 
+/// 按 request_id 执行 pending 请求的底层入口（显式注入 kill_switch_store）：检查 kill switch → 构造执行通道（paper/mock_live/qmt_live）→ 提交并更新 request 状态。返回最终落库的 ExecutionRequestRecord。
 pub async fn execute_request_by_id_with_components_and_kill_switch<TS>(
     store: &StrategyRuntimeStore,
     kill_switch_store: &JsonKillSwitchStore,

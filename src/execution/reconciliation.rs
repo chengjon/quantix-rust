@@ -97,6 +97,7 @@ pub enum ReconciliationAction {
 }
 
 impl ReconciliationAction {
+    /// 返回稳定字符串标识（"no_action"/"state_updated"/...），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::NoAction => "no_action",
@@ -108,6 +109,7 @@ impl ReconciliationAction {
         }
     }
 
+    /// 由稳定字符串还原枚举；未知值返回 `None`（不报错，便于向前兼容新增动作）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "no_action" => Some(Self::NoAction),
