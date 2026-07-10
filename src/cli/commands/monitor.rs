@@ -1,5 +1,6 @@
 use clap::{ArgGroup, Subcommand};
 
+/// monitor 命令族 clap 枚举（容器）：Watchlist 自选池监控、Alert 价格告警、Config 配置、Daemon 守护进程、Service systemd 服务、ServiceConfig 服务配置、Event 事件历史。
 #[derive(Subcommand, Debug)]
 pub enum MonitorCommands {
     /// 运行自选池监控
@@ -44,6 +45,7 @@ pub enum MonitorCommands {
     Event(MonitorEventCommands),
 }
 
+/// monitor alert 子命令枚举：Add 添加告警（above/below 互斥二选一）、List 列出告警、Remove 按 id 删除。
 #[derive(Subcommand, Debug)]
 pub enum MonitorAlertCommands {
     /// 添加价格告警
@@ -76,6 +78,7 @@ pub enum MonitorAlertCommands {
     },
 }
 
+/// monitor config 子命令枚举：Show 显示配置、Set 修改配置（interval_seconds/group/persist_events/notify 互斥至少一）、ClearGroup 清除分组限制。
 #[derive(Subcommand, Debug)]
 pub enum MonitorConfigCommands {
     /// 显示当前监控配置
@@ -110,12 +113,14 @@ pub enum MonitorConfigCommands {
     ClearGroup,
 }
 
+/// monitor daemon 子命令枚举：Run 运行监控守护进程。
 #[derive(Subcommand, Debug)]
 pub enum MonitorDaemonCommands {
     /// 运行监控守护进程
     Run,
 }
 
+/// monitor service 子命令枚举：Install/Uninstall 安装卸载 systemd 用户服务、Start/Stop/Status 启停查、Enable/Disable 开机自启开关。
 #[derive(Subcommand, Debug)]
 pub enum MonitorServiceCommands {
     /// 安装 systemd 用户服务
@@ -134,6 +139,7 @@ pub enum MonitorServiceCommands {
     Disable,
 }
 
+/// monitor service-config 子命令枚举：Show 显示服务配置、Set 设置 quantix 可执行文件路径（quantix-bin）。
 #[derive(Subcommand, Debug)]
 pub enum MonitorServiceConfigCommands {
     /// 显示当前服务配置
@@ -147,6 +153,7 @@ pub enum MonitorServiceConfigCommands {
     },
 }
 
+/// monitor event 子命令枚举：List 查询事件历史（支持 limit/code/type 过滤）。
 #[derive(Subcommand, Debug)]
 pub enum MonitorEventCommands {
     /// 查看监控事件历史
@@ -165,6 +172,7 @@ pub enum MonitorEventCommands {
     },
 }
 
+/// stop 命令族 clap 枚举：Set/Show/Remove 规则管理、Status 评估状态、Trigger 历史触发查询（具体子命令见源码）。
 #[derive(Subcommand, Debug)]
 pub enum StopCommands {
     /// 设置止盈止损规则
