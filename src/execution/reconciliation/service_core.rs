@@ -3,7 +3,7 @@ use crate::core::Result;
 use crate::execution::models::OrderRecord;
 
 impl ReconciliationService {
-    /// Create a new reconciliation service
+    /// 构造对账服务：仅注入 store，不挂 QMT 恢复能力。
     pub fn new(store: StrategyRuntimeStore) -> Self {
         let scanner = OpenOrderScanner::new(store.clone());
         Self {
@@ -13,6 +13,7 @@ impl ReconciliationService {
         }
     }
 
+    /// 构造对账服务并注入 QmtTaskSubmitService，用于 qmt_live 订单的恢复。
     pub fn with_qmt_live_query_service(
         store: StrategyRuntimeStore,
         qmt_submit_service: QmtTaskSubmitService,
@@ -25,13 +26,7 @@ impl ReconciliationService {
         }
     }
 
-    /// Run reconciliation on all open orders
-    ///
-    /// This will:
-    /// 1. Scan all open orders
-    /// 2. Check each order against adapter state (if available)
-    /// 3. Update local state if discrepancies found
-    /// 4. Handle Unknown orders with timeout recovery
+    /// 对全部挂单执行对账：扫描挂单 → 逐单比对 adapter/本地状态 → 修复不一致 → Unknown 超时转失败；返回带 summary 统计与逐单明细的报告。
     pub async fn reconcile_all(&self) -> Result<ReconciliationReport> {
         let start = std::time::Instant::now();
         let open_orders = self.scanner.list_open_orders().await?;
@@ -80,7 +75,7 @@ impl ReconciliationService {
         })
     }
 
-    /// Reconcile a single order
+    /// 对单笔订单执行对账：qmt_live 可恢复走 QMT 路径；Unknown 走超时处理；其余无动作返回 NoAction。
     pub async fn reconcile_order(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
         if self.is_qmt_live_recoverable(order) {
             return self.reconcile_qmt_live_order(order).await;
@@ -116,7 +111,7 @@ impl ReconciliationService {
             )
     }
 
-    /// Get the scanner for direct access
+    /// 返回内部扫描器引用，便于直接复用其查询能力。
     pub fn scanner(&self) -> &OpenOrderScanner {
         &self.scanner
     }

@@ -2,7 +2,7 @@ use super::*;
 use crate::core::Result;
 
 impl OpenOrderScanner {
-    /// Create a new open order scanner
+    /// 构造扫描器，stale 阈值默认 1h、unknown 超时默认 5min。
     pub fn new(store: StrategyRuntimeStore) -> Self {
         Self {
             store,
@@ -11,7 +11,7 @@ impl OpenOrderScanner {
         }
     }
 
-    /// Create with custom thresholds
+    /// 构造扫描器并自定义 stale 与 unknown 阈值（秒）。
     pub fn with_thresholds(
         store: StrategyRuntimeStore,
         stale_threshold_seconds: i64,
@@ -24,12 +24,12 @@ impl OpenOrderScanner {
         }
     }
 
-    /// List all open orders (orders that are not in terminal state)
+    /// 列出所有未终结（非终态）订单，透传 store.list_open_orders。
     pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
         self.store.list_open_orders().await
     }
 
-    /// List orders in Unknown state that may need recovery
+    /// 列出处于 Unknown 状态的订单（可能需要恢复）。
     pub async fn list_unknown_orders(&self) -> Result<Vec<OrderRecord>> {
         let open_orders = self.list_open_orders().await?;
         Ok(open_orders
@@ -38,7 +38,7 @@ impl OpenOrderScanner {
             .collect())
     }
 
-    /// List stale orders (open orders older than threshold)
+    /// 列出超过 stale 阈值的挂单（按 created_at 计算 age）。
     pub async fn list_stale_orders(&self) -> Result<Vec<OrderRecord>> {
         let open_orders = self.list_open_orders().await?;
         let now = Utc::now();
@@ -53,7 +53,7 @@ impl OpenOrderScanner {
             .collect())
     }
 
-    /// Get summary of open orders by status
+    /// 汇总挂单：按状态计数、stale/unknown 计数，并透出当前阈值。
     pub async fn get_open_order_summary(&self) -> Result<OpenOrderSummary> {
         let open_orders = self.list_open_orders().await?;
         let now = Utc::now();
