@@ -169,7 +169,20 @@ impl QuoteCollector {
 /// 默认实现
 impl Default for QuoteCollector {
     fn default() -> Self {
-        Self::with_default_config().expect("无法创建默认行情采集器")
+        // with_default_config 失败时降级为 TdxSource::default()（可能是零连接占位），
+        // 让后续 fetch_quotes_batch 自行报错。
+        let tdx_source = match TdxSource::with_default_config() {
+            Ok(src) => src,
+            Err(e) => {
+                tracing::error!("QuoteCollector::default TDX 构造失败，降级占位: {}", e);
+                TdxSource::default()
+            }
+        };
+        Self {
+            tdx_source: Arc::new(tdx_source),
+            batch_size: 800,
+            collect_timeout: 10,
+        }
     }
 }
 

@@ -129,7 +129,7 @@ fn collect_date32_samples(
 ) {
     use arrow::array::Array;
 
-    let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).expect("1970-01-01 is a valid date");
+    let epoch = chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap_or_default();
     for row in 0..values.len() {
         if values.is_null(row) {
             continue;

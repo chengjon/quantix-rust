@@ -15,9 +15,9 @@ use crate::execution::models::{OrderSide, OrderStatus};
 /// QMT 实盘任务提交服务：封装 bridge task/execute + task/result 轮询契约，对外暴露 submit/cancel/query 能力。持有 BridgeHttpClient 与轮询参数。
 #[derive(Debug, Clone)]
 pub struct QmtTaskSubmitService {
-    client: BridgeHttpClient,
-    poll_interval: Duration,
-    poll_timeout: Duration,
+    pub(crate) client: BridgeHttpClient,
+    pub(crate) poll_interval: Duration,
+    pub(crate) poll_timeout: Duration,
 }
 
 /// QMT 任务提交回执：task_id、client_order_id、local_submission_id 三元幂等键，bridge_contract_version 契约版本、source_name 数据源。
