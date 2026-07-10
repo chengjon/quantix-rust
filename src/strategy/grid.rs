@@ -70,6 +70,7 @@ pub struct GridStrategy {
 }
 
 impl GridStrategy {
+    /// 创建网格策略：注入 GridConfig，自动生成 `Grid_G{N}_ATR{N}_R{N}` 名称，初始空仓无网格。
     pub fn new(config: GridConfig) -> Self {
         Self {
             name: format!(
@@ -90,6 +91,7 @@ impl GridStrategy {
         }
     }
 
+    /// 用 GridConfig::default() 构造默认参数网格策略（grid_count=5, atr=20, range=1.0）。
     pub fn with_defaults() -> Self {
         Self::new(GridConfig::default())
     }

@@ -10,19 +10,23 @@ use crate::data::models::Kline;
 use crate::execution::models::SignalEnvelope;
 use crate::strategy::ConfiguredStrategyInstance;
 
+/// 已配置策略评估器 trait：lookback_required 返回所需 K 线回看长度、evaluate 在给定 K 线上求值并返回 SignalEnvelope。Send + Sync 以适配 daemon。
 pub trait ConfiguredStrategyEvaluator: Send + Sync {
     fn lookback_required(&self) -> usize;
     fn evaluate(&self, klines: &[Kline]) -> Result<SignalEnvelope>;
 }
 
+/// 策略注册中心：根据 ConfiguredStrategyInstance.name 路由到对应 Evaluator 实现（当前仅 ma_cross）。
 #[derive(Debug, Default, Clone)]
 pub struct StrategyRegistry;
 
 impl StrategyRegistry {
+    /// 创建空注册中心（无状态，仅做路由表入口）。
     pub fn new() -> Self {
         Self
     }
 
+    /// 按 config.name 构造对应策略的 Evaluator 装箱返回；未知策略名返回错误。当前支持 "ma_cross"。
     pub fn build(
         &self,
         config: &ConfiguredStrategyInstance,

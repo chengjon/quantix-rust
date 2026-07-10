@@ -7,17 +7,23 @@ use crate::data::models::{AdjustType, Kline};
 use crate::sources::TdxDayFile;
 use crate::strategy::runtime::StrategyBarLoader;
 
+/// TDX 根目录环境变量（新规范）：FallbackStrategyBarLoader 从此变量解析 TDX 数据根路径。
 pub const STRATEGY_TDX_ROOT_ENV: &str = "QUANTIX_TDX_ROOT";
+/// TDX 根目录环境变量（旧版兼容）：QUANTIX_TDX_ROOT 未设置时回退到此变量。
 pub const LEGACY_TDX_ROOT_ENV: &str = "TDX_ROOT";
+/// TDX 市场标识环境变量（新规范）：如 sh/sz，用于决定 day 文件子目录。
 pub const STRATEGY_TDX_MARKET_ENV: &str = "QUANTIX_TDX_MARKET";
+/// TDX 市场标识环境变量（旧版兼容）。
 pub const LEGACY_TDX_MARKET_ENV: &str = "TDX_MARKET";
 
+/// 单次 load_daily_bars 的数据来源标记：source_id 标识来源（"primary" / "tdx_fallback"）、fallback_used 是否走了 fallback 路径。供 daemon 遥测诊断使用。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StrategyBarLoadSource {
     pub source_id: String,
     pub fallback_used: bool,
 }
 
+/// 双源 K 线 loader：primary 优先（如 ClickHouse），失败时按 tdx_root + preferred_market 走 TDX day 文件 fallback。last_source 记录最近一次来源供诊断。
 #[derive(Debug, Clone)]
 pub struct FallbackStrategyBarLoader<P> {
     primary: P,

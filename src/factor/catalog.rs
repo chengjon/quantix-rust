@@ -12,6 +12,7 @@ use crate::factor::dataset::FactorDataset;
 use crate::factor::operators::{cs_rank, ts_delay, ts_delta, ts_rank};
 use crate::factor::types::{FactorCategory, FactorComputeResult, FactorMeta, MissingPolicy};
 
+/// 因子目录：持有 `Vec<FactorMeta>`，按 id 派发 compute；通常由 `builtin_factor_catalog()` 构造内置集合。
 pub struct FactorCatalog {
     metas: Vec<FactorMeta>,
 }

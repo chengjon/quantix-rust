@@ -9,6 +9,7 @@ use crate::core::{QuantixError, Result};
 use crate::factor::dataset::FactorDataset;
 use crate::factor::types::FactorComputeResult;
 
+/// IC 评估汇总：factor_id/horizon 元信息、ic_mean/ic_std/ir (信息比率) 统计量、observations 有效观测数。无可评估周期时统计量为 None。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorIcSummary {
     pub factor_id: String,
@@ -19,6 +20,7 @@ pub struct FactorIcSummary {
     pub observations: usize,
 }
 
+/// IC 评估完整结果：summary 汇总 + by_date 逐日 IC DataFrame。
 #[derive(Debug, Clone)]
 pub struct FactorIcResult {
     pub summary: FactorIcSummary,

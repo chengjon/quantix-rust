@@ -6,12 +6,14 @@ use crate::core::{QuantixError, Result};
 use crate::factor::dataset::FactorDataset;
 use crate::factor::types::FactorComputeResult;
 
+/// 中性化请求：exposures 风险暴露列名（如行业/市值）、add_intercept 是否加截距项。
 #[derive(Debug, Clone)]
 pub struct NeutralizationRequest {
     pub exposures: Vec<String>,
     pub add_intercept: bool,
 }
 
+/// 按日期做截面回归中性化：对每个 date 组，用 exposures 列对因子值做线性回归，取残差作为中性化后因子值。exposures 为空或行数不匹配返回错误。
 pub fn neutralize_factor_cross_sectional(
     dataset: &FactorDataset,
     factor: &FactorComputeResult,

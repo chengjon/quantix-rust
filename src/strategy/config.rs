@@ -6,12 +6,14 @@ use std::path::{Path, PathBuf};
 
 use crate::core::{QuantixError, Result};
 
+/// 启动 bootstrap 策略：当前仅 LatestOnly（启动时只加载最新一根 K 线做评估，不回放历史）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BootstrapPolicy {
     LatestOnly,
 }
 
+/// 单个策略实例配置：id 实例唯一键、name 策略类型（如 "ma_cross"）、enabled 是否启用、params 透传给策略实现的参数（JSON）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredStrategyInstance {
     pub id: String,
@@ -20,6 +22,7 @@ pub struct ConfiguredStrategyInstance {
     pub params: serde_json::Value,
 }
 
+/// 单只股票配置：code 标的代码、enabled 是否参与 daemon 调度、strategies 该股票上挂载的策略实例列表。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredStock {
     pub code: String,
@@ -27,6 +30,7 @@ pub struct ConfiguredStock {
     pub strategies: Vec<ConfiguredStrategyInstance>,
 }
 
+/// 策略 daemon 配置：check_interval_secs 轮询间隔（秒）、bootstrap_policy 启动策略、stocks 待评估的股票列表。Default 提供一只 000001 + ma_cross(5,20) 的样例。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StrategyDaemonConfig {
     pub check_interval_secs: u64,
@@ -56,6 +60,7 @@ impl Default for StrategyDaemonConfig {
     }
 }
 
+/// JSON 文件后端 strategy daemon 配置 store：持有 path，load/save 围绕该路径读写 StrategyDaemonConfig。
 #[derive(Debug, Clone)]
 pub struct JsonStrategyConfigStore {
     path: PathBuf,

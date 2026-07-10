@@ -10,6 +10,7 @@ use crate::core::{QuantixError, Result};
 use crate::factor::catalog::FactorCatalog;
 use crate::factor::dataset::FactorDataset;
 
+/// 因子评分结果：factors 参与评分的因子 id 列表、frame 排序后的 DataFrame（symbol / score 列），由 score_factors_latest 返回。
 #[derive(Debug, Clone)]
 pub struct FactorScoreResult {
     pub factors: Vec<String>,

@@ -15,12 +15,14 @@ use crate::strategy::fallback_loader::{FallbackStrategyBarLoader, StrategyBarLoa
 use crate::strategy::registry::StrategyRegistry;
 use crate::strategy::runtime::StrategyBarLoader;
 
+/// K 线加载遥测 trait：可选实现 last_source() 暴露最近一次 load 来源（primary / fallback），供 daemon 写入 signal metadata。
 pub trait StrategyBarLoadTelemetry {
     fn last_source(&self) -> Option<StrategyBarLoadSource> {
         None
     }
 }
 
+/// 策略信号 daemon：注入 loader（K 线源）+ store（signal 落库）+ config_store（daemon 配置），周期性扫描 active stocks、运行策略评估、把信号写入 runtime store。泛型 L 让 loader 可插拔（含 FallbackStrategyBarLoader）。
 #[derive(Debug, Clone)]
 pub struct StrategySignalDaemon<L> {
     loader: L,

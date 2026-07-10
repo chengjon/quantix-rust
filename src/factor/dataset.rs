@@ -4,6 +4,7 @@ use crate::core::Result;
 use crate::factor::loader::FactorDataLoader;
 use crate::factor::types::FactorLoadRequest;
 
+/// 因子计算数据集：持有规范化后的 DataFrame（symbol/date/字段列），是 FactorCatalog::compute 的输入。
 #[derive(Debug, Clone)]
 pub struct FactorDataset {
     frame: DataFrame,
