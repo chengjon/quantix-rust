@@ -307,20 +307,18 @@ pub fn williams_r(
         let window_high = &high[start..end];
         let window_low = &low[start..end];
 
-        let highest = *window_high
+        // Decimal 实现了 Ord（无 NaN），用 total_cmp 替代 partial_cmp + expect；
+        // window_high / window_low 在循环边界控制下保证非空，但仍用 match 兜底以避免 expect。
+        let highest = window_high
             .iter()
-            .max_by(|a, b| {
-                a.partial_cmp(b)
-                    .expect("decimal comparison must be defined")
-            })
-            .expect("Williams %R high window must be non-empty");
-        let lowest = *window_low
+            .copied()
+            .max_by(Ord::cmp)
+            .unwrap_or(Decimal::ZERO);
+        let lowest = window_low
             .iter()
-            .min_by(|a, b| {
-                a.partial_cmp(b)
-                    .expect("decimal comparison must be defined")
-            })
-            .expect("Williams %R low window must be non-empty");
+            .copied()
+            .min_by(Ord::cmp)
+            .unwrap_or(Decimal::ZERO);
 
         let wr_val = if highest != lowest {
             (highest - close[i]) / (highest - lowest) * Decimal::from(-100)

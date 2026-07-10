@@ -220,7 +220,9 @@ fn find_or_create_stock_mut<'a>(
         enabled: true,
         strategies: Vec::new(),
     });
-    config.stocks.last_mut().expect("just pushed stock")
+    // push 之后 stocks 非空，按索引取最后一个 mut 引用，避免 expect/unwrap。
+    let last_index = config.stocks.len() - 1;
+    &mut config.stocks[last_index]
 }
 
 fn remove_instance(

@@ -14,7 +14,11 @@ pub(super) fn apply_daily_loss_rule(
     current_total_assets: Decimal,
     now: DateTime<Utc>,
 ) -> Result<()> {
-    let baseline = state.daily_baseline.as_ref().expect("baseline initialized");
+    let baseline = state.daily_baseline.as_ref().ok_or_else(|| {
+        crate::core::QuantixError::Other(
+            "apply_daily_loss_rule 调用时 daily_baseline 未初始化".to_string(),
+        )
+    })?;
     let daily_pnl = current_total_assets - baseline.starting_total_assets;
     let daily_pnl_pct = pct_change(daily_pnl, baseline.starting_total_assets);
 
@@ -95,7 +99,32 @@ pub(super) fn build_status(
     now: DateTime<Utc>,
     trading_date: chrono::NaiveDate,
 ) -> RiskStatus {
-    let baseline = state.daily_baseline.as_ref().expect("baseline initialized");
+    let baseline = match state.daily_baseline.as_ref() {
+        Some(b) => b,
+        None => {
+            tracing::error!(
+                "build_status 调用时 daily_baseline 未初始化；返回最小占位 RiskStatus (请尽快修复上游)"
+            );
+            return RiskStatus {
+                account_id: snapshot.account_id.clone(),
+                trading_date,
+                starting_total_assets: snapshot.total_assets,
+                current_total_assets: snapshot.total_assets,
+                daily_pnl: Decimal::ZERO,
+                daily_pnl_pct: Decimal::ZERO,
+                buy_locked: false,
+                manual_release_active: false,
+                lock_state_source: crate::risk::models::RiskLockStateSource::Open,
+                lock_reason: None,
+                lock_trigger_reason: None,
+                lock_triggered_at: None,
+                lock_effective_trading_date: None,
+                position_ratios: Vec::new(),
+                rules: Vec::new(),
+                auto_reduce_recommendation: None,
+            };
+        }
+    };
     let current_total_assets = snapshot.total_assets;
     let daily_pnl = current_total_assets - baseline.starting_total_assets;
     let daily_pnl_pct = pct_change(daily_pnl, baseline.starting_total_assets);
