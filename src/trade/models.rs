@@ -6,7 +6,9 @@ use std::collections::BTreeMap;
 
 use crate::core::{QuantixError, Result};
 
+/// 默认账户标识：未指定 account_id 时使用此值（"default"）。
 pub const DEFAULT_ACCOUNT_ID: &str = "default";
+/// PaperTradeState 持久化版本号：当前 schema 版本为 1，升级时递增以做兼容迁移。
 pub const PAPER_TRADE_STATE_VERSION: u32 = 1;
 
 /// 纸面交易持久化根：版本号、可选账户、交易记录列表。Default 使用 PAPER_TRADE_STATE_VERSION + 空 account + 空 records。

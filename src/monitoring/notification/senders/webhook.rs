@@ -10,6 +10,7 @@ pub struct WebhookSender {
 }
 
 impl WebhookSender {
+    /// 创建通用 webhook 发送器：url 为目标服务的完整 POST URL，内部初始化共享 reqwest::Client。
     pub fn new(url: impl Into<String>) -> Self {
         Self {
             url: url.into(),

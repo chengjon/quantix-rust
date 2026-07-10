@@ -52,6 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_stop_history_event_created_at
 ON stop_history(event_type, created_at)
 "#;
 
+/// SQLite 后端 StopRuleStore 实现：持有 SqlitePool，维护 stop_rules/stop_history 表与索引；构造时自动跑 migrations。
 #[derive(Debug, Clone)]
 pub struct SqliteStopRuleStore {
     pool: SqlitePool,

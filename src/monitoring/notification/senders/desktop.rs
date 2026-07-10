@@ -8,6 +8,7 @@ use crate::monitoring::notification::{Notification, NotificationChannel, Notific
 pub struct DesktopSender;
 
 impl DesktopSender {
+    /// 创建桌面通知发送器（无状态，仅持有单例 unit）。
     pub fn new() -> Self {
         Self
     }

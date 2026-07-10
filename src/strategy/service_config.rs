@@ -5,12 +5,14 @@ use std::path::{Path, PathBuf};
 
 use crate::core::{QuantixError, Result};
 
+/// 策略 systemd service 配置：quantix_bin_path 可执行文件绝对路径、environment_file_path 可选 env 文件路径（写入 systemd unit 的 EnvironmentFile=）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StrategyServiceConfig {
     pub quantix_bin_path: PathBuf,
     pub environment_file_path: Option<PathBuf>,
 }
 
+/// 策略 service 配置 JSON 文件 store：持有 path，load/save 围绕该路径读写 StrategyServiceConfig。
 #[derive(Debug, Clone)]
 pub struct JsonStrategyServiceConfigStore {
     path: PathBuf,

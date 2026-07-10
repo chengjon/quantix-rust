@@ -4,6 +4,7 @@ use crate::data::models::Kline;
 use crate::screener::{PresetInvocation, PresetKind, RuleMatchDetail};
 use rust_decimal::Decimal;
 
+/// 计算指定预设规则所需的最小 K 线回看长度：MA 类=period、RSI 类=period+1、VolumeRatio=window。参数缺失或溢出返回错误。
 pub fn required_lookback(invocation: &PresetInvocation) -> Result<usize> {
     match invocation.kind {
         PresetKind::CloseAboveMa | PresetKind::CloseBelowMa => {
@@ -16,6 +17,7 @@ pub fn required_lookback(invocation: &PresetInvocation) -> Result<usize> {
     }
 }
 
+/// 用预设规则对 klines 求值：先校验 lookback，再按 PresetKind（CloseAboveMa/CloseBelowMa/RsiGte/RsiLte/VolumeRatioGte）计算 actual_value 并返回是否匹配。K 线不足时返回 actual_value=None 的 unmatched 结果。
 pub fn evaluate_preset(invocation: &PresetInvocation, klines: &[Kline]) -> Result<RuleMatchDetail> {
     let required = required_lookback(invocation)?;
     if klines.len() < required {

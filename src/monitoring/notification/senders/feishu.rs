@@ -11,6 +11,7 @@ pub struct FeishuSender {
 }
 
 impl FeishuSender {
+    /// 创建飞书机器人发送器：webhook_url 为飞书 incoming webhook 完整 URL，内部初始化共享 reqwest::Client。
     pub fn new(webhook_url: String) -> Self {
         Self {
             webhook_url,

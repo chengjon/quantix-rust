@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS live_import_rebuilds (
 );
 "#;
 
+/// SQLite 后端实盘导入存储：持有 SqlitePool，维护 live_import_records / live_import_mirror_account / live_import_mirror_lot 等表。
 #[derive(Debug, Clone)]
 pub struct SqliteLiveImportStore {
     pool: SqlitePool,

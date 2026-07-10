@@ -2,7 +2,9 @@ use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use crate::core::{QuantixError, Result};
 
+/// 当前生效的行业分类标准：申万（Shenwan）。改动此项需要同步迁移 industry_* 表数据。
 pub const ACTIVE_CLASSIFICATION_STANDARD: ClassificationStandard = ClassificationStandard::Shenwan;
+/// 当前生效的行业分类层级：一级行业。集中度与黑名单均按此层级判定。
 pub const ACTIVE_INDUSTRY_LEVEL: IndustryClassificationLevel =
     IndustryClassificationLevel::FirstLevel;
 

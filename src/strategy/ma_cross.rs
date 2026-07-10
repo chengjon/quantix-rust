@@ -23,6 +23,7 @@ pub struct MACrossStrategy {
 }
 
 impl MACrossStrategy {
+    /// 创建双均线策略：short_period 短均线周期、long_period 长均线周期，自动生成 `MA_{s}_{l}` 名称，初始空仓。
     pub fn new(short_period: usize, long_period: usize) -> Self {
         Self {
             short_period,

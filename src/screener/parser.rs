@@ -2,6 +2,7 @@ use crate::core::{QuantixError, Result};
 use crate::screener::{PresetInvocation, PresetKind};
 use std::collections::BTreeMap;
 
+/// 解析 `"name:k=v,k=v"` 形式的预设规则字符串：name 决定 PresetKind，参数解析为 BTreeMap。格式错误（缺冒号、未知 preset、参数非法）返回错误。
 pub fn parse_preset_invocation(spec: &str) -> Result<PresetInvocation> {
     let (name, raw_params) = spec
         .split_once(':')

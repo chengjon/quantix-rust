@@ -10,7 +10,9 @@ use crate::core::{QuantixError, Result};
 mod lock_state;
 pub use lock_state::RiskLockStateSource;
 
+/// 默认风控账户标识：未指定 account_id 时使用此值（"default"）。
 pub const DEFAULT_RISK_ACCOUNT_ID: &str = "default";
+/// RiskState 持久化版本号：当前 schema 版本为 1，升级时递增以做兼容迁移。
 pub const RISK_STATE_VERSION: u32 = 1;
 
 /// 风控状态聚合（账户维度持久化根）：版本/账户 ID/规则列表/当日基线/买入锁/事件日志。Default 使用 RISK_STATE_VERSION + DEFAULT_RISK_ACCOUNT_ID。

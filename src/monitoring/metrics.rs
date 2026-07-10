@@ -29,6 +29,7 @@ pub struct HistogramValue {
 }
 
 impl HistogramValue {
+    /// 创建空直方图，使用默认 Prometheus 风格 bucket 阈值（0.005…10.0 共 11 档）。
     pub fn new() -> Self {
         // Default Prometheus-style buckets
         let thresholds = vec![
@@ -41,6 +42,7 @@ impl HistogramValue {
         }
     }
 
+    /// 记录一次观测值：count+1、sum+=value，并把所有 ≥ value 的 bucket 计数 +1。
     pub fn observe(&mut self, value: f64) {
         self.count += 1;
         self.sum += value;
@@ -257,6 +259,7 @@ pub struct MetricsExporter {
 }
 
 impl MetricsExporter {
+    /// 创建导出器：注入共享的 MetricsCollector，后续 `export()` 调用从其拉取快照。
     pub fn new(collector: MetricsCollector) -> Self {
         Self { collector }
     }

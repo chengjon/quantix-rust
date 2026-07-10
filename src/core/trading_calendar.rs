@@ -20,6 +20,7 @@ pub enum TradingSession {
 }
 
 impl TradingSession {
+    /// 返回稳定字符串标识（"morning"/"afternoon"/"auction"/"closed"），用于入库与跨模块传递。
     pub fn as_str(&self) -> &'static str {
         match self {
             TradingSession::Morning => "morning",
@@ -29,6 +30,7 @@ impl TradingSession {
         }
     }
 
+    /// 返回中文展示名（"上午交易"/"下午交易"/"集合竞价"/"休市"），用于 UI 与报告。
     pub fn display_name(&self) -> &'static str {
         match self {
             TradingSession::Morning => "上午交易",

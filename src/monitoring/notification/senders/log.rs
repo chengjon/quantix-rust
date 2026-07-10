@@ -10,6 +10,7 @@ pub struct LogSender {
 }
 
 impl LogSender {
+    /// 创建日志发送器：log_path=Some(path) 写入指定文件、None 则走 tracing 日志（stdout/文件由 tracing subscriber 决定）。
     pub fn new(log_path: Option<String>) -> Self {
         Self { log_path }
     }

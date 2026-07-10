@@ -24,6 +24,7 @@ struct RawLiveImportRow {
     occurred_at: Option<String>,
 }
 
+/// 解析实盘导入 CSV 字符串为 `Vec<LiveImportRecord>`：自动 trim 全字段、按表头反序列化为 RawLiveImportRow 再 normalize（类型/必填校验）。任意行解析失败返回错误。
 pub fn parse_live_import_csv(input: &str) -> Result<Vec<LiveImportRecord>> {
     let mut reader = csv::ReaderBuilder::new()
         .trim(Trim::All)
@@ -38,6 +39,7 @@ pub fn parse_live_import_csv(input: &str) -> Result<Vec<LiveImportRecord>> {
         .collect()
 }
 
+/// 解析实盘导入 JSON 数组字符串为 `Vec<LiveImportRecord>`：反序列化为 RawLiveImportRow 后走与 CSV 相同的 normalize 流程。
 pub fn parse_live_import_json(input: &str) -> Result<Vec<LiveImportRecord>> {
     let rows: Vec<RawLiveImportRow> = serde_json::from_str(input)?;
     rows.into_iter().map(normalize_row).collect()

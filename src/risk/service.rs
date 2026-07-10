@@ -29,6 +29,7 @@ pub use self::industry_checks::{AutoReduceDecision, check_auto_reduce_trigger};
 
 const DEFAULT_RISK_EVENT_LIMIT: usize = 100;
 
+/// 风控状态存储 trait：load_state/save_state 抽象 JSON 与未来其他后端。Send + Sync 以适配 RiskService 的并发模型。
 #[async_trait]
 pub trait RiskStore: Send + Sync {
     async fn load_state(&self) -> Result<Option<RiskState>>;
@@ -36,6 +37,7 @@ pub trait RiskStore: Send + Sync {
     async fn save_state(&self, state: &RiskState) -> Result<()>;
 }
 
+/// 行业解析 trait：按 code + query_date 返回 ResolvedIndustry。Send + Sync + Debug 以适配 RiskService 的并发与诊断需求。
 #[async_trait]
 pub trait RiskIndustryResolver: Send + Sync + std::fmt::Debug {
     async fn resolve(

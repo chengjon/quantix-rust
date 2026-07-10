@@ -7,6 +7,7 @@ use crate::execution::models::SignalEnvelope;
 use crate::strategy::Strategy;
 use crate::strategy::ma_cross::MACrossStrategy;
 
+/// K 线加载 trait：从数据源（ClickHouse/TDengine）按 code 与 limit 取最近 N 根日线。Send + Sync 以适配 runtime 的并发模型。
 #[async_trait]
 pub trait StrategyBarLoader: Send + Sync {
     async fn load_daily_bars(&self, code: &str, limit: usize) -> Result<Vec<Kline>>;
@@ -22,12 +23,14 @@ where
     }
 }
 
+/// 策略运行时：注入 StrategyBarLoader，对外提供 `run_ma_cross_once` 等单次评估入口。泛型 L 让数据源（生产 ClickHouse / 测试 mock）可插拔。
 #[derive(Debug, Clone)]
 pub struct StrategyRuntime<L> {
     loader: L,
 }
 
 impl<L> StrategyRuntime<L> {
+    /// 创建 runtime：注入 loader 实现（如 ClickHouseBarLoader），后续评估调用会通过它拉取 K 线。
     pub fn new(loader: L) -> Self {
         Self { loader }
     }
