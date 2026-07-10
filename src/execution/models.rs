@@ -181,6 +181,7 @@ impl ExecutionRequestStatus {
     }
 }
 
+/// 订单方向：Buy 买入、Sell 卖出。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderSide {
     Buy,
@@ -206,6 +207,7 @@ impl OrderSide {
     }
 }
 
+/// 订单类型：Market 市价单（按当前盘口撮合）、Limit 限价单（按指定价格挂单）。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
     Market,
@@ -231,6 +233,7 @@ impl OrderType {
     }
 }
 
+/// 策略单次运行的入库记录：run_id 主键、策略名/模式/触发器、状态、标的/周期/bar_end、起止时间与 metadata JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyRunRecord {
     pub run_id: String,
@@ -246,6 +249,7 @@ pub struct StrategyRunRecord {
     pub metadata_json: Value,
 }
 
+/// 策略发出的信号事件入库记录：event_id 主键、关联 run_id、策略名/标的/信号字符串/事件时间/payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalEventRecord {
     pub event_id: String,
@@ -257,6 +261,7 @@ pub struct SignalEventRecord {
     pub payload_json: Value,
 }
 
+/// 信号信封：包装 Signal 枚举与任意 metadata JSON，用于 translate_signal 等下游消费。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalEnvelope {
     pub signal: Signal,
@@ -273,12 +278,14 @@ impl SignalEnvelope {
     }
 }
 
+/// 纸面交易执行策略：fixed_cash_per_buy 每次买入固定金额（按手取整），slippage_bps 滑点 bps（1bp=0.01%）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionPolicy {
     pub fixed_cash_per_buy: Decimal,
     pub slippage_bps: u32,
 }
 
+/// translate_signal 翻译信号产生的下单意图：标的/方向/数量/价格/类型/原因，附 policy 快照 JSON 便于审计。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderIntent {
     pub symbol: String,
@@ -290,6 +297,7 @@ pub struct OrderIntent {
     pub policy_snapshot_json: Value,
 }
 
+/// 订单全生命周期入库记录：order_id 主键、client_order_id 客户端标识、关联 run_id、状态/成交信息/版本号与 payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderRecord {
     pub order_id: String,
@@ -312,6 +320,7 @@ pub struct OrderRecord {
     pub payload_json: Value,
 }
 
+/// QMT 实盘任务身份四元组：task_id / client_order_id / local_submission_id / external_order_id，用于崩溃恢复关联本地与 broker 单。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QmtLiveTaskIdentity {
     #[serde(default)]
@@ -324,6 +333,7 @@ pub struct QmtLiveTaskIdentity {
     pub external_order_id: Option<String>,
 }
 
+/// QMT 实盘最近一次查询摘要：最新状态/累计成交/均价/broker 事件类型/拒单原因/更新时间，用于运行时对账展示。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct QmtLiveLastQuerySummary {
     pub latest_status: String,
@@ -338,6 +348,7 @@ pub struct QmtLiveLastQuerySummary {
     pub updated_at: String,
 }
 
+/// QMT 实盘对账状态：上次动作/上次错误/上次尝试时间，用于崩溃恢复时追踪人工或自动对账进度。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QmtLiveReconciliationState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -348,6 +359,7 @@ pub struct QmtLiveReconciliationState {
     pub last_attempt_at: Option<String>,
 }
 
+/// QMT 实盘运行时元数据聚合：task_identity + last_query + reconciliation，整体序列化存入 OrderRecord.payload_json。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct QmtLiveRuntimeMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -415,6 +427,7 @@ impl QmtLiveRuntimeMetadata {
     }
 }
 
+/// 单笔成交明细：fill_id 本地成交 ID/成交量/成交价/最近一次增量成交价量/总成交笔数/佣金/其他费用/交易所/broker fill ID。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FillDetails {
     pub fill_id: u64,
@@ -443,6 +456,7 @@ pub struct FillDetails {
     pub broker_fill_id: String,
 }
 
+/// 增量成交上下文：order_id/client_order_id/symbol/side/请求价/旧成交均价对应成交量/新成交量/可选 FillDetails/事件时间，传给 fill delta 处理器计算增量结果。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FillDeltaContext {
     pub order_id: String,
@@ -456,6 +470,7 @@ pub struct FillDeltaContext {
     pub event_time: DateTime<Utc>,
 }
 
+/// Fill delta 处理结果：applied 是否已落库增量、delta_quantity 本次新增成交量、trade_record_id 对应成交记录 ID（若有）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FillDeltaResult {
     pub applied: bool,
@@ -463,6 +478,7 @@ pub struct FillDeltaResult {
     pub trade_record_id: Option<String>,
 }
 
+/// 订单事件入库记录：event_id 主键、order_id/client_order_id 关联、event_type 稳定字符串、event_time、details_json 事件细节。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderEventRecord {
     pub event_id: String,
@@ -473,6 +489,7 @@ pub struct OrderEventRecord {
     pub details_json: Value,
 }
 
+/// 策略 runner 检查点入库记录：checkpoint_id、策略名/模式/标的/周期、last_processed_bar/last_run_id、state_json、updated_at。
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunnerCheckpointRecord {
     pub checkpoint_id: String,
@@ -486,6 +503,7 @@ pub struct RunnerCheckpointRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 策略信号入库记录：signal_id 主键、策略实例/名称/标的/周期/bar_end、信号值/状态/审批状态、关联 run_id、metadata JSON、创建/更新时间。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategySignalRecord {
     pub signal_id: String,
@@ -503,6 +521,7 @@ pub struct StrategySignalRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 执行请求入库记录：request_id 主键、signal_id 关联、目标模式/账户、请求状态、审批人、创建/更新时间、payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExecutionRequestRecord {
     pub request_id: String,
@@ -516,6 +535,7 @@ pub struct ExecutionRequestRecord {
     pub payload_json: Value,
 }
 
+/// 策略守护进程检查点入库记录：checkpoint_id、策略实例/名称/标的/周期、last_processed_bar/last_run_id、state_json、updated_at。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyDaemonCheckpointRecord {
     pub checkpoint_id: String,
