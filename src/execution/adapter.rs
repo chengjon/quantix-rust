@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 
+/// 适配器下单请求：client_order_id 客户端单号、symbol 标的、side 方向、quantity 数量、price 价格。
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdapterOrderRequest {
     pub client_order_id: String,
@@ -13,6 +14,7 @@ pub struct AdapterOrderRequest {
     pub price: Decimal,
 }
 
+/// 下单初始响应：adapter_order_id 适配器单号、latest_status 最新状态、filled_quantity 已成交量、avg_fill_price 可选均价、fill_details 可选明细、rejection_reason 可选拒单原因。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderInitialResponse {
     pub adapter_order_id: String,
@@ -23,6 +25,7 @@ pub struct OrderInitialResponse {
     pub rejection_reason: Option<String>,
 }
 
+/// 订单查询响应：结构与 OrderInitialResponse 一致，用于轮询已提交订单的最新状态。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderQueryResponse {
     pub adapter_order_id: String,
@@ -33,6 +36,7 @@ pub struct OrderQueryResponse {
     pub rejection_reason: Option<String>,
 }
 
+/// 适配器错误：Unsupported 方法不支持、Execution 执行失败、Network 网络错误。区别于 broker 业务失败。
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AdapterError {
     #[error("execution adapter 暂不支持: {0}")]
@@ -45,6 +49,7 @@ pub enum AdapterError {
     Network(String),
 }
 
+/// 执行通道：PaperImmediate 纸面即时记账、MockLive 模拟实盘生命周期、QmtLive QMT 实盘。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionChannel {
     PaperImmediate,
@@ -63,6 +68,7 @@ impl ExecutionChannel {
     }
 }
 
+/// 状态来源：LocalImmediateAccounting 本地即时记账、LocalSimulatedLifecycle 本地模拟生命周期、Broker 来自 broker。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionStatusSource {
     LocalImmediateAccounting,
@@ -81,6 +87,7 @@ impl ExecutionStatusSource {
     }
 }
 
+/// 成交来源：LocalImmediateAccounting 本地即时记账、LocalSimulatedMatcher 本地模拟撮合、Broker 来自 broker。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionFillSource {
     LocalImmediateAccounting,
@@ -99,6 +106,7 @@ impl ExecutionFillSource {
     }
 }
 
+/// 撤单语义：AlreadyFilledOnly 仅允许撤已成交、LocalLifecycle 本地生命周期撤单、Broker 委托 broker 撤单。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionCancelSemantics {
     AlreadyFilledOnly,
@@ -117,6 +125,7 @@ impl ExecutionCancelSemantics {
     }
 }
 
+/// 执行适配器能力描述：channel 通道、status_source 状态来源、fill_source 成交来源、relies_on_broker_api 是否依赖 broker API、supports_pending_order_lifecycle 是否支持挂单生命周期、supports_partial_fill 是否支持部分成交、cancel_semantics 撤单语义。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionCapabilities {
     pub channel: ExecutionChannel,
@@ -128,6 +137,7 @@ pub struct ExecutionCapabilities {
     pub cancel_semantics: ExecutionCancelSemantics,
 }
 
+/// 执行适配器 trait：抽象 paper/mock/qmt 三种通道的下单/查询/撤单能力。实现方需声明 adapter_name 与 capabilities，并实现三个异步方法。
 #[async_trait]
 pub trait ExecutionAdapter: Send + Sync {
     fn adapter_name(&self) -> &'static str;
