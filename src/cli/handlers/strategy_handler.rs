@@ -430,7 +430,7 @@ where
     let latest_bar = bars.last().cloned().ok_or_else(|| {
         QuantixError::Other(format!("strategy {mode} 未找到 {} 的日线数据", symbol))
     })?;
-    let close_time = NaiveTime::from_hms_opt(15, 0, 0).unwrap_or_else(NaiveTime::default);
+    let close_time = NaiveTime::from_hms_opt(15, 0, 0).unwrap_or_default();
     let bar_end =
         DateTime::<Utc>::from_naive_utc_and_offset(latest_bar.date.and_time(close_time), Utc);
 

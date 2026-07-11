@@ -235,7 +235,7 @@ pub(crate) fn naive_to_offsetdatetime(naive: chrono::NaiveDateTime) -> time::Off
 
 pub(crate) fn offsetdatetime_to_naivedate(dt: time::OffsetDateTime) -> chrono::NaiveDate {
     chrono::NaiveDate::from_ymd_opt(dt.year(), dt.month() as u32, dt.day() as u32)
-        .unwrap_or(chrono::NaiveDate::default())
+        .unwrap_or_default()
 }
 
 pub(crate) fn datetime_utc_to_offsetdatetime(dt: chrono::DateTime<Utc>) -> time::OffsetDateTime {

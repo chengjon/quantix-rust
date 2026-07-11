@@ -237,12 +237,8 @@ impl PerformanceCalculator {
             .equity_curve
             .first()
             .map(|p| p.date)
-            .unwrap_or_else(chrono::NaiveDate::default);
-        let end_date = self
-            .equity_curve
-            .last()
-            .map(|p| p.date)
-            .unwrap_or_else(chrono::NaiveDate::default);
+            .unwrap_or_default();
+        let end_date = self.equity_curve.last().map(|p| p.date).unwrap_or_default();
         let days = (end_date - start_date).num_days().max(1) as u64;
 
         // 年化收益率 = (1 + total_return)^(365/days) - 1
