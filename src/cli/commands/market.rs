@@ -1,5 +1,6 @@
 use clap::{ArgGroup, Subcommand, ValueEnum};
 
+/// market 命令族 clap 枚举：Foundation 基础数据、Sector/Concept 板块排名、North 北向、Sentiment 情绪、Leader 龙头、Overview 综合、Strength/StrengthStocks 强弱板块分析。
 #[derive(Subcommand, Debug)]
 pub enum MarketCommands {
     /// 获取全市场 A 股与行业分类基础数据摘要
@@ -132,12 +133,14 @@ pub enum MarketCommands {
     },
 }
 
+/// strength-stocks 排名字段：MarketCap 流通市值、Profit 涨幅（盈利）。
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum StrengthStockMetric {
     MarketCap,
     Profit,
 }
 
+/// watchlist 命令族 clap 枚举：Add/Remove/List/Move 自选股管理、Group/Tag 分组与标签管理、History 历史。
 #[derive(Subcommand, Debug)]
 pub enum WatchlistCommands {
     /// 添加股票到自选池
@@ -204,6 +207,7 @@ pub enum WatchlistCommands {
     },
 }
 
+/// watchlist group 子命令枚举：Create 创建分组、List 列出分组。
 #[derive(Subcommand, Debug)]
 pub enum WatchlistGroupCommands {
     /// 创建分组
@@ -217,6 +221,7 @@ pub enum WatchlistGroupCommands {
     List,
 }
 
+/// watchlist tag 子命令枚举：Add 添加标签、Remove 删除标签。
 #[derive(Subcommand, Debug)]
 pub enum WatchlistTagCommands {
     /// 添加标签

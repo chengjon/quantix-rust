@@ -3,6 +3,7 @@
 /// 统一的错误处理，便于与 Python 端错误信息对应
 use thiserror::Error;
 
+/// 项目统一错误类型：覆盖配置/数据库/数据源/解析/网络/HTTP/序列化/算法等类别。所有 `?` 错误都汇聚到此类型，便于跨模块传递与 CLI 输出。
 #[derive(Error, Debug)]
 pub enum QuantixError {
     #[error("配置错误: {0}")]
@@ -48,6 +49,7 @@ pub enum QuantixError {
     Algo(String),
 }
 
+/// 项目统一 Result 类型别名：错误固定为 `QuantixError`，所有 fallible 公共 API 返回此类型。
 pub type Result<T> = std::result::Result<T, QuantixError>;
 
 impl From<crate::execution::algo::AlgoError> for QuantixError {

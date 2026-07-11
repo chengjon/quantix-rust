@@ -57,6 +57,7 @@ pub struct BreakoutStrategy {
 }
 
 impl BreakoutStrategy {
+    /// 创建突破策略：注入 BreakoutConfig，自动生成 `Breakout_LB{N}_ATR{N}_Vol{N}` 名称，初始空仓。
     pub fn new(config: BreakoutConfig) -> Self {
         Self {
             name: format!(
@@ -72,6 +73,7 @@ impl BreakoutStrategy {
         }
     }
 
+    /// 用 BreakoutConfig::default() 构造默认参数突破策略（lookback=20, atr=14, vol=1.5）。
     pub fn with_defaults() -> Self {
         Self::new(BreakoutConfig::default())
     }

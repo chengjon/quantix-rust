@@ -15,12 +15,14 @@ use crate::strategy::fallback_loader::{FallbackStrategyBarLoader, StrategyBarLoa
 use crate::strategy::registry::StrategyRegistry;
 use crate::strategy::runtime::StrategyBarLoader;
 
+/// K 线加载遥测 trait：可选实现 last_source() 暴露最近一次 load 来源（primary / fallback），供 daemon 写入 signal metadata。
 pub trait StrategyBarLoadTelemetry {
     fn last_source(&self) -> Option<StrategyBarLoadSource> {
         None
     }
 }
 
+/// 策略信号 daemon：注入 loader（K 线源）+ store（signal 落库）+ config_store（daemon 配置），周期性扫描 active stocks、运行策略评估、把信号写入 runtime store。泛型 L 让 loader 可插拔（含 FallbackStrategyBarLoader）。
 #[derive(Debug, Clone)]
 pub struct StrategySignalDaemon<L> {
     loader: L,
@@ -36,6 +38,7 @@ impl<L> StrategySignalDaemon<L>
 where
     L: StrategyBarLoader + StrategyBarLoadTelemetry,
 {
+    /// 构造 StrategyDaemon：装载 strategy_config_store（首次加载 active stocks + check_interval_secs 等运行参数），不持有 execution_config_store（live/paper execution 配置若需要请用 with_execution_config_store）。装载失败透传。
     pub fn new(
         loader: L,
         store: StrategyRuntimeStore,
@@ -57,6 +60,7 @@ where
         })
     }
 
+    /// 与 new 相同，但额外注入 execution_config_store 用于运行期读取/校验 live/paper execution 配置；返回新 daemon。
     pub fn with_execution_config_store(
         loader: L,
         store: StrategyRuntimeStore,
@@ -68,6 +72,7 @@ where
         Ok(daemon)
     }
 
+    /// 单轮 daemon tick：先 reload_config_if_changed（基于文件 mtime），再对每个 active stock 跑策略 runner、写 signal/run/checkpoint 记录；任一步骤失败聚合返回错误。多股票之间相互独立，单股失败不阻断其它股票。
     pub async fn run_once(&mut self) -> Result<()> {
         self.reload_config_if_changed()?;
 
@@ -200,6 +205,7 @@ where
         Ok(())
     }
 
+    /// 返回 daemon tick 间隔（秒），调用方据此 sleep 后再次调用 run_once。
     pub fn check_interval_secs(&self) -> u64 {
         self.config.check_interval_secs
     }

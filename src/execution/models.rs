@@ -12,6 +12,7 @@ use crate::core::{QuantixError, Result};
 mod mock_live;
 pub use mock_live::{MockLiveFaultInjection, MockLiveFillStep, MockLiveOrderState};
 
+/// 策略单次运行的状态：Running 运行中、Success 成功完成、Failed 失败。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StrategyRunStatus {
     Running,
@@ -20,6 +21,7 @@ pub enum StrategyRunStatus {
 }
 
 impl StrategyRunStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Running => "running",
@@ -28,6 +30,7 @@ impl StrategyRunStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "running" => Some(Self::Running),
@@ -38,6 +41,7 @@ impl StrategyRunStatus {
     }
 }
 
+/// 订单全生命周期状态：PendingSubmit→Submitted→Accepted→（PartiallyFilled）→Filled，或 PendingCancel→Canceled，或 Rejected；Unknown 兜底用于 broker 返回未知字符串。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderStatus {
     PendingSubmit,
@@ -52,6 +56,7 @@ pub enum OrderStatus {
 }
 
 impl OrderStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PendingSubmit => "pending_submit",
@@ -66,6 +71,7 @@ impl OrderStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending_submit" => Some(Self::PendingSubmit),
@@ -82,6 +88,7 @@ impl OrderStatus {
     }
 }
 
+/// 信号状态：New 新建、Superseded 被更新版本替代、Expired 已过期不再可执行。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignalStatus {
     New,
@@ -90,6 +97,7 @@ pub enum SignalStatus {
 }
 
 impl SignalStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::New => "new",
@@ -98,6 +106,7 @@ impl SignalStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "new" => Some(Self::New),
@@ -108,6 +117,7 @@ impl SignalStatus {
     }
 }
 
+/// 信号审批状态：Pending 待审批、Approved 已批准可执行、Rejected 已拒绝、AutoApproved 自动批准（无需人工）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalStatus {
     Pending,
@@ -116,6 +126,7 @@ pub enum ApprovalStatus {
 }
 
 impl ApprovalStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -124,6 +135,7 @@ impl ApprovalStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending" => Some(Self::Pending),
@@ -134,6 +146,7 @@ impl ApprovalStatus {
     }
 }
 
+/// 执行请求状态：Pending 待处理、InProgress 已派发执行中、Completed 已完成、Failed 执行失败、Canceled 已撤销。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionRequestStatus {
     Pending,
@@ -144,6 +157,7 @@ pub enum ExecutionRequestStatus {
 }
 
 impl ExecutionRequestStatus {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -154,6 +168,7 @@ impl ExecutionRequestStatus {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "pending" => Some(Self::Pending),
@@ -166,6 +181,7 @@ impl ExecutionRequestStatus {
     }
 }
 
+/// 订单方向：Buy 买入、Sell 卖出。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderSide {
     Buy,
@@ -173,6 +189,7 @@ pub enum OrderSide {
 }
 
 impl OrderSide {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Buy => "buy",
@@ -180,6 +197,7 @@ impl OrderSide {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "buy" => Some(Self::Buy),
@@ -189,6 +207,7 @@ impl OrderSide {
     }
 }
 
+/// 订单类型：Market 市价单（按当前盘口撮合）、Limit 限价单（按指定价格挂单）。入库用 as_str() 字符串形式存储。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
     Market,
@@ -196,6 +215,7 @@ pub enum OrderType {
 }
 
 impl OrderType {
+    /// 返回标识串，与 from_str 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Market => "market",
@@ -203,6 +223,7 @@ impl OrderType {
         }
     }
 
+    /// 从字符串解析，未匹配返回 None。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "market" => Some(Self::Market),
@@ -212,6 +233,7 @@ impl OrderType {
     }
 }
 
+/// 策略单次运行的入库记录：run_id 主键、策略名/模式/触发器、状态、标的/周期/bar_end、起止时间与 metadata JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyRunRecord {
     pub run_id: String,
@@ -227,6 +249,7 @@ pub struct StrategyRunRecord {
     pub metadata_json: Value,
 }
 
+/// 策略发出的信号事件入库记录：event_id 主键、关联 run_id、策略名/标的/信号字符串/事件时间/payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalEventRecord {
     pub event_id: String,
@@ -238,6 +261,7 @@ pub struct SignalEventRecord {
     pub payload_json: Value,
 }
 
+/// 信号信封：包装 Signal 枚举与任意 metadata JSON，用于 translate_signal 等下游消费。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalEnvelope {
     pub signal: Signal,
@@ -245,6 +269,7 @@ pub struct SignalEnvelope {
 }
 
 impl SignalEnvelope {
+    /// 用信号构造 envelope，`metadata_json` 初始化为空对象。
     pub fn new(signal: Signal) -> Self {
         Self {
             signal,
@@ -253,12 +278,14 @@ impl SignalEnvelope {
     }
 }
 
+/// 纸面交易执行策略：fixed_cash_per_buy 每次买入固定金额（按手取整），slippage_bps 滑点 bps（1bp=0.01%）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionPolicy {
     pub fixed_cash_per_buy: Decimal,
     pub slippage_bps: u32,
 }
 
+/// translate_signal 翻译信号产生的下单意图：标的/方向/数量/价格/类型/原因，附 policy 快照 JSON 便于审计。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderIntent {
     pub symbol: String,
@@ -270,6 +297,7 @@ pub struct OrderIntent {
     pub policy_snapshot_json: Value,
 }
 
+/// 订单全生命周期入库记录：order_id 主键、client_order_id 客户端标识、关联 run_id、状态/成交信息/版本号与 payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderRecord {
     pub order_id: String,
@@ -292,6 +320,7 @@ pub struct OrderRecord {
     pub payload_json: Value,
 }
 
+/// QMT 实盘任务身份四元组：task_id / client_order_id / local_submission_id / external_order_id，用于崩溃恢复关联本地与 broker 单。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QmtLiveTaskIdentity {
     #[serde(default)]
@@ -304,6 +333,7 @@ pub struct QmtLiveTaskIdentity {
     pub external_order_id: Option<String>,
 }
 
+/// QMT 实盘最近一次查询摘要：最新状态/累计成交/均价/broker 事件类型/拒单原因/更新时间，用于运行时对账展示。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct QmtLiveLastQuerySummary {
     pub latest_status: String,
@@ -318,6 +348,7 @@ pub struct QmtLiveLastQuerySummary {
     pub updated_at: String,
 }
 
+/// QMT 实盘对账状态：上次动作/上次错误/上次尝试时间，用于崩溃恢复时追踪人工或自动对账进度。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct QmtLiveReconciliationState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -328,6 +359,7 @@ pub struct QmtLiveReconciliationState {
     pub last_attempt_at: Option<String>,
 }
 
+/// QMT 实盘运行时元数据聚合：task_identity + last_query + reconciliation，整体序列化存入 OrderRecord.payload_json。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct QmtLiveRuntimeMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -339,6 +371,7 @@ pub struct QmtLiveRuntimeMetadata {
 }
 
 impl QmtLiveTaskIdentity {
+    /// 用入参回填缺失字段（空串视为缺失），返回新的 identity 实例。
     pub fn recover_missing_fields(
         &self,
         task_id: &str,
@@ -371,6 +404,7 @@ impl QmtLiveTaskIdentity {
 }
 
 impl QmtLiveRuntimeMetadata {
+    /// 从单字段推断完整 identity（用于崩溃恢复 / 重启场景）。
     pub fn recover_task_identity(
         &self,
         task_id: &str,
@@ -393,6 +427,7 @@ impl QmtLiveRuntimeMetadata {
     }
 }
 
+/// 单笔成交明细：fill_id 本地成交 ID/成交量/成交价/最近一次增量成交价量/总成交笔数/佣金/其他费用/交易所/broker fill ID。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FillDetails {
     pub fill_id: u64,
@@ -421,6 +456,7 @@ pub struct FillDetails {
     pub broker_fill_id: String,
 }
 
+/// 增量成交上下文：order_id/client_order_id/symbol/side/请求价/旧成交均价对应成交量/新成交量/可选 FillDetails/事件时间，传给 fill delta 处理器计算增量结果。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FillDeltaContext {
     pub order_id: String,
@@ -434,6 +470,7 @@ pub struct FillDeltaContext {
     pub event_time: DateTime<Utc>,
 }
 
+/// Fill delta 处理结果：applied 是否已落库增量、delta_quantity 本次新增成交量、trade_record_id 对应成交记录 ID（若有）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FillDeltaResult {
     pub applied: bool,
@@ -441,6 +478,7 @@ pub struct FillDeltaResult {
     pub trade_record_id: Option<String>,
 }
 
+/// 订单事件入库记录：event_id 主键、order_id/client_order_id 关联、event_type 稳定字符串、event_time、details_json 事件细节。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderEventRecord {
     pub event_id: String,
@@ -451,6 +489,7 @@ pub struct OrderEventRecord {
     pub details_json: Value,
 }
 
+/// 策略 runner 检查点入库记录：checkpoint_id、策略名/模式/标的/周期、last_processed_bar/last_run_id、state_json、updated_at。
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunnerCheckpointRecord {
     pub checkpoint_id: String,
@@ -464,6 +503,7 @@ pub struct RunnerCheckpointRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 策略信号入库记录：signal_id 主键、策略实例/名称/标的/周期/bar_end、信号值/状态/审批状态、关联 run_id、metadata JSON、创建/更新时间。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategySignalRecord {
     pub signal_id: String,
@@ -481,6 +521,7 @@ pub struct StrategySignalRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 执行请求入库记录：request_id 主键、signal_id 关联、目标模式/账户、请求状态、审批人、创建/更新时间、payload JSON。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExecutionRequestRecord {
     pub request_id: String,
@@ -494,6 +535,7 @@ pub struct ExecutionRequestRecord {
     pub payload_json: Value,
 }
 
+/// 策略守护进程检查点入库记录：checkpoint_id、策略实例/名称/标的/周期、last_processed_bar/last_run_id、state_json、updated_at。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrategyDaemonCheckpointRecord {
     pub checkpoint_id: String,
@@ -507,6 +549,7 @@ pub struct StrategyDaemonCheckpointRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 将策略信号 envelope 翻译为可执行的交易意图（含价格 / 数量 / 方向 / 时间戳）。
 pub fn translate_signal(
     envelope: &SignalEnvelope,
     symbol: &str,

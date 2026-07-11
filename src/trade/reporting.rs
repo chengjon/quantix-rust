@@ -10,14 +10,17 @@ use crate::trade::{
 
 const DEFAULT_TRADE_REPORT_LIMIT: usize = 20;
 
+/// 模拟交易账本报告生成器：将 [`PaperTradeState`] 投影为面向展示的行 / 概览。
 #[derive(Debug, Clone, Default)]
 pub struct TradeReportingService;
 
 impl TradeReportingService {
+    /// 构造默认实例（无内部状态）。
     pub fn new() -> Self {
         Self
     }
 
+    /// 返回交易历史行（按时间倒序），可按代码过滤，`limit` 缺省取 20。
     pub fn history_rows(
         &self,
         state: &PaperTradeState,
@@ -44,6 +47,7 @@ impl TradeReportingService {
         rows
     }
 
+    /// 返回手续费明细行（按时间倒序），可按代码过滤，`limit` 缺省取 20。
     pub fn fee_rows(
         &self,
         state: &PaperTradeState,
@@ -69,6 +73,9 @@ impl TradeReportingService {
         rows
     }
 
+    /// 生成账户概览（现金、持仓市值、累计买卖金额、累计手续费）。
+    ///
+    /// 未初始化账户时返回零值概览。
     pub fn overview(&self, state: &PaperTradeState) -> TradeOverview {
         let Some(account) = &state.account else {
             return TradeOverview {
@@ -112,6 +119,7 @@ impl TradeReportingService {
         }
     }
 
+    /// 返回当前持仓行（无实时行情，`quote_status = BookOnly`）。
     pub fn position_rows(&self, state: &PaperTradeState) -> Vec<TradePositionCurrentRow> {
         let Some(account) = &state.account else {
             return Vec::new();
@@ -134,6 +142,9 @@ impl TradeReportingService {
             .collect()
     }
 
+    /// 返回带实时行情的持仓行：能匹配到报价的标 `Live`，缺失的标 `Missing`。
+    ///
+    /// 浮动盈亏 = 市值 - 成本基础；百分比以成本基础为零时返回 `0`。
     pub fn position_rows_with_quotes(
         &self,
         state: &PaperTradeState,

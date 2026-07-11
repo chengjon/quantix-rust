@@ -7,6 +7,7 @@ pub enum OutputFormat {
     Json,
 }
 
+/// data 命令族 clap 枚举（容器）：Source 数据源管理、OpenStock 本地校验、ImportFundamentals 基础面导入、Query 查询、Export 导出、ImportTicks 逐笔导入、ImportKlines K 线导入。
 #[derive(Subcommand, Debug)]
 pub enum DataCommands {
     /// 数据源管理
@@ -101,6 +102,7 @@ pub enum DataCommands {
     },
 }
 
+/// data source 子命令枚举：List 列出、Add 新增/更新、SetDefault 设默认、Test 连通性测试。配置写入 <config-dir>/data_sources.toml。
 #[derive(Subcommand, Debug)]
 pub enum DataSourceCommands {
     /// 列出当前已配置的数据源
@@ -164,6 +166,7 @@ pub enum DataSourceCommands {
     },
 }
 
+/// 数据源类型枚举：Tdx 通达信直连、Akshare AkShare HTTP 接口。入库用 as_str() 字符串形式存储。
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum DataSourceKind {
     Tdx,
@@ -171,6 +174,7 @@ pub enum DataSourceKind {
 }
 
 impl DataSourceKind {
+    /// 返回该数据源类型的稳定字符串标识（"tdx"/"akshare"），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Tdx => "tdx",
@@ -179,6 +183,7 @@ impl DataSourceKind {
     }
 }
 
+/// data openstock 子命令枚举：ValidateFixture 本地 fixture 校验、ValidateLive 线上响应校验（dry-run，不联网不写库）。
 #[derive(Subcommand, Debug)]
 pub enum OpenStockCommands {
     /// 校验本地 OpenStock K 线 fixture

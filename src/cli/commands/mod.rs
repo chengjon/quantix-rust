@@ -17,6 +17,7 @@ use crate::cli::handlers;
 use crate::core::Result;
 use clap::Parser;
 
+/// quantix CLI 顶层解析结构：command 为命令族根枚举。由 clap 解析子命令并路由到 handlers。
 #[derive(Parser, Debug)]
 #[command(name = "quantix")]
 #[command(about = "A股量化交易 CLI 工具", long_about = None)]
@@ -26,6 +27,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
+/// 顶层命令枚举：Init 配置初始化、Data 数据源与导入、Market 行情、Strategy 策略、Execution 执行、Risk 风控、Monitor 监控、Analyze 分析、Backtest 回测、Factor 因子、Info 信息聚合、Performance 绩效、Safety 安全开关、Watchlist 自选、Stop 停止服务等。
 #[derive(clap::Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {

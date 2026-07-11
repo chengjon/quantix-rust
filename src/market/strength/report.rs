@@ -8,6 +8,7 @@ use crate::market::strength::{
 };
 use crate::market::{BoardRankRow, BoardType};
 
+/// 强势板块内龙头股一行：sector_name 所属板块、code/name 标的与名称、latest_price/latest_change_pct 最新价与涨幅、market_cap 总市值（可空）、latest_report_profit 最新报告期净利润（可空）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StrongSectorStockRow {
     pub sector_name: String,
@@ -19,6 +20,7 @@ pub struct StrongSectorStockRow {
     pub latest_report_profit: Option<Decimal>,
 }
 
+/// 市场强度报告：foundation 底层基础数据汇总、strong_sectors/weak_sectors 涨幅榜板块、top_by_market_cap/top_by_profit 龙头股、各 coverage_count 覆盖率与 error_count 数据源失败计数。
 #[derive(Debug, Clone, PartialEq)]
 pub struct MarketStrengthReport {
     pub foundation: MarketFoundationSummary,

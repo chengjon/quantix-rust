@@ -9,6 +9,7 @@ use crate::core::{QuantixError, Result};
 use crate::factor::dataset::FactorDataset;
 use crate::factor::types::FactorComputeResult;
 
+/// IC 评估汇总：factor_id/horizon 元信息、ic_mean/ic_std/ir (信息比率) 统计量、observations 有效观测数。无可评估周期时统计量为 None。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorIcSummary {
     pub factor_id: String,
@@ -19,6 +20,7 @@ pub struct FactorIcSummary {
     pub observations: usize,
 }
 
+/// IC 评估完整结果：summary 汇总 + by_date 逐日 IC DataFrame。
 #[derive(Debug, Clone)]
 pub struct FactorIcResult {
     pub summary: FactorIcSummary,
@@ -37,6 +39,7 @@ struct FactorIcJson {
     by_date: Vec<FactorIcJsonRow>,
 }
 
+/// 在 dataset 上对 factor 做 horizon 期 Spearman IC 评估：先按 (symbol, date) join 因子值与未来 horizon 期收益，再按 date 分组计算截面 rank 相关，返回按日期聚合（mean/std/t_stat/count）与逐日 IC 的 FactorIcResult。horizon=0 或行数与 dataset 不匹配返回 DataParse 错误。
 pub fn evaluate_factor_ic(
     dataset: &FactorDataset,
     factor: &FactorComputeResult,
@@ -130,6 +133,7 @@ pub fn evaluate_factor_ic(
     })
 }
 
+/// 计算两个等高 FactorComputeResult 在 (date, symbol) 对齐后的 value 列 Pearson 相关；行数不等或列缺失返回 DataParse 错误，样本不足（≤1 或方差为 0）返回 NaN。
 pub fn factor_value_correlation(
     left: &FactorComputeResult,
     right: &FactorComputeResult,
@@ -162,6 +166,7 @@ pub fn factor_value_correlation(
     })
 }
 
+/// 把 FactorIcResult.by_date 序列化为 JSON 字符串：{ summary: {ic_mean, ic_std, ic_t_stat, sample_days}, rows: [{date, ic, sample_count}, ...] }；列读取/转换或 serde 失败透传。
 pub fn factor_ic_result_to_json_string(result: &FactorIcResult) -> Result<String> {
     let dates = result
         .by_date
@@ -194,6 +199,7 @@ pub fn factor_ic_result_to_json_string(result: &FactorIcResult) -> Result<String
     .map_err(|e| QuantixError::DataParse(format!("IC JSON export failed: {}", e)))
 }
 
+/// 把 FactorIcResult.by_date 序列化为 CSV 字符串（列：date, ic, sample_count）；列读取/cast/写入或 utf8 转换失败返回带原因的 QuantixError。
 pub fn factor_ic_result_to_csv_string(result: &FactorIcResult) -> Result<String> {
     let dates = result
         .by_date
@@ -223,6 +229,7 @@ pub fn factor_ic_result_to_csv_string(result: &FactorIcResult) -> Result<String>
     Ok(output)
 }
 
+/// 把 FactorIcResult.by_date 写入指定路径的 Parquet 文件；文件创建或 parquet 写入失败返回 QuantixError::Other。
 pub fn factor_ic_result_to_parquet_file(
     result: &FactorIcResult,
     path: impl AsRef<Path>,

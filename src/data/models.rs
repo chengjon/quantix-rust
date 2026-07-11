@@ -44,6 +44,7 @@ pub enum BarPeriod {
 }
 
 impl BarPeriod {
+    /// 返回稳定字符串标识（"day"/"week"/"month"），用于入库与 API 参数。
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Day => "day",
@@ -92,6 +93,7 @@ pub enum MinutePeriod {
 }
 
 impl MinutePeriod {
+    /// 返回稳定字符串标识（"1m"/"5m"/"15m"/"30m"/"60m"），匹配 OpenStock `_PERIOD_MAP` token，用于 API 调用。
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Minute1 => "1m",

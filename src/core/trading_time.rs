@@ -16,6 +16,7 @@ impl TradingSession {
             .expect("trading session time constants must be valid")
     }
 
+    /// 返回该时段开盘时间：Morning=09:30:00、Afternoon=13:00:00。
     pub fn start_time(&self) -> NaiveTime {
         match self {
             TradingSession::Morning => Self::time(9, 30, 0),
@@ -23,6 +24,7 @@ impl TradingSession {
         }
     }
 
+    /// 返回该时段收盘时间：Morning=11:30:00、Afternoon=15:00:00。
     pub fn end_time(&self) -> NaiveTime {
         match self {
             TradingSession::Morning => Self::time(11, 30, 0),
@@ -30,6 +32,7 @@ impl TradingSession {
         }
     }
 
+    /// 返回所有交易时段（按时间顺序：Morning 在前、Afternoon 在后）。
     pub fn all_sessions() -> Vec<TradingSession> {
         vec![TradingSession::Morning, TradingSession::Afternoon]
     }

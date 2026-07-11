@@ -18,6 +18,7 @@ use crate::core::config::{
 use std::path::PathBuf;
 
 impl ClickHouseSettings {
+    /// 从环境变量加载 ClickHouse 连接配置（URL/database/user/password），缺省时使用 DEFAULT_* 常量；过程中会先尝试加载 .env。
     pub fn from_env() -> Self {
         load_dotenv_if_present();
         Self {
@@ -34,6 +35,7 @@ impl ClickHouseSettings {
 }
 
 impl UpstreamMySqlSettings {
+    /// 从环境变量加载上游 MySQL 连接配置，缺省时回退到 DEFAULT_* 常量；先尝试加载 .env。
     pub fn from_env() -> Self {
         load_dotenv_if_present();
         Self {
@@ -50,6 +52,7 @@ impl UpstreamMySqlSettings {
 }
 
 impl CliRuntime {
+    /// 聚合所有子系统的 from_env / resolve_* 结果构造 CliRuntime：涵盖 clickhouse / bridge / upstream_mysql / openstock / 各类路径（watchlist/trade/risk/monitor/strategy/execution）。
     pub fn load() -> Self {
         load_dotenv_if_present();
         Self {
@@ -70,6 +73,7 @@ impl CliRuntime {
 }
 
 impl BridgeRuntimeSettings {
+    /// 从环境变量加载 bridge 运行时配置（base_url、api_key/bearer、contract_version、各 timeout/poll 数值，以及 tdx_enabled / qmt_preview_enabled 开关）；缺省或解析失败回退 DEFAULT_*。
     pub fn from_env() -> Self {
         let api_key = optional_env(BRIDGE_API_KEY_ENV);
         Self {
@@ -98,6 +102,7 @@ impl BridgeRuntimeSettings {
 }
 
 impl OpenStockSettings {
+    /// 从环境变量加载 OpenStock 配置（base_url / api_key 可选，timeout 默认 DEFAULT_OPENSTOCK_TIMEOUT_SECS）；先尝试加载 .env。
     pub fn from_env() -> Self {
         load_dotenv_if_present();
         Self {

@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use crate::bridge::error::BridgeError;
 use crate::bridge::models::BridgeBrokerEventType;
-use crate::core::{QuantixError, Result};
+use crate::core::QuantixError;
 use crate::execution::models::{
     OrderRecord, OrderStatus, QmtLiveLastQuerySummary, QmtLiveReconciliationState,
     QmtLiveRuntimeMetadata, QmtLiveTaskIdentity,
@@ -25,7 +25,21 @@ use crate::execution::models::{
 use crate::execution::qmt_task_submit_service::{QmtTaskResolvedResult, QmtTaskSubmitService};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 
-/// Reconciliation summary for a single reconciliation run
+mod order_state;
+mod qmt_live;
+mod scanner;
+mod service_core;
+
+#[allow(unused_imports)]
+pub use order_state::*;
+#[allow(unused_imports)]
+pub use qmt_live::*;
+#[allow(unused_imports)]
+pub use scanner::*;
+#[allow(unused_imports)]
+pub use service_core::*;
+
+/// 单次对账汇总：reconciled_at 执行时间、total_open_orders 扫描的未终结订单数、matched_orders 匹配数、mismatched_orders 状态不一致数、recovered_orders 从 Unknown 恢复数、failed_orders 失败数、duration_ms 耗时毫秒。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReconciliationSummary {
     /// When this reconciliation was performed
@@ -44,7 +58,7 @@ pub struct ReconciliationSummary {
     pub duration_ms: u64,
 }
 
-/// Details of a single order reconciliation
+/// 单订单对账结果：order_id/client_order_id 订单标识、symbol 标的、local_status 本地状态、broker_status broker 状态（可空）、action 采取的动作、success 是否成功、error 失败信息。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderReconciliationResult {
     /// Order ID
@@ -65,7 +79,7 @@ pub struct OrderReconciliationResult {
     pub error: Option<String>,
 }
 
-/// Actions that can be taken during reconciliation
+/// 对账动作：NoAction 一致无需动作、StateUpdated 本地状态已同步 broker、Recovered 从 Unknown 恢复、MarkedFailed 超时标记失败、Cancelled 因不一致已撤单、ManualIntervention 需人工介入。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReconciliationAction {
     /// No action needed - states match
@@ -83,6 +97,7 @@ pub enum ReconciliationAction {
 }
 
 impl ReconciliationAction {
+    /// 返回稳定字符串标识（"no_action"/"state_updated"/...），用于入库与日志。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::NoAction => "no_action",
@@ -94,6 +109,7 @@ impl ReconciliationAction {
         }
     }
 
+    /// 由稳定字符串还原枚举；未知值返回 `None`（不报错，便于向前兼容新增动作）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "no_action" => Some(Self::NoAction),
@@ -107,7 +123,7 @@ impl ReconciliationAction {
     }
 }
 
-/// Open order scanner for finding orders that need attention
+/// 挂单扫描器：基于 StrategyRuntimeStore 查找未终结订单，识别过期订单（stale）与 Unknown 订单。阈值由 with_thresholds 配置，默认 stale 1h / unknown 5min。
 pub struct OpenOrderScanner {
     store: StrategyRuntimeStore,
     /// Maximum age in seconds for an order to be considered "stale"
@@ -116,96 +132,7 @@ pub struct OpenOrderScanner {
     unknown_timeout_seconds: i64,
 }
 
-impl OpenOrderScanner {
-    /// Create a new open order scanner
-    pub fn new(store: StrategyRuntimeStore) -> Self {
-        Self {
-            store,
-            stale_order_threshold_seconds: 3600, // 1 hour
-            unknown_timeout_seconds: 300,        // 5 minutes
-        }
-    }
-
-    /// Create with custom thresholds
-    pub fn with_thresholds(
-        store: StrategyRuntimeStore,
-        stale_threshold_seconds: i64,
-        unknown_timeout_seconds: i64,
-    ) -> Self {
-        Self {
-            store,
-            stale_order_threshold_seconds: stale_threshold_seconds,
-            unknown_timeout_seconds,
-        }
-    }
-
-    /// List all open orders (orders that are not in terminal state)
-    pub async fn list_open_orders(&self) -> Result<Vec<OrderRecord>> {
-        self.store.list_open_orders().await
-    }
-
-    /// List orders in Unknown state that may need recovery
-    pub async fn list_unknown_orders(&self) -> Result<Vec<OrderRecord>> {
-        let open_orders = self.list_open_orders().await?;
-        Ok(open_orders
-            .into_iter()
-            .filter(|o| o.status == OrderStatus::Unknown)
-            .collect())
-    }
-
-    /// List stale orders (open orders older than threshold)
-    pub async fn list_stale_orders(&self) -> Result<Vec<OrderRecord>> {
-        let open_orders = self.list_open_orders().await?;
-        let now = Utc::now();
-        let threshold = chrono::Duration::seconds(self.stale_order_threshold_seconds);
-
-        Ok(open_orders
-            .into_iter()
-            .filter(|o| {
-                let age = now - o.created_at;
-                age > threshold
-            })
-            .collect())
-    }
-
-    /// Get summary of open orders by status
-    pub async fn get_open_order_summary(&self) -> Result<OpenOrderSummary> {
-        let open_orders = self.list_open_orders().await?;
-        let now = Utc::now();
-        let stale_threshold = chrono::Duration::seconds(self.stale_order_threshold_seconds);
-
-        let mut by_status: HashMap<String, usize> = HashMap::new();
-        let mut stale_count = 0;
-        let mut unknown_count = 0;
-
-        for order in &open_orders {
-            *by_status
-                .entry(order.status.as_str().to_string())
-                .or_insert(0) += 1;
-
-            if order.status == OrderStatus::Unknown {
-                unknown_count += 1;
-            }
-
-            let age = now - order.created_at;
-            if age > stale_threshold {
-                stale_count += 1;
-            }
-        }
-
-        Ok(OpenOrderSummary {
-            total_open: open_orders.len(),
-            by_status,
-            stale_count,
-            unknown_count,
-            stale_threshold_seconds: self.stale_order_threshold_seconds,
-            unknown_timeout_seconds: self.unknown_timeout_seconds,
-        })
-    }
-}
-
-/// Summary of open orders
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// 挂单扫描汇总：total_open 总挂单数、by_status 按状态计数、stale_count 过期数、unknown_count Unknown 数、stale_threshold_seconds 过期阈值、unknown_timeout_seconds Unknown 超时阈值。
 pub struct OpenOrderSummary {
     /// Total number of open orders
     pub total_open: usize,
@@ -221,647 +148,19 @@ pub struct OpenOrderSummary {
     pub unknown_timeout_seconds: i64,
 }
 
-/// Reconciliation service for comparing and fixing order states
+/// 对账服务：扫描挂单 + 比对本地与 broker 状态 + 修复不一致。可选注入 QmtTaskSubmitService 用于 qmt_live 订单的恢复。
 pub struct ReconciliationService {
     store: StrategyRuntimeStore,
     scanner: OpenOrderScanner,
     qmt_submit_service: Option<QmtTaskSubmitService>,
 }
 
-impl ReconciliationService {
-    /// Create a new reconciliation service
-    pub fn new(store: StrategyRuntimeStore) -> Self {
-        let scanner = OpenOrderScanner::new(store.clone());
-        Self {
-            store,
-            scanner,
-            qmt_submit_service: None,
-        }
-    }
-
-    pub fn with_qmt_live_query_service(
-        store: StrategyRuntimeStore,
-        qmt_submit_service: QmtTaskSubmitService,
-    ) -> Self {
-        let scanner = OpenOrderScanner::new(store.clone());
-        Self {
-            store,
-            scanner,
-            qmt_submit_service: Some(qmt_submit_service),
-        }
-    }
-
-    /// Run reconciliation on all open orders
-    ///
-    /// This will:
-    /// 1. Scan all open orders
-    /// 2. Check each order against adapter state (if available)
-    /// 3. Update local state if discrepancies found
-    /// 4. Handle Unknown orders with timeout recovery
-    pub async fn reconcile_all(&self) -> Result<ReconciliationReport> {
-        let start = std::time::Instant::now();
-        let open_orders = self.scanner.list_open_orders().await?;
-        let mut results = Vec::new();
-
-        for order in open_orders {
-            let result = self.reconcile_order(&order).await?;
-            results.push(result);
-        }
-
-        let matched = results
-            .iter()
-            .filter(|r| r.action == ReconciliationAction::NoAction)
-            .count();
-        let mismatched = results
-            .iter()
-            .filter(|r| r.action == ReconciliationAction::StateUpdated)
-            .count();
-        let recovered = results
-            .iter()
-            .filter(|r| r.action == ReconciliationAction::Recovered)
-            .count();
-        let failed = results
-            .iter()
-            .filter(|r| {
-                matches!(
-                    r.action,
-                    ReconciliationAction::MarkedFailed
-                        | ReconciliationAction::Cancelled
-                        | ReconciliationAction::ManualIntervention
-                ) || !r.success
-            })
-            .count();
-
-        Ok(ReconciliationReport {
-            summary: ReconciliationSummary {
-                reconciled_at: Utc::now(),
-                total_open_orders: results.len(),
-                matched_orders: matched,
-                mismatched_orders: mismatched,
-                recovered_orders: recovered,
-                failed_orders: failed,
-                duration_ms: start.elapsed().as_millis() as u64,
-            },
-            results,
-        })
-    }
-
-    /// Reconcile a single order
-    pub async fn reconcile_order(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
-        if self.is_qmt_live_recoverable(order) {
-            return self.reconcile_qmt_live_order(order).await;
-        }
-
-        // Check for Unknown state timeout
-        if order.status == OrderStatus::Unknown {
-            return self.handle_unknown_order(order).await;
-        }
-
-        // For mock_live orders, we can query the adapter state
-        // For now, return no action needed for non-Unknown orders
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: order.status,
-            broker_status: Some(order.status),
-            action: ReconciliationAction::NoAction,
-            success: true,
-            error: None,
-        })
-    }
-
-    fn is_qmt_live_recoverable(&self, order: &OrderRecord) -> bool {
-        order.adapter == "qmt_live"
-            && matches!(
-                order.status,
-                OrderStatus::PendingSubmit
-                    | OrderStatus::Submitted
-                    | OrderStatus::Accepted
-                    | OrderStatus::Unknown
-            )
-    }
-
-    async fn reconcile_qmt_live_order(
-        &self,
-        order: &OrderRecord,
-    ) -> Result<OrderReconciliationResult> {
-        let task_identity = order
-            .payload_json
-            .get("qmt_live")
-            .and_then(|value| value.get("task_identity"));
-
-        let Some(task_id) = task_identity
-            .and_then(|value| value.get("task_id"))
-            .and_then(|value| value.as_str())
-            .filter(|value| !value.trim().is_empty())
-        else {
-            return self
-                .persist_qmt_live_manual_intervention(
-                    order,
-                    None,
-                    "task-id-based recovery is unavailable because task_id is missing",
-                )
-                .await;
-        };
-
-        let Some(service) = self.qmt_submit_service.as_ref() else {
-            return self
-                .persist_qmt_live_manual_intervention(
-                    order,
-                    None,
-                    "qmt_live reconciliation service missing",
-                )
-                .await;
-        };
-
-        let local_submission_id = task_identity
-            .and_then(|value| value.get("local_submission_id"))
-            .and_then(|value| value.as_str())
-            .filter(|value| !value.trim().is_empty());
-
-        let query_result = if let Some(local_submission_id) = local_submission_id {
-            service
-                .query_task_result_once(task_id, &order.client_order_id, local_submission_id)
-                .await
-        } else {
-            service.query_task_result_by_task_id(task_id).await
-        };
-
-        match query_result {
-            Ok(result) => self.apply_qmt_live_result(order, result).await,
-            Err(err) => self.persist_qmt_live_query_failure(order, err).await,
-        }
-    }
-
-    async fn apply_qmt_live_result(
-        &self,
-        order: &OrderRecord,
-        result: QmtTaskResolvedResult,
-    ) -> Result<OrderReconciliationResult> {
-        match result.latest_status {
-            OrderStatus::PendingSubmit => {
-                let payload_json = self.qmt_live_payload_json(
-                    order,
-                    Some(&result),
-                    ReconciliationAction::NoAction,
-                    None,
-                    Utc::now(),
-                )?;
-                self.persist_qmt_live_payload_only(
-                    order,
-                    payload_json,
-                    ReconciliationAction::NoAction,
-                    Some(OrderStatus::PendingSubmit),
-                    None,
-                )
-                .await
-            }
-            OrderStatus::Accepted | OrderStatus::Rejected | OrderStatus::Filled => {
-                let action = if order.status == result.latest_status
-                    && order.filled_quantity == result.filled_quantity
-                    && order.avg_fill_price == result.avg_fill_price
-                {
-                    ReconciliationAction::NoAction
-                } else {
-                    ReconciliationAction::StateUpdated
-                };
-                let payload_json =
-                    self.qmt_live_payload_json(order, Some(&result), action, None, Utc::now())?;
-
-                if action == ReconciliationAction::NoAction {
-                    return self
-                        .persist_qmt_live_payload_only(
-                            order,
-                            payload_json,
-                            action,
-                            Some(result.latest_status),
-                            None,
-                        )
-                        .await;
-                }
-
-                self.persist_qmt_live_state_and_payload(
-                    order,
-                    result.latest_status,
-                    result.filled_quantity,
-                    result.avg_fill_price,
-                    payload_json,
-                    action,
-                )
-                .await
-            }
-            _ => {
-                self.persist_qmt_live_manual_intervention(
-                    order,
-                    Some(&result),
-                    "completed qmt_live task missing terminal broker status",
-                )
-                .await
-            }
-        }
-    }
-
-    async fn persist_qmt_live_query_failure(
-        &self,
-        order: &OrderRecord,
-        err: BridgeError,
-    ) -> Result<OrderReconciliationResult> {
-        let message = err.to_string();
-        self.persist_qmt_live_manual_intervention(order, None, &message)
-            .await
-    }
-
-    async fn persist_qmt_live_manual_intervention(
-        &self,
-        order: &OrderRecord,
-        result: Option<&QmtTaskResolvedResult>,
-        message: &str,
-    ) -> Result<OrderReconciliationResult> {
-        let payload_json = self.qmt_live_payload_json(
-            order,
-            result,
-            ReconciliationAction::ManualIntervention,
-            Some(message),
-            Utc::now(),
-        )?;
-        self.persist_qmt_live_payload_only(
-            order,
-            payload_json,
-            ReconciliationAction::ManualIntervention,
-            result.map(|value| value.latest_status),
-            Some(message.to_string()),
-        )
-        .await
-    }
-
-    async fn persist_qmt_live_payload_only(
-        &self,
-        order: &OrderRecord,
-        payload_json: serde_json::Value,
-        action: ReconciliationAction,
-        broker_status: Option<OrderStatus>,
-        error: Option<String>,
-    ) -> Result<OrderReconciliationResult> {
-        let updated_at = Utc::now();
-        let updated = self
-            .store
-            .try_update_order_payload_with_version(
-                &order.order_id,
-                order.version,
-                payload_json,
-                updated_at,
-            )
-            .await?;
-        if !updated {
-            return Err(QuantixError::Other(format!(
-                "qmt_live reconciliation payload update lost optimistic lock: {}",
-                order.order_id
-            )));
-        }
-
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: order.status,
-            broker_status,
-            action,
-            success: true,
-            error,
-        })
-    }
-
-    async fn persist_qmt_live_state_and_payload(
-        &self,
-        order: &OrderRecord,
-        status: OrderStatus,
-        filled_quantity: i64,
-        avg_fill_price: Option<Decimal>,
-        payload_json: serde_json::Value,
-        action: ReconciliationAction,
-    ) -> Result<OrderReconciliationResult> {
-        let updated_at = Utc::now();
-        let remaining_quantity = (order.requested_quantity - filled_quantity).max(0);
-        let updated = self
-            .store
-            .try_update_order_state_and_payload_with_version(
-                &order.order_id,
-                order.version,
-                status,
-                filled_quantity,
-                remaining_quantity,
-                avg_fill_price,
-                payload_json,
-                updated_at,
-            )
-            .await?;
-        if !updated {
-            return Err(QuantixError::Other(format!(
-                "qmt_live reconciliation state update lost optimistic lock: {}",
-                order.order_id
-            )));
-        }
-
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: order.status,
-            broker_status: Some(status),
-            action,
-            success: true,
-            error: None,
-        })
-    }
-
-    fn qmt_live_payload_json(
-        &self,
-        order: &OrderRecord,
-        result: Option<&QmtTaskResolvedResult>,
-        action: ReconciliationAction,
-        error: Option<&str>,
-        updated_at: DateTime<Utc>,
-    ) -> Result<serde_json::Value> {
-        let mut payload_json = order.payload_json.clone();
-        if !payload_json.is_object() {
-            payload_json = serde_json::json!({});
-        }
-
-        let root = payload_json.as_object_mut().ok_or_else(|| {
-            QuantixError::Other("order payload_json is not an object".to_string())
-        })?;
-        let qmt_live = root
-            .entry("qmt_live".to_string())
-            .or_insert_with(|| serde_json::json!({}));
-        if !qmt_live.is_object() {
-            *qmt_live = serde_json::json!({});
-        }
-
-        let qmt_live = qmt_live
-            .as_object_mut()
-            .ok_or_else(|| QuantixError::Other("qmt_live payload is not an object".to_string()))?;
-
-        if let Some(result) = result {
-            if result.client_order_id.is_some()
-                || result.local_submission_id.is_some()
-                || result.external_order_id.is_some()
-            {
-                let current_metadata = serde_json::from_value::<QmtLiveRuntimeMetadata>(
-                    serde_json::Value::Object(qmt_live.clone()),
-                )
-                .unwrap_or_default();
-
-                let recovered_task_identity = current_metadata
-                    .recover_task_identity(
-                        &result.adapter_order_id,
-                        &order.client_order_id,
-                        result.local_submission_id.as_deref(),
-                        result.external_order_id.as_deref(),
-                    )
-                    .task_identity
-                    .unwrap_or_else(|| QmtLiveTaskIdentity {
-                        task_id: result.adapter_order_id.clone(),
-                        client_order_id: order.client_order_id.clone(),
-                        local_submission_id: result
-                            .local_submission_id
-                            .as_deref()
-                            .unwrap_or_default()
-                            .to_string(),
-                        external_order_id: result.external_order_id.clone(),
-                    });
-
-                let task_identity = qmt_live
-                    .entry("task_identity".to_string())
-                    .or_insert_with(|| serde_json::json!({}));
-                if !task_identity.is_object() {
-                    *task_identity = serde_json::json!({});
-                }
-                let task_identity = task_identity.as_object_mut().ok_or_else(|| {
-                    QuantixError::Other(
-                        "qmt_live task_identity payload is not an object".to_string(),
-                    )
-                })?;
-
-                task_identity.insert(
-                    "task_id".to_string(),
-                    serde_json::Value::String(recovered_task_identity.task_id),
-                );
-                task_identity.insert(
-                    "client_order_id".to_string(),
-                    serde_json::Value::String(recovered_task_identity.client_order_id),
-                );
-                task_identity.insert(
-                    "local_submission_id".to_string(),
-                    serde_json::Value::String(recovered_task_identity.local_submission_id),
-                );
-                if let Some(external_order_id) = recovered_task_identity.external_order_id {
-                    task_identity.insert(
-                        "external_order_id".to_string(),
-                        serde_json::Value::String(external_order_id),
-                    );
-                }
-            }
-
-            qmt_live.insert(
-                "last_query".to_string(),
-                serde_json::to_value(QmtLiveLastQuerySummary {
-                    latest_status: result.latest_status.as_str().to_string(),
-                    filled_quantity: result.filled_quantity,
-                    avg_fill_price: result.avg_fill_price.map(|value| value.to_string()),
-                    broker_event_type: result
-                        .broker_event_type
-                        .map(qmt_live_broker_event_type_name),
-                    rejection_reason: result.rejection_reason.clone(),
-                    updated_at: updated_at.to_rfc3339(),
-                })?,
-            );
-        }
-
-        qmt_live.insert(
-            "reconciliation".to_string(),
-            serde_json::to_value(QmtLiveReconciliationState {
-                last_action: Some(action.as_str().to_string()),
-                last_error: error.map(|value| value.to_string()),
-                last_attempt_at: Some(updated_at.to_rfc3339()),
-            })?,
-        );
-
-        Ok(payload_json)
-    }
-
-    /// Handle orders in Unknown state
-    async fn handle_unknown_order(&self, order: &OrderRecord) -> Result<OrderReconciliationResult> {
-        let now = Utc::now();
-        let timeout = chrono::Duration::seconds(self.scanner.unknown_timeout_seconds);
-        let age = now - order.updated_at;
-
-        // If order has been in Unknown state too long, mark as failed
-        if age > timeout {
-            // Check if there's a mock_live state we can recover from
-            if let Ok(Some(mock_state)) =
-                self.store.get_mock_live_order_state(&order.order_id).await
-            {
-                let filled_qty = mock_state
-                    .fill_plan
-                    .iter()
-                    .take(mock_state.next_step_index)
-                    .map(|step| step.quantity)
-                    .sum::<i64>();
-                let recovered_fill_price = mock_state
-                    .simulated_fill_price
-                    .or(order.avg_fill_price)
-                    .or(Some(order.requested_price));
-
-                // If recovery exhausted, mark as failed
-                if mock_state.recovery_exhausted {
-                    return self
-                        .mark_order_failed(order, "Unknown state recovery exhausted")
-                        .await;
-                }
-
-                if filled_qty >= order.requested_quantity {
-                    return self
-                        .mark_order_filled(
-                            order,
-                            filled_qty.min(order.requested_quantity),
-                            recovered_fill_price,
-                        )
-                        .await;
-                } else if filled_qty > 0 {
-                    return self
-                        .mark_order_partial_fill(order, filled_qty, recovered_fill_price)
-                        .await;
-                }
-            }
-
-            // No recovery possible, mark as failed
-            return self.mark_order_failed(order, "Unknown state timeout").await;
-        }
-
-        // Still within timeout window, no action yet
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: OrderStatus::Unknown,
-            broker_status: None,
-            action: ReconciliationAction::NoAction,
-            success: true,
-            error: None,
-        })
-    }
-
-    /// Mark an order as filled
-    async fn mark_order_filled(
-        &self,
-        order: &OrderRecord,
-        filled_quantity: i64,
-        avg_fill_price: Option<Decimal>,
-    ) -> Result<OrderReconciliationResult> {
-        let now = Utc::now();
-        self.store
-            .update_order(
-                &order.order_id,
-                OrderStatus::Filled,
-                filled_quantity,
-                avg_fill_price,
-                now,
-            )
-            .await?;
-
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: OrderStatus::Unknown,
-            broker_status: Some(OrderStatus::Filled),
-            action: ReconciliationAction::Recovered,
-            success: true,
-            error: None,
-        })
-    }
-
-    /// Mark an order as partially filled
-    async fn mark_order_partial_fill(
-        &self,
-        order: &OrderRecord,
-        filled_quantity: i64,
-        avg_fill_price: Option<Decimal>,
-    ) -> Result<OrderReconciliationResult> {
-        let now = Utc::now();
-        self.store
-            .update_order(
-                &order.order_id,
-                OrderStatus::PartiallyFilled,
-                filled_quantity,
-                avg_fill_price,
-                now,
-            )
-            .await?;
-
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: OrderStatus::Unknown,
-            broker_status: Some(OrderStatus::PartiallyFilled),
-            action: ReconciliationAction::Recovered,
-            success: true,
-            error: None,
-        })
-    }
-
-    /// Mark an order as failed
-    async fn mark_order_failed(
-        &self,
-        order: &OrderRecord,
-        reason: &str,
-    ) -> Result<OrderReconciliationResult> {
-        let now = Utc::now();
-        self.store
-            .update_order(
-                &order.order_id,
-                OrderStatus::Rejected,
-                order.filled_quantity,
-                order.avg_fill_price,
-                now,
-            )
-            .await?;
-
-        Ok(OrderReconciliationResult {
-            order_id: order.order_id.clone(),
-            client_order_id: order.client_order_id.clone(),
-            symbol: order.symbol.clone(),
-            local_status: OrderStatus::Unknown,
-            broker_status: Some(OrderStatus::Rejected),
-            action: ReconciliationAction::MarkedFailed,
-            success: true,
-            error: Some(reason.to_string()),
-        })
-    }
-
-    /// Get the scanner for direct access
-    pub fn scanner(&self) -> &OpenOrderScanner {
-        &self.scanner
-    }
-}
-
-/// Full reconciliation report
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// 对账报告：summary 总览统计、results 逐单结果明细。
 pub struct ReconciliationReport {
     /// Summary statistics
     pub summary: ReconciliationSummary,
     /// Individual order results
     pub results: Vec<OrderReconciliationResult>,
-}
-
-fn qmt_live_broker_event_type_name(event_type: BridgeBrokerEventType) -> String {
-    match event_type {
-        BridgeBrokerEventType::Acknowledgement => "acknowledgement".to_string(),
-        BridgeBrokerEventType::Reject => "reject".to_string(),
-        BridgeBrokerEventType::Execution => "execution".to_string(),
-    }
 }
 
 #[cfg(test)]

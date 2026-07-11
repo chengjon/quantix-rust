@@ -1,6 +1,7 @@
 use super::*;
 
 impl StrategyRuntimeStore {
+    /// 单事务审批：把 signal 从 Pending→Approved，并生成一条 Pending 的 execution_request，附 execution_snapshot。signal 不可审批时返回错误。
     pub async fn approve_signal_and_create_request(
         &self,
         signal_id: &str,
@@ -106,6 +107,7 @@ INSERT INTO execution_requests (
         Ok(record)
     }
 
+    /// 把 Pending signal 置为 Rejected；可选 reason 写入 metadata.rejection_reason。signal 不可拒绝时返回错误。
     pub async fn reject_signal(&self, signal_id: &str, reason: Option<&str>) -> Result<()> {
         let mut tx = self.pool.begin().await?;
         let row = sqlx::query(
@@ -149,6 +151,7 @@ WHERE signal_id = ?
         Ok(())
     }
 
+    /// 列出 execution_requests；可按 status 过滤，否则返回全部，按 (created_at, request_id) 升序。
     pub async fn list_execution_requests(
         &self,
         status: Option<ExecutionRequestStatus>,
@@ -200,6 +203,7 @@ ORDER BY created_at ASC, request_id ASC
             .collect()
     }
 
+    /// 按 signal_id 反查 execution_request；不存在返回 `None`。
     pub async fn get_execution_request_by_signal_id(
         &self,
         signal_id: &str,
@@ -227,6 +231,7 @@ WHERE signal_id = ?
         row.map(Self::row_to_execution_request).transpose()
     }
 
+    /// 按 request_id 查询 execution_request；不存在返回 `None`。
     pub async fn get_execution_request(
         &self,
         request_id: &str,
@@ -254,6 +259,7 @@ WHERE request_id = ?
         row.map(Self::row_to_execution_request).transpose()
     }
 
+    /// CAS 状态机：仅在 InProgress 时把 request 推进到 Completed；成功返回 `true`。
     pub async fn try_complete_execution_request(
         &self,
         request_id: &str,
@@ -270,6 +276,7 @@ WHERE request_id = ?
         .await
     }
 
+    /// CAS 状态机：仅在 InProgress 时把 request 标记为 Failed；成功返回 `true`。
     pub async fn try_fail_execution_request(
         &self,
         request_id: &str,
@@ -286,6 +293,7 @@ WHERE request_id = ?
         .await
     }
 
+    /// CAS 状态机：仅在 Pending 时把 request 标记为 Failed；用于审批后但未启动前的失败。成功返回 `true`。
     pub async fn try_fail_pending_execution_request(
         &self,
         request_id: &str,
@@ -302,6 +310,7 @@ WHERE request_id = ?
         .await
     }
 
+    /// CAS 状态机：仅在 Pending 时把 request 标记为 Canceled；成功返回 `true`。
     pub async fn try_cancel_execution_request(
         &self,
         request_id: &str,
@@ -318,6 +327,7 @@ WHERE request_id = ?
         .await
     }
 
+    /// 无条件覆盖 request 的 status 与 payload；调用方需自行保证状态机合法性。
     pub async fn update_execution_request_status(
         &self,
         request_id: &str,
@@ -342,6 +352,7 @@ WHERE request_id = ?
         Ok(())
     }
 
+    /// CAS 状态机：仅在 Pending 时把 request 推进到 InProgress；成功返回 `true`。
     pub async fn try_start_execution_request(
         &self,
         request_id: &str,
@@ -384,6 +395,7 @@ WHERE request_id = ? AND request_status = ?
         Ok(result.rows_affected() == 1)
     }
 
+    /// 取最早的 Pending execution_request（按 created_at, request_id 升序），无则 `None`。供 runner 轮询消费。
     pub async fn find_next_pending_execution_request(
         &self,
     ) -> Result<Option<ExecutionRequestRecord>> {
@@ -412,6 +424,7 @@ LIMIT 1
         row.map(Self::row_to_execution_request).transpose()
     }
 
+    /// 单事务：把同 (instance, symbol, timeframe) 下、bar_end 早于当前且仍是 New 的旧 signal 置为 Superseded，并取消其 Pending request。返回受影响的 signal 数量。
     pub async fn supersede_previous_signals_and_cancel_pending_requests(
         &self,
         strategy_instance_id: &str,

@@ -14,12 +14,14 @@ use crate::execution::runtime_store::StrategyRuntimeStore;
 
 mod recovery;
 
+/// 风控决策：Allow 放行、Reject 拒绝（含原因）。由 RiskEvaluator 返回，决定 kernel 是否提交订单到 adapter。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RiskDecision {
     Allow,
     Reject { reason: String },
 }
 
+/// 风控评估器 trait：evaluate 在下单前评估 intent 决定是否放行；sync_after_fill 在成交后同步风控内部状态（如持仓/当日基线）。
 #[async_trait]
 pub trait RiskEvaluator: Send + Sync {
     async fn evaluate(&self, intent: OrderIntent) -> Result<RiskDecision>;
@@ -27,11 +29,13 @@ pub trait RiskEvaluator: Send + Sync {
     async fn sync_after_fill(&self) -> Result<()>;
 }
 
+/// 成交增量应用 trait：apply_fill_delta 根据 new/old filled_quantity 差值计算本轮成交增量，并产生可选 trade_record（用于 paper/回测的持仓与账务联动）。
 #[async_trait]
 pub trait FillDeltaApplier: Send + Sync {
     async fn apply_fill_delta(&self, ctx: FillDeltaContext) -> Result<FillDeltaResult>;
 }
 
+/// 空实现的 FillDeltaApplier：计算 delta 但不产生 trade_record_id；用于不需要 broker 价差模拟的执行通道（如 qmt_live 直接走真实 broker）。
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoopFillDeltaApplier;
 
@@ -47,6 +51,7 @@ impl FillDeltaApplier for NoopFillDeltaApplier {
     }
 }
 
+/// 执行请求（来自策略信号）：run_id 策略运行 ID、strategy_name/mode/trigger 策略与触发上下文、symbol/timeframe 标的与周期、bar_end/bar 截止时间、market_price 信号价、held_volume 持仓、policy 执行策略、client_order_id 幂等键。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionRunRequest {
     pub run_id: String,
@@ -62,6 +67,7 @@ pub struct ExecutionRunRequest {
     pub client_order_id: String,
 }
 
+/// 已解析出的执行请求（含 intent）：由 ExecutionRunRequest 经信号翻译 + risk gate 前构造；execute_request 接收此结构走完整下单事务。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreparedExecutionRequest {
     pub run_id: String,
@@ -77,6 +83,7 @@ pub struct PreparedExecutionRequest {
     pub client_order_id: String,
 }
 
+/// 执行内核结果：run_id、signal 信号、order_status 可选订单终态、client_order_id 可选幂等键。order_status 为 None 表示信号被 hold/无 intent，未产生订单。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KernelExecutionResult {
     pub run_id: String,
@@ -85,6 +92,7 @@ pub struct KernelExecutionResult {
     pub client_order_id: Option<String>,
 }
 
+/// 崩溃恢复扫描汇总：scanned 扫描数、recovered 恢复数、unchanged 未变数、failed 失败数、skipped 跳过数。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecoverySummary {
     pub scanned: usize,
@@ -94,6 +102,7 @@ pub struct RecoverySummary {
     pub skipped: usize,
 }
 
+/// 执行内核：组合 StrategyRuntimeStore + ExecutionAdapter + FillDeltaApplier + RiskEvaluator，提供 execute_once/execute_request 入口，承担信号翻译、风控、下单、成交增量应用、状态机持久化、幂等去重等完整事务。
 #[derive(Debug, Clone)]
 pub struct ExecutionKernel<A, F, R> {
     store: StrategyRuntimeStore,
@@ -103,6 +112,7 @@ pub struct ExecutionKernel<A, F, R> {
 }
 
 impl<A, R> ExecutionKernel<A, NoopFillDeltaApplier, R> {
+    /// 构造 ExecutionKernel：注入 store / adapter / risk；不挂 fill delta（内部用 NoopFillDeltaApplier，覆盖价不计入 broker 模拟价差）。
     pub fn new(store: StrategyRuntimeStore, adapter: A, risk: R) -> Self {
         Self {
             store,
@@ -114,6 +124,7 @@ impl<A, R> ExecutionKernel<A, NoopFillDeltaApplier, R> {
 }
 
 impl<A, F, R> ExecutionKernel<A, F, R> {
+    /// 构造 ExecutionKernel 并注入 fill_delta：用于 paper/回测模式下对 broker 成交价做滑点或价差模拟，与真实 adapter 协同写入成交细节。
     pub fn with_fill_delta(
         store: StrategyRuntimeStore,
         adapter: A,
@@ -135,6 +146,7 @@ where
     F: FillDeltaApplier,
     R: RiskEvaluator,
 {
+    /// 处理已构造好的 PreparedExecutionRequest：先 insert_run、再 risk gate、再 adapter submit、再根据返回状态写入 signal/fill/run 状态。整套事务保证 dedupe key 不重复执行；任一环节失败会把 strategy_run_status 标记为 failed 并透传错误。
     pub async fn execute_request(
         &self,
         request: PreparedExecutionRequest,
@@ -171,6 +183,7 @@ where
         self.execute_prepared_order_flow(request).await
     }
 
+    /// 单次执行入口：从 envelope + ExecutionRunRequest 组装 PreparedExecutionRequest 并走 execute_request。若已有相同 dedupe key 的成功执行，直接返回已有结果而不重复下单；避免重复入金/重复成交。
     pub async fn execute_once(
         &self,
         request: ExecutionRunRequest,

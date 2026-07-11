@@ -6,6 +6,7 @@ use crate::monitor::{JsonMonitorServiceConfigStore, MonitorServiceConfig};
 
 const SERVICE_NAME: &str = "quantix-monitor.service";
 
+/// `systemctl status` 等命令聚合的状态摘要，用于 CLI 输出与测试断言。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MonitorServiceStatusSummary {
     pub installed: bool,
@@ -17,6 +18,8 @@ pub struct MonitorServiceStatusSummary {
     pub raw_status: Option<String>,
 }
 
+/// 负责将 monitor 守护进程安装为 systemd `--user` unit 的安装器，
+/// 持有 CLI 运行时路径与可执行文件位置等配置。
 #[derive(Debug, Clone)]
 pub struct MonitorUserServiceInstaller {
     runtime: CliRuntime,
@@ -24,6 +27,7 @@ pub struct MonitorUserServiceInstaller {
 }
 
 impl MonitorUserServiceInstaller {
+    /// 用给定的 CLI 运行时与服务配置构造安装器。
     pub fn new(runtime: CliRuntime, service_config: MonitorServiceConfig) -> Self {
         Self {
             runtime,
@@ -31,6 +35,7 @@ impl MonitorUserServiceInstaller {
         }
     }
 
+    /// 用可执行文件路径构造安装器，等价于 `new(runtime, MonitorServiceConfig{quantix_bin_path: executable_path})`。
     pub fn from_executable_path(runtime: CliRuntime, executable_path: PathBuf) -> Self {
         Self::new(
             runtime,
@@ -40,19 +45,23 @@ impl MonitorUserServiceInstaller {
         )
     }
 
+    /// 返回用于展示的 wrapper 脚本路径（带 `~` 前缀，未展开）。
     pub fn wrapper_path(&self) -> PathBuf {
         PathBuf::from("~/.local/bin/quantix-monitor-run")
     }
 
+    /// 返回用于展示的 unit 文件路径（带 `~` 前缀，未展开）。
     pub fn unit_path(&self) -> PathBuf {
         PathBuf::from("~/.config/systemd/user").join(SERVICE_NAME)
     }
 
+    /// 解析 `$HOME` 后返回 wrapper 脚本的实际路径；`HOME` 缺失时返回 `Config` 错误。
     fn resolved_wrapper_path(&self) -> Result<PathBuf> {
         let home = home_dir()?;
         Ok(home.join(".local").join("bin").join("quantix-monitor-run"))
     }
 
+    /// 解析 `$HOME` 后返回 unit 文件的实际路径；`HOME` 缺失时返回 `Config` 错误。
     fn resolved_unit_path(&self) -> Result<PathBuf> {
         let home = home_dir()?;
         Ok(home
@@ -62,6 +71,7 @@ impl MonitorUserServiceInstaller {
             .join(SERVICE_NAME))
     }
 
+    /// 渲染 wrapper shell 脚本内容：`exec <quantix_bin> monitor daemon run`。
     pub fn render_wrapper_script(&self) -> String {
         format!(
             "#!/bin/sh\nexec \"{}\" monitor daemon run\n",
@@ -69,6 +79,7 @@ impl MonitorUserServiceInstaller {
         )
     }
 
+    /// 渲染 systemd unit 文件内容，注入 watchlist/monitor_db/monitor_config/trade/risk 等运行时路径作为环境变量。
     pub fn render_unit(&self) -> String {
         let mut lines = vec![
             "[Unit]".to_string(),
@@ -110,6 +121,7 @@ impl MonitorUserServiceInstaller {
         lines.join("\n")
     }
 
+    /// 生成调用 `systemctl --user` 的参数列表：`daemon-reload` 不附带 unit 名，其余 action 附加 `SERVICE_NAME`。
     pub fn systemctl_args(&self, action: &str) -> Vec<String> {
         if action == "daemon-reload" {
             vec!["--user".to_string(), "daemon-reload".to_string()]
@@ -122,6 +134,7 @@ impl MonitorUserServiceInstaller {
         }
     }
 
+    /// 汇总 unit 当前状态：是否已安装/已启用/已激活，以及原始 `systemctl status` 文本。
     pub fn status_summary(&self) -> Result<MonitorServiceStatusSummary> {
         let unit_path = self.unit_path();
         let wrapper_path = self.wrapper_path();
@@ -145,6 +158,7 @@ impl MonitorUserServiceInstaller {
         })
     }
 
+    /// 写入 wrapper 脚本与 unit 文件并执行 `daemon-reload`，失败时回滚已写入文件。
     pub fn install(&self) -> Result<()> {
         JsonMonitorServiceConfigStore::validate(&self.service_config)?;
 
@@ -181,6 +195,7 @@ impl MonitorUserServiceInstaller {
         Ok(())
     }
 
+    /// 删除 wrapper 与 unit，然后 `daemon-reload`；若服务仍在运行则拒绝并返回错误。
     pub fn uninstall(&self) -> Result<()> {
         if self.run_systemctl("is-active").is_ok() {
             return Err(QuantixError::Other(
@@ -202,22 +217,27 @@ impl MonitorUserServiceInstaller {
         Ok(())
     }
 
+    /// 执行 `systemctl --user start`。
     pub fn start(&self) -> Result<()> {
         self.run_systemctl("start")
     }
 
+    /// 执行 `systemctl --user stop`。
     pub fn stop(&self) -> Result<()> {
         self.run_systemctl("stop")
     }
 
+    /// 执行 `systemctl --user enable`，让开机自启动生效。
     pub fn enable(&self) -> Result<()> {
         self.run_systemctl("enable")
     }
 
+    /// 执行 `systemctl --user disable`，取消开机自启动。
     pub fn disable(&self) -> Result<()> {
         self.run_systemctl("disable")
     }
 
+    /// 生成供 CLI 打印的多行状态文本，包含 installed/enabled/active 等关键字段与原始 status 输出。
     pub fn status(&self) -> Result<String> {
         let summary = self.status_summary()?;
         let mut lines = vec![

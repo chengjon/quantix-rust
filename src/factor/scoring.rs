@@ -10,12 +10,14 @@ use crate::core::{QuantixError, Result};
 use crate::factor::catalog::FactorCatalog;
 use crate::factor::dataset::FactorDataset;
 
+/// 因子评分结果：factors 参与评分的因子 id 列表、frame 排序后的 DataFrame（symbol / score 列），由 score_factors_latest 返回。
 #[derive(Debug, Clone)]
 pub struct FactorScoreResult {
     pub factors: Vec<String>,
     pub frame: DataFrame,
 }
 
+/// 在最新日期上对指定 factors 做 percentile 评分（0..1），按 symbol 取均值后排序；可选 top 截断。空 factors 列表或无有效数据时返回错误。
 pub fn score_factors_latest(
     catalog: &FactorCatalog,
     dataset: &FactorDataset,
@@ -92,6 +94,7 @@ pub fn score_factors_latest(
     })
 }
 
+/// 把 FactorScoreResult.frame 序列化为 CSV 字符串；写入或 utf8 转换失败返回带原因的 QuantixError::Other。
 pub fn factor_score_result_to_csv_string(result: &FactorScoreResult) -> Result<String> {
     let mut bytes = Vec::new();
     CsvWriter::new(&mut bytes)
@@ -105,6 +108,7 @@ pub fn factor_score_result_to_csv_string(result: &FactorScoreResult) -> Result<S
     })
 }
 
+/// 把 FactorScoreResult 转成 { factors: [...], rows: [{date,symbol,score,factor_count}, ...] } 的 JSON 字符串；列缺失、读取或序列化失败均透传。
 pub fn factor_score_result_to_json_string(result: &FactorScoreResult) -> Result<String> {
     let dates = result.frame.column("date").map_err(|e| {
         QuantixError::DataParse(format!("factor score date column read failed: {}", e))
@@ -152,6 +156,7 @@ pub fn factor_score_result_to_json_string(result: &FactorScoreResult) -> Result<
     .map_err(|e| QuantixError::Other(format!("factor score json export failed: {}", e)))
 }
 
+/// 把 FactorScoreResult.frame 写入指定路径的 Parquet 文件；文件创建或 parquet 写入失败返回 QuantixError::Other。
 pub fn factor_score_result_to_parquet_file(
     result: &FactorScoreResult,
     path: impl AsRef<Path>,

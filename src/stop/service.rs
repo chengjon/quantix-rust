@@ -16,10 +16,13 @@ impl<RS> StopService<RS>
 where
     RS: StopRuleStore,
 {
+    /// 用给定的规则存储后端构造止损/止盈服务。
     pub fn new(store: RS) -> Self {
         Self { store }
     }
 
+    /// 新建或覆盖止损/止盈规则并写入 `Set` 历史事件。
+    /// 输入校验失败（互斥参数同时给出、全为空、值非正等）返回 `QuantixError::Other`。
     pub async fn set_rule(
         &self,
         code: &str,
@@ -61,14 +64,17 @@ where
         Ok(rule)
     }
 
+    /// 返回当前全部止损/止盈规则。
     pub async fn list_rules(&self) -> Result<Vec<StopRule>> {
         self.store.list_rules().await
     }
 
+    /// 按 code 查找规则；不存在时返回 `None`。
     pub async fn get_rule(&self, code: &str) -> Result<Option<StopRule>> {
         self.store.get_rule(code).await
     }
 
+    /// 按 code/date/event_type/limit 过滤历史事件；所有过滤项均可为 `None` 表示不限制。
     pub async fn history(
         &self,
         code: Option<&str>,
@@ -86,6 +92,7 @@ where
             .await
     }
 
+    /// 局部更新规则：`None` 字段保留原值，合并后重新校验，并写 `Update` 历史事件；规则不存在时返回错误。
     pub async fn update_rule(
         &self,
         code: &str,
@@ -109,6 +116,7 @@ where
         Ok(saved)
     }
 
+    /// 删除规则；成功时附写 `Remove` 历史事件并返回 `true`，规则不存在返回 `false`。
     pub async fn remove_rule(&self, code: &str, now: DateTime<Utc>) -> Result<bool> {
         let existing = self.store.get_rule(code).await?;
         let removed = self.store.remove_rule(code).await?;
@@ -126,6 +134,7 @@ where
         Ok(removed)
     }
 
+    /// 评估单条规则（无锚价映射），返回新规则状态与可能的触发事件；缺报价返回 `QuoteMissing`。
     pub fn evaluate_rule(
         &self,
         rule: &StopRule,
@@ -139,6 +148,7 @@ where
         }
     }
 
+    /// 按 quote_rows 中的最新价批量评估规则；不使用持仓成本锚价。
     pub fn evaluate_rules(
         &self,
         rules: &[StopRule],
@@ -162,6 +172,7 @@ where
             .collect()
     }
 
+    /// 批量评估规则；`avg_cost_by_code` 提供按 code 索引的持仓成本锚价（优先于 reference_price）。
     pub fn evaluate_rules_with_anchor_map(
         &self,
         rules: &[StopRule],
@@ -188,6 +199,7 @@ where
             .collect()
     }
 
+    /// 生成 CLI 状态展示行：在 `evaluate_rules_with_anchor_map` 基础上额外携带阈值/锚价/触发时间等汇总字段。
     pub fn status_rows(
         &self,
         rules: &[StopRule],

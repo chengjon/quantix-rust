@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// performance 命令族 clap 枚举：Report 查看已保存回测的绩效详情、Compare 对比两份报告。
 #[derive(Subcommand, Debug)]
 pub enum PerformanceCommands {
     /// 查看已保存回测报告的绩效详情

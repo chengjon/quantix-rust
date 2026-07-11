@@ -24,6 +24,30 @@
 <a class='nav-link nav-depth-2' href='#cmd-data-import-fundamentals'>data import-fundamentals</a>
 <a class='nav-link nav-depth-2' href='#cmd-data-query'>data query</a>
 <a class='nav-link nav-depth-2' href='#cmd-data-export'>data export</a>
+<details class='nav-subgroup nav-depth-2'>
+<summary><span>data openstock</span><span class='nav-count'>19</span></summary>
+<a class='nav-open nav-depth-3' href='#cmd-data-openstock'>查看 quantix data openstock</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-validate-fixture'>openstock validate-fixture</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-validate-live'>openstock validate-live</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-validate-codes'>openstock validate-codes</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-validate-calendar'>openstock validate-calendar</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-validate-index'>openstock validate-index</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-persist-live'>openstock persist-live</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-shadow-rollback'>openstock shadow-rollback</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-shadow-verify'>openstock shadow-verify</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-codes'>openstock fetch-codes</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-calendar'>openstock fetch-calendar</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-index'>openstock fetch-index</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-all-stocks'>openstock fetch-all-stocks</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-workdays'>openstock fetch-workdays</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-klines'>openstock fetch-klines</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-minute-klines'>openstock fetch-minute-klines</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-fetch-minute-share'>openstock fetch-minute-share</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-import-minute-klines'>openstock import-minute-klines</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-import-minute-share'>openstock import-minute-share</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-import-minute-all'>openstock import-minute-all</a>
+<a class='nav-link nav-depth-3' href='#cmd-data-openstock-import-status'>openstock import-status</a>
+</details>
 </details>
 <details class='nav-group nav-depth-1'>
 <summary><span>strategy</span><span class='nav-count'>31</span></summary>
@@ -563,11 +587,12 @@ quantix data query --code 600519 --type daily --limit 50</pre>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-data-source'><code>quantix data source</code></a>：数据源管理</li>
 <li><a href='#cmd-data-tdx-api-deprecated'><code>quantix data tdx-api</code></a> [DEPRECATED P0.11c]：18 子命令全部移除，OpenStock 为 canonical</li>
+<li><a href='#cmd-data-openstock'><code>quantix data openstock</code></a>：OpenStock 数据接入（19 子命令：校验/shadow 持久化/实时拉取/导入）</li>
 <li><a href='#cmd-data-import-fundamentals'><code>quantix data import-fundamentals</code></a>：导入本地市场基础面快照到 ClickHouse</li>
 <li><a href='#cmd-data-query'><code>quantix data query</code></a>：查询历史数据</li>
 <li><a href='#cmd-data-export'><code>quantix data export</code></a>：导出数据到文件</li>
 </ul>
-<div class='chips'><span class='chip'>CLI 对齐重点</span><span class='chip'>5 个下级命令</span><span class='chip'>1 个选项</span></div>
+<div class='chips'><span class='chip'>CLI 对齐重点</span><span class='chip'>6 个下级命令</span><span class='chip'>1 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card focus' id='cmd-data-source'>
 <div class='kicker'>2 级命令</div>
@@ -781,6 +806,579 @@ quantix data source add --type tdx --hosts 127.0.0.1,192.168.1.10 --port 7709 --
 返回码:
 输出摘要:
 判定:</pre></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card focus' id='cmd-data-openstock'>
+<div class='kicker'>2 级命令</div>
+<h3>quantix data openstock</h3>
+<div class='meta'>命令路径：<code>quantix data openstock</code></div>
+<p>OpenStock 数据接入入口（P0.8g 起逐步落地，P0.13–P0.15b 为当前主力迭代）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock &lt;COMMAND&gt;</pre>
+<h4>环境变量</h4>
+<table class='table'><thead><tr><th>名称</th><th>用途</th></tr></thead><tbody>
+<tr><td><code>OPENSTOCK_BASE_URL</code></td><td>OpenStock REST 根 URL（如 <code>http://192.168.123.104:8040</code>）</td></tr>
+<tr><td><code>OPENSTOCK_API_KEY</code></td><td>X-API-Key 认证密钥</td></tr>
+<tr><td><code>CLICKHOUSE_URL/USER/PASSWORD</code></td><td>ClickHouse 写入目标（import-* + persist-* 系列）</td></tr>
+<tr><td><code>POSTGRESQL_HOST/PORT/USER/PASSWORD/DATABASE</code></td><td>PostgreSQL 状态表（import-minute-all + import-status）</td></tr>
+<tr><td><code>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes</code></td><td>双保险写入门控（import-minute-* 系列，配合 <code>--apply</code>）</td></tr>
+<tr><td><code>QUANTIX_SHADOW_PERSIST_CONFIRM=yes</code></td><td>Shadow 写入双保险（persist-live，配合 <code>--apply</code>）</td></tr>
+</tbody></table>
+</div><div>
+<h4>功能说明</h4>
+<p>OpenStock 是 quantix 的 canonical 行情数据源（P0.11c 起替代 tdx-api REST 桥接）。本组命令分四类：<b>校验</b>（离线 fixture / 线上响应载荷校验，dry-run）、<b>shadow 持久化</b>（已校验 daily K 线写入 <code>quantix_shadow.openstock_daily_kline_shadow</code>，双保险幂等回滚）、<b>实时拉取</b>（联网只读，覆盖 codes/calendar/index/all_stocks/workdays/klines/minute-klines/minute-share 八类目）、<b>导入</b>（单 code 分钟 K 线/分时写入 ClickHouse，或按 <code>quantix.stock_info</code> 全量调度，状态记录在 <code>quantix.import_state</code>）。</p>
+<p>所有 import-* 命令默认 dry-run，需要 <code>--apply</code> 配合对应环境变量才会真正写入。Schema DDL 见 <code>db/schema/quantix_openstock_import_init.sql</code>。</p>
+<p><b>OpenStock 能力边界</b>：quantix 仅消费 OpenStock 当前运行时暴露的子集——<code>STOCK_CODES</code>/<code>ALL_STOCKS</code>（代码表）、<code>TRADE_DATES</code>/<code>WORKDAYS</code>（交易日历）、<code>INDEX_KLINES</code>（指数 K 线）、<code>KLINES</code>/<code>ADJUSTED_KLINES</code>（日/周/月 K 线 + 复权）、<code>MINUTE_DATA</code>（分钟 K 线 + 分时）、<code>MAC_KLINES</code>（带 <code>float_shares</code> 流通股字段的 MAC 协议 K 线，用于 minute_share）。OpenStock 注册的 87 类别中其余类别（F10、板块排名、异动检测、龙虎榜、ST 名单等）暂未在 quantix 命令行暴露。运行时真相以 OpenStock 自身的 <code>GET /sources</code> 为准；参见 <code>/opt/claude/openstock/docs/DATA_CAPABILITY_SCOPE.md</code>。</p>
+</div></div>
+<h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
+<li><a href='#cmd-data-openstock-validate-fixture'><code>validate-fixture</code></a>：校验本地 K 线 fixture</li>
+<li><a href='#cmd-data-openstock-validate-live'><code>validate-live</code></a>：校验已捕获的线上响应</li>
+<li><a href='#cmd-data-openstock-validate-codes'><code>validate-codes</code></a>：校验 STOCK_CODES/ALL_STOCKS 载荷</li>
+<li><a href='#cmd-data-openstock-validate-calendar'><code>validate-calendar</code></a>：校验 TRADE_DATES/WORKDAYS 载荷</li>
+<li><a href='#cmd-data-openstock-validate-index'><code>validate-index</code></a>：校验 INDEX_KLINES 载荷</li>
+<li><a href='#cmd-data-openstock-persist-live'><code>persist-live</code></a>：写入 shadow 表（双保险）</li>
+<li><a href='#cmd-data-openstock-shadow-rollback'><code>shadow-rollback</code></a>：按 batch_id 回滚 shadow 行</li>
+<li><a href='#cmd-data-openstock-shadow-verify'><code>shadow-verify</code></a>：按 batch_id 校验 shadow 行数</li>
+<li><a href='#cmd-data-openstock-fetch-codes'><code>fetch-codes</code></a>：实时拉取 STOCK_CODES</li>
+<li><a href='#cmd-data-openstock-fetch-calendar'><code>fetch-calendar</code></a>：实时拉取 TRADE_DATES</li>
+<li><a href='#cmd-data-openstock-fetch-index'><code>fetch-index</code></a>：实时拉取 INDEX_KLINES</li>
+<li><a href='#cmd-data-openstock-fetch-all-stocks'><code>fetch-all-stocks</code></a>：实时拉取全市场快照</li>
+<li><a href='#cmd-data-openstock-fetch-workdays'><code>fetch-workdays</code></a>：实时拉取工作日历</li>
+<li><a href='#cmd-data-openstock-fetch-klines'><code>fetch-klines</code></a>：实时拉取日/周/月 K 线</li>
+<li><a href='#cmd-data-openstock-fetch-minute-klines'><code>fetch-minute-klines</code></a>：实时拉取分钟 K 线</li>
+<li><a href='#cmd-data-openstock-fetch-minute-share'><code>fetch-minute-share</code></a>：实时拉取分时（minute_share）</li>
+<li><a href='#cmd-data-openstock-import-minute-klines'><code>import-minute-klines</code></a>：单 code 分钟 K 线入 ClickHouse</li>
+<li><a href='#cmd-data-openstock-import-minute-share'><code>import-minute-share</code></a>：单 code 分时入 ClickHouse</li>
+<li><a href='#cmd-data-openstock-import-minute-all'><code>import-minute-all</code></a>：P0.15b 全市场调度（stock_info 驱动）</li>
+<li><a href='#cmd-data-openstock-import-status'><code>import-status</code></a>：查询 import_state 状态</li>
+</ul>
+<div class='chips'><span class='chip'>canonical 数据源</span><span class='chip'>19 个下级命令</span><span class='chip'>双保险写入门控</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-validate-fixture'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock validate-fixture</h3>
+<div class='meta'>命令路径：<code>quantix data openstock validate-fixture</code></div>
+<p>校验本地 OpenStock K 线 fixture（dry-run，不联网，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock validate-fixture --file &lt;FILE&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--file</code></td><td>FILE</td><td>本地 fixture JSON 文件路径</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock validate-fixture --file ./fixtures/kline_daily_sh600000.json</pre>
+<h4>功能说明</h4>
+<p>离线校验本地 fixture 文件，检查 OpenStock K 线响应的结构与字段。不联网、不写库，适合 CI 或开发期回归。</p>
+</div></div>
+<div class='chips'><span class='chip'>dry-run</span><span class='chip'>离线校验</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-validate-live'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock validate-live</h3>
+<div class='meta'>命令路径：<code>quantix data openstock validate-live</code></div>
+<p>校验通过外部捕获的 OpenStock /data/bars 线上响应（dry-run，不联网，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock validate-live --payload &lt;PAYLOAD&gt; --symbol &lt;SYMBOL&gt; \
+  --period &lt;PERIOD&gt; --start &lt;START&gt; --end &lt;END&gt; [--limit &lt;LIMIT&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--payload</code></td><td>PAYLOAD</td><td>已捕获的响应 JSON 文件路径；<code>-</code> 从 stdin 读取</td></tr>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>请求时使用的代码（symbol/code）</td></tr>
+<tr><td><code>--period</code></td><td>PERIOD</td><td>请求时使用的周期（必须为 daily）[default: daily]</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>开始日期 (YYYY-MM-DD)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD)</td></tr>
+<tr><td><code>--limit</code></td><td>LIMIT</td><td>请求时声明的 limit（可选，用于检测服务端裁剪）</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock validate-live --payload ./captured.json \
+  --symbol sh600000 --period daily --start 2026-01-01 --end 2026-01-31</pre>
+<h4>功能说明</h4>
+<p>对已捕获的线上响应做完整 shadow 校验：服务端返回条数 vs 声明 limit、字段完整性、drift 检测、fail-closed 检测、duplicate key 检测。是 <code>persist-live --apply</code> 的前置 dry-run gate。</p>
+</div></div>
+<div class='chips'><span class='chip'>dry-run</span><span class='chip'>shadow 校验</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-validate-codes'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock validate-codes</h3>
+<div class='meta'>命令路径：<code>quantix data openstock validate-codes</code></div>
+<p>校验 STOCK_CODES / ALL_STOCKS 类目捕获载荷（dry-run，不联网，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock validate-codes --payload &lt;PAYLOAD&gt; [--kind &lt;KIND&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--payload</code></td><td>PAYLOAD</td><td>已捕获的响应 JSON 文件路径；<code>-</code> 从 stdin 读取</td></tr>
+<tr><td><code>--kind</code></td><td>KIND</td><td>类目：<code>codes</code> 或 <code>all_stocks</code>，缺省按 <code>codes</code></td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock validate-codes --payload ./all_stocks.json --kind all_stocks</pre>
+<h4>功能说明</h4>
+<p>离线校验股票代码类目载荷的字段与结构。常用于回归 <code>fetch-codes</code> / <code>fetch-all-stocks</code> 的响应形状变更。</p>
+</div></div>
+<div class='chips'><span class='chip'>dry-run</span><span class='chip'>离线校验</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-validate-calendar'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock validate-calendar</h3>
+<div class='meta'>命令路径：<code>quantix data openstock validate-calendar</code></div>
+<p>校验 TRADE_DATES / WORKDAYS 类目捕获载荷（dry-run，不联网，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock validate-calendar --payload &lt;PAYLOAD&gt; --kind &lt;KIND&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--payload</code></td><td>PAYLOAD</td><td>已捕获的响应 JSON 文件路径；<code>-</code> 从 stdin 读取</td></tr>
+<tr><td><code>--kind</code></td><td>KIND</td><td>类目：<code>trade_dates</code> 或 <code>workdays</code></td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock validate-calendar --payload ./workdays.json --kind workdays</pre>
+<h4>功能说明</h4>
+<p>离线校验工作日历类目载荷。用于回归 <code>fetch-calendar</code> / <code>fetch-workdays</code> 的响应形状。</p>
+</div></div>
+<div class='chips'><span class='chip'>dry-run</span><span class='chip'>离线校验</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-validate-index'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock validate-index</h3>
+<div class='meta'>命令路径：<code>quantix data openstock validate-index</code></div>
+<p>校验 INDEX_KLINES 类目捕获载荷（dry-run，不联网，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock validate-index --payload &lt;PAYLOAD&gt; --symbol &lt;SYMBOL&gt; \
+  [--start &lt;START&gt;] [--end &lt;END&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--payload</code></td><td>PAYLOAD</td><td>已捕获的响应 JSON 文件路径；<code>-</code> 从 stdin 读取</td></tr>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>指数代码（如 sh000001）</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>开始日期 (YYYY-MM-DD，可选)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD，可选)</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock validate-index --payload ./index.json \
+  --symbol sh000001 --start 2026-01-01 --end 2026-06-30</pre>
+<h4>功能说明</h4>
+<p>离线校验指数 K 线载荷。用于回归 <code>fetch-index</code> 的响应形状。</p>
+</div></div>
+<div class='chips'><span class='chip'>dry-run</span><span class='chip'>离线校验</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-persist-live'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock persist-live</h3>
+<div class='meta'>命令路径：<code>quantix data openstock persist-live</code></div>
+<p>将已校验的 live shadow 载荷写入 <code>quantix_shadow.openstock_daily_kline_shadow</code></p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock persist-live --payload &lt;PAYLOAD&gt; --symbol &lt;SYMBOL&gt; \
+  --period &lt;PERIOD&gt; --start &lt;START&gt; --end &lt;END&gt; [--limit &lt;LIMIT&gt;] [--apply]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--payload</code></td><td>PAYLOAD</td><td>已捕获的响应 JSON 文件路径；<code>-</code> 从 stdin</td></tr>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>代码</td></tr>
+<tr><td><code>--period</code></td><td>PERIOD</td><td>周期（必须 daily）[default: daily]</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>开始日期 (YYYY-MM-DD)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD)</td></tr>
+<tr><td><code>--limit</code></td><td>LIMIT</td><td>声明的 limit</td></tr>
+<tr><td><code>--apply</code></td><td>-</td><td>真正执行写入；不传则只跑 dry-run gate</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'># Dry-run（默认）
+quantix data openstock persist-live --payload ./cap.json \
+  --symbol sh600000 --period daily --start 2026-01-01 --end 2026-01-31
+
+# 真正写入（双保险）
+QUANTIX_SHADOW_PERSIST_CONFIRM=yes \
+  quantix data openstock persist-live --payload ./cap.json \
+  --symbol sh600000 --period daily --start 2026-01-01 --end 2026-01-31 --apply</pre>
+<h4>功能说明</h4>
+<p>Shadow 写入路径（P0.8g-impl）。默认 dry-run 跑完所有校验 gate（drift / fail-closed / duplicate / empty / mismatch）；真正写入需要 <code>--apply</code> <b>且</b> <code>QUANTIX_SHADOW_PERSIST_CONFIRM=yes</code> 双保险。写入返回 <code>batch_id</code>，可用于 <code>shadow-rollback</code> / <code>shadow-verify</code>。</p>
+</div></div>
+<div class='chips'><span class='chip must'>双保险写入</span><span class='chip'>shadow 持久化</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-shadow-rollback'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock shadow-rollback</h3>
+<div class='meta'>命令路径：<code>quantix data openstock shadow-rollback</code></div>
+<p>按 <code>batch_id</code> 回滚（删除）shadow 行，幂等</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock shadow-rollback --batch-id &lt;BATCH_ID&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--batch-id</code></td><td>BATCH_ID</td><td><code>persist-live --apply</code> 返回的 batch_id</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock shadow-rollback --batch-id abc123-def456</pre>
+<h4>功能说明</h4>
+<p>幂等删除指定 batch_id 的全部 shadow 行。重复执行不报错，返回受影响行数（可能为 0）。</p>
+</div></div>
+<div class='chips'><span class='chip'>幂等</span><span class='chip'>shadow 回滚</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-shadow-verify'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock shadow-verify</h3>
+<div class='meta'>命令路径：<code>quantix data openstock shadow-verify</code></div>
+<p>校验某 <code>batch_id</code> 在 shadow 表中的当前行数</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock shadow-verify --batch-id &lt;BATCH_ID&gt;</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--batch-id</code></td><td>BATCH_ID</td><td><code>persist-live --apply</code> 返回的 batch_id</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock shadow-verify --batch-id abc123-def456</pre>
+<h4>功能说明</h4>
+<p>只读查询，返回指定 batch_id 当前在 shadow 表中的行数。用于回滚后验证或审计。</p>
+</div></div>
+<div class='chips'><span class='chip'>只读</span><span class='chip'>shadow 审计</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-codes'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-codes</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-codes</code></div>
+<p>实时拉取 STOCK_CODES 类目（联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-codes</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>OPENSTOCK_BASE_URL=http://... OPENSTOCK_API_KEY=... \
+  quantix data openstock fetch-codes</pre>
+<h4>功能说明</h4>
+<p>从 OpenStock 实时拉取股票代码列表，stdout 输出 JSON。需要 <code>OPENSTOCK_BASE_URL</code> + <code>OPENSTOCK_API_KEY</code>。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-calendar'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-calendar</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-calendar</code></div>
+<p>实时拉取 TRADE_DATES 类目（联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-calendar (--year &lt;YEAR&gt; | --start &lt;START&gt; --end &lt;END&gt;)</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--year</code></td><td>YEAR</td><td>年份（如 2026），展开为 <code>&lt;year&gt;-01-01..&lt;year&gt;-12-31</code></td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>起始日期 (YYYY-MM-DD)，与 <code>--end</code> 同时使用</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD)，与 <code>--start</code> 同时使用</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-calendar --year 2026
+quantix data openstock fetch-calendar --start 2026-01-01 --end 2026-06-30</pre>
+<h4>功能说明</h4>
+<p><code>--year</code> 与 <code>--start/--end</code> 二选一（mutually exclusive group）。runtime 实际接受 <code>start_date</code>/<code>end_date</code>，忽略 <code>year</code>，CLI 自动展开。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>互斥分组</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-index'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-index</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-index</code></div>
+<p>实时拉取 INDEX_KLINES 类目（联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-index --symbol &lt;SYMBOL&gt; [--start &lt;START&gt;] [--end &lt;END&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>指数代码（如 sh000001）</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>开始日期 (YYYY-MM-DD，可选)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD，可选)</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-index --symbol sh000001 --start 2026-01-01 --end 2026-06-30</pre>
+<h4>功能说明</h4>
+<p>实时拉取指数 K 线，stdout 输出 JSON。与 <code>fetch-klines</code> 区别：本命令走 INDEX_KLINES 类目，专用于指数。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-all-stocks'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-all-stocks</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-all-stocks</code></div>
+<p>实时拉取 ALL_STOCKS 类目（baostock 全市场快照，联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-all-stocks [--day &lt;DAY&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--day</code></td><td>DAY</td><td>可选日期 (YYYY-MM-DD)；缺省时服务端回退到最近交易日</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-all-stocks --day 2026-07-08</pre>
+<h4>功能说明</h4>
+<p>全市场快照（baostock 数据源）。是 <code>quantix.stock_info</code> 表的数据来源，<code>import-minute-all</code> 调度器依赖该表。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>stock_info 数据源</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-workdays'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-workdays</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-workdays</code></div>
+<p>实时拉取 WORKDAYS 类目（eltdx action 驱动，联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-workdays --action &lt;ACTION&gt; [--date &lt;DATE&gt;] \
+  [--start &lt;START&gt;] [--end &lt;END&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--action</code></td><td>ACTION</td><td><code>today</code> / <code>today_is_workday</code> / <code>is_workday</code> / <code>range</code> / <code>next_workday</code> / <code>previous_workday</code> [default: today]</td></tr>
+<tr><td><code>--date</code></td><td>DATE</td><td>YYYY-MM-DD，用于 is_workday / next_workday / previous_workday</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>YYYY-MM-DD，range 起始（含），与 <code>--end</code> 同时使用</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>YYYY-MM-DD，range 结束（含），与 <code>--start</code> 同时使用</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-workdays --action today
+quantix data openstock fetch-workdays --action is_workday --date 2026-07-08
+quantix data openstock fetch-workdays --action range --start 2026-01-01 --end 2026-12-31</pre>
+<h4>功能说明</h4>
+<p>工作日历查询。<code>range</code> action 返回区间内所有工作日列表；单点 action 返回单个布尔或日期。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>eltdx action</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-klines'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-klines</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-klines</code></div>
+<p>实时拉取多周期 K 线（/data/bars，day/week/month + none/qfq/hfq，联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-klines --symbol &lt;SYMBOL&gt; [--period &lt;PERIOD&gt;] \
+  [--adjust &lt;ADJUST&gt;] [--start &lt;START&gt;] [--end &lt;END&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>标的代码（例如 600000、sh600000）</td></tr>
+<tr><td><code>--period</code></td><td>PERIOD</td><td><code>day</code> | <code>week</code> | <code>month</code>（大小写不敏感，拒绝 daily/weekly/monthly）[default: day]</td></tr>
+<tr><td><code>--adjust</code></td><td>ADJUST</td><td><code>none</code> | <code>qfq</code> | <code>hfq</code>（大小写不敏感）[default: none]</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>YYYY-MM-DD，起始日期（含，可选）</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>YYYY-MM-DD，结束日期（含，可选）</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-klines --symbol sh600000 --period day --adjust qfq \
+  --start 2026-01-01 --end 2026-06-30</pre>
+<h4>功能说明</h4>
+<p>走 <code>/data/bars</code> 端点，支持日/周/月三周期 × 三复权。非分钟级——分钟级用 <code>fetch-minute-klines</code>。<code>--period</code> / <code>--adjust</code> 通过 <code>FromStr</code> 严格解析，非法值在任何 HTTP 请求前快速失败。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>快速失败</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-minute-klines'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-minute-klines</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-minute-klines</code></div>
+<p>拉取分钟级 K 线蜡烛（P0.13b-1，OpenStock /data/bars period=1m|5m|15m|30m|60m）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-minute-klines --symbol &lt;SYMBOL&gt; [--period &lt;PERIOD&gt;] \
+  (--date &lt;DATE&gt; | --start &lt;START&gt; --end &lt;END&gt;) [--adjust &lt;ADJUST&gt;] [--stream]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>标的代码</td></tr>
+<tr><td><code>--period</code></td><td>PERIOD</td><td><code>1m</code> | <code>5m</code> | <code>15m</code> | <code>30m</code> | <code>60m</code> [default: 1m]</td></tr>
+<tr><td><code>--date</code></td><td>DATE</td><td>单日查询 (YYYY-MM-DD)，与 --start/--end 互斥</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>区间起始（含），必须配 <code>--end</code></td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>区间结束（含），必须配 <code>--start</code></td></tr>
+<tr><td><code>--adjust</code></td><td>ADJUST</td><td><code>none</code> | <code>qfq</code> | <code>hfq</code> [default: none]</td></tr>
+<tr><td><code>--stream</code></td><td>-</td><td>流式分批拉取（P0.13d），stderr 输出每批进度 [default: false]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-minute-klines --symbol sh600000 --period 5m --date 2026-07-08
+quantix data openstock fetch-minute-klines --symbol sh600000 --start 2026-07-01 \
+  --end 2026-07-08 --period 5m --stream</pre>
+<h4>功能说明</h4>
+<p>分钟级 OHLCV K 线。<code>--date</code> 与 <code>--start/--end</code> 互斥。<code>--stream</code> 启用 P0.13d 周级分批，适合长区间拉取，避免单请求超时。与 <code>fetch-minute-share</code> 区别：本命令有 OHLC + period/adjust，share 只有逐分钟价格 + 均价。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>P0.13b-1</span><span class='chip'>P0.13d stream</span><span class='chip'>互斥分组</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-fetch-minute-share'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock fetch-minute-share</h3>
+<div class='meta'>命令路径：<code>quantix data openstock fetch-minute-share</code></div>
+<p>拉取 OpenStock MINUTE_DATA 类目（分时逐笔 ticks，联网，只读，不写库）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock fetch-minute-share --symbol &lt;SYMBOL&gt; \
+  (--date &lt;DATE&gt; | --start &lt;START&gt; --end &lt;END&gt;) [--stream]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--symbol</code></td><td>SYMBOL</td><td>标的代码</td></tr>
+<tr><td><code>--date</code></td><td>DATE</td><td>单日查询 (YYYY-MM-DD)，与 --start/--end 互斥</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>区间起始（含），必须配 <code>--end</code></td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>区间结束（含），必须配 <code>--start</code></td></tr>
+<tr><td><code>--stream</code></td><td>-</td><td>流式分批拉取（P0.13d） [default: false]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock fetch-minute-share --symbol sh600000 --date 2026-07-08</pre>
+<h4>功能说明</h4>
+<p>分时数据：每分钟 <code>price</code> + <code>avg_price</code>，无 OHLC，无 period/adjust。与 <code>fetch-minute-klines</code> 互补——K 线用于技术分析，分时用于盘中跟踪。</p>
+</div></div>
+<div class='chips'><span class='chip'>联网只读</span><span class='chip'>P0.13b-2</span><span class='chip'>P0.13d stream</span><span class='chip'>互斥分组</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-import-minute-klines'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock import-minute-klines</h3>
+<div class='meta'>命令路径：<code>quantix data openstock import-minute-klines</code></div>
+<p>导入分钟级 K 线到 ClickHouse <code>minute_klines</code>（P0.15a，单 code）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock import-minute-klines --code &lt;CODE&gt; [--period &lt;PERIOD&gt;] \
+  [--adjust &lt;ADJUST&gt;] [--start &lt;START&gt;] [--end &lt;END&gt;] [--apply]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码 (e.g. sh600000)</td></tr>
+<tr><td><code>--period</code></td><td>PERIOD</td><td><code>1m</code> | <code>5m</code> | <code>15m</code> | <code>30m</code> | <code>60m</code> [default: 1m]</td></tr>
+<tr><td><code>--adjust</code></td><td>ADJUST</td><td><code>none</code> | <code>qfq</code> | <code>hfq</code> [default: none]</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>起始日期 (YYYY-MM-DD, 含)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD, 含)</td></tr>
+<tr><td><code>--apply</code></td><td>-</td><td>实际写入 ClickHouse (默认 dry-run; 需配 <code>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes</code>) [default: false]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'># Dry-run
+quantix data openstock import-minute-klines --code sh600000 --period 5m \
+  --start 2026-07-08 --end 2026-07-08
+
+# 真正写入（双保险）
+QUANTIX_OPENSTOCK_MINUTE_APPLY=yes \
+  quantix data openstock import-minute-klines --code sh600000 --period 5m \
+  --start 2026-07-08 --end 2026-07-08 --apply</pre>
+<h4>功能说明</h4>
+<p>P0.15a 单 code 分钟 K 线导入。默认 dry-run 流式拉取 + 计数，不写库；真正写入需要 <code>--apply</code> <b>且</b> <code>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes</code> 双保险。使用 P0.13d 周级分批拉取，部分失败时已提交批次保留（INV-FLOW-1）。写入目标：ClickHouse <code>minute_klines</code>（P0.14 表）。</p>
+</div></div>
+<div class='chips'><span class='chip must'>双保险写入</span><span class='chip'>P0.15a</span><span class='chip'>stream-only</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-import-minute-share'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock import-minute-share</h3>
+<div class='meta'>命令路径：<code>quantix data openstock import-minute-share</code></div>
+<p>导入分时（minute_share）到 ClickHouse <code>minute_shares</code>（P0.15a，单 code）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock import-minute-share --code &lt;CODE&gt; \
+  [--start &lt;START&gt;] [--end &lt;END&gt;] [--apply]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>-c, --code</code></td><td>CODE</td><td>股票代码</td></tr>
+<tr><td><code>--start</code></td><td>START</td><td>起始日期 (YYYY-MM-DD, 含)</td></tr>
+<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD, 含)</td></tr>
+<tr><td><code>--apply</code></td><td>-</td><td>实际写入 ClickHouse (默认 dry-run; 需配 <code>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes</code>) [default: false]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes \
+  quantix data openstock import-minute-share --code sh600000 \
+  --start 2026-07-08 --end 2026-07-08 --apply</pre>
+<h4>功能说明</h4>
+<p>P0.15a 单 code 分时导入。与 <code>import-minute-klines</code> 平行，写 ClickHouse <code>minute_shares</code> 表（P0.14）。同样的双保险门控、同样的 P0.13d 周级分批。</p>
+</div></div>
+<div class='chips'><span class='chip must'>双保险写入</span><span class='chip'>P0.15a</span><span class='chip'>stream-only</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-import-minute-all'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock import-minute-all</h3>
+<div class='meta'>命令路径：<code>quantix data openstock import-minute-all</code></div>
+<p>P0.15b 全市场调度：遍历 <code>quantix.stock_info</code>，对每个 active code 跑 P0.15a klines + share，状态记入 <code>quantix.import_state</code></p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock import-minute-all [--date &lt;DATE&gt;] [--format &lt;FORMAT&gt;] [--dry-run]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--date</code></td><td>DATE</td><td>交易日期；缺省今天 (Asia/Shanghai)。格式 YYYY-MM-DD 或字面量 <code>today</code></td></tr>
+<tr><td><code>--format</code></td><td>FORMAT</td><td>BatchSummary 输出格式：<code>text</code> | <code>json</code> [default: text]</td></tr>
+<tr><td><code>--dry-run</code></td><td>-</td><td>只打印计划（codes + batch_id），不写入 [default: false]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'># Dry-run（看计划）
+quantix data openstock import-minute-all --date 2026-07-08 --dry-run
+
+# 真正写入（环境变量已设 QUANTIX_OPENSTOCK_MINUTE_APPLY=yes）
+quantix data openstock import-minute-all --date 2026-07-08 --format json</pre>
+<h4>功能说明</h4>
+<p>P0.15b 批量调度器。<b>continue-on-error</b>：单 code 失败不中止整批，记入 <code>quantix.import_state</code> 的 <code>failed</code> 行。<b>幂等</b>：同一 (code, date, kind) 已 success 则跳过，不重复写 ClickHouse。<b>per-kind 独立</b>：klines 失败不阻塞 share。读取 <code>quantix.stock_info WHERE trade_status='1'</code> 获取待导入 code 列表。前置依赖：<code>db/schema/quantix_openstock_import_init.sql</code> 已执行。</p>
+</div></div>
+<div class='chips'><span class='chip must'>P0.15b</span><span class='chip'>continue-on-error</span><span class='chip'>幂等</span><span class='chip'>latest-wins</span><span class='chip'>叶子命令</span></div>
+<div class='toplink'><a href='#top'>返回目录</a></div></section>
+<section class='section card' id='cmd-data-openstock-import-status'>
+<div class='kicker'>3 级命令</div>
+<h3>quantix data openstock import-status</h3>
+<div class='meta'>命令路径：<code>quantix data openstock import-status</code></div>
+<p>查询 <code>quantix.import_state</code>，打印某日最新 batch 汇总（成功/失败计数 + 失败明细）</p>
+<div class='subgrid'>
+<div>
+<h4>用法</h4>
+<pre class='shell'>quantix data openstock import-status --date &lt;DATE&gt; [--format &lt;FORMAT&gt;]</pre>
+<h4>参数</h4>
+<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>--date</code></td><td>DATE</td><td>交易日期 (YYYY-MM-DD)</td></tr>
+<tr><td><code>--format</code></td><td>FORMAT</td><td>输出格式：<code>text</code> | <code>json</code> [default: text]</td></tr>
+<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+</tbody></table>
+</div><div>
+<h4>使用示例</h4>
+<pre class='shell'>quantix data openstock import-status --date 2026-07-08 --format json</pre>
+<h4>功能说明</h4>
+<p>只读查询。返回该日最新 batch 的汇总：<code>success_count</code>（klines/share 各几）、<code>failed_count</code>、<code>failures</code> 列表（code + kind + reason）。配合 <code>import-minute-all</code> 做 after-action 审计，或排障时定位失败 code。</p>
+</div></div>
+<div class='chips'><span class='chip'>只读</span><span class='chip'>P0.15b</span><span class='chip'>latest-wins</span><span class='chip'>叶子命令</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
 <section class='section card focus' id='cmd-strategy'>
 <div class='kicker'>1 级命令</div>

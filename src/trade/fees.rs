@@ -2,6 +2,10 @@ use rust_decimal::Decimal;
 
 use crate::trade::{FeeBreakdown, FeeConfig, TradeSide};
 
+/// 按成交金额、买卖方向与代码所属交易所拆解手续费。
+///
+/// 包含：佣金（取 `commission_rate * amount` 与 `commission_min` 的较大值）、
+/// 印花税（仅卖出，`stamp_duty_rate * amount`）、过户费（仅沪市 `60`/`68` 开头代码）。
 pub fn calculate_fee_breakdown(
     side: TradeSide,
     code: &str,

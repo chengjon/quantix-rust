@@ -7,16 +7,19 @@ use uuid::Uuid;
 use crate::core::Result;
 use crate::risk::{RiskState, RiskStore};
 
+/// JSON 文件后端 RiskStore 实现：持有 path，load/save 围绕该路径读写 RiskState（单账户 JSON）。
 #[derive(Debug, Clone)]
 pub struct JsonRiskStore {
     path: PathBuf,
 }
 
 impl JsonRiskStore {
+    /// 创建 store：注入 JSON 路径，load/save 时才读写文件。
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
+    /// 返回底层 JSON 文件路径（用于诊断/日志）。
     pub fn path(&self) -> &Path {
         &self.path
     }

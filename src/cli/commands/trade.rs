@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// trade 命令族 clap 枚举：Init/Reset 账户管理、Buy/Sell 下单、History/Fees/Overview/Position/Cash 查询。
 #[derive(Subcommand, Debug)]
 pub enum TradeCommands {
     /// 初始化默认模拟账户
@@ -80,6 +81,7 @@ pub enum TradeCommands {
     Cash,
 }
 
+/// execution 命令族 clap 枚举（容器）：Config 配置、Daemon 守护进程、Bridge 桥接诊断、Qmt QMT 执行兼容入口。
 #[derive(Subcommand, Debug)]
 pub enum ExecutionCommands {
     /// 执行守护进程配置
@@ -99,6 +101,7 @@ pub enum ExecutionCommands {
     Qmt(ExecutionQmtCommands),
 }
 
+/// execution config 子命令枚举：Init 初始化配置、Show 显示配置。
 #[derive(Subcommand, Debug)]
 pub enum ExecutionConfigCommands {
     /// 初始化执行配置
@@ -108,6 +111,7 @@ pub enum ExecutionConfigCommands {
     Show,
 }
 
+/// execution daemon 子命令枚举：Run 启动守护进程（--once 仅运行一轮）。
 #[derive(Subcommand, Debug)]
 pub enum ExecutionDaemonCommands {
     /// 运行执行守护进程
@@ -118,6 +122,7 @@ pub enum ExecutionDaemonCommands {
     },
 }
 
+/// execution bridge 子命令枚举：Status 能力状态、QmtPreview/QmtLive/QmtQuery/QmtAudit/QmtCancel QMT 全流程、QmtAccount/QmtPositions/QmtAsset 账户查询。
 #[derive(Subcommand, Debug)]
 pub enum ExecutionBridgeCommands {
     /// 查看 bridge 能力状态
@@ -184,6 +189,7 @@ pub enum ExecutionBridgeCommands {
     QmtAsset,
 }
 
+/// execution qmt 子命令枚举：Status/Preview/Live/Query/Audit/Cancel/Account/Positions/Asset，外加 ManualInterventions 人工介入记录查询。
 #[derive(Subcommand, Debug)]
 pub enum ExecutionQmtCommands {
     /// 查看 QMT bridge 能力状态
@@ -269,6 +275,7 @@ pub enum ExecutionQmtCommands {
     Asset,
 }
 
+/// anomaly 命令族 clap 枚举：Run 运行异常检测（支持 top_n/period/min_volume/min_volatility/output/n_estimators/history/mock 等参数）。
 #[derive(Subcommand, Debug)]
 pub enum AnomalyCommands {
     /// 运行异常检测
@@ -311,6 +318,7 @@ pub enum AnomalyCommands {
     },
 }
 
+/// algo 命令族 clap 枚举：Create 创建算法任务（支持 twap/vwap，可指定 code/side/quantity/duration/price）。
 #[derive(Subcommand, Debug)]
 pub enum AlgoCommands {
     /// 创建算法任务

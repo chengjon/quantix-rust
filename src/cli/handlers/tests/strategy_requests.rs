@@ -358,9 +358,10 @@ fn test_execute_execution_bridge_qmt_live_source_keeps_confirmation_and_request_
             .join("src")
             .join("cli")
             .join("handlers")
-            .join("execution_handler.rs"),
+            .join("execution_handler")
+            .join("live.rs"),
     )
-    .expect("expected src/cli/handlers/execution_handler.rs");
+    .expect("expected src/cli/handlers/execution_handler/live.rs");
 
     assert!(
         source.contains("输入 'YES' 确认下单"),

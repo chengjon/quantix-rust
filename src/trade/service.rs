@@ -12,13 +12,17 @@ use crate::trade::models::{
     TradeOrderRequest, TradePosition, TradeRecord, TradeSide,
 };
 
+/// 模拟交易账本持久化抽象。
 #[async_trait]
 pub trait PaperTradeStore: Send + Sync {
+    /// 加载已持久化状态；文件不存在返回 `None`。
     async fn load_state(&self) -> Result<Option<PaperTradeState>>;
 
+    /// 保存状态（实现应保证写入原子性）。
     async fn save_state(&self, state: &PaperTradeState) -> Result<()>;
 }
 
+/// 模拟交易核心服务：封装初始化 / 重置 / 买卖 / 查询。
 #[derive(Debug, Clone)]
 pub struct TradeService<Store> {
     store: Store,
@@ -28,10 +32,12 @@ impl<Store> TradeService<Store>
 where
     Store: PaperTradeStore,
 {
+    /// 用指定存储后端构造服务。
     pub fn new(store: Store) -> Self {
         Self { store }
     }
 
+    /// 初始化账户。若账户已存在则返回错误（用 [`Self::reset_account`] 覆盖）。
     pub async fn init_account(
         &self,
         request: InitAccountRequest,
@@ -54,6 +60,7 @@ where
         Ok(account)
     }
 
+    /// 重置账户：清空持仓与交易记录，按新请求重新初始化。
     pub async fn reset_account(
         &self,
         request: InitAccountRequest,
@@ -69,6 +76,7 @@ where
         Ok(account)
     }
 
+    /// 买入：校验资金充足，更新现金 / 持仓均价 / 最新价，落地交易记录。
     pub async fn buy(&self, request: TradeOrderRequest, now: DateTime<Utc>) -> Result<TradeRecord> {
         let mut state = self.load_initialized_state().await?;
         let account = state
@@ -122,6 +130,7 @@ where
         Ok(record)
     }
 
+    /// 卖出：校验持仓数量，更新现金 / 持仓（清零时移除），落地交易记录。
     pub async fn sell(
         &self,
         request: TradeOrderRequest,
@@ -165,12 +174,14 @@ where
         Ok(record)
     }
 
+    /// 返回当前持仓列表（账户未初始化时返回错误）。
     pub async fn positions(&self) -> Result<Vec<TradePosition>> {
         let state = self.load_initialized_state().await?;
         let account = state.account.ok_or_else(uninitialized_account_error)?;
         Ok(account.positions.into_values().collect())
     }
 
+    /// 返回现金快照（含按 `last_trade_price` 估算的持仓市值）。
     pub async fn cash_snapshot(&self) -> Result<CashSnapshot> {
         let state = self.load_initialized_state().await?;
         let account = state.account.ok_or_else(uninitialized_account_error)?;
@@ -189,6 +200,7 @@ where
         })
     }
 
+    /// 返回完整账本状态快照（账户未初始化时返回错误）。
     pub async fn state_snapshot(&self) -> Result<PaperTradeState> {
         self.load_initialized_state().await
     }

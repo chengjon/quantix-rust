@@ -14,6 +14,7 @@ use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeRecord, TradeService
 /// Paper execution is intentionally local immediate-fill accounting only.
 pub const IMMEDIATE_FILL_ONLY: bool = true;
 
+/// paper 执行适配器：本地立即成交记账，不提交 broker、不撮合。所有 submit 立即按请求价全额成交并写入 PaperTradeStore；用于 paper 模式的持仓与盈亏联动。
 #[derive(Debug, Clone)]
 pub struct PaperExecutionAdapter<Store> {
     trade_service: TradeService<Store>,
@@ -23,6 +24,7 @@ impl<Store> PaperExecutionAdapter<Store>
 where
     Store: PaperTradeStore,
 {
+    /// 构造 paper 适配器：注入 TradeService（封装 PaperTradeStore 的本地账本）。
     pub fn new(trade_service: TradeService<Store>) -> Self {
         Self { trade_service }
     }

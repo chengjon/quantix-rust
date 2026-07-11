@@ -54,6 +54,7 @@ pub struct MomentumStrategy {
 }
 
 impl MomentumStrategy {
+    /// 创建动量策略：注入 MomentumConfig，自动生成 `Momentum_MACD_{f}_{s}_{sig}` 名称，初始空仓。
     pub fn new(config: MomentumConfig) -> Self {
         Self {
             name: format!(
@@ -68,6 +69,7 @@ impl MomentumStrategy {
         }
     }
 
+    /// 用 MomentumConfig::default() 构造默认参数动量策略（fast=12, slow=26, signal=9）。
     pub fn with_defaults() -> Self {
         Self::new(MomentumConfig::default())
     }

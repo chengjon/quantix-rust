@@ -36,6 +36,7 @@ pub enum HealthStatus {
 }
 
 impl HealthStatus {
+    /// 返回该健康状态的稳定字符串标识（healthy/degraded/unhealthy），用于日志与序列化。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Healthy => "healthy",
@@ -80,6 +81,7 @@ pub struct ComponentHealth {
 }
 
 impl ComponentHealth {
+    /// 构造一个 Healthy 状态的 ComponentHealth，自动填充 last_success_at=now。
     pub fn healthy(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -91,6 +93,7 @@ impl ComponentHealth {
         }
     }
 
+    /// 构造一个 Degraded 状态的 ComponentHealth，附带 error 文本；last_success_at 留空。
     pub fn degraded(name: impl Into<String>, error: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -102,6 +105,7 @@ impl ComponentHealth {
         }
     }
 
+    /// 构造一个 Unhealthy 状态的 ComponentHealth，附带 error 文本；last_success_at 留空。
     pub fn unhealthy(name: impl Into<String>, error: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -113,11 +117,13 @@ impl ComponentHealth {
         }
     }
 
+    /// Builder：设置 response_time_ms 并返回 self，便于链式构造。
     pub fn with_response_time(mut self, ms: u64) -> Self {
         self.response_time_ms = Some(ms);
         self
     }
 
+    /// Builder：在 details map 中插入一个键值对并返回 self，便于链式构造。
     pub fn with_detail(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.details.insert(key.into(), value.into());
         self
@@ -140,6 +146,7 @@ pub struct HealthRegistry {
 }
 
 impl HealthRegistry {
+    /// 构造空的 HealthRegistry，start_time 设为 now，用于后续 register/update。
     pub fn new() -> Self {
         Self {
             components: HashMap::new(),

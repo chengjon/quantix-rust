@@ -3,11 +3,13 @@ use crate::bridge::models::BridgeQmtPreviewRequest;
 use crate::core::{QuantixError, Result};
 use crate::execution::models::{ExecutionRequestRecord, OrderStatus};
 
+/// QMT bridge preview 适配器：将 ExecutionRequestRecord 翻译成 bridge preview 请求并解析响应，仅做 dry-run 预演，不提交真实订单。
 #[derive(Debug, Clone)]
 pub struct QmtBridgePreviewAdapter {
     client: BridgeHttpClient,
 }
 
+/// QMT bridge preview 响应：adapter_order_id broker 订单号、latest_status 最新状态、filled_quantity 已成交数量、avg_fill_price 均价、fill_details 成交明细、rejection_reason 拒单原因、broker_payload 原始 broker 载荷。
 #[derive(Debug, Clone, PartialEq)]
 pub struct QmtBridgePreviewResponse {
     pub adapter_order_id: String,
@@ -20,10 +22,12 @@ pub struct QmtBridgePreviewResponse {
 }
 
 impl QmtBridgePreviewAdapter {
+    /// 构造 preview 适配器：注入已鉴权的 BridgeHttpClient。
     pub fn new(client: BridgeHttpClient) -> Self {
         Self { client }
     }
 
+    /// 对 ExecutionRequestRecord 执行 dry-run 预演：从 payload.execution_snapshot 取 order_intent，调用 bridge preview 接口并解析为标准化响应。
     pub async fn preview_request(
         &self,
         request: &ExecutionRequestRecord,

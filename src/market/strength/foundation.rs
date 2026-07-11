@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::core::{QuantixError, Result};
 
+/// A股市场快照单行：code/name 标的与名称、price 最新价、change_pct 涨跌幅、volume 成交量、amount 成交额。
 #[derive(Debug, Clone, PartialEq)]
 pub struct MarketSnapshotRow {
     pub code: String,
@@ -12,12 +13,14 @@ pub struct MarketSnapshotRow {
     pub amount: f64,
 }
 
+/// 行业分类单行：code 标的、industry_name 行业名（已按当前 classification standard 解析）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketIndustryClassificationRow {
     pub code: String,
     pub industry_name: String,
 }
 
+/// 带行业归属的 A 股快照单行：除基础快照字段外，industry_name 可空（未分类标的为 None）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct AShareIndustryRow {
     pub code: String,
@@ -29,12 +32,14 @@ pub struct AShareIndustryRow {
     pub industry_name: Option<String>,
 }
 
+/// 板块覆盖率行：industry_name 行业名、stock_count 该行业下已分类的 A 股数量。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SectorCoverageRow {
     pub industry_name: String,
     pub stock_count: usize,
 }
 
+/// 市场底层基础汇总：total_stocks A 股总数、classified_stocks 已分类数、unclassified_stocks 未分类数、sector_count 行业数、top_sectors 覆盖股票数 top N 行业。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketFoundationSummary {
     pub total_stocks: usize,
@@ -44,12 +49,14 @@ pub struct MarketFoundationSummary {
     pub top_sectors: Vec<SectorCoverageRow>,
 }
 
+/// 市场底层基础分析结果：rows 带行业的明细行、summary 汇总。
 #[derive(Debug, Clone, PartialEq)]
 pub struct MarketAnalysisFoundation {
     pub rows: Vec<AShareIndustryRow>,
     pub summary: MarketFoundationSummary,
 }
 
+/// 构造市场底层基础：把 stocks 与 industry_rows 按 code join 成 AShareIndustryRow，再聚合出 coverage 与 top_sectors。industry_rows 为空返回错误（提示先 sync industry）。
 pub fn build_market_analysis_foundation(
     stocks: Vec<MarketSnapshotRow>,
     industry_rows: Vec<MarketIndustryClassificationRow>,

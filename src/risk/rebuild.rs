@@ -9,12 +9,14 @@ use crate::risk::{
     LiveImportRecord, LiveImportRecordType, LiveImportTradeSide, SqliteLiveImportStore,
 };
 
+/// 实盘镜像重建引擎：基于 SqliteLiveImportStore 中的 trade/cash_dividend/cash_action 记录，按逻辑时间排序后回放出账户持仓与现金快照。
 #[derive(Debug, Clone)]
 pub struct SqliteLiveMirrorRebuildEngine {
     store: SqliteLiveImportStore,
 }
 
 impl SqliteLiveMirrorRebuildEngine {
+    /// 创建引擎：注入已初始化的 SqliteLiveImportStore，后续 rebuild_account 从中拉记录。
     pub fn new(store: SqliteLiveImportStore) -> Self {
         Self { store }
     }

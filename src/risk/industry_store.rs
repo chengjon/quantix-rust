@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS risk_industry_snapshots (
 );
 "#;
 
+/// 行业分类的 SQLite 持久化存储，承载行业参考表（current/history）与月度快照。
 #[derive(Debug, Clone)]
 pub struct SqliteIndustryStore {
     path: PathBuf,
@@ -58,6 +59,7 @@ pub struct SqliteIndustryStore {
 }
 
 impl SqliteIndustryStore {
+    /// 打开（必要时创建）指定路径的 SQLite 库并建表，返回可用实例。
     pub async fn new(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent()
@@ -78,10 +80,12 @@ impl SqliteIndustryStore {
         Ok(store)
     }
 
+    /// 由 risk_state 文件路径推导 industry_reference.db 位置并打开库。
     pub async fn from_risk_state_path(risk_state_path: impl AsRef<Path>) -> Result<Self> {
         Self::new(Self::default_db_path_from_risk_state(risk_state_path)).await
     }
 
+    /// 由 risk_state 文件路径推导 industry_reference.db 的默认位置（同级目录）。
     pub fn default_db_path_from_risk_state(risk_state_path: impl AsRef<Path>) -> PathBuf {
         let risk_state_path = risk_state_path.as_ref();
         match risk_state_path.parent() {
@@ -90,6 +94,7 @@ impl SqliteIndustryStore {
         }
     }
 
+    /// 返回底层 SQLite 文件路径。
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -105,6 +110,7 @@ impl SqliteIndustryStore {
         Ok(())
     }
 
+    /// 按 (standard, level, code) 查询当前行业分类；code 会被标准化（去交易所前缀）。
     pub async fn lookup_current(
         &self,
         standard: ClassificationStandard,
@@ -128,6 +134,7 @@ WHERE standard = ? AND level = ? AND code = ?
         row.map(map_reference_record).transpose()
     }
 
+    /// 列出指定 (standard, level) 下的全部当前分类记录，按 code 升序。
     pub async fn list_current(
         &self,
         standard: ClassificationStandard,
@@ -149,6 +156,7 @@ ORDER BY code ASC
         rows.into_iter().map(map_reference_record).collect()
     }
 
+    /// 按指定日期查询历史分类：取 `effective_from <= date` 且（`effective_to` 为空或 `>= date`）中最近一条。
     pub async fn lookup_historical(
         &self,
         standard: ClassificationStandard,
@@ -181,6 +189,7 @@ LIMIT 1
         row.map(map_reference_record).transpose()
     }
 
+    /// 按 (standard, level, snapshot_month, code) 精确查询月度快照记录。
     pub async fn lookup_snapshot_month(
         &self,
         standard: ClassificationStandard,
@@ -206,6 +215,7 @@ WHERE standard = ? AND level = ? AND snapshot_month = ? AND code = ?
         row.map(map_snapshot_record).transpose()
     }
 
+    /// 查询指定 code 的最新一条月度快照（按 snapshot_month desc, captured_at desc）。
     pub async fn lookup_latest_snapshot(
         &self,
         standard: ClassificationStandard,
@@ -231,6 +241,7 @@ LIMIT 1
         row.map(map_snapshot_record).transpose()
     }
 
+    /// 若 (standard, level, snapshot_month, code) 不存在则插入快照；已存在时静默跳过（INSERT OR IGNORE）。
     pub async fn insert_snapshot_if_missing(
         &self,
         standard: ClassificationStandard,
@@ -267,6 +278,7 @@ INSERT OR IGNORE INTO risk_industry_snapshots (
         Ok(())
     }
 
+    /// 批量 upsert 申万当前分类行；冲突时更新 industry_name/source/updated_at。
     pub async fn upsert_shenwan_current_rows(
         &self,
         rows: &[ShenwanCurrentSeedRow],
@@ -302,6 +314,7 @@ ON CONFLICT(standard, level, code) DO UPDATE SET
         Ok(())
     }
 
+    /// 单事务内清空申万当前分类并重新写入全部行，失败回滚。
     pub async fn refresh_shenwan_current_rows(
         &self,
         rows: &[ShenwanCurrentSeedRow],
@@ -346,6 +359,7 @@ INSERT INTO industry_reference_current (
         Ok(())
     }
 
+    /// 批量 upsert 申万历史分类行；冲突时更新 industry_name/effective_to/source/updated_at。
     pub async fn upsert_shenwan_history_rows(
         &self,
         rows: &[ShenwanHistoricalSeedRow],
@@ -386,6 +400,7 @@ ON CONFLICT(standard, level, code, effective_from) DO UPDATE SET
         Ok(())
     }
 
+    /// 单事务内清空申万历史分类并重新写入全部行，失败回滚。
     pub async fn refresh_shenwan_history_rows(
         &self,
         rows: &[ShenwanHistoricalSeedRow],

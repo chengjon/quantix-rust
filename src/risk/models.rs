@@ -10,9 +10,12 @@ use crate::core::{QuantixError, Result};
 mod lock_state;
 pub use lock_state::RiskLockStateSource;
 
+/// 默认风控账户标识：未指定 account_id 时使用此值（"default"）。
 pub const DEFAULT_RISK_ACCOUNT_ID: &str = "default";
+/// RiskState 持久化版本号：当前 schema 版本为 1，升级时递增以做兼容迁移。
 pub const RISK_STATE_VERSION: u32 = 1;
 
+/// 风控状态聚合（账户维度持久化根）：版本/账户 ID/规则列表/当日基线/买入锁/事件日志。Default 使用 RISK_STATE_VERSION + DEFAULT_RISK_ACCOUNT_ID。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RiskState {
     pub version: u32,
@@ -37,6 +40,7 @@ impl Default for RiskState {
     }
 }
 
+/// 单条风控规则：rule_type 决定 value 的解析格式；enabled/created_at/updated_at 控制生效与审计。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RiskRule {
     pub rule_type: RiskRuleType,
@@ -46,6 +50,7 @@ pub struct RiskRule {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 风控规则类型：PositionLimit 单票仓位上限、DailyLossLimit 日亏损限制、VolatilityLimit 波动率限制、IndustryLimit 行业集中度限制、AutoReduce 自动减仓、IndustryBlocklist 行业黑名单。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RiskRuleType {
     PositionLimit,
@@ -59,6 +64,7 @@ pub enum RiskRuleType {
 }
 
 impl RiskRuleType {
+    /// 从 CLI 字符串解析（`"position-limit"` / `"daily-loss-limit"` / 等）。
     pub fn parse(value: &str) -> Result<Self> {
         match value.trim() {
             "position-limit" => Ok(Self::PositionLimit),
@@ -73,6 +79,7 @@ impl RiskRuleType {
         }
     }
 
+    /// 返回 CLI 标识串，与 [`Self::parse`] 互逆。
     pub fn as_cli_str(self) -> &'static str {
         match self {
             Self::PositionLimit => "position-limit",
@@ -84,6 +91,7 @@ impl RiskRuleType {
         }
     }
 
+    /// 返回面向用户的中文标签。
     pub fn display_label(self) -> &'static str {
         match self {
             Self::PositionLimit => "单票仓位上限",
@@ -96,6 +104,7 @@ impl RiskRuleType {
     }
 }
 
+/// 规则取值：Percentage 百分比、Amount 金额、TextList 文本列表（行业黑名单等）。由 RuleValue::parse 按 rule_type 约束格式。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RuleValue {
     Percentage(Decimal),
@@ -104,6 +113,13 @@ pub enum RuleValue {
 }
 
 impl RuleValue {
+    /// 按 `rule_type` 期望的格式解析原始字符串。
+    ///
+    /// - `IndustryBlocklist`: 逗号分隔行业名 → `TextList`，至少一个。
+    /// - `PositionLimit`/`VolatilityLimit`/`IndustryLimit`: 仅支持百分比值（如 `20%`）。
+    /// - `DailyLossLimit`/`AutoReduce`: 既支持百分比也支持金额。
+    ///
+    /// 数值必须 > 0。
     pub fn parse(rule_type: RiskRuleType, raw: &str) -> Result<Self> {
         if rule_type == RiskRuleType::IndustryBlocklist {
             let values = raw
@@ -167,6 +183,7 @@ impl RuleValue {
         }
     }
 
+    /// 转回面向用户的展示字符串（` Percentage → "20%"`，`Amount → "5000"`，`TextList → "a,b"`）。
     pub fn display(&self) -> String {
         match self {
             Self::Percentage(value) => format!("{value}%"),
@@ -176,12 +193,14 @@ impl RuleValue {
     }
 }
 
+/// 当日风控基线：trading_date 交易日、starting_total_assets 开盘总资产，用于日内盈亏计算与日亏损限制判断。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DailyRiskBaseline {
     pub trading_date: NaiveDate,
     pub starting_total_assets: Decimal,
 }
 
+/// 买入锁状态：locked 是否锁定、reason/triggered_at/trading_date/released_for_date 描述触发与释放；触发后当日禁止买入，次日自动释放。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct BuyLockState {
     pub locked: bool,
@@ -191,6 +210,7 @@ pub struct BuyLockState {
     pub released_for_date: Option<NaiveDate>,
 }
 
+/// 风控事件类型：规则设置/启用/禁用、日亏损锁触发/释放/清除、行业集中度超限、自动减仓触发/执行。入库为 snake_case 字符串。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RiskLogEventType {
@@ -206,6 +226,7 @@ pub enum RiskLogEventType {
 }
 
 impl RiskLogEventType {
+    /// 从 CLI 字符串解析事件类型。
     pub fn parse(value: &str) -> Result<Self> {
         match value.trim() {
             "rule-set" => Ok(Self::RuleSet),
@@ -223,6 +244,7 @@ impl RiskLogEventType {
         }
     }
 
+    /// 返回 CLI 标识串，与 [`Self::parse`] 互逆。
     pub fn as_cli_str(self) -> &'static str {
         match self {
             Self::RuleSet => "rule-set",
@@ -237,6 +259,7 @@ impl RiskLogEventType {
         }
     }
 
+    /// 返回面向用户的中文标签。
     pub fn display_label(self) -> &'static str {
         match self {
             Self::RuleSet => "规则设置",
@@ -252,6 +275,7 @@ impl RiskLogEventType {
     }
 }
 
+/// 单条风控事件日志：ts 时间戳、event_type、可选 trading_date、detail 文本描述，追加到 RiskState.events 审计轨迹。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RiskLogEvent {
     pub ts: DateTime<Utc>,
@@ -260,6 +284,7 @@ pub struct RiskLogEvent {
     pub detail: String,
 }
 
+/// 风控状态对外展示快照：账户/交易日/总资产/盈亏、买入锁详情（含锁来源/原因/触发时间/生效日）、持仓风险行、规则快照、自动减仓建议。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskStatus {
     pub account_id: String,
@@ -280,6 +305,7 @@ pub struct RiskStatus {
     pub auto_reduce_recommendation: Option<AutoReduceRecommendation>,
 }
 
+/// 自动减仓建议：current_loss_pct 当前亏损比例、reduce_ratio 建议减仓比例、position_codes 命中持仓代码、triggered_at 触发时间。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutoReduceRecommendation {
     pub current_loss_pct: Decimal,
@@ -288,6 +314,7 @@ pub struct AutoReduceRecommendation {
     pub triggered_at: DateTime<Utc>,
 }
 
+/// 单只持仓的风险行：code、market_value 市值、ratio_pct 占总资产百分比，用于集中度展示与超限判断。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PositionRiskRow {
     pub code: String,
@@ -295,6 +322,7 @@ pub struct PositionRiskRow {
     pub ratio_pct: Decimal,
 }
 
+/// 规则快照：rule_type + value + enabled，用于 RiskStatus 对外展示当前生效规则。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskRuleSnapshot {
     pub rule_type: RiskRuleType,
@@ -302,6 +330,7 @@ pub struct RiskRuleSnapshot {
     pub enabled: bool,
 }
 
+/// 风控账户快照：account_id、total_assets 总资产、positions 持仓列表（code + market_value），RiskStatus 计算的输入。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskAccountSnapshot {
     pub account_id: String,
@@ -310,6 +339,7 @@ pub struct RiskAccountSnapshot {
 }
 
 impl RiskAccountSnapshot {
+    /// 用账户 ID、总资产和 `(code, market_value)` 持仓元组列表构造快照。
     pub fn new(
         account_id: impl Into<String>,
         total_assets: Decimal,
@@ -326,12 +356,14 @@ impl RiskAccountSnapshot {
     }
 }
 
+/// 风控持仓单项：code 标的代码、market_value 市值，是 RiskAccountSnapshot.positions 的元素。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskPositionSnapshot {
     pub code: String,
     pub market_value: Decimal,
 }
 
+/// 买入预估影响：code、projected_position_value 买入后持仓市值、projected_total_assets 买入后总资产，用于事前风险评估。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectedBuyImpact {
     pub code: String,
@@ -340,6 +372,7 @@ pub struct ProjectedBuyImpact {
 }
 
 impl ProjectedBuyImpact {
+    /// 构造买入后的预估快照（持仓市值 + 总资产）。
     pub fn new(
         code: impl Into<String>,
         projected_position_value: Decimal,
@@ -353,6 +386,7 @@ impl ProjectedBuyImpact {
     }
 }
 
+/// 风控账户来源：Paper 纸面交易、LiveImport 实盘导入。入库为 snake_case 字符串。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RiskAccountSource {
@@ -361,6 +395,7 @@ pub enum RiskAccountSource {
 }
 
 impl RiskAccountSource {
+    /// 从字符串解析（`"paper"` / `"live_import"`），未匹配返回 `None`。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "paper" => Some(Self::Paper),
@@ -369,6 +404,7 @@ impl RiskAccountSource {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Paper => "paper",
@@ -377,6 +413,7 @@ impl RiskAccountSource {
     }
 }
 
+/// 实盘导入记录类型：Trade 交易、Cash 资金存取。入库为 snake_case 字符串。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LiveImportRecordType {
@@ -385,6 +422,7 @@ pub enum LiveImportRecordType {
 }
 
 impl LiveImportRecordType {
+    /// 从字符串解析（`"trade"` / `"cash"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "trade" => Some(Self::Trade),
@@ -393,6 +431,7 @@ impl LiveImportRecordType {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Trade => "trade",
@@ -401,6 +440,7 @@ impl LiveImportRecordType {
     }
 }
 
+/// 实盘导入交易方向：Buy 买入、Sell 卖出。入库为 snake_case 字符串。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LiveImportTradeSide {
@@ -409,6 +449,7 @@ pub enum LiveImportTradeSide {
 }
 
 impl LiveImportTradeSide {
+    /// 从字符串解析（`"buy"` / `"sell"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "buy" => Some(Self::Buy),
@@ -417,6 +458,7 @@ impl LiveImportTradeSide {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Buy => "buy",
@@ -425,6 +467,7 @@ impl LiveImportTradeSide {
     }
 }
 
+/// 实盘导入资金业务类型：Deposit 入金、Withdraw 出金。入库为 snake_case 字符串。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LiveImportCashBusinessType {
@@ -433,6 +476,7 @@ pub enum LiveImportCashBusinessType {
 }
 
 impl LiveImportCashBusinessType {
+    /// 从字符串解析（`"deposit"` / `"withdraw"`）。
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "deposit" => Some(Self::Deposit),
@@ -441,6 +485,7 @@ impl LiveImportCashBusinessType {
         }
     }
 
+    /// 返回标识串，与 [`Self::from_str`] 互逆。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Deposit => "deposit",
@@ -449,6 +494,7 @@ impl LiveImportCashBusinessType {
     }
 }
 
+/// 实盘导入单条原始记录：record_type 区分交易/资金；交易字段（code/side/price/volume/fee_total/executed_at）与资金字段（business_type/amount/occurred_at）按类型填入，其余为 None。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LiveImportRecord {
     pub record_type: LiveImportRecordType,
@@ -465,6 +511,7 @@ pub struct LiveImportRecord {
     pub occurred_at: Option<DateTime<Utc>>,
 }
 
+/// 实盘导入批次摘要：batch_id/account_id/总行数/插入数/跳过重复数/冲突数，由导入流水线汇总。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LiveImportBatchSummary {
     pub batch_id: String,
@@ -475,6 +522,7 @@ pub struct LiveImportBatchSummary {
     pub conflicts: usize,
 }
 
+/// 实盘导入冲突记录：相同 external_id 已存在但字段不一致，existing_record_json 与 incoming_record_json 并存供人工裁决，detail 描述差异点。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LiveImportConflict {
     pub id: String,
@@ -487,6 +535,7 @@ pub struct LiveImportConflict {
     pub created_at: DateTime<Utc>,
 }
 
+/// 实盘镜像单只持仓：code 标的代码、volume 持仓量、avg_cost 平均成本、last_trade_at 最近交易时间。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LiveImportMirrorPosition {
     pub code: String,
@@ -495,6 +544,7 @@ pub struct LiveImportMirrorPosition {
     pub last_trade_at: DateTime<Utc>,
 }
 
+/// 实盘镜像账户聚合：account_id/trading_date、as_of 快照时间、起始/当前总资产、现金、已实现盈亏、累计费用、last_rebuild_at 最近重建时间、positions 持仓列表。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LiveImportMirrorAccount {
     pub account_id: String,

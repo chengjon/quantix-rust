@@ -9,6 +9,7 @@ pub const QMT_LIVE_FAILURE_CATEGORY_MISSING_REQUIRED_CAPABILITY: &str =
 pub const QMT_LIVE_CAPABILITIES_ENDPOINT_REQUIREMENT: &str =
     "bridge /api/v1/capabilities returns qmt capability metadata";
 
+/// 从 request.payload_json 中读取 `execution_diagnostics.code`；不存在返回 `None`。
 pub fn diagnostics_code(payload_json: &Value) -> Option<&str> {
     payload_json
         .get(EXECUTION_DIAGNOSTICS_KEY)
@@ -16,6 +17,7 @@ pub fn diagnostics_code(payload_json: &Value) -> Option<&str> {
         .and_then(|value| value.as_str())
 }
 
+/// 从 request.payload_json 中读取 `execution_diagnostics.semantics`；不存在或显式为 null 时返回 `None`。
 pub fn diagnostics_semantics(payload_json: &Value) -> Option<&str> {
     payload_json
         .get(EXECUTION_DIAGNOSTICS_KEY)
@@ -23,6 +25,7 @@ pub fn diagnostics_semantics(payload_json: &Value) -> Option<&str> {
         .and_then(|value| value.as_str())
 }
 
+/// 判断指定 diagnostics code 是否需要在 compact 视图中显示；`request_completed_*` 两个表示常规终态，默认隐藏。
 pub fn should_show_compact_diag(code: &str) -> bool {
     !matches!(
         code,
@@ -30,6 +33,7 @@ pub fn should_show_compact_diag(code: &str) -> bool {
     )
 }
 
+/// 根据 order_status 生成 request 完成时的诊断：未终态返回 `request_completed_order_non_terminal`，否则返回 terminal 变体。
 pub fn build_completion_diagnostics(order_status: Option<&str>) -> Value {
     match order_status {
         Some(
@@ -63,6 +67,7 @@ pub fn build_completion_diagnostics(order_status: Option<&str>) -> Value {
     }
 }
 
+/// 生成 `daemon_qmt_live_manual_bridge_required` 诊断，提示用 `quantix execution bridge qmt-live` 手动提交指定 request。
 pub fn build_daemon_qmt_live_manual_bridge_required_diagnostics(request_id: &str) -> Value {
     json!({
         "schema_version": 1,
@@ -77,6 +82,7 @@ pub fn build_daemon_qmt_live_manual_bridge_required_diagnostics(request_id: &str
     })
 }
 
+/// 生成 `daemon_live_mode_unsupported` 诊断，提示 daemon 的 live 模式尚未实现、需改用 qmt_live。
 pub fn build_daemon_live_mode_unsupported_diagnostics() -> Value {
     json!({
         "schema_version": 1,
@@ -91,6 +97,7 @@ pub fn build_daemon_live_mode_unsupported_diagnostics() -> Value {
     })
 }
 
+/// 生成 `kill_switch_blocked` 诊断，summary 携带 target_mode，hint 指向 `safety kill-switch status`。
 pub fn build_kill_switch_blocked_diagnostics(target_mode: &str) -> Value {
     json!({
         "schema_version": 1,
@@ -105,6 +112,7 @@ pub fn build_kill_switch_blocked_diagnostics(target_mode: &str) -> Value {
     })
 }
 
+/// 生成 `bridge_qmt_mode_not_live` 诊断，summary 携带观察到的 mode 值（如 preview_only）。
 pub fn build_bridge_qmt_mode_not_live_diagnostics(observed_mode: &str) -> Value {
     json!({
         "schema_version": 1,
@@ -119,6 +127,7 @@ pub fn build_bridge_qmt_mode_not_live_diagnostics(observed_mode: &str) -> Value 
     })
 }
 
+/// 生成 `bridge_qmt_capability_disabled` 诊断，提示在 bridge 端启用 qmt capability。
 pub fn build_bridge_qmt_capability_disabled_diagnostics() -> Value {
     json!({
         "schema_version": 1,
@@ -133,6 +142,7 @@ pub fn build_bridge_qmt_capability_disabled_diagnostics() -> Value {
     })
 }
 
+/// 生成 `bridge_qmt_order_submit_capability_missing` 诊断，附 qmt_live_gate 来源与 compatibility 要求。
 pub fn build_bridge_qmt_order_submit_capability_missing_diagnostics() -> Value {
     json!({
         "schema_version": 1,
@@ -150,6 +160,7 @@ pub fn build_bridge_qmt_order_submit_capability_missing_diagnostics() -> Value {
     })
 }
 
+/// 生成 `bridge_qmt_capability_check_failed` 诊断；summary 描述具体失败原因（如 503/超时）。
 pub fn build_bridge_qmt_capability_check_failed_diagnostics(summary: &str) -> Value {
     json!({
         "schema_version": 1,
@@ -167,6 +178,7 @@ pub fn build_bridge_qmt_capability_check_failed_diagnostics(summary: &str) -> Va
     })
 }
 
+/// 兜底生成 `execution_error_unclassified` 诊断；调用方已无法归类失败原因时使用，summary 携带原始错误。
 pub fn build_unclassified_execution_error_diagnostics(summary: &str) -> Value {
     json!({
         "schema_version": 1,

@@ -12,10 +12,12 @@ use crate::execution::adapter::{
 use crate::execution::models::{FillDetails, MockLiveOrderState, OrderStatus};
 use crate::execution::runtime_store::StrategyRuntimeStore;
 
+/// mock_live 时钟 trait：返回 UTC 当前时间，用于 mock adapter 控制订单生命周期的时间推进。Clone + Send + Sync 以适配 adapter 的并发模型。
 pub trait MockLiveClock: Clone + Send + Sync {
     fn now(&self) -> DateTime<Utc>;
 }
 
+/// 系统时钟实现：基于 chrono::Utc::now() 返回真实当前时间，mock_live 默认时钟。
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SystemMockLiveClock;
 
@@ -25,6 +27,7 @@ impl MockLiveClock for SystemMockLiveClock {
     }
 }
 
+/// mock_live 执行适配器：基于 StrategyRuntimeStore 模拟订单生命周期（pending_submit → submitted → partially_filled/filled），由 clock 驱动时间推进；state_template 提供新订单的初始 mock 状态。
 #[derive(Debug, Clone)]
 pub struct MockLiveExecutionAdapter<C> {
     store: StrategyRuntimeStore,
@@ -36,10 +39,12 @@ impl<C> MockLiveExecutionAdapter<C>
 where
     C: MockLiveClock,
 {
+    /// 构造 mock_live 适配器：注入 store + clock，state_template 用默认值。
     pub fn new(store: StrategyRuntimeStore, clock: C) -> Self {
         Self::with_state_template(store, clock, MockLiveOrderState::default())
     }
 
+    /// 构造 mock_live 适配器并自定义 state_template（用于覆盖 last_applied_fill_id 等初始字段）。
     pub fn with_state_template(
         store: StrategyRuntimeStore,
         clock: C,

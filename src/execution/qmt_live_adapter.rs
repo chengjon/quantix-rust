@@ -44,10 +44,7 @@ use crate::execution::models::{FillDetails, OrderSide, OrderStatus};
 use crate::execution::qmt_live_gate::ensure_bridge_qmt_live_mode;
 use crate::execution::qmt_task_submit_service::QmtTaskSubmitService;
 
-/// QMT Live Execution Adapter
-///
-/// Implements real order execution via the Windows bridge.
-/// Orders submitted through this adapter will be executed on the broker.
+/// QMT 实盘执行适配器：经 Windows bridge 执行真实订单，下单即进入 broker。组合 BridgeHttpClient + QmtTaskSubmitService 实现 submit/query/cancel。
 #[derive(Debug, Clone)]
 pub struct QmtLiveExecutionAdapter {
     client: BridgeHttpClient,
@@ -56,7 +53,7 @@ pub struct QmtLiveExecutionAdapter {
 }
 
 impl QmtLiveExecutionAdapter {
-    /// Create a new QMT live execution adapter
+    /// 构造 qmt_live 适配器：adapter_name=qmt_live、使用默认轮询参数（DEFAULT_BRIDGE_POLL_INTERVAL_MS / DEFAULT_BRIDGE_POLL_TIMEOUT_MS）。
     pub fn new(client: BridgeHttpClient) -> Self {
         Self::with_name_and_polling(
             client,
@@ -66,7 +63,7 @@ impl QmtLiveExecutionAdapter {
         )
     }
 
-    /// Create with custom adapter name (for testing)
+    /// 构造 qmt_live 适配器并自定义 adapter_name（主要用于测试场景隔离）。
     pub fn with_name(client: BridgeHttpClient, name: &'static str) -> Self {
         Self::with_name_and_polling(
             client,
@@ -76,6 +73,7 @@ impl QmtLiveExecutionAdapter {
         )
     }
 
+    /// 构造 qmt_live 适配器并自定义 task 轮询参数（poll_interval_ms / poll_timeout_ms）。
     pub fn with_polling(
         client: BridgeHttpClient,
         poll_interval_ms: u64,

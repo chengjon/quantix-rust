@@ -11,12 +11,14 @@ use tokio::time::{Duration, timeout};
 
 const NAME_LOOKUP_TIMEOUT: Duration = Duration::from_secs(1);
 
+/// 自选股行情快照：latest_price 最新价、price_change_pct 可选涨跌幅（百分比）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WatchlistQuoteSnapshot {
     pub latest_price: Decimal,
     pub price_change_pct: Option<Decimal>,
 }
 
+/// 自选股展示行：code、name 可选名称、group 分组、tags 标签、latest_price/price_change_pct 可选行情。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WatchlistDisplayRow {
     pub code: String,
@@ -27,11 +29,13 @@ pub struct WatchlistDisplayRow {
     pub price_change_pct: Option<Decimal>,
 }
 
+/// 自选股名称查询 trait：按 code 返回可选名称（异步）。实现可走 Postgres / 本地缓存 / 第三方接口。
 #[async_trait]
 pub trait WatchlistNameLookup: Send + Sync {
     async fn lookup_name(&self, code: &str) -> Result<Option<String>>;
 }
 
+/// 自选股行情批量查询 trait：codes 输入标的列表，返回 code → WatchlistQuoteSnapshot 映射（异步）。
 #[async_trait]
 pub trait WatchlistQuoteLookup: Send + Sync {
     async fn lookup_quotes(
@@ -40,12 +44,14 @@ pub trait WatchlistQuoteLookup: Send + Sync {
     ) -> Result<HashMap<String, WatchlistQuoteSnapshot>>;
 }
 
+/// 自选股解析器：组合名称查询与行情查询，将 WatchlistListItem 列表解析为展示行。名称查询超时 1s 容错为 None。
 pub struct WatchlistResolver {
     name_lookup: Arc<dyn WatchlistNameLookup>,
     quote_lookup: Arc<dyn WatchlistQuoteLookup>,
 }
 
 impl WatchlistResolver {
+    /// 构造解析器：注入名称查询与行情查询实现（均以 trait object 形式持有）。
     pub fn new(
         name_lookup: Arc<dyn WatchlistNameLookup>,
         quote_lookup: Arc<dyn WatchlistQuoteLookup>,
@@ -56,6 +62,7 @@ impl WatchlistResolver {
         }
     }
 
+    /// 将自选股列表解析为展示行：with_price=false 跳过行情查询仅填充名称；名称查询并发执行（join_all），单标的 1s 超时容错。行情查询失败返回空 map（不阻断）。
     pub async fn resolve_rows(
         &self,
         items: &[WatchlistListItem],
@@ -107,6 +114,7 @@ impl WatchlistResolver {
     }
 }
 
+/// 基于 Postgres stock_info 表的名称查询实现：通过 POSTGRES_URL 环境变量连接；缺失时返回 None。
 #[derive(Debug, Clone, Default)]
 pub struct PostgresWatchlistNameLookup;
 
@@ -125,6 +133,7 @@ impl WatchlistNameLookup for PostgresWatchlistNameLookup {
     }
 }
 
+/// 基于 TDX 直连的行情批量查询实现：空输入返回空 map；非空输入通过 TdxSource 抓取行情，无价格数据被跳过。
 #[derive(Debug, Clone, Default)]
 pub struct TdxWatchlistQuoteLookup;
 
@@ -166,12 +175,14 @@ impl WatchlistQuoteLookup for TdxWatchlistQuoteLookup {
     }
 }
 
+/// 基于 bridge HTTP 接口的 TDX 行情批量查询实现（与 TdxWatchlistQuoteLookup 对应，但走 bridge 而非直连）。
 #[derive(Debug, Clone)]
 pub struct BridgeTdxWatchlistQuoteLookup {
     client: BridgeHttpClient,
 }
 
 impl BridgeTdxWatchlistQuoteLookup {
+    /// 构造 bridge 行情查询：注入 BridgeHttpClient。
     pub fn new(client: BridgeHttpClient) -> Self {
         Self { client }
     }

@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// account 命令族 clap 枚举（容器）：Register/Remove/Update 账户管理、List/Show 查询、Snapshot 资产快照、Group 分组管理。
 #[derive(Subcommand, Debug)]
 pub enum AccountCommands {
     /// 注册新账户
@@ -111,6 +112,7 @@ pub enum AccountCommands {
     },
 }
 
+/// account group 子命令枚举：Create 创建分组、Add/Remove 成员维护、List 列出。
 #[derive(Subcommand, Debug)]
 pub enum AccountGroupCommands {
     /// 创建账户组

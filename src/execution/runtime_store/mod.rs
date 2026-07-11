@@ -26,12 +26,14 @@ use crate::execution::models::{
 use self::codec::{parse_decimal, parse_timestamp};
 use self::snapshot::build_execution_snapshot;
 
+/// 策略运行时 SQLite 存储，承载 run/signal/order/request/checkpoint 等表。
 #[derive(Debug, Clone)]
 pub struct StrategyRuntimeStore {
     pool: SqlitePool,
 }
 
 impl StrategyRuntimeStore {
+    /// 打开（必要时创建）SQLite 文件并初始化全部运行时表；父目录会按需创建。
     pub async fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -52,6 +54,7 @@ impl StrategyRuntimeStore {
         Ok(store)
     }
 
+    /// 判断指定表名是否存在于当前库；表名直接拼接到 SQL，调用方需保证来源可信。
     pub async fn has_table(&self, table_name: &str) -> Result<bool> {
         let exists = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = ?",
@@ -63,6 +66,7 @@ impl StrategyRuntimeStore {
         Ok(exists > 0)
     }
 
+    /// 插入一条 strategy_runs 记录（不去重，主键冲突时直接失败）。
     pub async fn insert_run(&self, run: &StrategyRunRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -98,6 +102,7 @@ INSERT INTO strategy_runs (
         Ok(())
     }
 
+    /// 按 (strategy_name, mode, symbol, timeframe, bar_end) 五元组查找 run；不存在返回 `None`。
     pub async fn find_run_by_dedupe_key(
         &self,
         strategy_name: &str,
@@ -135,6 +140,7 @@ WHERE strategy_name = ? AND mode = ? AND symbol = ? AND timeframe = ? AND bar_en
         row.map(Self::row_to_run).transpose()
     }
 
+    /// 插入一条原始信号事件到 signal_events 表（用于回放/审计）。
     pub async fn insert_signal_event(&self, event: &SignalEventRecord) -> Result<()> {
         sqlx::query(
             r#"
@@ -162,6 +168,7 @@ INSERT INTO signal_events (
         Ok(())
     }
 
+    /// 把指定 run 的状态与 finished_at 写回；run 不存在时不报错（影响行数=0）。
     pub async fn update_run_status(
         &self,
         run_id: &str,
@@ -184,22 +191,27 @@ WHERE run_id = ?
         Ok(())
     }
 
+    /// 统计 strategy_runs 表的总行数。
     pub async fn count_runs(&self) -> Result<i64> {
         self.count_table_rows("strategy_runs").await
     }
 
+    /// 统计 orders 表的总行数。
     pub async fn count_orders(&self) -> Result<i64> {
         self.count_table_rows("orders").await
     }
 
+    /// 统计 signal_events 表的总行数。
     pub async fn count_signal_events(&self) -> Result<i64> {
         self.count_table_rows("signal_events").await
     }
 
+    /// 统计 signals 表的总行数。
     pub async fn count_signals(&self) -> Result<i64> {
         self.count_table_rows("signals").await
     }
 
+    /// 守护进程一次完整写入：单事务插入 run/signal，把同 key 的旧 New 信号与 Pending 请求置为 superseded/canceled，并 upsert checkpoint。返回被取代的 signal 数量。
     pub async fn record_daemon_signal_run(
         &self,
         run: &StrategyRunRecord,

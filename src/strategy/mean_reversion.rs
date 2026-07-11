@@ -55,6 +55,7 @@ pub struct MeanReversionStrategy {
 }
 
 impl MeanReversionStrategy {
+    /// 创建均值回归策略：注入 MeanReversionConfig，自动生成 `MeanReversion_RSI{N}_BB{N}_{std}` 名称，初始空仓。
     pub fn new(config: MeanReversionConfig) -> Self {
         Self {
             name: format!(
@@ -69,6 +70,7 @@ impl MeanReversionStrategy {
         }
     }
 
+    /// 用 MeanReversionConfig::default() 构造默认参数均值回归策略（rsi=14, bb=20, std=2.0）。
     pub fn with_defaults() -> Self {
         Self::new(MeanReversionConfig::default())
     }

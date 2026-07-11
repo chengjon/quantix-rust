@@ -12,10 +12,12 @@ use crate::factor::dataset::FactorDataset;
 use crate::factor::operators::{cs_rank, ts_delay, ts_delta, ts_rank};
 use crate::factor::types::{FactorCategory, FactorComputeResult, FactorMeta, MissingPolicy};
 
+/// 因子目录：持有 `Vec<FactorMeta>`，按 id 派发 compute；通常由 `builtin_factor_catalog()` 构造内置集合。
 pub struct FactorCatalog {
     metas: Vec<FactorMeta>,
 }
 
+/// 构造内置因子目录：包含 rank_close / delay_close_1 / delta_close_1 / ts_rank_close_5、Alpha101（#002/#003/#005/#006/#012）与 Alpha191（#101~#120）共 30 项因子元数据，供 FactorCatalog::compute 按因子 id 派发。
 pub fn builtin_factor_catalog() -> FactorCatalog {
     FactorCatalog {
         metas: vec![
@@ -221,10 +223,12 @@ fn alpha191_meta(id: &str, description: &str, required_fields: Vec<&str>) -> Fac
 }
 
 impl FactorCatalog {
+    /// 返回目录中所有因子元数据的切片（按注册顺序）；调用方只读访问，不可修改 metas。
     pub fn list(&self) -> &[FactorMeta] {
         &self.metas
     }
 
+    /// 按 factor_id 在 dataset.frame() 上派发计算：内置因子（rank_*/delay_*/delta_*/ts_rank_*/alpha101_*/alpha191_*）映射到对应算子或 alpha 函数，返回包含 date/symbol/value 列的 FactorComputeResult。未知 factor_id 返回 QuantixError::Config；底层 polars 错误透传为 DataParse。
     pub fn compute(&self, factor_id: &str, dataset: &FactorDataset) -> Result<FactorComputeResult> {
         let values = match factor_id {
             "rank_close" => cs_rank(dataset.frame(), "close"),

@@ -6,12 +6,14 @@ use crate::core::{QuantixError, Result};
 use crate::factor::dataset::FactorDataset;
 use crate::factor::types::FactorComputeResult;
 
+/// 分层回测请求：groups 分层数（必须 ≥ 2）、horizon 未来收益率 horizon（天）。
 #[derive(Debug, Clone)]
 pub struct LayeredBacktestRequest {
     pub groups: usize,
     pub horizon: usize,
 }
 
+/// 分层回测汇总：factor_id 因子 id、groups/horizon/periods 元信息、long_short_mean 多空组累计收益均值（无可评估周期时为 None）。
 #[derive(Debug, Clone)]
 pub struct LayeredBacktestSummary {
     pub factor_id: String,
@@ -21,6 +23,7 @@ pub struct LayeredBacktestSummary {
     pub long_short_mean: Option<f64>,
 }
 
+/// 分层回测完整结果：summary 汇总、by_period 每期各层收益 DataFrame、long_short 多空收益时序 DataFrame。
 #[derive(Debug, Clone)]
 pub struct LayeredBacktestResult {
     pub summary: LayeredBacktestSummary,
@@ -28,6 +31,7 @@ pub struct LayeredBacktestResult {
     pub long_short: DataFrame,
 }
 
+/// 运行分层回测：按因子值将标的分 request.groups 组、计算 request.horizon 天未来收益、汇总各层均值与多空差。groups<2 或数据不足返回错误。
 pub fn run_layered_factor_backtest(
     dataset: &FactorDataset,
     factor: &FactorComputeResult,

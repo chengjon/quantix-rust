@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+/// strategy 命令族 clap 枚举（容器）：Create/Update/Delete/Run/List/Show 策略实例管理、Config/Daemon/Signal/Request/Service/ServiceConfig 子命令族。
 #[derive(Subcommand, Debug)]
 pub enum StrategyCommands {
     /// 创建策略实例
@@ -113,6 +114,7 @@ pub enum StrategyCommands {
     ServiceConfig(StrategyServiceConfigCommands),
 }
 
+/// strategy config 子命令枚举：Init 初始化策略配置、Show 显示配置。
 #[derive(Subcommand, Debug)]
 pub enum StrategyConfigCommands {
     /// 初始化策略配置
@@ -122,6 +124,7 @@ pub enum StrategyConfigCommands {
     Show,
 }
 
+/// strategy daemon 子命令枚举：Run 运行策略守护进程（--once 仅运行一轮）。
 #[derive(Subcommand, Debug)]
 pub enum StrategyDaemonCommands {
     /// 运行策略守护进程
@@ -132,6 +135,7 @@ pub enum StrategyDaemonCommands {
     },
 }
 
+/// strategy signal 子命令枚举：List 查询信号（支持 strategy-instance/strategy/code/approval-status/signal-status 过滤）、Approve 批准、Reject 拒绝。
 #[derive(Subcommand, Debug)]
 pub enum StrategySignalCommands {
     /// 列出信号
@@ -188,6 +192,7 @@ pub enum StrategySignalCommands {
     },
 }
 
+/// strategy request 子命令枚举：List 列出（status/target-mode/target-account/stats 过滤）、Show 详情、Execute 执行、Cancel 取消。
 #[derive(Subcommand, Debug)]
 pub enum StrategyRequestCommands {
     /// 列出执行请求
@@ -243,6 +248,7 @@ pub enum StrategyRequestCommands {
     },
 }
 
+/// strategy service 子命令枚举：Install/Uninstall/Start/Stop/Status/Enable/Disable systemd 用户服务管理。
 #[derive(Subcommand, Debug)]
 pub enum StrategyServiceCommands {
     Install,
@@ -254,6 +260,7 @@ pub enum StrategyServiceCommands {
     Disable,
 }
 
+/// strategy service-config 子命令枚举：Show 显示服务配置、Set 设置 quantix 二进制路径与可选环境文件。
 #[derive(Subcommand, Debug)]
 pub enum StrategyServiceConfigCommands {
     Show,

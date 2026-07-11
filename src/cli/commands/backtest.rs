@@ -1,6 +1,7 @@
 use clap::Subcommand;
 
 #[allow(clippy::large_enum_variant)]
+/// backtest 命令族 clap 枚举：Run 运行回测并保存结果、List 列出历史回测、Show 查看详情、Compare 对比、Delete 删除。
 #[derive(Subcommand, Debug)]
 pub enum BacktestCommands {
     /// 运行一次回测并保存结果

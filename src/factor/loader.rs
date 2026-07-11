@@ -5,17 +5,20 @@ use std::path::{Path, PathBuf};
 use crate::core::{QuantixError, Result};
 use crate::factor::types::FactorLoadRequest;
 
+/// 因子数据加载 trait：load_bars 按 FactorLoadRequest 返回 polars DataFrame（含 symbol/date/各字段列）。Send + Sync 以适配 daemon 并发。
 #[async_trait]
 pub trait FactorDataLoader: Send + Sync {
     async fn load_bars(&self, request: &FactorLoadRequest) -> Result<DataFrame>;
 }
 
+/// CSV 文件后端 FactorDataLoader：从 path 指向的 CSV 加载数据为 DataFrame；用于本地研究与离线回测。
 #[derive(Debug, Clone)]
 pub struct CsvFactorDataLoader {
     path: PathBuf,
 }
 
 impl CsvFactorDataLoader {
+    /// 创建 CSV loader：注入文件路径，load_bars 时才读取。
     pub fn new(path: impl AsRef<Path>) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),

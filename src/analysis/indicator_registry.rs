@@ -7,6 +7,7 @@ use crate::analysis::indicator_config::IndicatorSpec;
 use crate::analysis::indicators::{Kdj as KdjPoint, Macd as MacdPoint, ema, rsi, sma};
 use crate::core::{QuantixError, Result};
 
+/// 指标计算输出：可能为标量序列、MACD/KDJ 复合点序列，或 ATR 序列。
 #[derive(Debug, Clone)]
 pub enum IndicatorSeries {
     ScalarSeries(Vec<Option<Decimal>>),
@@ -15,6 +16,7 @@ pub enum IndicatorSeries {
     AtrSeries(Vec<Option<Decimal>>),
 }
 
+/// `IndicatorSeries` 的类型标签，供下游在不知道具体值时分支处理。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndicatorSeriesKind {
     Scalar,
@@ -23,6 +25,7 @@ pub enum IndicatorSeriesKind {
     Atr,
 }
 
+/// 指标的静态元信息：规范名、回看周期、预热长度（warm-up）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndicatorMeta {
     pub canonical_name: &'static str,
@@ -30,6 +33,7 @@ pub struct IndicatorMeta {
     pub warmup_len: usize,
 }
 
+/// 描述某个指标在某 period 下的可识别身份：元信息 + 序列类型。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndicatorDescriptor {
     pub meta: IndicatorMeta,
@@ -45,6 +49,7 @@ pub struct IndicatorInput {
 }
 
 impl IndicatorInput {
+    /// 用 close 序列构造，fingerprint 由 close 自动派生，range 覆盖整个序列。
     pub fn new(close: Vec<Decimal>) -> Self {
         let len = close.len();
         Self {
@@ -54,6 +59,7 @@ impl IndicatorInput {
         }
     }
 
+    /// 与 `new` 类似，但使用显式 dataset_fingerprint（避免重复派生），range 仍覆盖整个序列。
     pub fn with_dataset_fingerprint(
         dataset_fingerprint: impl Into<String>,
         close: Vec<Decimal>,
@@ -66,6 +72,7 @@ impl IndicatorInput {
         }
     }
 
+    /// 完整构造：自定义 fingerprint、序列范围 `[start, end)`、close 数据。
     pub fn with_context(
         dataset_fingerprint: impl Into<String>,
         range: (usize, usize),
@@ -78,14 +85,17 @@ impl IndicatorInput {
         }
     }
 
+    /// 返回 close 序列的引用。
     pub fn close(&self) -> &[Decimal] {
         &self.close
     }
 
+    /// 返回用于缓存命中的 dataset 指纹字符串。
     pub fn dataset_fingerprint(&self) -> &str {
         &self.dataset_fingerprint
     }
 
+    /// 返回序列范围 `[start, end)`，下游用来定位结果在原始窗口中的位置。
     pub fn range(&self) -> (usize, usize) {
         self.range
     }
@@ -112,6 +122,7 @@ struct BuiltinIndicator {
     series_kind: IndicatorSeriesKind,
 }
 
+/// 内置指标的注册表，目前固定包含 sma/ema/rsi。
 pub struct IndicatorRegistry {
     builtins: HashMap<&'static str, BuiltinIndicator>,
 }
@@ -123,6 +134,7 @@ impl Default for IndicatorRegistry {
 }
 
 impl IndicatorRegistry {
+    /// 创建内置指标注册表（sma/ema/rsi）。
     pub fn new() -> Self {
         let mut builtins = HashMap::new();
         builtins.insert(
@@ -171,10 +183,12 @@ impl IndicatorRegistry {
         Self { builtins }
     }
 
+    /// `new` 的别名（命名沿用旧 API），返回包含内置指标的注册表。
     pub fn register_builtin() -> Self {
         Self::new()
     }
 
+    /// 返回 spec 对应的 descriptor（元信息 + 序列类型）；不支持的指标返回 `Unsupported` 错误。
     pub fn descriptor(&self, spec: &IndicatorSpec) -> Result<IndicatorDescriptor> {
         let (builtin, period) = self.resolve_builtin_and_period(spec)?;
         Ok(IndicatorDescriptor {
@@ -183,6 +197,7 @@ impl IndicatorRegistry {
         })
     }
 
+    /// 在给定输入上执行 spec 描述的指标计算并返回结果序列；参数缺失/非法或指标不支持时返回错误。
     pub fn compute(&self, spec: &IndicatorSpec, input: &IndicatorInput) -> Result<IndicatorSeries> {
         let (builtin, period) = self.resolve_builtin_and_period(spec)?;
         Ok((builtin.compute_fn)(period, input))

@@ -17,6 +17,7 @@ pub const PAPER_SIM_LIFECYCLE_RISK_NOTICE: &str =
 pub const QMT_LIVE_RISK_NOTICE: &str =
     "[qmt_live] real-money execution path; miniQMT and broker state are authoritative";
 
+/// 执行模式存储绑定：configured_mode 配置值、channel 通道名、storage_namespace 存储命名空间、runtime_switching_allowed 是否允许运行时切换（当前固定 false，paper/qmt 不可互切）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionModeStorageBinding {
     pub configured_mode: &'static str,
@@ -25,6 +26,7 @@ pub struct ExecutionModeStorageBinding {
     pub runtime_switching_allowed: bool,
 }
 
+/// 按 channel 字符串返回对应的 risk notice（paper_immediate / paper_sim_lifecycle / qmt_live），未知返回 `None`。
 pub fn risk_notice_for_channel(channel: &str) -> Option<&'static str> {
     match channel {
         PAPER_IMMEDIATE_CHANNEL => Some(PAPER_IMMEDIATE_RISK_NOTICE),
@@ -34,10 +36,12 @@ pub fn risk_notice_for_channel(channel: &str) -> Option<&'static str> {
     }
 }
 
+/// `risk_notice_for_channel` 的 ExecutionChannel 入参适配，按 channel.as_str() 转发。
 pub fn risk_notice_for_execution_channel(channel: ExecutionChannel) -> Option<&'static str> {
     risk_notice_for_channel(channel.as_str())
 }
 
+/// 按 channel 字符串返回对应的 storage namespace（如 "qmt-live"），未知返回 `None`。
 pub fn storage_namespace_for_channel(channel: &str) -> Option<&'static str> {
     match channel {
         PAPER_IMMEDIATE_CHANNEL => Some(PAPER_IMMEDIATE_STORAGE_NAMESPACE),
@@ -47,10 +51,12 @@ pub fn storage_namespace_for_channel(channel: &str) -> Option<&'static str> {
     }
 }
 
+/// `storage_namespace_for_channel` 的 ExecutionChannel 入参适配，按 channel.as_str() 转发。
 pub fn storage_namespace_for_execution_channel(channel: ExecutionChannel) -> Option<&'static str> {
     storage_namespace_for_channel(channel.as_str())
 }
 
+/// 按 configured_mode 字符串返回 storage 绑定（configured_mode + channel + namespace + 是否允许运行时切换）；未知返回 `None`。
 pub fn storage_binding_for_configured_execution_mode(
     configured_mode: &str,
 ) -> Option<ExecutionModeStorageBinding> {
@@ -77,6 +83,7 @@ pub fn storage_binding_for_configured_execution_mode(
     }
 }
 
+/// 以 tracing::warn! 输出指定 channel 的 risk notice；未知 channel 静默无输出。
 pub fn log_execution_mode_risk_notice(channel: &'static str) {
     if let Some(notice) = risk_notice_for_channel(channel) {
         tracing::warn!(

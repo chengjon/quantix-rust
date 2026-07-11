@@ -6,6 +6,7 @@ use crate::strategy::{JsonStrategyServiceConfigStore, StrategyServiceConfig};
 
 const SERVICE_NAME: &str = "quantix-strategy.service";
 
+/// `systemctl status` 等命令聚合的状态摘要，用于 CLI 输出与测试断言。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StrategyServiceStatusSummary {
     pub installed: bool,
@@ -18,6 +19,8 @@ pub struct StrategyServiceStatusSummary {
     pub raw_status: Option<String>,
 }
 
+/// 负责将 strategy 守护进程安装为 systemd `--user` unit 的安装器，
+/// 持有 CLI 运行时路径与服务配置。
 #[derive(Debug, Clone)]
 pub struct StrategyUserServiceInstaller {
     runtime: CliRuntime,
@@ -25,6 +28,7 @@ pub struct StrategyUserServiceInstaller {
 }
 
 impl StrategyUserServiceInstaller {
+    /// 用给定的 CLI 运行时与服务配置构造安装器。
     pub fn new(runtime: CliRuntime, service_config: StrategyServiceConfig) -> Self {
         Self {
             runtime,
@@ -32,14 +36,17 @@ impl StrategyUserServiceInstaller {
         }
     }
 
+    /// 返回用于展示的 wrapper 脚本路径（带 `~` 前缀，未展开）。
     pub fn wrapper_path(&self) -> PathBuf {
         PathBuf::from("~/.local/bin/quantix-strategy-run")
     }
 
+    /// 返回用于展示的 unit 文件路径（带 `~` 前缀，未展开）。
     pub fn unit_path(&self) -> PathBuf {
         PathBuf::from("~/.config/systemd/user").join(SERVICE_NAME)
     }
 
+    /// 解析 `$HOME` 后返回 wrapper 脚本的实际路径；`HOME` 缺失时返回 `Config` 错误。
     fn resolved_wrapper_path(&self) -> Result<PathBuf> {
         Ok(home_dir()?
             .join(".local")
@@ -47,6 +54,7 @@ impl StrategyUserServiceInstaller {
             .join("quantix-strategy-run"))
     }
 
+    /// 解析 `$HOME` 后返回 unit 文件的实际路径；`HOME` 缺失时返回 `Config` 错误。
     fn resolved_unit_path(&self) -> Result<PathBuf> {
         Ok(home_dir()?
             .join(".config")
@@ -55,6 +63,7 @@ impl StrategyUserServiceInstaller {
             .join(SERVICE_NAME))
     }
 
+    /// 渲染 wrapper shell 脚本内容：`exec <quantix_bin> strategy daemon run`。
     pub fn render_wrapper_script(&self) -> String {
         format!(
             "#!/bin/sh\nexec \"{}\" strategy daemon run\n",
@@ -62,6 +71,7 @@ impl StrategyUserServiceInstaller {
         )
     }
 
+    /// 渲染 systemd unit 文件内容，注入 strategy_config_path、strategy_runtime_db_path 以及可选的 environment_file。
     pub fn render_unit(&self) -> String {
         let mut lines = vec![
             "[Unit]".to_string(),
@@ -94,6 +104,7 @@ impl StrategyUserServiceInstaller {
         lines.join("\n")
     }
 
+    /// 生成调用 `systemctl --user` 的参数列表：`daemon-reload` 不附带 unit 名，其余 action 附加 `SERVICE_NAME`。
     pub fn systemctl_args(&self, action: &str) -> Vec<String> {
         if action == "daemon-reload" {
             vec!["--user".to_string(), "daemon-reload".to_string()]
@@ -106,6 +117,7 @@ impl StrategyUserServiceInstaller {
         }
     }
 
+    /// 汇总 unit 当前状态：是否已安装/已启用/已激活，环境文件路径，以及原始 `systemctl status` 文本。
     pub fn status_summary(&self) -> Result<StrategyServiceStatusSummary> {
         Ok(StrategyServiceStatusSummary {
             installed: self.resolved_unit_path()?.exists(),
@@ -123,6 +135,7 @@ impl StrategyUserServiceInstaller {
         })
     }
 
+    /// 写入 wrapper 脚本与 unit 文件并执行 `daemon-reload`，随后校验 `LoadState`；失败时回滚已写入文件。
     pub fn install(&self) -> Result<()> {
         JsonStrategyServiceConfigStore::validate(&self.service_config)?;
 
@@ -162,6 +175,7 @@ impl StrategyUserServiceInstaller {
         Ok(())
     }
 
+    /// 删除 wrapper 与 unit，然后 `daemon-reload`；若服务仍在运行则拒绝并返回错误。
     pub fn uninstall(&self) -> Result<()> {
         if self.run_systemctl("is-active").is_ok() {
             return Err(QuantixError::Other(
@@ -183,22 +197,27 @@ impl StrategyUserServiceInstaller {
         Ok(())
     }
 
+    /// 执行 `systemctl --user start`。
     pub fn start(&self) -> Result<()> {
         self.run_systemctl("start")
     }
 
+    /// 执行 `systemctl --user stop`。
     pub fn stop(&self) -> Result<()> {
         self.run_systemctl("stop")
     }
 
+    /// 执行 `systemctl --user enable`，让开机自启动生效。
     pub fn enable(&self) -> Result<()> {
         self.run_systemctl("enable")
     }
 
+    /// 执行 `systemctl --user disable`，取消开机自启动。
     pub fn disable(&self) -> Result<()> {
         self.run_systemctl("disable")
     }
 
+    /// 生成供 CLI 打印的多行状态文本，包含 installed/enabled/active 等关键字段与原始 status 输出。
     pub fn status(&self) -> Result<String> {
         let summary = self.status_summary()?;
         let mut lines = vec![

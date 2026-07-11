@@ -103,6 +103,7 @@ impl Default for NotificationConfig {
 
 impl NotificationConfig {
     /// 从环境变量加载配置
+    /// 从环境变量构造通知配置：依据 TELEGRAM_BOT_TOKEN / DISCORD_WEBHOOK / SLACK_WEBHOOK / DINGTALK_WEBHOOK / PUSHPLUS_TOKEN / WECHAT_WORK_WEBHOOK / FEISHU_WEBHOOK / WEBHOOK_URL 等存在与否填充 enabled_channels，并解析静默时段与 min_level。缺省项使用默认值。
     pub fn from_env() -> Self {
         let mut enabled_channels = Vec::new();
 
@@ -208,6 +209,7 @@ fn default_feishu_msg_type() -> String {
 
 impl QuietHours {
     /// 检查当前时间是否在静默时段内
+    /// 判断当前本地时间是否处于静默时段；按字符串 HH:MM 比较，正确处理跨午夜区间（start > end 时取并集）。
     pub fn is_quiet_now(&self) -> bool {
         let now = chrono::Local::now();
         let now_time = now.format("%H:%M").to_string();
@@ -245,6 +247,7 @@ pub struct Notification {
 }
 
 impl Notification {
+    /// 创建一条新通知：分配 UUID、记录 created_at=Utc::now、sent=false、metadata 空；alert_type 与 metadata 需通过 with_* 链式补充。
     pub fn new(title: impl Into<String>, message: impl Into<String>, level: AlertLevel) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -259,11 +262,13 @@ impl Notification {
         }
     }
 
+    /// 链式设置 alert_type（用于路由与历史分类）；返回 self 以便链式调用。
     pub fn with_alert_type(mut self, alert_type: AlertType) -> Self {
         self.alert_type = Some(alert_type);
         self
     }
 
+    /// 链式追加 metadata 键值（同一 key 后写覆盖先写）；返回 self 以便链式调用。
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
@@ -321,6 +326,7 @@ pub struct NotificationService {
 }
 
 impl NotificationService {
+    /// 根据 config.enabled_channels 实例化对应 sender（Desktop/Webhook/Log/WechatWork/Feishu 等），跳过 Email/Telegram/Discord/Slack/Dingtalk/Pushplus 这些预留未实现的渠道；webhook 类渠道缺少 url 时静默跳过。
     pub fn new(config: NotificationConfig) -> Self {
         let mut senders: Vec<Box<dyn NotificationSender>> = Vec::new();
 
@@ -430,6 +436,7 @@ impl NotificationService {
     }
 
     /// 发送简单通知
+    /// 便捷封装：构造一条 Notification 后转发给 notify；语义与 notify 一致（受 min_level/quiet_hours 控制）。
     pub async fn send_notification(
         &mut self,
         title: impl Into<String>,

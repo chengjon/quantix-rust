@@ -17,8 +17,10 @@ const DEFAULT_BOARD_LIMIT: usize = 10;
 const DEFAULT_LEADER_LIMIT: usize = 10;
 const DEFAULT_OVERVIEW_TOP: usize = 5;
 
+/// 市场数据读取 trait：抽象 ClickHouse/其他后端的板块排名/北向资金/市场情绪/龙头股查询。Send + Sync 以适配 MarketService 的并发模型。
 #[async_trait]
 pub trait MarketDataReader: Send + Sync {
+    /// 按 board_type/sort_by 加载板块排名；date 为 `None` 时取 ClickHouse 中最新交易日；limit 限制返回行数。
     async fn load_board_rankings(
         &self,
         board_type: BoardType,
@@ -42,6 +44,7 @@ pub trait MarketDataReader: Send + Sync {
     ) -> Result<Vec<LeaderRow>>;
 }
 
+/// 市场服务：注入 MarketDataReader，对外封装 get_board_rankings/get_leaders 等带默认值的高层 API。泛型 R 让后端可插拔。
 #[derive(Debug, Clone)]
 pub struct MarketService<R> {
     reader: R,
@@ -51,10 +54,12 @@ impl<R> MarketService<R>
 where
     R: MarketDataReader,
 {
+    /// 用底层 MarketDataReader 构造 service；service 自身无状态，仅做参数默认与组合。
     pub fn new(reader: R) -> Self {
         Self { reader }
     }
 
+    /// 查询板块排名；limit 为 `None` 时使用 DEFAULT_BOARD_LIMIT（10）。
     pub async fn get_board_rankings(
         &self,
         board_type: BoardType,
@@ -72,6 +77,7 @@ where
             .await
     }
 
+    /// 查询北向资金；date 为 `None` 时取最新交易日。
     pub async fn get_north_flow(
         &self,
         date: Option<NaiveDate>,
@@ -79,6 +85,7 @@ where
         self.reader.load_north_flow(date).await
     }
 
+    /// 查询市场情绪；date 为 `None` 时取最新交易日。
     pub async fn get_market_sentiment(
         &self,
         date: Option<NaiveDate>,
@@ -86,6 +93,7 @@ where
         self.reader.load_market_sentiment(date).await
     }
 
+    /// 查询龙头股；limit 为 `None` 时使用 DEFAULT_LEADER_LIMIT（10）。
     pub async fn get_leaders(
         &self,
         filter: LeaderFilter,
@@ -97,6 +105,7 @@ where
             .await
     }
 
+    /// 聚合 top 行业 + top 概念（按 change_pct 倒序）+ 北向 + 情绪，组成 MarketOverview；top 为 `None` 时使用 DEFAULT_OVERVIEW_TOP（5）。
     pub async fn get_overview(
         &self,
         date: Option<NaiveDate>,
@@ -171,6 +180,7 @@ impl MarketDataReader for ClickHouseClient {
         rows.into_iter().map(sector_daily_to_board_rank).collect()
     }
 
+    /// 加载北向资金快照；date 为 `None` 时取最新一行，无数据返回 `None`。
     async fn load_north_flow(&self, date: Option<NaiveDate>) -> Result<Option<NorthFlowSnapshot>> {
         let date_clause = latest_date_clause("north_flow_daily", "trade_date", date, None);
         let sql = format!(
@@ -200,6 +210,7 @@ impl MarketDataReader for ClickHouseClient {
         Ok(row.map(north_flow_daily_to_snapshot))
     }
 
+    /// 加载市场情绪快照（涨跌停数、封板率等）；date 为 `None` 时取最新一行，无数据返回 `None`。
     async fn load_market_sentiment(
         &self,
         date: Option<NaiveDate>,
@@ -235,6 +246,7 @@ impl MarketDataReader for ClickHouseClient {
         Ok(row.map(market_sentiment_daily_to_snapshot))
     }
 
+    /// 按 filter（全市场/指定板块/指定概念）加载龙头股；按 leader_change 倒序，按 leader_code 去重后截断到 limit。
     async fn load_leaders(
         &self,
         filter: LeaderFilter,
