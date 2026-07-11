@@ -377,6 +377,7 @@ mod tests {
     use crate::data::models::AdjustType;
     use chrono::NaiveDate;
     use rust_decimal_macros::dec;
+    use std::time::Duration;
 
     fn create_test_klines(count: usize) -> Vec<Kline> {
         (0..count)
@@ -530,9 +531,17 @@ mod tests {
     fn test_estimated_remaining() {
         let mut progress = BatchProgress::new(100, 10);
         progress.update(25, 0);
+        // Simulate that some time has passed since the batch started.
+        // Without this, the test is flaky under load: in release builds the
+        // elapsed time between `new` and `estimated_remaining_secs` can be
+        // sub-nanosecond, round to 0.0, and break the `> 0.0` assertion.
+        progress.start_time = Instant::now() - Duration::from_millis(100);
 
         let remaining = progress.estimated_remaining_secs();
-        // 25% done, remaining should be roughly 3x elapsed
-        assert!(remaining > 0.0);
+        // 25% done with 100 ms elapsed → remaining ≈ 300 ms
+        assert!(
+            remaining > 0.0,
+            "remaining should be positive, got {remaining}"
+        );
     }
 }
