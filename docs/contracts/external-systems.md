@@ -747,12 +747,14 @@ String Float Float Float Float Int Float
 <!-- L2:OPENSTOCK_STRUCT name=OpenStockEnvelope -->
 ```
 data source data_category request_id route_decision_id quality_flags cache_state circuit_state latency_ms received_at
+Custom String String String String Custom String String Float String
 ```
 <!-- /L2 -->
 
 <!-- L2:OPENSTOCK_STRUCT name=Kline -->
 ```
 code date open high low close volume amount adjust_type
+String Date Decimal Decimal Decimal Decimal Int Decimal Custom
 ```
 <!-- /L2 -->
 

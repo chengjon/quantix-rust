@@ -502,7 +502,17 @@ fn parse_doc_field_names(tag: &str, name: &str) -> Vec<String> {
 /// Map a ClickHouse DDL type string to a type-class token.
 fn classify_clickhouse_type(raw: &str) -> String {
     let upper = raw.to_uppercase();
-    let bare = upper.split('(').next().unwrap_or("").trim();
+    // Strip Nullable(...) to its inner type before classification, so
+    // `Nullable(Decimal(...))` classifies as Decimal, not Custom.
+    let inner = if let Some(rest) = upper
+        .strip_prefix("NULLABLE(")
+        .and_then(|s| s.strip_suffix(')'))
+    {
+        rest.trim()
+    } else {
+        &upper
+    };
+    let bare = inner.split('(').next().unwrap_or("").trim();
     match bare {
         "DATETIME" | "DATETIME64" | "TIMESTAMP" => "Time".to_string(),
         "DATE" => "Date".to_string(),
@@ -512,9 +522,119 @@ fn classify_clickhouse_type(raw: &str) -> String {
         | "INTEGER" | "BIGINT" => "Int".to_string(),
         "DECIMAL" => "Decimal".to_string(),
         _ if bare.starts_with("DECIMAL") => "Decimal".to_string(),
-        _ if bare.starts_with("NULLABLE") => "Custom".to_string(),
         _ => "Custom".to_string(),
     }
+}
+
+/// Map a PostgreSQL DDL type string to a type-class token.
+/// Same token set as `classify_clickhouse_type`: Time | String | Float | Int |
+/// Decimal | Date | Bool | Custom.
+fn classify_postgres_type(raw: &str) -> String {
+    let upper = raw.to_uppercase();
+    let bare = upper.split('(').next().unwrap_or("").trim();
+    match bare {
+        "TIMESTAMPTZ"
+        | "TIMESTAMP"
+        | "TIMESTAMP_WITHOUT_TIME_ZONE"
+        | "TIMESTAMP_WITH_TIME_ZONE" => "Time".to_string(),
+        "DATE" => "Date".to_string(),
+        "VARCHAR" | "TEXT" | "CHAR" | "BPCHAR" | "CITEXT" | "UUID" => "String".to_string(),
+        "REAL" | "FLOAT4" | "DOUBLE_PRECISION" | "FLOAT8" => "Float".to_string(),
+        "SMALLINT" | "INT2" | "INTEGER" | "INT" | "INT4" | "BIGINT" | "INT8" | "SERIAL"
+        | "BIGSERIAL" => "Int".to_string(),
+        "DECIMAL" | "NUMERIC" => "Decimal".to_string(),
+        "BOOLEAN" | "BOOL" => "Bool".to_string(),
+        _ if bare.starts_with("DECIMAL") || bare.starts_with("NUMERIC") => "Decimal".to_string(),
+        _ => "Custom".to_string(),
+    }
+}
+
+/// Parse `field:type` pairs from the import_state DDL doc-comment in
+/// `state.rs`. The DDL lives in a `///` block, not a real SQL string.
+fn parse_import_state_field_types() -> Vec<(String, String)> {
+    // Reuse the existing body-extraction logic from
+    // `parse_import_state_columns_from_doc_comment`, but capture type too.
+    let needle = "CREATE TABLE quantix.import_state (";
+    let start = IMPORT_STATE_STORE
+        .find(needle)
+        .unwrap_or_else(|| panic!("import_state DDL not found in state.rs"));
+    let after = &IMPORT_STATE_STORE[start..];
+    let open_paren = after.find('(').unwrap();
+    let mut depth: i32 = 0;
+    let mut close_idx = None;
+    for (i, ch) in after[open_paren..].char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close_idx = Some(open_paren + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close_idx = close_idx.unwrap();
+    let body = &after[open_paren + 1..close_idx];
+
+    let mut columns: Vec<String> = Vec::new();
+    let mut depth: i32 = 0;
+    let mut current = String::new();
+    for ch in body.chars() {
+        match ch {
+            '(' => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' => {
+                depth -= 1;
+                current.push(ch);
+            }
+            ',' if depth == 0 => {
+                columns.push(std::mem::take(&mut current));
+            }
+            other => current.push(other),
+        }
+    }
+    if !current.trim().is_empty() {
+        columns.push(current);
+    }
+
+    columns
+        .into_iter()
+        .filter_map(|raw| {
+            let mut line = raw.trim().to_string();
+            while line.starts_with("///") {
+                line = line[3..].trim_start().to_string();
+            }
+            let line = line.trim();
+            if line.is_empty() {
+                return None;
+            }
+            let upper = line.to_uppercase();
+            if upper.starts_with("PRIMARY")
+                || upper.starts_with("CHECK")
+                || upper.starts_with("CONSTRAINT")
+            {
+                return None;
+            }
+            let mut tokens = line.split_whitespace();
+            let name = tokens.next()?.to_string();
+            if !name
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic() || c == '_')
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            let type_token = tokens.next()?;
+            // Strip NOT NULL / DEFAULT / etc. — classify_postgres_type takes
+            // only the type name.
+            Some((name, classify_postgres_type(type_token)))
+        })
+        .collect()
 }
 
 /// Map a Rust struct field type to a type-class token.
@@ -854,5 +974,47 @@ fn l2b_bridge_kline_bar_payload_type_classes_match() {
         &src,
         "BridgeKlineBarPayload",
         "volume Int→Float / open Float→Int are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_openstock_envelope_type_classes_match() {
+    let doc_names = parse_doc_field_names("OPENSTOCK_STRUCT", "OpenStockEnvelope");
+    let doc_classes = parse_doc_type_classes("OPENSTOCK_STRUCT", "OpenStockEnvelope");
+    let src = parse_struct_field_types(OPENSTOCK_ENVELOPE, "OpenStockEnvelope");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "OpenStockEnvelope",
+        "latency_ms Int→Float / received_at Time→String are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_kline_type_classes_match() {
+    let doc_names = parse_doc_field_names("OPENSTOCK_STRUCT", "Kline");
+    let doc_classes = parse_doc_type_classes("OPENSTOCK_STRUCT", "Kline");
+    let src = parse_struct_field_types(DATA_MODELS, "Kline");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "Kline",
+        "open/high/low/close Decimal→Float are silent-precision-loss breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_import_state_type_classes_match() {
+    let doc_names = parse_doc_field_names("CLICKHOUSE_TABLE", "import_state");
+    let doc_classes = parse_doc_type_classes("CLICKHOUSE_TABLE", "import_state");
+    let src = parse_import_state_field_types();
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "import_state",
+        "imported_at Time→String / status Int→String drift would silently break idempotency; bump Major",
     );
 }
