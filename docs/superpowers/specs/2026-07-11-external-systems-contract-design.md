@@ -139,17 +139,30 @@
 | `openstock_daily_kline_response_fields_match` | §4.4 | `src/sources/openstock.rs` 中 `parse_daily_kline_json` 解析的 JSON shape |
 
 **规则**：
-- 字段名集合比较（无序），不比较类型/顺序/可选性（避免文档过细导致 churn 过大）
-- 字段类型以代码为准；文档列出字段名 + 一行用途说明即可
+- 字段名集合比较（无序），不比较顺序/可选性（避免文档过细导致 churn 过大）
+- **类型大类校验（必做）**：除字段名外，必须校验类型大类集合（数值/字符串/时间/自定义）一致；
+  这是抓静默漂移（Decimal → Float64、i64 → f64、DateTime ↔ String）的主要网。
+- 自定义类型（如 `Decimal`、`serde_json::Value`、`BridgeTaskExecuteParams`）按 `Custom` 归类，
+  文档侧注明实际承载的语义（如 "Decimal = 高精度金额，禁用 Float64 替代"）
 
 ### 失败诊断
 
 测试失败时打印：
 
 ```
-Missing in doc:    ["minute_shares.turnover"]
-Missing in code:   []
-Hint: update §5.3 in docs/contracts/external-systems.md to match src/db/clickhouse/schema.rs
+[field-set mismatch] minute_shares
+Missing in doc:    ["avg_price"]
+Missing in source: ["turnover"]
+Hint: update §5.3 in docs/contracts/external-systems.md or src/db/clickhouse/schema.rs
+```
+
+类型大类失败时打印：
+
+```
+[type-class mismatch] kline_data.close
+Doc says:    Float (Float64 implies float price)
+Source says: Decimal
+Hint: Decimal→Float64 is a silent-precision-loss change; bump Contract Version Major
 ```
 
 ## Spot-Check 项总览
@@ -170,25 +183,72 @@ Hint: update §5.3 in docs/contracts/external-systems.md to match src/db/clickho
 
 其他系统（Postgres / TDengine / MySQL / 文件源）只进清单层，不做字段 spot-check。
 
+### L2 准入矩阵 (Admission Criteria)
+
+"破坏契约是否导致生产事故/静默数据腐败"是历史判断，落地为以下可执行的判定规则。
+**新增对象满足任意一条即必须进入 L2 字段级 spot-check**：
+
+| 规则 | 例子 |
+|------|------|
+| **R1 涉及资金/订单/持仓** | 下单请求、撤单响应、持仓快照、清算回报 |
+| **R2 行情主数据核心表** | kline / minute 系列 / tick / share |
+| **R3 被 ≥3 个上游模块依赖的公共数据结构** | `OpenStockEnvelope`（被 importer / aggregator / shadow 同时读取） |
+| **R4 近 3 个月内有字段变更** | git log 显示字段层改动即触发 |
+| **R5 幂等/状态机的状态字段** | `import_state.status`、`BridgeTaskLifecycleStatus` 变体集 |
+
+L2 变更记录在附录 D「分层准入变更记录」中维护，每次进/出 L2 写一行理由。
+
+**L1（清单层）的准入门槛建制**：所有外部依赖（含 Postgres / TDengine / MySQL / 文件源）
+必须进入 L1 清单与 L1 测试；不进 L1 等于脱离契约治理。L1 至少覆盖：源文件存在性、
+表名清单、env 变量清单、关键 feature flag。
+
 ## Contract Version 策略
 
 每个章节顶部一行：`**Contract Version:** vX.Y`
 
-- **Major (vX)**：删除端点、删除表、删除/重命名必需字段
+- **Major (vX)**：删除端点、删除表、删除/重命名必需字段、**字段语义变更**（见下）
 - **Minor (vY)**：新增可选字段、新增端点、新增表
 
-当前 Bridge task contract 标识为 `miniqmt.v1`，文档首次落盘时统一为 `v1.0`。
+### 字段语义变更 = 破坏性变更
+
+字段名不变、但下列任一属性变化，视为 **Major bump**：
+
+| 属性 | 破坏性变更例子 |
+|------|----------------|
+| **类型大类** | `Decimal → Float64`（精度丢失）、`i64 → f64`（语义漂移）、`DateTime ↔ String`（解析失败） |
+| **单位** | 成交量「手」↔「股」、价格「元」↔「分」、时间戳「秒」↔「毫秒」 |
+| **语义** | `status` 字段的枚举值集合变化（新增非可选变体）、`code` 字段允许格式从 `600000` 扩展到 `sh600000` |
+| **可选性** | 可选字段变为必填（反向变更视情况，但默认按 Major 处理） |
+
+> 字段语义变更不会触发编译错误，但会导致策略计算结果静默失真。
+> **类型大类校验在 L2 spot-check 中必须覆盖**（见「同步测试设计」Layer 2 章节）。
+
+### 废弃流程 (Deprecation)
+
+废弃字段/端点/变体时不直接删除，按以下流程：
+
+1. **标记**：文档中加 `@deprecated v<版本>` + 替代方案；源码加 `#[deprecated]` 属性
+2. **保留**：至少保留 1 个 Minor 版本周期（约 4 周），给下游适配时间
+3. **移除**：下个 Major 版本移除；移除时在 PR checklist 显式列「废弃项清理」
+4. **通知**：Bridge 服务方变更需通过 bridge_contract_version 字段 + BridgeFailureCode::LiveBridgeUnsupportedContractVersion 双向协商
+
+### 版本协商 (Bridge 侧)
+
+- 客户端请求带 `contract_version` 头（`miniqmt.v1`）
+- 服务端返回 `BridgeFailureCode::LiveBridgeUnsupportedContractVersion` 时，客户端必须降级到只调用 capabilities 端点，不再下单
+- 文档需记录「服务端拒绝 X.Y 时，客户端安全的只读端点集合」
 
 ## PR Checklist (附录 7.2)
 
 ```
 修改外部系统对接代码时：
-[ ] 增删端点 → 更新 docs/contracts/external-systems.md 对应章节
-[ ] 增删表/列 → 同上
-[ ] 改鉴权/env 变量 → 同上
-[ ] 改 BridgeQmt* / OpenStockEnvelope / 关键表字段 → 同上
-[ ] 运行 cargo test --test contract_doc_sync_test 通过
-[ ] Breaking change（删除/重命名）→ bump Contract Version
+[ ] 增删端点 → 更新 §3.3 端点清单 → 测试: bridge_endpoints_in_doc_match_code (未实现，见 #1)
+[ ] 增删表/列 → 更新 §5.2 表清单 → 测试: l1_full_inventory_all_paths_exist / l2_*_columns_match
+[ ] 改鉴权/env 变量 → 更新 §3.6 / §4.6 / 附录 A → 测试: env_vars_in_doc_match_code
+[ ] 改 BridgeQmt* / OpenStockEnvelope / 关键表字段 → 更新附录 C → 测试: l2_*_fields_match
+[ ] 改字段类型/单位/语义 → bump Contract Version (Major) → 更新附录 C 类型列
+[ ] 废弃字段 → 加 @deprecated 标记 + 保留 1 个 Minor 周期
+[ ] cargo test --test contract_doc_sync_test --test contract_doc_field_sync_test 全绿
 ```
 
 ## 文件清单
@@ -209,18 +269,64 @@ Hint: update §5.3 in docs/contracts/external-systems.md to match src/db/clickho
 - 文档被人通读一遍，确认三个受众视角都能找到自己需要的信息
 - 故意改一处代码（如新增 ClickHouse 表），确认测试失败并给出清晰提示
 
+## 其他系统的最低契约治理（#6）
+
+「其他外部依赖」（Postgres / TDengine / 上游 MySQL / 文件源）不做字段级 spot-check，
+但**不得脱离契约治理**。最低要求：
+
+| 系统 | L1 清单 | L1 测试 | 行为契约（≥1 条） |
+|------|---------|---------|--------------------|
+| Postgres | 表清单 + schema 名（`quantix.*`） | `postgres_tables_in_doc_match_code` | 写入幂等：所有 `live_import_*` 表用 `ON CONFLICT DO NOTHING` 或 dedupe 索引 |
+| TDengine | supertable + 子表规则 | `tdengine_schema_in_doc_match_code` | 子表命名规则：`<symbol>_<period>`；只追加，不更新 |
+| 上游 MySQL | 库名 + 只读边界 | `mysql_readonly_boundary_in_doc_match_code` | 严格只读；任何写操作必须经 review 在文档中显式列出 |
+| 文件源（TDX / AkShare / EastMoney） | 路径模板 / 命名规则 | `file_source_paths_in_doc_match_code` | 文件命名约定（如 `SH600000.day`）+ 读取失败降级策略 |
+
+env 变量扫描必须覆盖 `src/db/postgresql.rs` / `src/db/tdengine.rs` / `src/sources/*.rs`，
+不止 3 个核心模块。`env_vars_in_doc_match_code` 测试用例应列出全部扫描路径。
+
+## 延后决策 (Deferred)
+
+以下建议长期成立但本期不实施，记录为未来演进方向：
+
+### D1. 统一常量文件 + `syn` 解析（review #1）
+
+**现状**：Bridge 端点是 `format!("{}/api/v1/task/execute", self.base_url)` 字面量散落在
+`src/bridge/client.rs` 各方法中。OpenStock 用统一 `/data/fetch` + `data_category` 路由。
+当前 L1 测试只做 `Path::exists` 校验，**不解析端点字面量**——所以 review 中担心的
+"format! 拼接 / 重构常量化 → 正则失效"场景对当前测试不成立。
+
+**延后理由**：把 13 个端点收敛到 `src/bridge/endpoints.rs` 常量是纯重构，需改 ~400 行
+client.rs，触及 13 个调用点，**收益仅在后续要测端点集合时才兑现**。本期 spot-check 用
+字段级 + Appendix C 锚点的方式抓结构性漂移；端点路径漂移靠 Bridge server 侧契约版本
+头协商兜底。
+
+**触发条件**：若未来 6 个月内出现 ≥2 次端点契约漂移事故，或开始测端点集合，
+则启动常量化 + `syn` 解析。
+
+### D2. 代码为单一事实源（SSOT）+ 文档自动生成（review #8）
+
+**现状**：以 Markdown 为契约源、代码为实现、测试做对齐。
+
+**延后理由**：codegen 方案在 review 中也明确标注"当前阶段可维持现状"。
+当前 9 项 spot-check 维护成本可接受；code-gen 工具链（含类型注释语法、build script、
+生成后 diff 校验）需要至少 1 人周投入。文档侧人工维护 + 强校验测试是当前 ROI 最优。
+
+**触发条件**：spot-check 项扩展到 >20 项、或人工同步每月出错 ≥1 次。
+
 ## 风险与权衡 (Risks)
 
 | 风险 | 缓解 |
 |------|------|
-| 文档与代码仍可能同步漂移（同 PR 都改但改错） | spot-check 字段级测试是更细粒度的网 |
+| 文档与代码仍可能同步漂移（同 PR 都改但改错） | spot-check 字段级 + 类型大类测试是更细粒度的网 |
 | 同步测试成为开发负担 | 清单层匹配快速且失败信息明确；spot-check 只 9 项 |
 | 文档太长不易维护 | 三层结构 + Reference 颗粒度，避免过度展开 |
 | Bridge server 端契约变化无法被代码侧捕获 | 不在本次范围；需 Bridge 服务方自己维护对外契约 |
+| 字段语义变更静默通过（类型/单位漂移） | L2 类型大类校验 + 文档 §类型大类变更规则 |
+| 其他系统治理盲区（Postgres/TDengine/MySQL） | §其他系统的最低契约治理 表强制 L1 + 至少 1 条行为约束 |
 
 ## 不在范围 (Out of Scope)
 
-- 代码生成文档（codegen）—— 太重，收益不抵成本
+- 代码生成文档（codegen）—— 见 D2，延后决策
 - 服务端契约验证（Bridge/OpenStock 自身的对外 spec）—— 由服务方维护
-- 字段类型/可选性的全量 spot-check —— 文档过细、churn 过大
+- 字段可选性的全量 spot-check —— churn 过大；L2 仅覆盖类型大类
 - 历史版本演进表 —— 用 git log 即可追溯
