@@ -14,7 +14,7 @@
 
 - Read the approved spec section in [docs/superpowers/plans/2026-03-15-phase24-monitor-implementation.md](/opt/claude/quantix-rust/docs/superpowers/plans/2026-03-15-phase24-monitor-implementation.md#L362).
 - Use `@superpowers/test-driven-development` for each implementation task and `@superpowers/verification-before-completion` before claiming the phase is done.
-- GitNexus is stale in this repo right now. Run `npx gitnexus analyze` before the first impact-analysis call if the index is still reported as behind `HEAD`.
+- GitNexus is stale in this repo right now. Run `gitnexus analyze` before the first impact-analysis call if the index is still reported as behind `HEAD`.
 - Before editing any existing symbol, run `gitnexus_impact` against that exact symbol name and record the risk in the task notes before touching the file.
 - Before each commit, run `gitnexus_detect_changes({repo: "quantix-rust", scope: "all"})` and confirm the diff only affects the intended files and flows.
 - In this environment, prefer `CARGO_TARGET_DIR=/tmp/quantix-target` for all `cargo` commands unless `target/` ownership has been fixed.
