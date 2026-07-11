@@ -330,9 +330,7 @@ impl DateOrRange {
         }
         if has_date {
             let date = date.ok_or_else(|| {
-                QuantixError::Config(
-                    "--date was set but the argument value is missing".to_string(),
-                )
+                QuantixError::Config("--date was set but the argument value is missing".to_string())
             })?;
             let parsed = parse_date_arg(date, "--date")?;
             return Ok(DateOrRange::Date(parsed));

@@ -96,27 +96,24 @@ impl QmtLiveExecutionAdapter {
         // Err 分支仅做日志并以 1ms/1ms 占位实例兜底，让后续 poll 自行暴露错误。
         let safe_interval = poll_interval_ms.max(1);
         let safe_timeout = poll_timeout_ms.max(1);
-        let submit_service = match QmtTaskSubmitService::new(
-            client.clone(),
-            safe_interval,
-            safe_timeout,
-        ) {
-            Ok(svc) => svc,
-            Err(e) => {
-                tracing::error!(
-                    "QmtTaskSubmitService 构造不可达分支触发 (interval={}, timeout={}): {}",
-                    safe_interval,
-                    safe_timeout,
-                    e
-                );
-                // 直接构造占位实例；字段已对 crate 内可见。
-                QmtTaskSubmitService {
-                    client: client.clone(),
-                    poll_interval: Duration::from_millis(1),
-                    poll_timeout: Duration::from_millis(1),
+        let submit_service =
+            match QmtTaskSubmitService::new(client.clone(), safe_interval, safe_timeout) {
+                Ok(svc) => svc,
+                Err(e) => {
+                    tracing::error!(
+                        "QmtTaskSubmitService 构造不可达分支触发 (interval={}, timeout={}): {}",
+                        safe_interval,
+                        safe_timeout,
+                        e
+                    );
+                    // 直接构造占位实例；字段已对 crate 内可见。
+                    QmtTaskSubmitService {
+                        client: client.clone(),
+                        poll_interval: Duration::from_millis(1),
+                        poll_timeout: Duration::from_millis(1),
+                    }
                 }
-            }
-        };
+            };
 
         Self {
             client,
