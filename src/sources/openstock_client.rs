@@ -355,6 +355,10 @@ mod tests_core;
 #[cfg(test)]
 mod tests_klines;
 #[cfg(test)]
-mod tests_minute;
+mod tests_minute_klines;
+#[cfg(test)]
+mod tests_minute_share;
+#[cfg(test)]
+mod tests_minute_stream;
 #[cfg(test)]
 mod tests_reference;
