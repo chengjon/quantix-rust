@@ -153,8 +153,12 @@ fn l2_sc2_contract_version_miniqmt() {
 /// SC3: ClickHouse 默认端口 8123
 #[test]
 fn l2_sc3_clickhouse_default_port() {
-    let c = read("src/db/clickhouse/mod.rs");
-    assert!(c.contains("8123"), "SC3: ClickHouse 模块中未找到端口 8123");
+    // After P0.15b-split, the literal lives in the client.rs impl file.
+    let c = read("src/db/clickhouse/client.rs");
+    assert!(
+        c.contains("8123"),
+        "SC3: ClickHouse client.rs 中未找到端口 8123"
+    );
 }
 
 /// SC4: OpenStockClient 默认重试常量
@@ -214,10 +218,11 @@ fn l2_sc7_bridge_failure_codes() {
 /// SC8: ClickHouse 默认批次大小常量
 #[test]
 fn l2_sc8_clickhouse_batch_size() {
-    let c = read("src/db/clickhouse/mod.rs");
+    // After P0.15b-split, the constant lives in the client.rs impl file.
+    let c = read("src/db/clickhouse/client.rs");
     assert!(
         c.contains("DEFAULT_BATCH_SIZE"),
-        "SC8: ClickHouse 模块中未找到 DEFAULT_BATCH_SIZE"
+        "SC8: ClickHouse client.rs 中未找到 DEFAULT_BATCH_SIZE"
     );
 }
 

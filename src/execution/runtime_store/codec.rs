@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use crate::core::signal::Signal;
 use crate::core::{QuantixError, Result};
 
-pub(super) fn parse_signal_value(value: &str) -> Option<Signal> {
+pub(crate) fn parse_signal_value(value: &str) -> Option<Signal> {
     match value {
         "buy" => Some(Signal::Buy),
         "sell" => Some(Signal::Sell),
@@ -13,13 +13,13 @@ pub(super) fn parse_signal_value(value: &str) -> Option<Signal> {
     }
 }
 
-pub(super) fn parse_timestamp(value: &str) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_timestamp(value: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(value)
         .map(|ts| ts.with_timezone(&Utc))
         .map_err(|err| QuantixError::DataParse(format!("invalid RFC3339 timestamp {value}: {err}")))
 }
 
-pub(super) fn parse_decimal(value: &str) -> Result<Decimal> {
+pub(crate) fn parse_decimal(value: &str) -> Result<Decimal> {
     Decimal::from_str_exact(value)
         .map_err(|err| QuantixError::DataParse(format!("invalid decimal {value}: {err}")))
 }

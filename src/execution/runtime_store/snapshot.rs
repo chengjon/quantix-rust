@@ -5,7 +5,7 @@ use crate::execution::models::{
 
 use super::codec::{parse_decimal, parse_signal_value};
 
-pub(super) fn build_execution_snapshot(signal: &StrategySignalRecord) -> Result<serde_json::Value> {
+pub(crate) fn build_execution_snapshot(signal: &StrategySignalRecord) -> Result<serde_json::Value> {
     let market_price = signal
         .metadata_json
         .get("market_price")
