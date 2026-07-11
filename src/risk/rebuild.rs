@@ -221,12 +221,15 @@ fn rebuild_from_records(
 fn logical_time(record: &LiveImportRecord) -> DateTime<Utc> {
     // 上游已通过 validate_* 保证 executed_at / occurred_at 至少一个存在；
     // 若数据畸形导致两者都为 None，回退到 UTC epoch 并记录 warn。
-    record.executed_at.or(record.occurred_at).unwrap_or_else(|| {
-        tracing::warn!(
-            "live import record 缺少 executed_at / occurred_at，logical_time 回退 epoch"
-        );
-        DateTime::<Utc>::UNIX_EPOCH
-    })
+    record
+        .executed_at
+        .or(record.occurred_at)
+        .unwrap_or_else(|| {
+            tracing::warn!(
+                "live import record 缺少 executed_at / occurred_at，logical_time 回退 epoch"
+            );
+            DateTime::<Utc>::UNIX_EPOCH
+        })
 }
 
 fn current_total_assets(
