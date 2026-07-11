@@ -178,13 +178,13 @@ fn l2_fixture_envelope_shapes_parse_and_category_is_valid() {
             continue;
         }
 
-        if let Some(cat) = &env.data_category {
-            if !valid_categories.contains(cat.as_str()) {
-                failures.push(format!(
-                    "{name}: data_category `{cat}` is not in the 5 P0 categories {:?}",
-                    P0_CATEGORIES
-                ));
-            }
+        if let Some(cat) = &env.data_category
+            && !valid_categories.contains(cat.as_str())
+        {
+            failures.push(format!(
+                "{name}: data_category `{cat}` is not in the 5 P0 categories {:?}",
+                P0_CATEGORIES
+            ));
         }
     }
 
