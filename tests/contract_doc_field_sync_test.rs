@@ -433,3 +433,426 @@ fn l2_openstock_kline_fields_match() {
         "update docs/contracts/external-systems.md Appendix C or src/data/models.rs",
     );
 }
+
+// ===========================================================================
+// Layer 2b — Type-class sync (catches silent drift: Decimal→Float64, i64→f64,
+// DateTime↔String). Per spec §字段语义变更 = 破坏性变更.
+//
+// Doc side: the second line inside each `<!-- L2:TAG -->` code block (after
+// the field-name line) carries one type-class token per field. Token set:
+//   Time | String | Float | Int | Decimal | Date | Bool | Custom | Custom(...)
+//
+// Source side: parse ClickHouse DDL column types / Rust struct field types
+// and bucket them into the same token set.
+// ===========================================================================
+
+/// Parse the type-class line (second non-fence line) from an Appendix C block.
+fn parse_doc_type_classes(tag: &str, name: &str) -> Vec<String> {
+    let open = format!("<!-- L2:{tag} name={name} -->");
+    let close = "<!-- /L2 -->";
+    let start = DOC
+        .find(&open)
+        .unwrap_or_else(|| panic!("{open} not found"));
+    let rest = &DOC[start + open.len()..];
+    let end = rest
+        .find(close)
+        .unwrap_or_else(|| panic!("close marker for {open}"));
+    let body = &rest[..end];
+    let mut lines = body
+        .trim()
+        .lines()
+        .filter(|line| !line.trim().starts_with("```"))
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
+    let _field_line = lines.next().expect("missing field-name line");
+    lines
+        .next()
+        .unwrap_or_else(|| panic!("missing type-class line in {open}"))
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+}
+
+/// Parse the field-name line (first non-fence line) from an Appendix C block.
+fn parse_doc_field_names(tag: &str, name: &str) -> Vec<String> {
+    let open = format!("<!-- L2:{tag} name={name} -->");
+    let close = "<!-- /L2 -->";
+    let start = DOC
+        .find(&open)
+        .unwrap_or_else(|| panic!("{open} not found"));
+    let rest = &DOC[start + open.len()..];
+    let end = rest
+        .find(close)
+        .unwrap_or_else(|| panic!("close marker for {open}"));
+    let body = &rest[..end];
+    let mut lines = body
+        .trim()
+        .lines()
+        .filter(|line| !line.trim().starts_with("```"))
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
+    lines
+        .next()
+        .unwrap_or_else(|| panic!("missing field-name line in {open}"))
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+}
+
+/// Map a ClickHouse DDL type string to a type-class token.
+fn classify_clickhouse_type(raw: &str) -> String {
+    let upper = raw.to_uppercase();
+    let bare = upper.split('(').next().unwrap_or("").trim();
+    match bare {
+        "DATETIME" | "DATETIME64" | "TIMESTAMP" => "Time".to_string(),
+        "DATE" => "Date".to_string(),
+        "STRING" | "FIXEDSTRING" | "UUID" => "String".to_string(),
+        "FLOAT32" | "FLOAT64" => "Float".to_string(),
+        "INT8" | "INT16" | "INT32" | "INT64" | "UINT8" | "UINT16" | "UINT32" | "UINT64"
+        | "INTEGER" | "BIGINT" => "Int".to_string(),
+        "DECIMAL" => "Decimal".to_string(),
+        _ if bare.starts_with("DECIMAL") => "Decimal".to_string(),
+        _ if bare.starts_with("NULLABLE") => "Custom".to_string(),
+        _ => "Custom".to_string(),
+    }
+}
+
+/// Map a Rust struct field type to a type-class token.
+/// Bare types: String, f32/f64, i8..i64/u8..u64, bool. Custom types → Custom.
+fn classify_rust_type(raw: &str) -> String {
+    let trimmed = raw.trim().trim_end_matches(',');
+    // Strip `Option<...>` to its inner for classification.
+    let inner = if let Some(rest) = trimmed
+        .strip_prefix("Option<")
+        .and_then(|s| s.strip_suffix('>'))
+    {
+        rest.trim()
+    } else {
+        trimmed
+    };
+    match inner {
+        "String" | "&str" | "&'static str" => "String".to_string(),
+        "f32" | "f64" => "Float".to_string(),
+        "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "usize" | "isize" => {
+            "Int".to_string()
+        }
+        "bool" => "Bool".to_string(),
+        "Decimal" | "rust_decimal::Decimal" => "Decimal".to_string(),
+        // Custom(type) form is preserved as Custom; downstream compares as "Custom".
+        _ if inner.starts_with("Custom(") || inner == "Custom" => "Custom".to_string(),
+        // NaiveDate / NaiveDateTime / DateTime / OffsetDateTime → Date / Time
+        "NaiveDate" | "chrono::NaiveDate" => "Date".to_string(),
+        "NaiveDateTime"
+        | "chrono::NaiveDateTime"
+        | "DateTime"
+        | "chrono::DateTime<Utc>"
+        | "OffsetDateTime"
+        | "time::OffsetDateTime" => "Time".to_string(),
+        // Everything else (Vec<...>, serde_json::Value, named struct types,
+        // generic params) collapses to Custom — by spec, these are flagged
+        // for manual review when they change.
+        _ => "Custom".to_string(),
+    }
+}
+
+/// Parse `field:type` pairs from a CREATE TABLE block.
+fn parse_clickhouse_field_types(src: &str, table: &str) -> Vec<(String, String)> {
+    let needle = format!("CREATE TABLE IF NOT EXISTS {table} ");
+    let start = src
+        .find(&needle)
+        .unwrap_or_else(|| panic!("table {table} not found"));
+    let after = &src[start..];
+    let open = after.find('(').unwrap();
+    let mut depth: i32 = 0;
+    let mut close = None;
+    for (i, ch) in after[open..].char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(open + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close = close.unwrap();
+    let body = &after[open + 1..close];
+
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut depth: i32 = 0;
+    let mut cur = String::new();
+    for ch in body.chars() {
+        match ch {
+            '(' => {
+                depth += 1;
+                cur.push(ch);
+            }
+            ')' => {
+                depth -= 1;
+                cur.push(ch);
+            }
+            ',' if depth == 0 => {
+                if let Some(pair) = parse_clickhouse_column(&cur) {
+                    out.push(pair);
+                }
+                cur.clear();
+            }
+            other => cur.push(other),
+        }
+    }
+    if let Some(pair) = parse_clickhouse_column(&cur) {
+        out.push(pair);
+    }
+    out
+}
+
+fn parse_clickhouse_column(raw: &str) -> Option<(String, String)> {
+    let line = raw.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let upper = line.to_uppercase();
+    if upper.starts_with("ENGINE")
+        || upper.starts_with("PARTITION")
+        || upper.starts_with("ORDER")
+        || upper.starts_with("SETTINGS")
+    {
+        return None;
+    }
+    let mut tokens = line.split_whitespace();
+    let name = tokens.next()?;
+    let rest: String = tokens.collect::<Vec<_>>().join(" ");
+    if rest.is_empty() {
+        return None;
+    }
+    // `date MATERIALIZED toDate(timestamp)` — derive the type from the
+    // expression: toDate(...) → Date. We include MATERIALIZED columns
+    // because the doc lists them and the field-set test covers them.
+    if let Some(expr) = rest.strip_prefix("MATERIALIZED ") {
+        let derived = if expr.trim().starts_with("toDate(") {
+            "Date"
+        } else if expr.trim().starts_with("toDateTime(") {
+            "DateTime"
+        } else {
+            // Unknown MATERIALIZED expression — surface as Custom for review.
+            return Some((name.to_string(), "Custom".to_string()));
+        };
+        return Some((name.to_string(), classify_clickhouse_type(derived)));
+    }
+    let type_segment = rest
+        .split_whitespace()
+        .take_while(|t| !matches!(*t, "MATERIALIZED" | "DEFAULT" | "CODEC" | "TTL"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    if type_segment.is_empty() {
+        return None;
+    }
+    let type_token = type_segment.split_whitespace().next()?;
+    Some((name.to_string(), classify_clickhouse_type(type_token)))
+}
+
+/// Parse `pub field: type` pairs from a struct body.
+fn parse_struct_field_types(src: &str, struct_name: &str) -> Vec<(String, String)> {
+    let needle = format!("pub struct {struct_name}");
+    let start = src
+        .find(&needle)
+        .unwrap_or_else(|| panic!("struct {struct_name} not found"));
+    let after = &src[start..];
+    let open = after.find('{').unwrap();
+    let mut depth: i32 = 0;
+    let mut close = None;
+    for (i, ch) in after[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(open + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close = close.unwrap();
+    let body = &after[open + 1..close];
+
+    let mut out: Vec<(String, String)> = Vec::new();
+    for raw_line in body.lines() {
+        let line = raw_line.trim();
+        if !line.starts_with("pub ") || line.starts_with("pub struct") || line.starts_with("#[") {
+            continue;
+        }
+        let line = line.trim_end_matches(',');
+        let after_pub = &line[4..];
+        let colon = match after_pub.find(':') {
+            Some(c) => c,
+            None => continue,
+        };
+        let name = after_pub[..colon].trim();
+        let type_str = after_pub[colon + 1..].trim();
+        if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            continue;
+        }
+        out.push((name.to_string(), classify_rust_type(type_str)));
+    }
+    out
+}
+
+fn assert_type_classes_match(
+    doc_names: &[String],
+    doc_classes: &[String],
+    src_pairs: &[(String, String)],
+    context: &str,
+    hint: &str,
+) {
+    use std::collections::HashMap;
+    if doc_names.len() != doc_classes.len() {
+        panic!(
+            "\n[doc-internal mismatch] {}: doc names {} ≠ doc type-classes {} — \
+             Appendix C second-line token count must match field count\n",
+            context,
+            doc_names.len(),
+            doc_classes.len()
+        );
+    }
+    let doc_map: HashMap<&str, &String> = doc_names
+        .iter()
+        .zip(doc_classes.iter())
+        .map(|(n, c)| (n.as_str(), c))
+        .collect();
+    let src_map: HashMap<&str, &String> = src_pairs.iter().map(|(n, c)| (n.as_str(), c)).collect();
+
+    if doc_map.len() != doc_names.len() {
+        panic!(
+            "\n[doc-internal mismatch] {}: doc field-name line has duplicates — {:?}",
+            context, doc_names
+        );
+    }
+
+    let mut missing_in_doc: Vec<String> = src_map
+        .keys()
+        .filter(|k| !doc_map.contains_key(*k))
+        .map(|k| k.to_string())
+        .collect();
+    missing_in_doc.sort();
+    let mut missing_in_src: Vec<String> = doc_map
+        .keys()
+        .filter(|k| !src_map.contains_key(*k))
+        .map(|k| k.to_string())
+        .collect();
+    missing_in_src.sort();
+
+    let mut mismatches: Vec<String> = Vec::new();
+    let mut names: Vec<&str> = src_map.keys().copied().collect();
+    names.sort_unstable();
+    for name in &names {
+        let src_class = src_map[name];
+        let doc_class = match doc_map.get(name) {
+            Some(c) => c.as_str(),
+            None => continue,
+        };
+        if src_class != doc_class {
+            mismatches.push(format!(
+                "{context}.{name}: doc={doc_class} source={src_class}"
+            ));
+        }
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+    if !missing_in_doc.is_empty() {
+        parts.push(format!("missing in doc: {missing_in_doc:?}"));
+    }
+    if !missing_in_src.is_empty() {
+        parts.push(format!("missing in source: {missing_in_src:?}"));
+    }
+    if !mismatches.is_empty() {
+        parts.push(format!(
+            "type-class divergences:\n  - {}",
+            mismatches.join("\n  - ")
+        ));
+    }
+    if !parts.is_empty() {
+        panic!(
+            "\n[type-class mismatch] {}\n{}\n  Hint: {}\n",
+            context,
+            parts.join("\n"),
+            hint
+        );
+    }
+}
+
+// --- ClickHouse table type-class tests ------------------------------------
+
+#[test]
+fn l2b_kline_data_type_classes_match() {
+    let doc_names = parse_doc_field_names("CLICKHOUSE_TABLE", "kline_data");
+    let doc_classes = parse_doc_type_classes("CLICKHOUSE_TABLE", "kline_data");
+    let src = parse_clickhouse_field_types(CLICKHOUSE_SCHEMA, "kline_data");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "kline_data",
+        "Decimal→Float64 / Int→Float / DateTime↔String are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_minute_klines_type_classes_match() {
+    let doc_names = parse_doc_field_names("CLICKHOUSE_TABLE", "minute_klines");
+    let doc_classes = parse_doc_type_classes("CLICKHOUSE_TABLE", "minute_klines");
+    let src = parse_clickhouse_field_types(CLICKHOUSE_SCHEMA, "minute_klines");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "minute_klines",
+        "Decimal→Float64 / Int→Float / DateTime↔String are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_minute_shares_type_classes_match() {
+    let doc_names = parse_doc_field_names("CLICKHOUSE_TABLE", "minute_shares");
+    let doc_classes = parse_doc_type_classes("CLICKHOUSE_TABLE", "minute_shares");
+    let src = parse_clickhouse_field_types(CLICKHOUSE_SCHEMA, "minute_shares");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "minute_shares",
+        "Decimal→Float64 / Int→Float / DateTime↔String are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_bridge_qmt_order_request_type_classes_match() {
+    let doc_names = parse_doc_field_names("BRIDGE_STRUCT", "BridgeQmtOrderRequest");
+    let doc_classes = parse_doc_type_classes("BRIDGE_STRUCT", "BridgeQmtOrderRequest");
+    let src = parse_struct_field_types(BRIDGE_MODELS, "BridgeQmtOrderRequest");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "BridgeQmtOrderRequest",
+        "quantity Int→Float / price Custom(String)→Float are silent-drift breakers; bump Major",
+    );
+}
+
+#[test]
+fn l2b_bridge_kline_bar_payload_type_classes_match() {
+    let doc_names = parse_doc_field_names("BRIDGE_STRUCT", "BridgeKlineBarPayload");
+    let doc_classes = parse_doc_type_classes("BRIDGE_STRUCT", "BridgeKlineBarPayload");
+    let src = parse_struct_field_types(BRIDGE_MODELS, "BridgeKlineBarPayload");
+    assert_type_classes_match(
+        &doc_names,
+        &doc_classes,
+        &src,
+        "BridgeKlineBarPayload",
+        "volume Int→Float / open Float→Int are silent-drift breakers; bump Major",
+    );
+}
