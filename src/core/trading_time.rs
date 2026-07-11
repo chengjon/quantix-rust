@@ -12,8 +12,7 @@ pub enum TradingSession {
 
 impl TradingSession {
     fn time(hour: u32, minute: u32, second: u32) -> NaiveTime {
-        NaiveTime::from_hms_opt(hour, minute, second)
-            .expect("trading session time constants must be valid")
+        NaiveTime::from_hms_opt(hour, minute, second).unwrap_or_default()
     }
 
     /// 返回该时段开盘时间：Morning=09:30:00、Afternoon=13:00:00。

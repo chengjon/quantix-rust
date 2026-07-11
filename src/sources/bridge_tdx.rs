@@ -39,7 +39,6 @@ impl BridgeTdxSource {
             .map(|quote| {
                 let raw_code = split_symbol(&quote.symbol).0.to_string();
                 let market = split_symbol(&quote.symbol).1;
-                let _ = (&quote.bid, &quote.ask, &quote.timestamp, &quote.source);
                 Ok(StockQuote::from_tdx(
                     raw_code,
                     quote.name,
@@ -77,8 +76,6 @@ impl Fetcher for BridgeTdxSource {
             )
             .await
             .map_err(map_bridge_err)?;
-
-        let _ = (&response.symbol, &response.period, &response.source);
 
         response
             .bars

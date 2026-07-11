@@ -169,7 +169,11 @@ impl PerformanceCalculator {
             return PerformanceReport::default();
         }
 
-        let final_equity = self.equity_curve.last().unwrap().equity;
+        let final_equity = self
+            .equity_curve
+            .last()
+            .map(|p| p.equity)
+            .unwrap_or(self.initial_capital);
         let total_return = if self.initial_capital > Decimal::ZERO {
             (final_equity - self.initial_capital) / self.initial_capital
         } else {
@@ -229,8 +233,12 @@ impl PerformanceCalculator {
             return Decimal::ZERO;
         }
 
-        let start_date = self.equity_curve.first().unwrap().date;
-        let end_date = self.equity_curve.last().unwrap().date;
+        let start_date = self
+            .equity_curve
+            .first()
+            .map(|p| p.date)
+            .unwrap_or_default();
+        let end_date = self.equity_curve.last().map(|p| p.date).unwrap_or_default();
         let days = (end_date - start_date).num_days().max(1) as u64;
 
         // 年化收益率 = (1 + total_return)^(365/days) - 1

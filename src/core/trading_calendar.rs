@@ -325,15 +325,21 @@ impl TradingCalendar {
     }
 
     fn session_time((hour, minute, second): (u32, u32, u32)) -> NaiveTime {
-        NaiveTime::from_hms_opt(hour, minute, second)
-            .expect("trading session time constants must be valid")
+        NaiveTime::from_hms_opt(hour, minute, second).unwrap_or_default()
     }
 
     fn local_datetime(date: NaiveDate, time: NaiveTime) -> chrono::DateTime<Local> {
         Local
             .from_local_datetime(&date.and_time(time))
             .earliest()
-            .expect("trading session local datetime must be valid")
+            .unwrap_or_else(|| {
+                // 回退：把 naive 当 UTC 再贴 Local offset。理论上从_local_datetime 的
+                // earliest() 在合法 wall-clock 下不会返回 None；这里只在 DST 切换边缘兜底。
+                let utc = date.and_time(time);
+                chrono::TimeZone::from_local_datetime(&Local, &utc)
+                    .earliest()
+                    .unwrap_or_else(|| chrono::Local.from_utc_datetime(&utc))
+            })
     }
 
     fn local_session_datetime(

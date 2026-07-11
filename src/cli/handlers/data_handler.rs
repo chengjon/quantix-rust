@@ -342,11 +342,10 @@ pub(crate) async fn export_data(code: String, format: String, output: String) ->
 
     let output_path = Path::new(&output).join(format!("{}.{}", code, format));
     let progress = ProgressBar::new(3);
-    progress.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {msg}")
-            .unwrap(),
-    );
+    let template = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {msg}")
+        .unwrap_or_else(|_| ProgressStyle::default_bar());
+    progress.set_style(template);
 
     progress.set_message("准备导出...");
 

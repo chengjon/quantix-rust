@@ -42,7 +42,7 @@ use crate::strategy::{
 };
 use crate::trade::{PaperTradeStore, TradeOrderRequest, TradeService};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveTime, Utc};
 use rust_decimal_macros::dec;
 use std::time::Duration;
 
@@ -430,10 +430,9 @@ where
     let latest_bar = bars.last().cloned().ok_or_else(|| {
         QuantixError::Other(format!("strategy {mode} 未找到 {} 的日线数据", symbol))
     })?;
-    let bar_end = DateTime::<Utc>::from_naive_utc_and_offset(
-        latest_bar.date.and_hms_opt(15, 0, 0).unwrap(),
-        Utc,
-    );
+    let close_time = NaiveTime::from_hms_opt(15, 0, 0).unwrap_or_default();
+    let bar_end =
+        DateTime::<Utc>::from_naive_utc_and_offset(latest_bar.date.and_time(close_time), Utc);
 
     let runtime = StrategyRuntime::new(&loader);
     let envelope = runtime.run_ma_cross_once(&symbol, 5, 10).await?;

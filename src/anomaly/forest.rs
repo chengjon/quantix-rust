@@ -168,20 +168,33 @@ impl TreeNode {
             return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
         }
 
-        let feature = self
-            .split_feature
-            .expect("internal tree node must have split feature");
-        let value = self
-            .split_value
-            .expect("internal tree node must have split value");
+        // is_leaf() == false 保证 split_feature / split_value / 子节点都存在；
+        // 若不变量被破坏（数据竞争或反序列化畸形），降级为按 leaf 路径长度返回，
+        // 而不是 panic —— 调用方拿到的是一个保守估计值，仍可在生产环境继续运行。
+        let Some(feature) = self.split_feature else {
+            tracing::warn!("anomaly forest internal invariant broken: missing split_feature");
+            return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
+        };
+        let Some(value) = self.split_value else {
+            tracing::warn!("anomaly forest internal invariant broken: missing split_value");
+            return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
+        };
         let next = if sample[feature] < value {
-            self.left
-                .as_ref()
-                .expect("internal tree node must have left child")
+            match self.left.as_ref() {
+                Some(node) => node,
+                None => {
+                    tracing::warn!("anomaly forest internal invariant broken: missing left child");
+                    return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
+                }
+            }
         } else {
-            self.right
-                .as_ref()
-                .expect("internal tree node must have right child")
+            match self.right.as_ref() {
+                Some(node) => node,
+                None => {
+                    tracing::warn!("anomaly forest internal invariant broken: missing right child");
+                    return current_height as f64 + self.leaf_path_length.unwrap_or(0.0);
+                }
+            }
         };
 
         next.path_length(sample, current_height + 1)

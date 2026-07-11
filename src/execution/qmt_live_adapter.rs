@@ -28,6 +28,8 @@
 //! }).await?;
 //! ```
 
+use std::time::Duration;
+
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use tracing::{error, info, warn};
@@ -88,9 +90,30 @@ impl QmtLiveExecutionAdapter {
         poll_interval_ms: u64,
         poll_timeout_ms: u64,
     ) -> Self {
+        // poll_interval_ms / poll_timeout_ms 为 0 会让 QmtTaskSubmitService::new 失败，
+        // 强制将 0 提升为 1ms 以保持 Self 返回类型的契约（绝不 panic）。
+        // QmtTaskSubmitService::new 仅在这两个参数为 0 时返回 Err，因此 .max(1) 之后必然 Ok；
+        // Err 分支仅做日志并以 1ms/1ms 占位实例兜底，让后续 poll 自行暴露错误。
+        let safe_interval = poll_interval_ms.max(1);
+        let safe_timeout = poll_timeout_ms.max(1);
         let submit_service =
-            QmtTaskSubmitService::new(client.clone(), poll_interval_ms, poll_timeout_ms)
-                .expect("qmt task submit service should be constructible");
+            match QmtTaskSubmitService::new(client.clone(), safe_interval, safe_timeout) {
+                Ok(svc) => svc,
+                Err(e) => {
+                    tracing::error!(
+                        "QmtTaskSubmitService 构造不可达分支触发 (interval={}, timeout={}): {}",
+                        safe_interval,
+                        safe_timeout,
+                        e
+                    );
+                    // 直接构造占位实例；字段已对 crate 内可见。
+                    QmtTaskSubmitService {
+                        client: client.clone(),
+                        poll_interval: Duration::from_millis(1),
+                        poll_timeout: Duration::from_millis(1),
+                    }
+                }
+            };
 
         Self {
             client,

@@ -108,11 +108,10 @@ pub(crate) async fn run_ma_cross_backtest(code: Option<String>) -> Result<()> {
 
     let total_klines = data_map.values().map(|v| v.len()).sum::<usize>();
     let progress = ProgressBar::new(total_klines as u64);
-    progress.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} K线")
-            .unwrap(),
-    );
+    let template = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} K线")
+        .unwrap_or_else(|_| ProgressStyle::default_bar());
+    progress.set_style(template);
 
     let result = engine
         .run(&mut strategy, &data_map)

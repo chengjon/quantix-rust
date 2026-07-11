@@ -129,7 +129,13 @@ fn parse_u64_env(name: &str, default: u64) -> u64 {
 }
 
 fn load_dotenv_if_present() {
-    let _ = dotenv::dotenv();
+    if let Err(err) = dotenv::dotenv() {
+        if err.not_found() {
+            tracing::debug!(".env 文件不存在，跳过加载");
+        } else {
+            tracing::warn!(".env 加载失败: {}", err);
+        }
+    }
 }
 
 fn resolve_watchlist_path() -> PathBuf {

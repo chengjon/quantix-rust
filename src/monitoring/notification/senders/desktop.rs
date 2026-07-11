@@ -100,8 +100,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
-            tracing::debug!("桌面通知不支持当前平台");
-            let _ = (title, message);
+            tracing::debug!(
+                "桌面通知不支持当前平台: title={}, message={}",
+                title,
+                message
+            );
         }
 
         Ok(())

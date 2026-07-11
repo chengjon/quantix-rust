@@ -287,7 +287,21 @@ impl Fetcher for TdxSource {
 /// 默认实现：使用标准配置
 impl Default for TdxSource {
     fn default() -> Self {
-        Self::with_default_config().expect("无法创建默认 TDX 数据源")
+        // with_default_config 会尝试建立 3 个 TCP 连接；Default 不能返回错误，
+        // 失败时降级为零连接占位实例（任何后续 fetch_quotes_batch 会返回错误）。
+        match Self::with_default_config() {
+            Ok(src) => src,
+            Err(e) => {
+                tracing::error!("TdxSource::default 构造失败，使用零连接降级: {}", e);
+                Self {
+                    tcp_pool: Vec::new(),
+                    connection_index: Arc::new(AtomicUsize::new(0)),
+                    _hosts: Vec::new(),
+                    _port: 7709,
+                    timeout: 10,
+                }
+            }
+        }
     }
 }
 
