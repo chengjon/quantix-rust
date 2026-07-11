@@ -231,6 +231,41 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "ru
 | Tick数据 | `src/sources/openstock_ticks.rs` | 逐笔成交 |
 | 信封响应 | `src/sources/openstock_envelope.rs` | 通用响应封装 |
 
+#### 测试夹具（Fixture Contract）
+
+`tests/fixtures/openstock/*.json` 是 OpenStock 响应的快照样本，分为两类形态：
+
+**形态 A — `OpenStockEnvelope<T>` 包络形态**（生产响应路径，由
+`OpenStockResponse::from_envelope` 反序列化）：
+
+| 夹具文件 | `data_category` | 用途 |
+|---------|-----------------|------|
+| `codes.json` | `STOCK_CODES` | 单标的基础信息（含 envelope metadata） |
+| `codes_empty.json` | (省略) | 空响应，验证 `data: []` + 仅 `source` 的退化形态 |
+| `all_stocks.json` | `ALL_STOCKS` | 全市场股票清单（含 market / listing_date） |
+| `trade_dates.json` | `TRADE_DATES` | 交易日历（`calendar_date` + `is_trading_day`） |
+| `trade_dates_empty.json` | (省略) | 空响应 |
+| `workdays.json` | `WORKDAYS` | 工作日 action-driven 形态 |
+| `index_klines.json` | `INDEX_KLINES` | 指数 K 线（symbol + time + OHLCV 字符串） |
+| `index_klines_empty.json` | (省略) | 空响应 |
+
+**形态 B — 旧版直记录形态**（仅 `parse_daily_kline_json` 解析器使用，
+非生产 envelope 路径）：
+
+| 夹具文件 | 形态 | 用途 |
+|---------|------|------|
+| `daily_kline.json` | `{provider, period, adjust_type, records:[...]}` | 单条 K 线日数据，字段均为字符串 |
+| `daily_kline_30d.json` | 同上 | 30 天 K 线序列 |
+
+> 形态 B 不符合 `OpenStockEnvelope` 契约，属于独立 parser 的专用 fixture。
+> 任何将形态 B 重构进 envelope 路径的 PR，必须先迁移这两个夹具或显式标注双轨期。
+
+<!-- L2:FIXTURE_INVENTORY -->
+```
+codes.json codes_empty.json all_stocks.json trade_dates.json trade_dates_empty.json workdays.json index_klines.json index_klines_empty.json daily_kline.json daily_kline_30d.json
+```
+<!-- /L2 -->
+
 ---
 
 ### 2.6 TDX TCP（通达信直连）
@@ -354,6 +389,55 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "ru
 | `GET` | `/api/v1/broker/qmt/account/status` | 查询账户状态 |
 | `GET` | `/api/v1/broker/qmt/assets` | 查询资产 |
 | `GET` | `/api/v1/broker/qmt/positions` | 查询持仓 |
+
+#### 运行时契约 (Behavioral Contract)
+
+结构对齐不足以保证生产安全，下列运行时规则是与 Bridge server 的强约束。
+任一规则被破坏视同 contract version Major bump。
+
+**幂等键 (Idempotency Keys)** — 三元组构成下单请求的全局唯一幂等键：
+
+| 字段 | 含义 | 违反后果 |
+|------|------|----------|
+| `request_id` | 内部生成 UUID，单次请求主标识 | 重复下单 |
+| `client_order_id` | 策略侧业务单号 | 重复下单 |
+| `local_submission_id` | 本地提交追踪 ID | 重复下单 |
+
+> Bridge server 必须基于此三元组做去重；任一字段变化视同新单。
+> 客户端重试必须复用全部三个字段，不可重新生成。
+
+**可安全重试的错误码** — 仅下列 `BridgeFailureCode` 变体触发客户端自动重试：
+
+| 错误码 | 重试策略 | 落地行为 |
+|--------|----------|----------|
+| `LiveBridgeTimeout` | 指数退避，base 500ms，最多 3 次 | 重试需复用幂等键三元组 |
+| `LiveBridgeUnavailable` | 同上 | 同上 |
+| `LiveBridgeAuthFailed` | **不重试** | 立即告警，疑似凭据丢失 |
+| `LiveBridgeUnsupportedContractVersion` | **不重试** | 降级到只读 capabilities 端点 |
+| `LiveBridgeUnsupportedMethod` | **不重试** | 调用方法本身不被服务端识别 |
+| `LiveBridgeInvalidResult` | **不重试** | 服务端返回结构不合规，疑似契约漂移 |
+| `LiveBridgeIdentityMismatch` | **不重试** | 单据身份不匹配，需人工介入 |
+
+**超时与熔断**：
+
+| 参数 | 默认值 | 越界行为 |
+|------|--------|----------|
+| 单请求超时 | 30s (`QUANTIX_BRIDGE_TIMEOUT_MS`) | 超时视为 `LiveBridgeTimeout`，可重试 |
+| 轮询间隔 | 1s (`QUANTIX_BRIDGE_POLL_INTERVAL_MS`) | <100ms 视为 aggressive，触发 bridge 限流 |
+| 轮询总超时 | 30s (`QUANTIX_BRIDGE_POLL_TIMEOUT_MS`) | 超时放弃 + 标记 task 为 Failed |
+| 任务结果轮询次数上限 | `POLL_TIMEOUT / POLL_INTERVAL` | 超限 → `BridgePollTimeout` 错误 |
+
+**限流 (Rate Limiting)** — Bridge server 侧实施；客户端约定：
+
+- 下单类写操作：≤ 5 req/s（每秒 5 单），超出由 server 返回 429
+- 查询类读操作：≤ 20 req/s
+- 客户端收到 429 时，必须指数退避（base 1s，最多 3 次重试），不得固定 sleep
+
+**版本协商**：
+
+- 客户端请求带 `X-Bridge-Contract-Version: miniqmt.v1`
+- 服务端拒绝时返回 `LiveBridgeUnsupportedContractVersion`，客户端必须**降级**：只调用 `/api/v1/capabilities` 端点，不发起任何下单请求
+- 服务端 capabilities 响应中的 `contract_version` 字段为该实例支持的最高版本
 
 **源码**: `src/bridge/client.rs`, `src/bridge/models.rs`, `src/bridge/error.rs`
 
@@ -610,24 +694,28 @@ Client → Bridge:   GET /task/result   (轮询直到终态)
 <!-- L2:CLICKHOUSE_TABLE name=kline_data -->
 ```
 timestamp code name period open high low close volume amount trade_count source date
+Time String String String Float Float Float Float Float Float Int String Date
 ```
 <!-- /L2 -->
 
 <!-- L2:CLICKHOUSE_TABLE name=minute_klines -->
 ```
 timestamp code period adjust open high low close volume amount date
+Time String String String Float Float Float Float Float Float Date
 ```
 <!-- /L2 -->
 
 <!-- L2:CLICKHOUSE_TABLE name=minute_shares -->
 ```
 timestamp code price volume amount avg_price date
+Time String Float Float Float Float Date
 ```
 <!-- /L2 -->
 
 <!-- L2:CLICKHOUSE_TABLE name=import_state -->
 ```
 code trade_date kind status reason batch_id imported_at
+String Date String String String String Time
 ```
 <!-- /L2 -->
 
@@ -636,18 +724,21 @@ code trade_date kind status reason batch_id imported_at
 <!-- L2:BRIDGE_STRUCT name=BridgeQmtOrderRequest -->
 ```
 request_id client_order_id symbol side quantity price order_type strategy_name order_remark snapshot_metadata
+String String String String Int String String String String Custom
 ```
 <!-- /L2 -->
 
 <!-- L2:BRIDGE_STRUCT name=BridgeTaskExecuteRequest -->
 ```
 provider method params
+String String Custom
 ```
 <!-- /L2 -->
 
 <!-- L2:BRIDGE_STRUCT name=BridgeKlineBarPayload -->
 ```
 datetime open high low close volume turnover
+String Float Float Float Float Int Float
 ```
 <!-- /L2 -->
 
@@ -667,4 +758,27 @@ code date open high low close volume amount adjust_type
 
 ---
 
-> **维护者**: 本文档应与 `src/` 下各模块保持同步。LLM-assisted 更新后应运行 `tests/contract_doc_sync_test.rs` 与 `tests/contract_doc_field_sync_test.rs` 验证一致性。硬失败条件：文档列举的系统在源码中不存在、或实际存在的外部系统在文档中未记录、或附录 C 的字段集合与源码定义不一致。
+## 附录 D：PR Checklist
+
+修改外部系统对接代码时按下列清单自检。每行右侧命名对应的同步测试；任一未通过即 PR 阻塞合并。
+
+| 修改类型 | 操作 | 对应同步测试 |
+|---------|------|------------|
+| 新增/删除外部系统 | §2 系统全景图 + §x 详细章节 + 附录 A env | `l1_full_inventory_all_paths_exist` / `l1_doc_file_exists` |
+| 新增/删除端点（OpenStock data_category） | §2.5 数据类别表 + fixture（如适用） | `l2_fixture_inventory_matches_filesystem` |
+| 新增/删除 ClickHouse 表/列 | §5.2 表清单 + 附录 C.1 字段表 | `l2_*_columns_match` / `l2b_*_type_classes_match` |
+| 新增/删除 Bridge 请求/响应字段 | §3.x 字段说明 + 附录 C.2 | `l2_bridge_*_fields_match` / `l2b_bridge_*_type_classes_match` |
+| 新增/删除 OpenStock 结构字段 | §4.4 数据模型 + 附录 C.3 | `l2_openstock_*_fields_match` |
+| 新增 fixture | tests/fixtures/openstock/ + §2.5 夹具清单 | `l2_fixture_inventory_matches_filesystem` / `l2_fixture_envelope_shapes_parse_and_category_is_valid` |
+| 改字段类型大类（Decimal→Float64 等） | bump Contract Version Major + 附录 C 类型行 | `l2b_*_type_classes_match` |
+| 改字段语义/单位（手↔股、秒↔毫秒） | bump Contract Version Major | 人工评审 |
+| 改鉴权 / env 变量 | 附录 A 环境变量索引 | `l1_full_inventory_all_paths_exist` |
+| 废弃字段/端点 | 加 `@deprecated vX.Y` 标记 + 保留 1 个 Minor 周期（≥4 周） | 人工评审 |
+
+**强制门禁**：PR 合并前 `cargo test --test contract_doc_sync_test --test contract_doc_field_sync_test --test contract_doc_fixture_sync_test` 必须 0 失败。
+
+**Contract Version 协商**（Bridge 侧）：客户端请求带 `contract_version: miniqmt.v1` 头；服务端返回 `BridgeFailureCode::LiveBridgeUnsupportedContractVersion` 时客户端降级到只读 capabilities 端点，停止下单。
+
+---
+
+> **维护者**: 本文档应与 `src/` 下各模块保持同步。LLM-assisted 更新后应运行 `tests/contract_doc_sync_test.rs`、`tests/contract_doc_field_sync_test.rs`、`tests/contract_doc_fixture_sync_test.rs` 验证一致性。硬失败条件：文档列举的系统在源码中不存在、或实际存在的外部系统在文档中未记录、或附录 C 的字段集合与源码定义不一致、或字段类型大类与源码不一致、或 fixture 清单与文件系统不一致。
