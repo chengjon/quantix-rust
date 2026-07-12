@@ -1,21 +1,16 @@
-//! Anomaly detection service
-//!
-//! Integrates all components to provide end-to-end anomaly detection:
-//! - Data fetching from East Money API
-//! - Stock filtering
-//! - Feature extraction
-//! - Isolation Forest training
-//! - Result rendering
+//! Anomaly detection service — the core `AnomalyDetector` pipeline and output
+//! renderers.
 
 use crate::anomaly::config::AnomalyConfig;
-use crate::anomaly::features::{FeatureExtractor, OHLCVCandle, OHLCVSeries};
+use crate::anomaly::features::{FeatureExtractor, OHLCVSeries};
 use crate::anomaly::filter::{StockFilter, StockInfo};
 use crate::anomaly::forest::{AnomalyScore, IsolationForest};
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use tracing::{debug, info, warn};
+
+use super::types::{AnomalyResult, DataSource, ResultConfig};
 
 macro_rules! append_line {
     ($output:expr) => {{
@@ -24,63 +19,6 @@ macro_rules! append_line {
     ($output:expr, $($arg:tt)*) => {{
         let _ = writeln!($output, $($arg)*);
     }};
-}
-
-/// Anomaly detection result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnomalyResult {
-    /// Timestamp of detection
-    pub timestamp: String,
-    /// Configuration used
-    pub config: ResultConfig,
-    /// Total stocks processed
-    pub total_stocks: usize,
-    /// Stocks filtered out
-    pub filtered_stocks: usize,
-    /// Valid feature sets extracted
-    pub valid_features: usize,
-    /// Anomaly scores
-    pub anomalies: Vec<AnomalyScore>,
-}
-
-/// Configuration summary for results
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResultConfig {
-    /// K-line period
-    pub period: u32,
-    /// Number of estimators
-    pub n_estimators: usize,
-    /// History to use
-    pub history_to_use: usize,
-    /// Top N returned
-    pub top_n: usize,
-}
-
-impl From<&AnomalyConfig> for ResultConfig {
-    fn from(config: &AnomalyConfig) -> Self {
-        Self {
-            period: config.data.kline_period,
-            n_estimators: config.forest.n_estimators,
-            history_to_use: config.features.history_to_use,
-            top_n: config.forest.top_n,
-        }
-    }
-}
-
-/// Data source trait for fetching stock data
-#[async_trait::async_trait]
-pub trait DataSource: Send + Sync {
-    /// Get list of all A-share stocks
-    async fn get_stock_list(&self) -> Result<Vec<StockInfo>, String>;
-
-    /// Get K-line data for a single stock
-    async fn get_klines(
-        &self,
-        code: &str,
-        period: u32,
-        adjust: &str,
-        limit: usize,
-    ) -> Result<OHLCVSeries, String>;
 }
 
 /// Anomaly detector
@@ -370,173 +308,5 @@ impl AnomalyDetector {
             );
         }
         output
-    }
-}
-
-/// Mock data source for testing
-pub struct MockDataSource {
-    stocks: Vec<StockInfo>,
-}
-
-impl MockDataSource {
-    /// Create a new mock data source with generated data
-    pub fn new(stock_count: usize) -> Self {
-        let stocks: Vec<StockInfo> = (0..stock_count)
-            .map(|i| {
-                let code = format!("{:06}", i);
-                let name = format!("测试股票{}", i);
-                StockInfo::new(
-                    &code,
-                    &name,
-                    10.0 + i as f64 % 100.0,
-                    0.0,
-                    100000.0,
-                    1000000.0,
-                )
-            })
-            .collect();
-
-        Self { stocks }
-    }
-}
-
-#[async_trait::async_trait]
-impl DataSource for MockDataSource {
-    async fn get_stock_list(&self) -> Result<Vec<StockInfo>, String> {
-        Ok(self.stocks.clone())
-    }
-
-    async fn get_klines(
-        &self,
-        code: &str,
-        _period: u32,
-        _adjust: &str,
-        limit: usize,
-    ) -> Result<OHLCVSeries, String> {
-        let name = format!("股票{}", code);
-        let mut series = OHLCVSeries::new(code, &name);
-
-        // Generate random walk data
-        let mut price = 100.0;
-        for i in 0..limit {
-            let change = (i as f64 % 10.0 - 5.0) * 0.01;
-            price *= 1.0 + change;
-
-            let high = price * 1.02;
-            let low = price * 0.98;
-            let open = price * (1.0 + (i as f64 % 3.0 - 1.5) * 0.005);
-            let volume = 1000000.0 + (i as f64 % 100.0) * 10000.0;
-
-            series.add(OHLCVCandle::new(
-                &format!("2026-03-{:02} 10:00", (i % 28) + 1),
-                open,
-                price,
-                high,
-                low,
-                volume,
-            ));
-        }
-
-        Ok(series)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn detector_with_output(format: &str) -> AnomalyDetector {
-        let config = AnomalyConfig {
-            output: crate::anomaly::config::OutputConfig {
-                format: format.to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let data_source = std::sync::Arc::new(MockDataSource::new(1));
-        AnomalyDetector::new(config, data_source)
-    }
-
-    fn sample_result() -> AnomalyResult {
-        AnomalyResult {
-            timestamp: "2026-05-24T00:00:00Z".to_string(),
-            config: ResultConfig {
-                period: 15,
-                n_estimators: 100,
-                history_to_use: 60,
-                top_n: 1,
-            },
-            total_stocks: 1,
-            filtered_stocks: 0,
-            valid_features: 1,
-            anomalies: vec![AnomalyScore {
-                code: "000001".to_string(),
-                name: "平安银行".to_string(),
-                score: -0.42,
-                is_anomaly: true,
-                index: 0,
-                volume_ratio: Some(2.5),
-                volatility_5: Some(0.1234),
-                volatility_20: Some(0.5678),
-                latest_time: Some("2026-05-24 09:30:00".to_string()),
-            }],
-        }
-    }
-
-    #[test]
-    fn output_results_renders_cli_text_without_writing_stdio() {
-        let detector = detector_with_output("cli");
-        let output = detector.output_results(&sample_result()).unwrap();
-
-        assert!(output.contains("TOP 1 ANOMALOUS STOCKS"));
-        assert!(output.contains("000001 平安银行"));
-        assert!(output.contains("异常分数: -0.4200"));
-    }
-
-    #[test]
-    fn output_results_renders_json_text() {
-        let detector = detector_with_output("json");
-        let output = detector.output_results(&sample_result()).unwrap();
-
-        assert!(output.contains("\"total_stocks\": 1"));
-        assert!(output.ends_with('\n'));
-    }
-
-    #[test]
-    fn output_results_renders_csv_text() {
-        let detector = detector_with_output("csv");
-        let output = detector.output_results(&sample_result()).unwrap();
-
-        assert!(output.starts_with(
-            "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
-        ));
-        assert!(output.contains("1,000001,平安银行,-0.420000,true,2.5000,0.123400,0.567800"));
-    }
-
-    #[tokio::test]
-    async fn test_detector_with_mock_data() {
-        let config = AnomalyConfig::default().with_top_n(10).with_period(15);
-
-        let data_source = std::sync::Arc::new(MockDataSource::new(100));
-        let detector = AnomalyDetector::new(config, data_source);
-
-        let result = detector.detect().await;
-
-        assert!(result.is_ok());
-        let result = result.unwrap();
-
-        assert!(!result.anomalies.is_empty());
-        assert!(result.anomalies.len() <= 10);
-        assert_eq!(result.total_stocks, 100);
-    }
-
-    #[test]
-    fn test_result_config_from_anomaly_config() {
-        let config = AnomalyConfig::default().with_top_n(50).with_period(5);
-
-        let result_config = ResultConfig::from(&config);
-
-        assert_eq!(result_config.period, 5);
-        assert_eq!(result_config.top_n, 50);
     }
 }
