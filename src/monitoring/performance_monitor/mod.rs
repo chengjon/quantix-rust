@@ -1,114 +1,23 @@
-/// 性能监控模块
-///
-/// 实时计算和追踪性能指标
-use chrono::{DateTime, NaiveDate, Utc};
+//! 性能监控模块
+//!
+//! 实时计算和追踪性能指标. The data types live in [`types`]; this module
+//! owns the [`PerformanceMonitor`] engine that folds equity updates and
+//! trade PnL into [`RealtimeMetrics`].
+
+#[cfg(test)]
+mod tests;
+
+mod types;
+
+pub use types::{PerformanceMonitorConfig, RealtimeMetrics};
+
+use chrono::{NaiveDate, Utc};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-/// 性能监控配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMonitorConfig {
-    /// 权益历史保留数量
-    pub max_equity_history: usize,
-    /// 启用回撤监控
-    pub enable_drawdown_monitoring: bool,
-    /// 启用收益率监控
-    pub enable_return_monitoring: bool,
-    /// 回撤告警阈值（0-1）
-    pub drawdown_alert_threshold: Decimal,
-    /// 启用夏普比率实时计算
-    pub enable_sharpe_ratio: bool,
-    /// 无风险利率（年化）
-    pub risk_free_rate: Decimal,
-}
-
-impl Default for PerformanceMonitorConfig {
-    fn default() -> Self {
-        Self {
-            max_equity_history: 1000,
-            enable_drawdown_monitoring: true,
-            enable_return_monitoring: true,
-            drawdown_alert_threshold: dec!(0.1), // 10%
-            enable_sharpe_ratio: true,
-            risk_free_rate: dec!(0.03), // 3%
-        }
-    }
-}
-
-/// 权益点
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EquityPoint {
-    /// 时间戳
-    pub timestamp: DateTime<Utc>,
-    /// 权益值
-    pub equity: Decimal,
-    /// 可用资金
-    pub available_cash: Decimal,
-    /// 持仓市值
-    pub position_value: Decimal,
-    /// 当日收益率
-    pub daily_return: Decimal,
-}
-
-/// 实时性能指标
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RealtimeMetrics {
-    /// 总收益率
-    pub total_return: Decimal,
-    /// 年化收益率
-    pub annual_return: Decimal,
-    /// 当前回撤
-    pub current_drawdown: Decimal,
-    /// 最大回撤
-    pub max_drawdown: Decimal,
-    /// 夏普比率（实时估算）
-    pub sharpe_ratio: Decimal,
-    /// 索提诺比率（实时估算）
-    pub sortino_ratio: Decimal,
-    /// 胜率
-    pub win_rate: Decimal,
-    /// 盈亏比
-    pub profit_loss_ratio: Decimal,
-    /// 当前权益
-    pub current_equity: Decimal,
-    /// 最高权益
-    pub peak_equity: Decimal,
-    /// 权益偏离高点比例
-    pub equity_from_peak_pct: Decimal,
-    /// 总交易次数
-    pub total_trades: usize,
-    /// 盈利交易次数
-    pub win_trades: usize,
-    /// 亏损交易次数
-    pub loss_trades: usize,
-    /// 最近更新时间
-    pub last_updated: DateTime<Utc>,
-}
-
-impl Default for RealtimeMetrics {
-    fn default() -> Self {
-        Self {
-            total_return: Decimal::ZERO,
-            annual_return: Decimal::ZERO,
-            current_drawdown: Decimal::ZERO,
-            max_drawdown: Decimal::ZERO,
-            sharpe_ratio: Decimal::ZERO,
-            sortino_ratio: Decimal::ZERO,
-            win_rate: Decimal::ZERO,
-            profit_loss_ratio: Decimal::ZERO,
-            current_equity: Decimal::ZERO,
-            peak_equity: Decimal::ZERO,
-            equity_from_peak_pct: Decimal::ZERO,
-            total_trades: 0,
-            win_trades: 0,
-            loss_trades: 0,
-            last_updated: Utc::now(),
-        }
-    }
-}
+use types::{DrawdownStatus, EquityPoint};
 
 /// 性能监控器
 pub struct PerformanceMonitor {
@@ -415,146 +324,5 @@ impl PerformanceMonitor {
             ..Default::default()
         };
         self.start_date = Utc::now().naive_utc().date();
-    }
-}
-
-/// 回撤状态
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DrawdownStatus {
-    Normal,
-    Caution,
-    Warning,
-    Critical,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rust_decimal_macros::dec;
-
-    #[test]
-    fn test_performance_monitor_creation() {
-        let monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-        assert_eq!(monitor.get_current_metrics().current_equity, dec!(1000000));
-    }
-
-    #[test]
-    fn test_update_equity() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1010000), dec!(10000), dec!(1000000));
-
-        assert_eq!(monitor.get_current_metrics().current_equity, dec!(1010000));
-        assert_eq!(monitor.get_current_metrics().total_return, dec!(0.01));
-    }
-
-    #[test]
-    fn test_drawdown_calculation() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1100000), dec!(0), dec!(1100000)); // 新高
-        monitor.update_equity(dec!(1000000), dec!(0), dec!(1000000)); // 回撤
-
-        assert!(monitor.get_current_metrics().current_drawdown > dec!(0.09));
-        assert!(monitor.get_current_metrics().current_drawdown < dec!(0.091));
-    }
-
-    #[test]
-    fn test_max_drawdown() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1100000), dec!(0), dec!(1100000));
-        monitor.update_equity(dec!(900000), dec!(0), dec!(900000));
-        monitor.update_equity(dec!(950000), dec!(0), dec!(950000));
-
-        assert!(monitor.get_current_metrics().max_drawdown > dec!(0.18));
-    }
-
-    #[test]
-    fn test_record_trade_pnl() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.record_trade_pnl(dec!(1000));
-        monitor.record_trade_pnl(dec!(-500));
-
-        assert_eq!(monitor.get_current_metrics().total_trades, 2);
-        assert_eq!(monitor.get_current_metrics().win_trades, 1);
-        assert_eq!(monitor.get_current_metrics().loss_trades, 1);
-    }
-
-    #[test]
-    fn test_win_rate_calculation() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.record_trade_pnl(dec!(1000));
-        monitor.record_trade_pnl(dec!(500));
-        monitor.record_trade_pnl(dec!(-500));
-
-        let metrics = monitor.get_current_metrics();
-        assert!(metrics.win_rate > dec!(66));
-        assert!(metrics.win_rate < dec!(67));
-    }
-
-    #[test]
-    fn test_check_drawdown_alert() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1100000), dec!(0), dec!(1100000));
-        monitor.update_equity(dec!(950000), dec!(0), dec!(950000)); // 13.6% 回撤
-
-        assert!(monitor.check_drawdown_alert());
-    }
-
-    #[test]
-    fn test_get_drawdown_status() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1100000), dec!(0), dec!(1100000));
-        monitor.update_equity(dec!(800000), dec!(0), dec!(800000)); // 27% 回撤
-
-        assert_eq!(monitor.get_drawdown_status(), DrawdownStatus::Critical);
-    }
-
-    #[test]
-    fn test_profit_loss_ratio() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.record_trade_pnl(dec!(2000));
-        monitor.record_trade_pnl(dec!(1000));
-        monitor.record_trade_pnl(dec!(-1000));
-        monitor.record_trade_pnl(dec!(-500));
-
-        let metrics = monitor.get_current_metrics();
-        assert_eq!(metrics.profit_loss_ratio, dec!(2));
-    }
-
-    #[test]
-    fn test_reset() {
-        let mut monitor = PerformanceMonitor::with_defaults(dec!(1000000));
-
-        monitor.update_equity(dec!(1100000), dec!(0), dec!(1100000));
-        monitor.record_trade_pnl(dec!(1000));
-
-        monitor.reset();
-
-        assert_eq!(monitor.get_current_metrics().current_equity, dec!(1000000));
-        assert_eq!(monitor.get_current_metrics().total_trades, 0);
-        assert_eq!(monitor.get_equity_history().len(), 0);
-    }
-
-    #[test]
-    fn test_equity_history_limit() {
-        let config = PerformanceMonitorConfig {
-            max_equity_history: 5,
-            ..Default::default()
-        };
-        let mut monitor = PerformanceMonitor::new(config, dec!(1000000));
-
-        for i in 0..10 {
-            let equity = Decimal::from(1_000_000 + i * 1_000);
-            monitor.update_equity(equity, Decimal::ZERO, equity);
-        }
-
-        assert_eq!(monitor.get_equity_history().len(), 5);
     }
 }
