@@ -7,7 +7,6 @@
 
 use super::*;
 use crate::bridge::client::BridgeHttpClient;
-use crate::bridge::error::BridgeError;
 use crate::core::{CliRuntime, QuantixError, Result};
 use crate::execution::adapter::{
     AdapterOrderRequest, ExecutionAdapter, ExecutionCancelSemantics, ExecutionCapabilities,
@@ -18,8 +17,8 @@ use crate::execution::daemon::{
     ExecutionDaemonIterationSummary, consume_next_pending_request_with_components,
 };
 use crate::execution::models::{
-    ExecutionRequestRecord, ExecutionRequestStatus, OrderRecord, OrderSide, OrderStatus, OrderType,
-    QmtLiveRuntimeMetadata, QmtLiveTaskIdentity,
+    ExecutionRequestStatus, OrderRecord, OrderSide, OrderStatus, OrderType, QmtLiveRuntimeMetadata,
+    QmtLiveTaskIdentity,
 };
 use crate::execution::qmt_bridge::QmtBridgePreviewAdapter;
 use crate::execution::qmt_live_adapter::QmtLiveExecutionAdapter;
@@ -38,7 +37,6 @@ use crate::safety::{
 };
 use chrono::Utc;
 use rust_decimal::Decimal;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 mod account;

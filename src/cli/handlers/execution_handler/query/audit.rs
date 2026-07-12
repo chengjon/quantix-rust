@@ -1,75 +1,8 @@
-//! Bridge QMT query/audit/manual intervention builders and executors.
+//! QMT audit lookup, path helpers, and audit/manual-intervention output builders.
 
-use super::*;
-pub(crate) fn normalize_symbol_for_bridge(symbol: &str) -> String {
-    if symbol.contains('.') {
-        return symbol.to_string();
-    }
-    if symbol.starts_with('6') {
-        format!("{symbol}.SH")
-    } else {
-        format!("{symbol}.SZ")
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct QmtCancelCommandResult {
-    pub requested_order_id: String,
-    pub cancel_order_id: String,
-    pub resolved_from_task_result: bool,
-    pub response: crate::bridge::models::BridgeQmtCancelResponse,
-}
-
-pub(crate) fn create_qmt_task_submit_service(
-    client: &BridgeHttpClient,
-) -> Result<QmtTaskSubmitService> {
-    QmtTaskSubmitService::new(client.clone(), 1, 30_000)
-        .map_err(|err| QuantixError::Other(err.to_string()))
-}
-
-pub(crate) fn should_fallback_from_task_result_lookup(error: &BridgeError) -> bool {
-    matches!(
-        error,
-        BridgeError::Http(_) | BridgeError::UnsupportedMethod(_)
-    )
-}
-
-pub(crate) async fn build_execution_bridge_qmt_query_output(
-    client: &BridgeHttpClient,
-    order_id: &str,
-) -> Result<serde_json::Value> {
-    let submit_service = create_qmt_task_submit_service(client)?;
-
-    match submit_service.query_task_result_by_task_id(order_id).await {
-        Ok(result) => Ok(serde_json::json!({
-            "query_mode": "task_result",
-            "adapter_order_id": result.adapter_order_id,
-            "latest_status": result.latest_status.as_str(),
-            "filled_quantity": result.filled_quantity,
-            "avg_fill_price": result.avg_fill_price.map(|value| value.to_string()),
-            "rejection_reason": result.rejection_reason,
-            "broker_event_type": result.broker_event_type.map(|value| format!("{value:?}")),
-            "external_order_id": result.external_order_id,
-            "client_order_id": result.client_order_id,
-            "local_submission_id": result.local_submission_id,
-            "source_name": result.source_name,
-        })),
-        Err(error) if should_fallback_from_task_result_lookup(&error) => {
-            let response = client
-                .qmt_query_order(order_id)
-                .await
-                .map_err(|err| QuantixError::Other(err.to_string()))?;
-            Ok(serde_json::json!({
-                "query_mode": "legacy_order",
-                "adapter_order_id": response.adapter_order_id,
-                "latest_status": response.latest_status,
-                "filled_quantity": response.filled_quantity,
-                "avg_fill_price": response.avg_fill_price,
-            }))
-        }
-        Err(error) => Err(QuantixError::Other(error.to_string())),
-    }
-}
+use crate::core::{QuantixError, Result};
+use crate::execution::models::{ExecutionRequestRecord, OrderRecord};
+use crate::execution::runtime_store::StrategyRuntimeStore;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum QmtAuditLookup {
@@ -98,7 +31,7 @@ impl QmtAuditLookup {
         }
     }
 
-    fn lookup_type(&self) -> &'static str {
+    pub(crate) fn lookup_type(&self) -> &'static str {
         match self {
             Self::Request(_) => "request_id",
             Self::Task(_) => "task_id",
@@ -106,7 +39,7 @@ impl QmtAuditLookup {
         }
     }
 
-    fn value(&self) -> &str {
+    pub(crate) fn value(&self) -> &str {
         match self {
             Self::Request(value) | Self::Task(value) | Self::LocalSubmission(value) => value,
         }
@@ -129,7 +62,7 @@ fn value_as_audit_string(value: &serde_json::Value) -> Option<String> {
     }
 }
 
-fn string_path(value: &serde_json::Value, path: &[&str]) -> Option<String> {
+pub(crate) fn string_path(value: &serde_json::Value, path: &[&str]) -> Option<String> {
     let mut current = value;
     for segment in path {
         current = current.get(*segment)?;
@@ -137,7 +70,7 @@ fn string_path(value: &serde_json::Value, path: &[&str]) -> Option<String> {
     value_as_audit_string(current)
 }
 
-fn i64_path(value: &serde_json::Value, path: &[&str]) -> Option<i64> {
+pub(crate) fn i64_path(value: &serde_json::Value, path: &[&str]) -> Option<i64> {
     let mut current = value;
     for segment in path {
         current = current.get(*segment)?;
@@ -160,7 +93,7 @@ fn qmt_order_metadata_field(order: &OrderRecord, path: &[&str]) -> Option<String
     string_path(qmt_live, path)
 }
 
-fn redact_account_label(value: &str) -> String {
+pub(crate) fn redact_account_label(value: &str) -> String {
     let trimmed = value.trim();
     let char_count = trimmed.chars().count();
     let looks_raw_account =
@@ -360,24 +293,27 @@ pub(crate) async fn build_execution_bridge_qmt_audit_output(
     }))
 }
 
-const QMT_MANUAL_INTERVENTION_OPERATOR_GUIDANCE: [&str; 3] = [
+pub(crate) const QMT_MANUAL_INTERVENTION_OPERATOR_GUIDANCE: [&str; 3] = [
     "Inspect miniQMT same-day orders before taking action.",
     "Compare task ID, client order ID, local submission ID, and external order ID.",
     "avoid resubmission until the ambiguous state is resolved.",
 ];
 
-fn qmt_request_result_field(request: &ExecutionRequestRecord, field: &str) -> Option<String> {
+pub(crate) fn qmt_request_result_field(
+    request: &ExecutionRequestRecord,
+    field: &str,
+) -> Option<String> {
     string_path(&request.payload_json, &["execution_result", field])
 }
 
-fn qmt_request_failure_category(request: &ExecutionRequestRecord) -> Option<String> {
+pub(crate) fn qmt_request_failure_category(request: &ExecutionRequestRecord) -> Option<String> {
     string_path(
         &request.payload_json,
         &["execution_diagnostics", "qmt_live_failure_category"],
     )
 }
 
-fn qmt_identity_value(
+pub(crate) fn qmt_identity_value(
     request: &ExecutionRequestRecord,
     order: Option<&OrderRecord>,
     identity_field: &str,
@@ -389,11 +325,11 @@ fn qmt_identity_value(
         .or_else(|| qmt_request_result_field(request, request_result_field))
 }
 
-fn qmt_reconciliation_field(order: Option<&OrderRecord>, field: &str) -> Option<String> {
+pub(crate) fn qmt_reconciliation_field(order: Option<&OrderRecord>, field: &str) -> Option<String> {
     order.and_then(|order| qmt_order_metadata_field(order, &["reconciliation", field]))
 }
 
-fn qmt_manual_intervention_category(
+pub(crate) fn qmt_manual_intervention_category(
     request: &ExecutionRequestRecord,
     order: Option<&OrderRecord>,
 ) -> Option<&'static str> {
@@ -448,216 +384,4 @@ fn qmt_manual_intervention_category(
     }
 
     None
-}
-
-fn build_qmt_manual_intervention_case(
-    request: &ExecutionRequestRecord,
-    order: Option<&OrderRecord>,
-) -> Option<serde_json::Value> {
-    let category = qmt_manual_intervention_category(request, order)?;
-    let request_payload = &request.payload_json;
-
-    let symbol = order
-        .map(|order| order.symbol.clone())
-        .or_else(|| string_path(request_payload, &["execution_snapshot", "symbol"]));
-    let side = order
-        .map(|order| order.side.as_str().to_string())
-        .or_else(|| {
-            string_path(
-                request_payload,
-                &["execution_snapshot", "order_intent", "side"],
-            )
-        });
-    let quantity = order.map(|order| order.requested_quantity).or_else(|| {
-        i64_path(
-            request_payload,
-            &["execution_snapshot", "order_intent", "requested_quantity"],
-        )
-    });
-    let client_order_id = order
-        .map(|order| order.client_order_id.clone())
-        .or_else(|| qmt_request_result_field(request, "client_order_id"));
-    let task_id = qmt_identity_value(request, order, "task_id", "adapter_order_id");
-    let local_submission_id =
-        qmt_identity_value(request, order, "local_submission_id", "local_submission_id");
-    let external_order_id =
-        qmt_identity_value(request, order, "external_order_id", "external_order_id");
-    let qmt_live_error_category = qmt_request_failure_category(request);
-    let reconciliation_decision = qmt_reconciliation_field(order, "last_action");
-    let reconciliation_error = qmt_reconciliation_field(order, "last_error");
-
-    Some(serde_json::json!({
-        "category": category,
-        "status": "unresolved",
-        "request_id": request.request_id.as_str(),
-        "target_mode": request.target_mode.as_str(),
-        "redacted_account_label": redact_account_label(&request.target_account),
-        "target_account_raw": serde_json::Value::Null,
-        "symbol": symbol,
-        "side": side,
-        "quantity": quantity,
-        "task_id": task_id,
-        "client_order_id": client_order_id,
-        "local_submission_id": local_submission_id,
-        "external_order_id": external_order_id,
-        "qmt_live_error_category": qmt_live_error_category,
-        "reconciliation_decision": reconciliation_decision,
-        "reconciliation_error": reconciliation_error,
-        "operator_guidance": QMT_MANUAL_INTERVENTION_OPERATOR_GUIDANCE,
-    }))
-}
-
-pub(crate) async fn build_execution_bridge_qmt_manual_interventions_list_output(
-    runtime_store: &StrategyRuntimeStore,
-) -> Result<serde_json::Value> {
-    let requests = runtime_store.list_execution_requests(None).await?;
-    let orders = runtime_store.list_orders().await?;
-    let orders_by_client_id: HashMap<&str, &OrderRecord> = orders
-        .iter()
-        .map(|order| (order.client_order_id.as_str(), order))
-        .collect();
-
-    let mut cases = requests
-        .iter()
-        .filter_map(|request| {
-            build_qmt_manual_intervention_case(
-                request,
-                orders_by_client_id
-                    .get(request.request_id.as_str())
-                    .copied(),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    cases.sort_by(|left, right| {
-        let left_key = (
-            left.get("category")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default(),
-            left.get("request_id")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default(),
-        );
-        let right_key = (
-            right
-                .get("category")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default(),
-            right
-                .get("request_id")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default(),
-        );
-        left_key.cmp(&right_key)
-    });
-
-    Ok(serde_json::json!({
-        "count": cases.len(),
-        "mutates_runtime": false,
-        "manual_interventions": cases,
-    }))
-}
-
-fn qmt_manual_intervention_case_matches_lookup(
-    case: &serde_json::Value,
-    lookup: &QmtAuditLookup,
-) -> bool {
-    match lookup {
-        QmtAuditLookup::Request(request_id) => {
-            case.get("request_id").and_then(|value| value.as_str()) == Some(request_id.as_str())
-        }
-        QmtAuditLookup::Task(task_id) => {
-            case.get("task_id").and_then(|value| value.as_str()) == Some(task_id.as_str())
-        }
-        QmtAuditLookup::LocalSubmission(local_submission_id) => {
-            case.get("local_submission_id")
-                .and_then(|value| value.as_str())
-                == Some(local_submission_id.as_str())
-        }
-    }
-}
-
-pub(crate) async fn build_execution_bridge_qmt_manual_intervention_show_output(
-    runtime_store: &StrategyRuntimeStore,
-    lookup: QmtAuditLookup,
-) -> Result<serde_json::Value> {
-    let list_output =
-        build_execution_bridge_qmt_manual_interventions_list_output(runtime_store).await?;
-    let manual_intervention = list_output
-        .get("manual_interventions")
-        .and_then(|value| value.as_array())
-        .and_then(|cases| {
-            cases
-                .iter()
-                .find(|case| qmt_manual_intervention_case_matches_lookup(case, &lookup))
-                .cloned()
-        })
-        .ok_or_else(|| {
-            QuantixError::Other(format!(
-                "qmt_live manual intervention 不存在: {}={}",
-                lookup.lookup_type(),
-                lookup.value()
-            ))
-        })?;
-    let audit = build_execution_bridge_qmt_audit_output(runtime_store, lookup).await?;
-
-    Ok(serde_json::json!({
-        "mutates_runtime": false,
-        "manual_intervention": manual_intervention,
-        "audit": audit,
-    }))
-}
-
-pub(crate) async fn execute_execution_bridge_qmt_audit(lookup: QmtAuditLookup) -> Result<()> {
-    let runtime = CliRuntime::load();
-    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
-    let output = build_execution_bridge_qmt_audit_output(&runtime_store, lookup).await?;
-
-    println!("{}", serde_json::to_string_pretty(&output)?);
-
-    Ok(())
-}
-
-pub(crate) async fn execute_execution_bridge_qmt_manual_interventions(
-    action: &str,
-    request_id: Option<String>,
-    task_id: Option<String>,
-    local_submission_id: Option<String>,
-) -> Result<()> {
-    let runtime = CliRuntime::load();
-    let runtime_store = StrategyRuntimeStore::new(runtime.strategy_runtime_db_path).await?;
-    let output = match action.trim() {
-        "list" => {
-            if request_id.is_some() || task_id.is_some() || local_submission_id.is_some() {
-                return Err(QuantixError::Other(
-                    "execution qmt manual-interventions list does not accept lookup flags"
-                        .to_string(),
-                ));
-            }
-            build_execution_bridge_qmt_manual_interventions_list_output(&runtime_store).await?
-        }
-        "show" => {
-            let lookup = QmtAuditLookup::from_cli(request_id, task_id, local_submission_id)?;
-            build_execution_bridge_qmt_manual_intervention_show_output(&runtime_store, lookup)
-                .await?
-        }
-        other => {
-            return Err(QuantixError::Other(format!(
-                "unsupported qmt_live manual-interventions action: {other}; expected list or show"
-            )));
-        }
-    };
-
-    println!("{}", serde_json::to_string_pretty(&output)?);
-
-    Ok(())
-}
-
-pub(crate) async fn execute_execution_bridge_qmt_query(order_id: &str) -> Result<()> {
-    let client = create_bridge_client()?;
-    let output = build_execution_bridge_qmt_query_output(&client, order_id).await?;
-
-    println!("{}", serde_json::to_string_pretty(&output)?);
-
-    Ok(())
 }
