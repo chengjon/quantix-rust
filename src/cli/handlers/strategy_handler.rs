@@ -20,7 +20,6 @@ pub(crate) use self::service::*;
 
 use crate::core::signal::Signal;
 use crate::core::{CliRuntime, QuantixError, Result};
-use crate::execution::daemon::ExecutionDaemonIterationSummary;
 use crate::execution::kernel::{
     ExecutionKernel, ExecutionRunRequest, FillDeltaApplier, KernelExecutionResult, RiskDecision,
     RiskEvaluator,
