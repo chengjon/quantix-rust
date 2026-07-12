@@ -1,5 +1,5 @@
-pub mod report;
 pub mod evidence;
+pub mod report;
 
 pub use evidence::{
     QuantixEvidenceEnvironment, QuantixEvidenceResultSummary, QuantixRegressionEvidence,

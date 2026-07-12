@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
-use super::evidence::{resolve_reference_local_artifact_path, resolve_source_of_truth_summary_path};
+use super::evidence::{
+    resolve_reference_local_artifact_path, resolve_source_of_truth_summary_path,
+};
 use crate::miniqmt_market::sampling::{sample_artifact_payload, sha256_file};
 use crate::miniqmt_market::selection::{ControlledPersistencePolicy, ResolvedMarketArtifact};
 
