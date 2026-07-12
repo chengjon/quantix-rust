@@ -3,7 +3,7 @@
 //! 从原生 `algo.rs` 拆出，承载进程内单例 [`ALGO_STORE`] 与
 //! [`AlgoStore`] 结构体。
 
-use crate::execution::algo::{AlgoContext, AlgorithmExecutor, TwapExecutor, VwapExecutor};
+use crate::execution::algo::{AlgoContext, TwapExecutor, VwapExecutor};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;

@@ -1,5 +1,9 @@
-use super::*;
+//! 基本面子命令实现与格式化辅助。
+//!
+//! 从原生 `fundamental.rs` 拆出，承载 [`run_fundamental_command`] 入口、
+//! 各子命令及 `format_decimal` / `truncate_str` 辅助函数。
 
+use crate::cli::command_types::FundamentalCommands;
 use crate::core::{QuantixError, Result};
 use crate::fundamental::dragon_tiger::DragonTigerFetcher;
 use crate::fundamental::earnings::EarningsFetcher;
@@ -451,7 +455,7 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
     Ok(())
 }
 
-async fn run_fundamental_capital_flow(code: &str, days: u32) -> Result<()> {
+pub(crate) async fn run_fundamental_capital_flow(code: &str, days: u32) -> Result<()> {
     println!("💸 资金流向");
     println!("   代码: {}", code);
     println!("   天数: {}", days);
@@ -469,7 +473,7 @@ async fn run_fundamental_capital_flow(code: &str, days: u32) -> Result<()> {
     )))
 }
 
-async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
+pub(crate) async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
     println!("💰 分红信息");
     println!("   代码: {}", code);
     println!("   年数: {}", years);
@@ -501,38 +505,5 @@ pub fn truncate_str(s: &str, max_len: usize) -> String {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     } else {
         s.to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn fundamental_dividend_returns_unsupported_until_provider_is_wired() {
-        let error = run_fundamental_dividend("600519", 3)
-            .await
-            .expect_err("dividend must fail closed until real dividend data is wired");
-
-        assert!(matches!(
-            error,
-            QuantixError::Unsupported(message)
-                if message.contains("fundamental dividend")
-                    && message.contains("尚未接入真实分红数据源")
-        ));
-    }
-
-    #[tokio::test]
-    async fn fundamental_capital_flow_returns_unsupported_until_provider_is_wired() {
-        let error = run_fundamental_capital_flow("600519", 5)
-            .await
-            .expect_err("capital-flow must fail closed until real capital-flow data is wired");
-
-        assert!(matches!(
-            error,
-            QuantixError::Unsupported(message)
-                if message.contains("fundamental capital-flow")
-                    && message.contains("尚未接入真实资金流向数据源")
-        ));
     }
 }
