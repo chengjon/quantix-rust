@@ -11,7 +11,7 @@ pub(crate) use super::command_types::{
     StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
     TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
-use crate::core::Result;
+pub(crate) use crate::core::Result;
 
 mod account;
 mod ai;
@@ -21,7 +21,7 @@ mod anomaly;
 mod app_shell;
 mod backtest_handler;
 mod data_handler;
-mod execution_handler;
+pub(crate) mod execution_handler;
 mod factor;
 mod fundamental;
 mod import;
@@ -42,7 +42,7 @@ mod sentiment;
 mod shared_support;
 mod stop_handler;
 mod stop_output;
-mod strategy_handler;
+pub(crate) mod strategy_handler;
 mod trade_handler;
 mod trade_output;
 mod watchlist_handler;
@@ -182,15 +182,6 @@ pub use self::watchlist_handler::run_watchlist_command;
 pub(crate) use self::watchlist_handler::{
     create_watchlist_storage, format_tags, load_watchlist_store_for_read,
 };
-
-/// 策略命令
-pub async fn run_strategy_command(cmd: StrategyCommands) -> Result<()> {
-    strategy_handler::execute_strategy_command(cmd).await
-}
-
-pub async fn run_execution_command(cmd: ExecutionCommands) -> Result<()> {
-    execution_handler::execute_execution_command(cmd).await
-}
 
 #[cfg(test)]
 mod tests;

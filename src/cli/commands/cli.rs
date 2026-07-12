@@ -162,7 +162,7 @@ impl Cli {
                 handlers::run_data_command(cmd).await?;
             }
             Commands::Strategy(cmd) => {
-                handlers::run_strategy_command(cmd).await?;
+                handlers::strategy_handler::execute_strategy_command(cmd).await?;
             }
             Commands::Task(cmd) => {
                 handlers::run_task_command(cmd).await?;
@@ -201,7 +201,7 @@ impl Cli {
                 handlers::run_safety_command(cmd)?;
             }
             Commands::Execution(cmd) => {
-                handlers::run_execution_command(cmd).await?;
+                handlers::execution_handler::execute_execution_command(cmd).await?;
             }
             Commands::Anomaly(cmd) => {
                 handlers::run_anomaly_command(cmd).await?;
