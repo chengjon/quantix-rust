@@ -1,13 +1,11 @@
-//! Account Command Handlers
-//!
-//! 多账户管理 CLI 命令处理器
+//! Account and account-group command handlers + helpers.
 
-use super::super::{AccountCommands, AccountGroupCommands};
 use crate::account::storage::{load_registry, save_registry};
 use crate::account::{
     AccountConfig, AccountRegistry, AccountRouter, AccountType, AllocationStrategy,
     JsonAccountRegistryStore, OrderSplitRequest, SplitTarget,
 };
+use crate::cli::commands::{AccountCommands, AccountGroupCommands};
 use crate::core::{QuantixError, Result};
 use rust_decimal::Decimal;
 
@@ -229,7 +227,7 @@ fn parse_positive_capital(capital: f64) -> Result<Decimal> {
     Ok(decimal)
 }
 
-fn parse_account_type_input(input: &str) -> Result<AccountType> {
+pub(crate) fn parse_account_type_input(input: &str) -> Result<AccountType> {
     match input.to_lowercase().as_str() {
         "paper" => Ok(AccountType::Paper),
         "mock_live" => Ok(AccountType::MockLive),
@@ -649,40 +647,5 @@ fn parse_allocation_strategy(
             "无效的分配策略: {}，支持: equal, proportional, weighted, primary_first",
             strategy
         ))),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::parse_account_type_input;
-    use crate::account::AccountType;
-    use crate::core::QuantixError;
-
-    #[test]
-    fn parse_account_type_prefers_qmt_live_wording_but_keeps_live_alias() {
-        assert_eq!(
-            parse_account_type_input("paper").unwrap(),
-            AccountType::Paper
-        );
-        assert_eq!(
-            parse_account_type_input("mock_live").unwrap(),
-            AccountType::MockLive
-        );
-        assert_eq!(
-            parse_account_type_input("qmt_live").unwrap(),
-            AccountType::Live
-        );
-        assert_eq!(parse_account_type_input("live").unwrap(), AccountType::Live);
-    }
-
-    #[test]
-    fn parse_account_type_error_mentions_qmt_live_boundary() {
-        let err = parse_account_type_input("invalid").unwrap_err();
-
-        assert!(matches!(err, QuantixError::Unsupported(_)));
-        let message = err.to_string();
-        assert!(message.contains("无效的账户类型: invalid"));
-        assert!(message.contains("paper, mock_live, qmt_live"));
-        assert!(message.contains("live"));
     }
 }
