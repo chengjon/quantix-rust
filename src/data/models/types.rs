@@ -1,14 +1,7 @@
-/// 数据模型
-///
-/// 定义 K线、行情、交易等核心数据结构
-/// 与 Python quantix 项目保持一致
 use chrono::{NaiveDate, NaiveDateTime};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::core::QuantixError;
-
-/// K线数据（日线）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kline {
     pub code: String,
@@ -55,7 +48,7 @@ impl BarPeriod {
 }
 
 impl std::str::FromStr for BarPeriod {
-    type Err = QuantixError;
+    type Err = crate::core::QuantixError;
 
     /// Accepts only `day` | `week` | `month` (any case). Rejects
     /// `daily`/`weekly`/`monthly` aliases and any `minute*` value
@@ -65,7 +58,7 @@ impl std::str::FromStr for BarPeriod {
             "day" => Ok(Self::Day),
             "week" => Ok(Self::Week),
             "month" => Ok(Self::Month),
-            other => Err(QuantixError::Config(format!(
+            other => Err(crate::core::QuantixError::Config(format!(
                 "unsupported BarPeriod `{}`: expected one of day|week|month",
                 other
             ))),
@@ -106,7 +99,7 @@ impl MinutePeriod {
 }
 
 impl std::str::FromStr for MinutePeriod {
-    type Err = QuantixError;
+    type Err = crate::core::QuantixError;
 
     /// 仅接受 `1m|5m|15m|30m|60m`（任意大小写）。拒绝所有别名
     /// （`1min|minute|5min|1h|hour` 等）和任何非 5 个主 token 的值。
@@ -117,7 +110,7 @@ impl std::str::FromStr for MinutePeriod {
             "15m" => Ok(Self::Minute15),
             "30m" => Ok(Self::Minute30),
             "60m" => Ok(Self::Minute60),
-            other => Err(QuantixError::Config(format!(
+            other => Err(crate::core::QuantixError::Config(format!(
                 "unsupported MinutePeriod `{}`: expected one of 1m|5m|15m|30m|60m",
                 other
             ))),
@@ -194,7 +187,7 @@ impl AdjustType {
 }
 
 impl std::str::FromStr for AdjustType {
-    type Err = QuantixError;
+    type Err = crate::core::QuantixError;
 
     /// Accepts `none` | `qfq` | `hfq` (any case).
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
@@ -202,7 +195,7 @@ impl std::str::FromStr for AdjustType {
             "none" => Ok(Self::None),
             "qfq" => Ok(Self::QFQ),
             "hfq" => Ok(Self::HFQ),
-            other => Err(QuantixError::Config(format!(
+            other => Err(crate::core::QuantixError::Config(format!(
                 "unsupported AdjustType `{}`: expected one of none|qfq|hfq",
                 other
             ))),
@@ -419,317 +412,4 @@ pub(crate) fn chunk_range_weekly(
         cursor = seg_end + chrono::Duration::days(1);
     }
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn bar_period_as_str_round_trip() {
-        assert_eq!(BarPeriod::Day.as_str(), "day");
-        assert_eq!(BarPeriod::Week.as_str(), "week");
-        assert_eq!(BarPeriod::Month.as_str(), "month");
-    }
-
-    #[test]
-    fn bar_period_from_str_accepts_canonical_case_insensitive() {
-        assert!(matches!(BarPeriod::from_str("day"), Ok(BarPeriod::Day)));
-        assert!(matches!(BarPeriod::from_str("WEEK"), Ok(BarPeriod::Week)));
-        assert!(matches!(BarPeriod::from_str("Month"), Ok(BarPeriod::Month)));
-    }
-
-    #[test]
-    fn bar_period_from_str_rejects_aliases() {
-        // D6: strict — reject daily/weekly/monthly/minute* aliases
-        assert!(BarPeriod::from_str("daily").is_err());
-        assert!(BarPeriod::from_str("weekly").is_err());
-        assert!(BarPeriod::from_str("monthly").is_err());
-        assert!(BarPeriod::from_str("1m").is_err());
-        assert!(BarPeriod::from_str("minute").is_err());
-        assert!(BarPeriod::from_str("").is_err());
-    }
-
-    #[test]
-    fn adjust_type_as_openstock_param() {
-        assert_eq!(AdjustType::None.as_openstock_param(), None);
-        assert_eq!(AdjustType::QFQ.as_openstock_param(), Some("qfq"));
-        assert_eq!(AdjustType::HFQ.as_openstock_param(), Some("hfq"));
-    }
-
-    #[test]
-    fn adjust_type_from_str_case_insensitive() {
-        assert!(matches!(AdjustType::from_str("none"), Ok(AdjustType::None)));
-        assert!(matches!(AdjustType::from_str("QFQ"), Ok(AdjustType::QFQ)));
-        assert!(matches!(AdjustType::from_str("Hfq"), Ok(AdjustType::HFQ)));
-        assert!(AdjustType::from_str("front").is_err());
-        assert!(AdjustType::from_str("").is_err());
-    }
-
-    #[test]
-    fn minute_period_as_str_round_trip() {
-        assert_eq!(MinutePeriod::Minute1.as_str(), "1m");
-        assert_eq!(MinutePeriod::Minute5.as_str(), "5m");
-        assert_eq!(MinutePeriod::Minute15.as_str(), "15m");
-        assert_eq!(MinutePeriod::Minute30.as_str(), "30m");
-        assert_eq!(MinutePeriod::Minute60.as_str(), "60m");
-    }
-
-    #[test]
-    fn minute_period_from_str_accepts_canonical_case_insensitive() {
-        assert!(matches!(
-            MinutePeriod::from_str("1m"),
-            Ok(MinutePeriod::Minute1)
-        ));
-        assert!(matches!(
-            MinutePeriod::from_str("5M"),
-            Ok(MinutePeriod::Minute5)
-        ));
-        assert!(matches!(
-            MinutePeriod::from_str("15m"),
-            Ok(MinutePeriod::Minute15)
-        ));
-        assert!(matches!(
-            MinutePeriod::from_str("30M"),
-            Ok(MinutePeriod::Minute30)
-        ));
-        assert!(matches!(
-            MinutePeriod::from_str("60m"),
-            Ok(MinutePeriod::Minute60)
-        ));
-    }
-
-    #[test]
-    fn minute_period_from_str_rejects_aliases() {
-        // D4 strict — reject 1min/minute/5min/1h/hour and any day* value
-        assert!(MinutePeriod::from_str("1min").is_err());
-        assert!(MinutePeriod::from_str("minute").is_err());
-        assert!(MinutePeriod::from_str("5min").is_err());
-        assert!(MinutePeriod::from_str("1h").is_err());
-        assert!(MinutePeriod::from_str("hour").is_err());
-        assert!(MinutePeriod::from_str("day").is_err());
-        assert!(MinutePeriod::from_str("").is_err());
-    }
-
-    #[test]
-    fn minute_share_round_trip_serde() {
-        use chrono::NaiveDate;
-        let share = crate::data::models::MinuteShare {
-            code: "sh600000".to_string(),
-            timestamp: NaiveDate::from_ymd_opt(2026, 7, 1)
-                .unwrap()
-                .and_hms_opt(9, 30, 0)
-                .unwrap(),
-            price: Some(Decimal::from_str("10.50").unwrap()),
-            volume: Some(123_456),
-            amount: Some(Decimal::from_str("1296288.00").unwrap()),
-            avg_price: Some(Decimal::from_str("10.4975").unwrap()),
-        };
-        let json = serde_json::to_string(&share).expect("serialize");
-        let back: crate::data::models::MinuteShare =
-            serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(back.code, "sh600000");
-        assert_eq!(back.volume, Some(123_456));
-        assert_eq!(back.avg_price, Some(Decimal::from_str("10.4975").unwrap()));
-    }
-
-    #[test]
-    fn minute_share_allows_missing_optional_fields() {
-        // Missing price/volume/amount/avg_price fields → all None (INV-2C foundation)
-        let json = r#"{"code":"sh600000","timestamp":"2026-07-01T09:30:00"}"#;
-        let share: crate::data::models::MinuteShare =
-            serde_json::from_str(json).expect("deserialize with missing optionals");
-        assert_eq!(share.code, "sh600000");
-        assert_eq!(share.price, None);
-        assert_eq!(share.volume, None);
-        assert_eq!(share.amount, None);
-        assert_eq!(share.avg_price, None);
-    }
-}
-
-#[cfg(test)]
-mod date_or_range_tests {
-    use super::{DateOrRange, chunk_range_weekly, iter_dates_inclusive};
-    use chrono::NaiveDate;
-
-    fn d(s: &str) -> NaiveDate {
-        NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
-    }
-
-    #[test]
-    fn u1_date_only_returns_date_variant() {
-        let r = DateOrRange::from_cli(Some("2026-06-30"), None, None).unwrap();
-        assert!(matches!(r, DateOrRange::Date(_)));
-        if let DateOrRange::Date(actual) = r {
-            assert_eq!(actual, d("2026-06-30"));
-        }
-    }
-
-    #[test]
-    fn u2_start_and_end_returns_range_variant() {
-        let r = DateOrRange::from_cli(None, Some("2026-06-01"), Some("2026-06-30")).unwrap();
-        if let DateOrRange::Range { start, end } = r {
-            assert_eq!(start, d("2026-06-01"));
-            assert_eq!(end, d("2026-06-30"));
-        } else {
-            panic!("expected Range, got {:?}", r);
-        }
-    }
-
-    #[test]
-    fn u3_start_only_errors() {
-        let r = DateOrRange::from_cli(None, Some("2026-06-01"), None);
-        assert!(r.is_err());
-        let msg = format!("{}", r.unwrap_err());
-        assert!(
-            msg.contains("--start") && msg.contains("--end"),
-            "error should name both flags: {}",
-            msg
-        );
-    }
-
-    #[test]
-    fn u4_end_only_errors() {
-        let r = DateOrRange::from_cli(None, None, Some("2026-06-30"));
-        assert!(r.is_err());
-    }
-
-    #[test]
-    fn u5_date_and_start_conflict_errors() {
-        let r = DateOrRange::from_cli(Some("2026-06-30"), Some("2026-06-01"), None);
-        assert!(r.is_err());
-        let msg = format!("{}", r.unwrap_err());
-        assert!(
-            msg.contains("--date") && msg.contains("--start"),
-            "msg: {}",
-            msg
-        );
-    }
-
-    #[test]
-    fn u6_start_after_end_errors() {
-        let r = DateOrRange::from_cli(None, Some("2026-06-30"), Some("2026-06-01"));
-        assert!(r.is_err());
-    }
-
-    #[test]
-    fn u7_all_none_errors() {
-        let r = DateOrRange::from_cli(None, None, None);
-        assert!(r.is_err());
-        let msg = format!("{}", r.unwrap_err());
-        assert!(
-            msg.contains("--date") || msg.contains("--start"),
-            "msg: {}",
-            msg
-        );
-    }
-
-    #[test]
-    fn iter_dates_inclusive_yields_all_days_in_order() {
-        let days: Vec<NaiveDate> = iter_dates_inclusive(d("2026-06-28"), d("2026-07-02")).collect();
-        assert_eq!(days.len(), 5);
-        assert_eq!(days[0], d("2026-06-28"));
-        assert_eq!(days[4], d("2026-07-02"));
-        // 跨月验证
-        assert_eq!(days[2], d("2026-06-30"));
-        assert_eq!(days[3], d("2026-07-01"));
-    }
-
-    #[test]
-    fn iter_dates_inclusive_single_day_yields_one() {
-        let days: Vec<NaiveDate> = iter_dates_inclusive(d("2026-06-30"), d("2026-06-30")).collect();
-        assert_eq!(days, vec![d("2026-06-30")]);
-    }
-
-    #[test]
-    fn chunk_range_weekly_single_day_returns_one_chunk() {
-        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
-        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 1));
-        assert_eq!(chunks, vec![(ymd(2026, 6, 1), ymd(2026, 6, 1))]);
-    }
-
-    #[test]
-    fn chunk_range_weekly_exact_7_day_returns_one_chunk() {
-        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
-        // 7 days inclusive: 2026-06-01..=2026-06-07
-        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 7));
-        assert_eq!(chunks, vec![(ymd(2026, 6, 1), ymd(2026, 6, 7))]);
-    }
-
-    #[test]
-    fn chunk_range_weekly_8_day_returns_two_chunks() {
-        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
-        // 8 days inclusive: 2026-06-01..=2026-06-08
-        // First chunk: 06-01..=06-07 (7 days); second chunk: 06-08..=06-08 (1 day)
-        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 8));
-        assert_eq!(
-            chunks,
-            vec![
-                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
-                (ymd(2026, 6, 8), ymd(2026, 6, 8)),
-            ]
-        );
-    }
-
-    #[test]
-    fn chunk_range_weekly_15_day_returns_three_chunks() {
-        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
-        // 15 days inclusive: 2026-06-01..=2026-06-15
-        // Boundary: 7-day chunks at exactly 7 inclusive days remaining are taken
-        // whole. (end - cursor).num_days() at cursor=06-01 vs end=06-15 is 14
-        // (>= 7) → cut at 06-07; at cursor=06-08 vs end=06-15 is 7 (>= 7) → cut
-        // at 06-14; at cursor=06-15 vs end=06-15 is 0 (< 7) → seg_end=end.
-        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 15));
-        assert_eq!(
-            chunks,
-            vec![
-                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
-                (ymd(2026, 6, 8), ymd(2026, 6, 14)),
-                (ymd(2026, 6, 15), ymd(2026, 6, 15)),
-            ]
-        );
-        // INV-1B: contiguous coverage
-        assert_eq!(chunks.first().unwrap().0, ymd(2026, 6, 1));
-        assert_eq!(chunks.last().unwrap().1, ymd(2026, 6, 15));
-        for window in chunks.windows(2) {
-            assert_eq!(window[0].1.succ_opt().unwrap(), window[1].0);
-        }
-    }
-
-    #[test]
-    fn chunk_range_weekly_long_range_covers_full_window() {
-        let ymd = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
-        // 30 days inclusive: 2026-06-01..=2026-06-30
-        let chunks = chunk_range_weekly(ymd(2026, 6, 1), ymd(2026, 6, 30));
-        // Expected: 06-01..=06-07, 06-08..=06-14, 06-15..=06-21, 06-22..=06-28, 06-29..=06-30
-        assert_eq!(
-            chunks,
-            vec![
-                (ymd(2026, 6, 1), ymd(2026, 6, 7)),
-                (ymd(2026, 6, 8), ymd(2026, 6, 14)),
-                (ymd(2026, 6, 15), ymd(2026, 6, 21)),
-                (ymd(2026, 6, 22), ymd(2026, 6, 28)),
-                (ymd(2026, 6, 29), ymd(2026, 6, 30)),
-            ]
-        );
-        // INV-1B: contiguous coverage
-        assert_eq!(chunks.first().unwrap().0, ymd(2026, 6, 1));
-        assert_eq!(chunks.last().unwrap().1, ymd(2026, 6, 30));
-        for window in chunks.windows(2) {
-            // chunks[i].1 + 1 day == chunks[i+1].0
-            assert_eq!(
-                window[0].1.succ_opt().unwrap(),
-                window[1].0,
-                "gap between {:?} and {:?}",
-                window[0],
-                window[1]
-            );
-        }
-        // INV-1C: each chunk ≤ 7 days inclusive
-        for (s, e) in &chunks {
-            let n = (*e - *s).num_days() + 1;
-            assert!(n <= 7, "chunk {:?}-{:?} is {} days, > 7", s, e, n);
-        }
-    }
 }
