@@ -43,7 +43,9 @@ impl TreeNode {
 
         // Stop conditions: height limit reached or single sample
         if current_height >= height_limit || data.len() <= 1 {
-            return Self::new_leaf(current_height as f64 + super::model::avg_path_length(data.len() as f64));
+            return Self::new_leaf(
+                current_height as f64 + super::model::avg_path_length(data.len() as f64),
+            );
         }
 
         let n_features = data[0].len();
@@ -58,12 +60,16 @@ impl TreeNode {
             .collect();
 
         if valid_features.is_empty() {
-            return Self::new_leaf(current_height as f64 + super::model::avg_path_length(data.len() as f64));
+            return Self::new_leaf(
+                current_height as f64 + super::model::avg_path_length(data.len() as f64),
+            );
         }
 
         // Randomly select a feature
         let Some(split_feature) = valid_features.choose(rng).copied() else {
-            return Self::new_leaf(current_height as f64 + super::model::avg_path_length(data.len() as f64));
+            return Self::new_leaf(
+                current_height as f64 + super::model::avg_path_length(data.len() as f64),
+            );
         };
 
         // Find min and max for the selected feature
@@ -93,7 +99,9 @@ impl TreeNode {
 
         // Handle edge cases where split doesn't divide data
         if left_data.is_empty() || right_data.is_empty() {
-            return Self::new_leaf(current_height as f64 + super::model::avg_path_length(data.len() as f64));
+            return Self::new_leaf(
+                current_height as f64 + super::model::avg_path_length(data.len() as f64),
+            );
         }
 
         Self {

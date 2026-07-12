@@ -66,9 +66,10 @@ fn output_results_renders_csv_text() {
     let detector = detector_with_output("csv");
     let output = detector.output_results(&sample_result()).unwrap();
 
-    assert!(output.starts_with(
-        "rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20"
-    ));
+    assert!(
+        output
+            .starts_with("rank,code,name,score,is_anomaly,volume_ratio,volatility_5,volatility_20")
+    );
     assert!(output.contains("1,000001,平安银行,-0.420000,true,2.5000,0.123400,0.567800"));
 }
 
