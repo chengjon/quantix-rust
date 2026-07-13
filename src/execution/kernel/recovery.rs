@@ -1,6 +1,9 @@
 #![allow(clippy::bool_comparison)]
 
 use super::*;
+use crate::core::QuantixError;
+use crate::execution::adapter::ExecutionAdapter;
+use crate::execution::models::OrderEventRecord;
 
 impl<A, F, R> ExecutionKernel<A, F, R>
 where
