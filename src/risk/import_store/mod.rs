@@ -12,80 +12,10 @@ use crate::risk::{
 };
 
 mod parsing;
+mod schema;
 
 use parsing::{parse_decimal, parse_timestamp, row_to_mirror_position};
-
-const CREATE_LIVE_IMPORT_BATCHES_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_batches (
-    batch_id TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL,
-    input_name TEXT NOT NULL,
-    imported_at TEXT NOT NULL,
-    total_rows INTEGER NOT NULL,
-    inserted_rows INTEGER NOT NULL,
-    skipped_duplicates INTEGER NOT NULL,
-    conflict_rows INTEGER NOT NULL
-);
-"#;
-
-const CREATE_LIVE_IMPORT_RECORDS_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_records (
-    account_id TEXT NOT NULL,
-    external_id TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    imported_at TEXT NOT NULL,
-    batch_id TEXT NOT NULL,
-    PRIMARY KEY (account_id, external_id)
-);
-"#;
-
-const CREATE_LIVE_IMPORT_CONFLICTS_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_conflicts (
-    id TEXT PRIMARY KEY,
-    batch_id TEXT NOT NULL,
-    account_id TEXT NOT NULL,
-    external_id TEXT NOT NULL,
-    existing_record_json TEXT NOT NULL,
-    incoming_record_json TEXT NOT NULL,
-    detail TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-"#;
-
-const CREATE_LIVE_IMPORT_MIRROR_ACCOUNTS_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_mirror_accounts (
-    account_id TEXT PRIMARY KEY,
-    trading_date TEXT NOT NULL,
-    as_of TEXT NOT NULL,
-    starting_total_assets TEXT NOT NULL,
-    current_total_assets TEXT NOT NULL,
-    cash_balance TEXT NOT NULL,
-    realized_pnl TEXT NOT NULL,
-    total_fees TEXT NOT NULL,
-    last_rebuild_at TEXT NOT NULL
-);
-"#;
-
-const CREATE_LIVE_IMPORT_MIRROR_POSITIONS_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_mirror_positions (
-    account_id TEXT NOT NULL,
-    code TEXT NOT NULL,
-    volume INTEGER NOT NULL,
-    avg_cost TEXT NOT NULL,
-    last_trade_at TEXT NOT NULL,
-    PRIMARY KEY (account_id, code)
-);
-"#;
-
-const CREATE_LIVE_IMPORT_REBUILDS_TABLE_SQL: &str = r#"
-CREATE TABLE IF NOT EXISTS live_import_rebuilds (
-    rebuild_id TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL,
-    status TEXT NOT NULL,
-    detail TEXT,
-    rebuilt_at TEXT NOT NULL
-);
-"#;
+use schema::SCHEMA_STATEMENTS;
 
 /// SQLite 后端实盘导入存储：持有 SqlitePool，维护 live_import_records / live_import_mirror_account / live_import_mirror_lot 等表。
 #[derive(Debug, Clone)]
@@ -116,14 +46,7 @@ impl SqliteLiveImportStore {
     }
 
     async fn ensure_schema(&self) -> Result<()> {
-        for statement in [
-            CREATE_LIVE_IMPORT_BATCHES_TABLE_SQL,
-            CREATE_LIVE_IMPORT_RECORDS_TABLE_SQL,
-            CREATE_LIVE_IMPORT_CONFLICTS_TABLE_SQL,
-            CREATE_LIVE_IMPORT_MIRROR_ACCOUNTS_TABLE_SQL,
-            CREATE_LIVE_IMPORT_MIRROR_POSITIONS_TABLE_SQL,
-            CREATE_LIVE_IMPORT_REBUILDS_TABLE_SQL,
-        ] {
+        for statement in SCHEMA_STATEMENTS {
             sqlx::query(statement).execute(&self.pool).await?;
         }
         Ok(())
