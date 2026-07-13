@@ -1,10 +1,6 @@
-//! 基本面子命令实现与格式化辅助。
-//!
-//! 从原生 `fundamental.rs` 拆出，承载 [`run_fundamental_command`] 入口、
-//! 各子命令及 `format_decimal` / `truncate_str` 辅助函数。
+//! 基本面子命令实现（数据获取与格式化展示）。
 
-use crate::cli::command_types::FundamentalCommands;
-use crate::core::{QuantixError, Result};
+use crate::core::Result;
 use crate::fundamental::dragon_tiger::DragonTigerFetcher;
 use crate::fundamental::earnings::EarningsFetcher;
 use crate::fundamental::institution::InstitutionFetcher;
@@ -17,28 +13,7 @@ use std::collections::HashMap;
 // 基本面数据命令
 // ============================================================
 
-/// 处理基本面命令
-pub async fn run_fundamental_command(cmd: FundamentalCommands) -> Result<()> {
-    match cmd {
-        FundamentalCommands::Show { code } => run_fundamental_show(&code).await,
-        FundamentalCommands::Valuation { code } => run_fundamental_valuation(&code).await,
-        FundamentalCommands::Earnings { code, years } => {
-            run_fundamental_earnings(&code, years).await
-        }
-        FundamentalCommands::Institution { code } => run_fundamental_institution(&code).await,
-        FundamentalCommands::DragonTiger { code, days } => {
-            run_fundamental_dragon_tiger(code.as_deref(), days).await
-        }
-        FundamentalCommands::CapitalFlow { code, days } => {
-            run_fundamental_capital_flow(&code, days).await
-        }
-        FundamentalCommands::Dividend { code, years } => {
-            run_fundamental_dividend(&code, years).await
-        }
-    }
-}
-
-async fn run_fundamental_show(code: &str) -> Result<()> {
+pub(super) async fn run_fundamental_show(code: &str) -> Result<()> {
     println!("📊 基本面数据");
     println!("   代码: {}", code);
     println!();
@@ -112,7 +87,7 @@ async fn run_fundamental_show(code: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run_fundamental_valuation(code: &str) -> Result<()> {
+pub(super) async fn run_fundamental_valuation(code: &str) -> Result<()> {
     println!("📈 估值指标");
     println!("   代码: {}", code);
     println!();
@@ -128,30 +103,39 @@ async fn run_fundamental_valuation(code: &str) -> Result<()> {
             println!("┌─────────────────┬─────────────┐");
             println!("│ 指标            │ 数值        │");
             println!("├─────────────────┼─────────────┤");
-            println!("│ 市盈率 (TTM)    │ {} │", format_decimal(&val.pe_ttm));
-            println!("│ 市盈率 (静态)   │ {} │", format_decimal(&val.pe_static));
-            println!("│ 市净率          │ {} │", format_decimal(&val.pb));
-            println!("│ 市销率          │ {} │", format_decimal(&val.ps));
+            println!(
+                "│ 市盈率 (TTM)    │ {} │",
+                super::format_decimal(&val.pe_ttm)
+            );
+            println!(
+                "│ 市盈率 (静态)   │ {} │",
+                super::format_decimal(&val.pe_static)
+            );
+            println!("│ 市净率          │ {} │", super::format_decimal(&val.pb));
+            println!("│ 市销率          │ {} │", super::format_decimal(&val.ps));
             println!(
                 "│ 总市值          │ {} 亿 │",
-                format_decimal(&val.market_cap)
+                super::format_decimal(&val.market_cap)
             );
             println!(
                 "│ 流通市值        │ {} 亿 │",
-                format_decimal(&val.float_market_cap)
+                super::format_decimal(&val.float_market_cap)
             );
             println!(
                 "│ 股息率          │ {}% │",
-                format_decimal(&val.dividend_yield)
+                super::format_decimal(&val.dividend_yield)
             );
-            println!("│ 每股收益        │ {} │", format_decimal(&val.eps));
-            println!("│ 每股净资产      │ {} │", format_decimal(&val.bvps));
-            println!("│ 净资产收益率    │ {}% │", format_decimal(&val.roe));
+            println!("│ 每股收益        │ {} │", super::format_decimal(&val.eps));
+            println!("│ 每股净资产      │ {} │", super::format_decimal(&val.bvps));
+            println!("│ 净资产收益率    │ {}% │", super::format_decimal(&val.roe));
             println!(
                 "│ 毛利率          │ {}% │",
-                format_decimal(&val.gross_margin)
+                super::format_decimal(&val.gross_margin)
             );
-            println!("│ 净利率          │ {}% │", format_decimal(&val.net_margin));
+            println!(
+                "│ 净利率          │ {}% │",
+                super::format_decimal(&val.net_margin)
+            );
             println!("└─────────────────┴─────────────┘");
             println!();
             println!("📅 数据日期: {}", val.date);
@@ -166,7 +150,7 @@ async fn run_fundamental_valuation(code: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
+pub(super) async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
     println!("📋 财报数据");
     println!("   代码: {}", code);
     println!("   年数: {}", years);
@@ -191,47 +175,47 @@ async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
                 println!("├─────────────────┼─────────────┤");
                 println!(
                     "│ 营业收入        │ {} 亿 │",
-                    format_decimal(&report.revenue)
+                    super::format_decimal(&report.revenue)
                 );
                 println!(
                     "│ 营收同比        │ {}% │",
-                    format_decimal(&report.revenue_yoy)
+                    super::format_decimal(&report.revenue_yoy)
                 );
                 println!(
                     "│ 净利润          │ {} 亿 │",
-                    format_decimal(&report.net_profit)
+                    super::format_decimal(&report.net_profit)
                 );
                 println!(
                     "│ 净利润同比      │ {}% │",
-                    format_decimal(&report.net_profit_yoy)
+                    super::format_decimal(&report.net_profit_yoy)
                 );
                 println!(
                     "│ 扣非净利润      │ {} 亿 │",
-                    format_decimal(&report.net_profit_deducted)
+                    super::format_decimal(&report.net_profit_deducted)
                 );
                 println!(
                     "│ 经营现金流      │ {} 亿 │",
-                    format_decimal(&report.operating_cash_flow)
+                    super::format_decimal(&report.operating_cash_flow)
                 );
                 println!(
                     "│ 总资产          │ {} 亿 │",
-                    format_decimal(&report.total_assets)
+                    super::format_decimal(&report.total_assets)
                 );
                 println!(
                     "│ 净资产          │ {} 亿 │",
-                    format_decimal(&report.net_assets)
+                    super::format_decimal(&report.net_assets)
                 );
                 println!(
                     "│ 资产负债率      │ {}% │",
-                    format_decimal(&report.debt_ratio)
+                    super::format_decimal(&report.debt_ratio)
                 );
                 println!(
                     "│ 毛利率          │ {}% │",
-                    format_decimal(&report.gross_margin)
+                    super::format_decimal(&report.gross_margin)
                 );
                 println!(
                     "│ 净利率          │ {}% │",
-                    format_decimal(&report.net_margin)
+                    super::format_decimal(&report.net_margin)
                 );
                 println!("└─────────────────┴─────────────┘");
 
@@ -291,7 +275,7 @@ async fn run_fundamental_earnings(code: &str, years: u32) -> Result<()> {
     Ok(())
 }
 
-async fn run_fundamental_institution(code: &str) -> Result<()> {
+pub(super) async fn run_fundamental_institution(code: &str) -> Result<()> {
     println!("🏛️ 机构持仓");
     println!("   代码: {}", code);
     println!();
@@ -333,8 +317,8 @@ async fn run_fundamental_institution(code: &str) -> Result<()> {
                 for holding in holdings.iter().take(10) {
                     println!(
                         "│ {:<36} │ {:<6} │ {:>10.2} │",
-                        truncate_str(&holding.institution_name, 36),
-                        truncate_str(&holding.institution_type, 6),
+                        super::truncate_str(&holding.institution_name, 36),
+                        super::truncate_str(&holding.institution_type, 6),
                         holding.shares
                     );
                 }
@@ -356,7 +340,7 @@ async fn run_fundamental_institution(code: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<()> {
+pub(super) async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<()> {
     if let Some(c) = code {
         println!("🐉 龙虎榜 - {}", c);
     } else {
@@ -397,7 +381,7 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                     println!("┌─────────────────────────────────────────────────────────┐");
                     println!(
                         "│ {} ({})                                    ",
-                        truncate_str(&item.name, 20),
+                        super::truncate_str(&item.name, 20),
                         item.code
                     );
                     println!("├─────────────────────────────────────────────────────────┤");
@@ -405,7 +389,7 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                         "│ 交易日期: {}  收盘价: {:.2}  涨跌幅: {:.2}%",
                         item.trade_date, item.close_price, item.change_pct
                     );
-                    println!("│ 上榜原因: {}", truncate_str(&item.reason, 45));
+                    println!("│ 上榜原因: {}", super::truncate_str(&item.reason, 45));
                     println!("├─────────────────────────────────────────────────────────┤");
                     println!(
                         "│ 买入金额: {:>12.2} 万元    卖出金额: {:>12.2} 万元",
@@ -422,7 +406,7 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                             if let Some(amount) = buyer.buy_amount {
                                 println!(
                                     "      - {} ({:.2} 万)",
-                                    truncate_str(&buyer.broker_name, 30),
+                                    super::truncate_str(&buyer.broker_name, 30),
                                     amount
                                 );
                             }
@@ -435,7 +419,7 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
                             if let Some(amount) = seller.sell_amount {
                                 println!(
                                     "      - {} ({:.2} 万)",
-                                    truncate_str(&seller.broker_name, 30),
+                                    super::truncate_str(&seller.broker_name, 30),
                                     amount
                                 );
                             }
@@ -453,57 +437,4 @@ async fn run_fundamental_dragon_tiger(code: Option<&str>, days: u32) -> Result<(
     }
 
     Ok(())
-}
-
-pub(crate) async fn run_fundamental_capital_flow(code: &str, days: u32) -> Result<()> {
-    println!("💸 资金流向");
-    println!("   代码: {}", code);
-    println!("   天数: {}", days);
-    println!();
-
-    println!("⚠️ 资金流向数据源尚未接入，命令将返回 Unsupported");
-    println!();
-    println!("💡 您可以先使用以下命令查看其他基本面数据:");
-    println!("   - quantix fundamental valuation {}   # 估值指标", code);
-    println!("   - quantix fundamental earnings {}    # 财报数据", code);
-    println!("   - quantix fundamental institution {} # 机构持仓", code);
-
-    Err(QuantixError::Unsupported(format!(
-        "fundamental capital-flow 尚未接入真实资金流向数据源；code={code}, days={days}"
-    )))
-}
-
-pub(crate) async fn run_fundamental_dividend(code: &str, years: u32) -> Result<()> {
-    println!("💰 分红信息");
-    println!("   代码: {}", code);
-    println!("   年数: {}", years);
-    println!();
-
-    println!("⚠️ 分红数据源尚未接入，命令将返回 Unsupported");
-    println!();
-    println!("💡 您可以先使用以下命令查看其他基本面数据:");
-    println!("   - quantix fundamental valuation {}   # 估值指标", code);
-    println!("   - quantix fundamental earnings {}    # 财报数据", code);
-    println!("   - quantix fundamental institution {} # 机构持仓", code);
-
-    Err(QuantixError::Unsupported(format!(
-        "fundamental dividend 尚未接入真实分红数据源；code={code}, years={years}"
-    )))
-}
-
-/// Helper function to format optional Decimal values for display
-fn format_decimal(value: &Option<Decimal>) -> String {
-    match value {
-        Some(v) => format!("{:.2}", v),
-        None => "-".to_string(),
-    }
-}
-
-/// Helper function to truncate a string to a maximum length
-pub fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    } else {
-        s.to_string()
-    }
 }
