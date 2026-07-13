@@ -4,7 +4,7 @@ mod account;
 mod analysis;
 #[path = "commands/backtest.rs"]
 mod backtest;
-#[path = "commands/data.rs"]
+#[path = "commands/data/mod.rs"]
 mod data;
 #[path = "commands/factor.rs"]
 mod factor;
