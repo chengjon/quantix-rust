@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 use self::industry_checks::{evaluate_industry_blocklist, evaluate_industry_limit};
 use self::state_helpers::{
     apply_daily_loss_rule, build_status, check_position_limit, find_enabled_rule, push_risk_event,
+    upsert_rule,
 };
 use crate::core::{QuantixError, Result};
 use crate::risk::industry::ResolvedIndustry;
@@ -476,32 +477,4 @@ impl RiskService<JsonRiskStore> {
             IndustryResolver::new(industry_store),
         ))
     }
-}
-
-fn upsert_rule(
-    state: &mut RiskState,
-    rule_type: RiskRuleType,
-    value: RuleValue,
-    now: DateTime<Utc>,
-) -> RiskRule {
-    if let Some(existing) = state
-        .rules
-        .iter_mut()
-        .find(|rule| rule.rule_type == rule_type)
-    {
-        existing.value = value;
-        existing.updated_at = now;
-        return existing.clone();
-    }
-
-    let rule = RiskRule {
-        rule_type,
-        value,
-        enabled: true,
-        created_at: now,
-        updated_at: now,
-    };
-    state.rules.push(rule.clone());
-    state.rules.sort_by_key(|item| item.rule_type);
-    rule
 }

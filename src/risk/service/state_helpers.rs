@@ -238,3 +238,31 @@ pub(super) fn push_risk_event(state: &mut RiskState, event_limit: usize, event: 
         state.events.drain(0..overflow);
     }
 }
+
+pub(super) fn upsert_rule(
+    state: &mut RiskState,
+    rule_type: RiskRuleType,
+    value: RuleValue,
+    now: DateTime<Utc>,
+) -> RiskRule {
+    if let Some(existing) = state
+        .rules
+        .iter_mut()
+        .find(|rule| rule.rule_type == rule_type)
+    {
+        existing.value = value;
+        existing.updated_at = now;
+        return existing.clone();
+    }
+
+    let rule = RiskRule {
+        rule_type,
+        value,
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+    };
+    state.rules.push(rule.clone());
+    state.rules.sort_by_key(|item| item.rule_type);
+    rule
+}
