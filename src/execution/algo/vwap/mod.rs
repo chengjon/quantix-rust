@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Timelike, Utc};
 use rand::Rng;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -17,6 +16,11 @@ use super::{
 };
 use crate::core::Result;
 use crate::execution::adapter::ExecutionAdapter;
+
+mod volume_profile;
+
+#[cfg(test)]
+mod tests;
 
 /// VWAP 算法执行器
 pub struct VwapExecutor {
@@ -37,181 +41,8 @@ impl VwapExecutor {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             slice_plans: Arc::new(RwLock::new(HashMap::new())),
             child_orders: Arc::new(RwLock::new(HashMap::new())),
-            volume_profile: Self::default_volume_profile(),
+            volume_profile: volume_profile::default_volume_profile(),
         }
-    }
-
-    /// 默认成交量分布曲线 (分钟级别)
-    /// 表示每分钟成交量占全天的相对权重
-    fn default_volume_profile() -> Vec<Decimal> {
-        vec![
-            // 09:30 - 09:59 (开盘30分钟，成交量较大)
-            dec!(30),
-            dec!(25),
-            dec!(22),
-            dec!(20),
-            dec!(18),
-            dec!(16),
-            dec!(15),
-            dec!(14),
-            dec!(13),
-            dec!(12),
-            dec!(11),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            // 10:00 - 10:59 (平稳期)
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            dec!(8),
-            // 11:00 - 11:29 (上午后期)
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            dec!(7),
-            // 13:00 - 13:29 (下午开盘)
-            dec!(12),
-            dec!(11),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            dec!(10),
-            // 14:00 - 14:59 (下午中段)
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            dec!(9),
-            // 15:00 - 15:09 (收盘，成交量放大)
-            dec!(15),
-            dec!(18),
-            dec!(20),
-            dec!(22),
-            dec!(25),
-            dec!(28),
-            dec!(30),
-            dec!(32),
-            dec!(35),
-            dec!(40),
-        ]
     }
 
     /// 使用自定义成交量分布
@@ -537,70 +368,5 @@ impl AlgorithmExecutor for VwapExecutor {
             .filter(|(_, ctx)| !ctx.state.is_finished())
             .map(|(id, _)| id.clone())
             .collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_vwap_initialize() {
-        let mut executor = VwapExecutor::new();
-        let params = AlgoParams::vwap("600519.SH".to_string(), "buy".to_string(), 1000, 30);
-
-        let result = executor.initialize(params).await;
-        assert!(result.is_ok());
-
-        let algo_id = result.unwrap();
-        assert!(algo_id.starts_with("VWAP-"));
-    }
-
-    #[test]
-    fn test_vwap_slice_plan() {
-        let executor = VwapExecutor::new();
-        let start = Utc::now();
-        let end = start + Duration::hours(2);
-
-        let params = AlgoParams {
-            algo_type: AlgoType::VWAP,
-            symbol: "600519.SH".to_string(),
-            side: "buy".to_string(),
-            total_quantity: 10000,
-            start_time: start,
-            end_time: end,
-            interval_seconds: Some(300), // 5分钟
-            randomize_timing: false,
-            randomize_quantity: false,
-            ..Default::default()
-        };
-
-        let plan = executor.get_slice_plan(&params).unwrap();
-
-        // 验证总数量匹配
-        let total: i64 = plan.slices.iter().map(|s| s.quantity).sum();
-        assert_eq!(total, 10000);
-
-        // 验证有权重
-        for slice in &plan.slices {
-            assert!(slice.volume_weight.is_some());
-        }
-    }
-
-    #[test]
-    fn test_volume_weight() {
-        let executor = VwapExecutor::new();
-
-        // 开盘时间 (9:35)
-        let time1: DateTime<Utc> = "2026-03-27T01:35:00Z".parse().unwrap(); // UTC 09:35 Beijing
-        let weight1 = executor.get_volume_weight(time1);
-
-        // 中午时间 (10:30 Beijing = 02:30 UTC)
-        let time2: DateTime<Utc> = "2026-03-27T02:30:00Z".parse().unwrap();
-        let weight2 = executor.get_volume_weight(time2);
-
-        // 验证权重为正
-        assert!(weight1 > Decimal::ZERO);
-        assert!(weight2 > Decimal::ZERO);
     }
 }
