@@ -20,7 +20,7 @@ pub(crate) const DOC: &str = include_str!("../../docs/contracts/external-systems
 pub(crate) const CLICKHOUSE_SCHEMA: &str = include_str!("../../src/db/clickhouse/schema.rs");
 pub(crate) const BRIDGE_MODELS: &str = include_str!("../../src/bridge/models.rs");
 pub(crate) const OPENSTOCK_ENVELOPE: &str = include_str!("../../src/sources/openstock_envelope.rs");
-pub(crate) const DATA_MODELS: &str = include_str!("../../src/data/models.rs");
+pub(crate) const DATA_MODELS: &str = include_str!("../../src/data/models/types.rs");
 pub(crate) const IMPORT_STATE_STORE: &str =
     include_str!("../../src/tasks/openstock_import/state.rs");
 
