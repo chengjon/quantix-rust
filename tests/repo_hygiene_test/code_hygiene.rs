@@ -1,9 +1,28 @@
 use super::*;
 
+fn read_production_code_from_dir(dir_path: &str) -> String {
+    let root = repo_root();
+    let dir = root.join(dir_path);
+    let mut combined = String::new();
+    let mut paths = Vec::new();
+    collect_rust_paths(&dir, &mut paths);
+    for p in &paths {
+        let rel = p.strip_prefix(&root).unwrap_or(p).to_string_lossy();
+        // Skip test-only files that lack #[cfg(test)] wrapping (e.g. tests.rs, tests/mod.rs)
+        if rel.contains("/tests/") || rel.ends_with("/tests.rs") {
+            continue;
+        }
+        let contents = fs::read_to_string(p).unwrap_or_else(|_| panic!("expected {rel} to exist"));
+        let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+        combined.push_str(production);
+        combined.push('\n');
+    }
+    combined
+}
+
 #[test]
 fn market_output_renderer_does_not_panic_on_string_writes() {
-    let path = repo_root().join("src/cli/handlers/market_output.rs");
-    let contents = fs::read_to_string(&path).expect("expected market output renderer to exist");
+    let contents = read_production_code_from_dir("src/cli/handlers/market_output");
 
     assert!(
         !contents.contains(".unwrap(") && !contents.contains(".expect("),
@@ -64,9 +83,7 @@ fn concrete_execution_adapters_emit_standard_risk_notices_on_submit() {
 
 #[test]
 fn anomaly_detector_does_not_write_directly_to_stdio() {
-    let path = repo_root().join("src/anomaly/detector.rs");
-    let contents = fs::read_to_string(&path).expect("expected anomaly detector to exist");
-    let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+    let production = read_production_code_from_dir("src/anomaly/detector");
 
     assert!(
         !production.contains("println!(") && !production.contains("eprintln!("),
@@ -113,10 +130,10 @@ fn non_cli_production_modules_do_not_write_directly_to_stdio() {
 
 #[test]
 fn metrics_and_batch_production_paths_do_not_use_panic_prone_shortcuts() {
-    for relative_path in ["src/monitoring/metrics.rs", "src/io/batch.rs"] {
+    for relative_path in ["src/monitoring/metrics.rs", "src/io/batch"] {
         let path = repo_root().join(relative_path);
-        let contents = fs::read_to_string(&path).expect("expected hygiene target to exist");
-        let production = contents.split("#[cfg(test)]").next().unwrap_or(&contents);
+        let production = if path.is_dir() { read_production_code_from_dir(relative_path) }
+            else { let c = fs::read_to_string(&path).unwrap_or_else(|_| panic!("expected {relative_path} to exist")); c.split("#[cfg(test)]").next().unwrap_or(&c).to_string() };
 
         assert!(
             !production.contains(".unwrap(")
