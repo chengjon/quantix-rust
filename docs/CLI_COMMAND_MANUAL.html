@@ -823,11 +823,13 @@ quantix data source add --type tdx --hosts 127.0.0.1,192.168.1.10 --port 7709 --
 <tr><td><code>CLICKHOUSE_URL/USER/PASSWORD</code></td><td>ClickHouse 写入目标（import-* + persist-* 系列）</td></tr>
 <tr><td><code>POSTGRESQL_HOST/PORT/USER/PASSWORD/DATABASE</code></td><td>PostgreSQL 状态表（import-minute-all + import-status）</td></tr>
 <tr><td><code>QUANTIX_OPENSTOCK_MINUTE_APPLY=yes</code></td><td>双保险写入门控（import-minute-* 系列，配合 <code>--apply</code>）</td></tr>
-<tr><td><code>QUANTIX_SHADOW_PERSIST_CONFIRM=yes</code></td><td>Shadow 写入双保险（persist-live，配合 <code>--apply</code>）</td></tr>
-</tbody></table>
-</div><div>
-<h4>功能说明</h4>
-<p>OpenStock 是 quantix 的 canonical 行情数据源（P0.11c 起替代 tdx-api REST 桥接）。本组命令分四类：<b>校验</b>（离线 fixture / 线上响应载荷校验，dry-run）、<b>shadow 持久化</b>（已校验 daily K 线写入 <code>quantix_shadow.openstock_daily_kline_shadow</code>，双保险幂等回滚）、<b>实时拉取</b>（联网只读，覆盖 codes/calendar/index/all_stocks/workdays/klines/minute-klines/minute-share 八类目）、<b>导入</b>（单 code 分钟 K 线/分时写入 ClickHouse，或按 <code>quantix.stock_info</code> 全量调度，状态记录在 <code>quantix.import_state</code>）。</p>
+    <tr><td><code>QUANTIX_SHADOW_PERSIST_CONFIRM=yes</code></td><td>Shadow 写入双保险（persist-live，配合 <code>--apply</code>）</td></tr>
+    </tbody></table>
+    <p style='margin-top:10px;font-size:13px;color:var(--muted)'>💡 <b>零配置启动</b>：项目根目录 <code>.env</code> 文件中已预置 <code>OPENSTOCK_BASE_URL</code> 和 <code>OPENSTOCK_API_KEY</code>，<code>dotenv</code> 自动加载——无需每次手动 export。</p>
+    </div><div>
+    <h4>功能说明</h4>
+    <p>OpenStock 是 quantix 的 canonical 行情数据源（P0.11c 起替代 tdx-api REST 桥接）。本组命令分四类：<b>校验</b>（离线 fixture / 线上响应载荷校验，dry-run）、<b>shadow 持久化</b>（已校验 daily K 线写入 <code>quantix_shadow.openstock_daily_kline_shadow</code>，双保险幂等回滚）、<b>实时拉取</b>（联网只读，覆盖 codes/calendar/index/all_stocks/workdays/klines/minute-klines/minute-share 八类目）、<b>导入</b>（单 code 分钟 K 线/分时写入 ClickHouse，或按 <code>quantix.stock_info</code> 全量调度，状态记录在 <code>quantix.import_state</code>）。</p>
+    <p><b>自动化路由</b>（2026-07-14 已全线验证）：除本组显式 <code>data openstock fetch-*</code> 命令外，<code>quantix market</code>（sector/concept/north/sentiment/leader/overview）在检测到 <code>OPENSTOCK_BASE_URL</code> + <code>OPENSTOCK_API_KEY</code> 后自动切换 <code>OpenStockMarketReader</code>；<code>quantix analyze indicators</code> / <code>analyze screener</code> 通过 <code>get_kline_for_analysis()</code> 优先走 OpenStock <code>/data/bars</code>，无结果时自动 fallback ClickHouse <code>day_kline</code>。</p>
 <p>所有 import-* 命令默认 dry-run，需要 <code>--apply</code> 配合对应环境变量才会真正写入。Schema DDL 见 <code>db/schema/quantix_openstock_import_init.sql</code>。</p>
 <p><b>OpenStock 能力边界</b>：quantix 仅消费 OpenStock 当前运行时暴露的子集——<code>STOCK_CODES</code>/<code>ALL_STOCKS</code>（代码表）、<code>TRADE_DATES</code>/<code>WORKDAYS</code>（交易日历）、<code>INDEX_KLINES</code>（指数 K 线）、<code>KLINES</code>/<code>ADJUSTED_KLINES</code>（日/周/月 K 线 + 复权）、<code>MINUTE_DATA</code>（分钟 K 线 + 分时）、<code>MAC_KLINES</code>（带 <code>float_shares</code> 流通股字段的 MAC 协议 K 线，用于 minute_share）。OpenStock 注册的 87 类别中其余类别（F10、板块排名、异动检测、龙虎榜、ST 名单等）暂未在 quantix 命令行暴露。运行时真相以 OpenStock 自身的 <code>GET /sources</code> 为准；参见 <code>/opt/claude/openstock/docs/DATA_CAPABILITY_SCOPE.md</code>。</p>
 </div></div>
@@ -1088,21 +1090,21 @@ QUANTIX_SHADOW_PERSIST_CONFIRM=yes \
 <p>实时拉取 TRADE_DATES 类目（联网，只读，不写库）</p>
 <div class='subgrid'>
 <div>
-<h4>用法</h4>
-<pre class='shell'>quantix data openstock fetch-calendar (--year &lt;YEAR&gt; | --start &lt;START&gt; --end &lt;END&gt;)</pre>
-<h4>参数</h4>
-<table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
-<tr><td><code>--year</code></td><td>YEAR</td><td>年份（如 2026），展开为 <code>&lt;year&gt;-01-01..&lt;year&gt;-12-31</code></td></tr>
-<tr><td><code>--start</code></td><td>START</td><td>起始日期 (YYYY-MM-DD)，与 <code>--end</code> 同时使用</td></tr>
-<tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD)，与 <code>--start</code> 同时使用</td></tr>
-<tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
-</tbody></table>
-</div><div>
-<h4>使用示例</h4>
-<pre class='shell'>quantix data openstock fetch-calendar --year 2026
-quantix data openstock fetch-calendar --start 2026-01-01 --end 2026-06-30</pre>
-<h4>功能说明</h4>
-<p><code>--year</code> 与 <code>--start/--end</code> 二选一（mutually exclusive group）。runtime 实际接受 <code>start_date</code>/<code>end_date</code>，忽略 <code>year</code>，CLI 自动展开。</p>
+    <h4>用法</h4>
+    <pre class='shell'>quantix data openstock fetch-calendar (--year &lt;YEAR&gt; | --start &lt;START&gt; --end &lt;END&gt;)</pre>
+    <h4>参数</h4>
+    <table class='table'><thead><tr><th>名称</th><th>值</th><th>说明</th></tr></thead><tbody>
+    <tr><td><code>--year</code></td><td>YEAR</td><td>年份（如 2026），展开为 <code>&lt;year&gt;-01-01..&lt;year&gt;-12-31</code>；与 <code>--start/--end</code> 互斥（<code>conflicts_with_all</code>）</td></tr>
+    <tr><td><code>--start</code></td><td>START</td><td>起始日期 (YYYY-MM-DD)，<b>必须</b>与 <code>--end</code> 同时使用（<code>requires = "end"</code>）；与 <code>--year</code> 互斥</td></tr>
+    <tr><td><code>--end</code></td><td>END</td><td>结束日期 (YYYY-MM-DD)，<b>必须</b>与 <code>--start</code> 同时使用（<code>requires = "start"</code>）；与 <code>--year</code> 互斥</td></tr>
+    <tr><td><code>-h, --help</code></td><td>-</td><td>Print help</td></tr>
+    </tbody></table>
+    </div><div>
+    <h4>使用示例</h4>
+    <pre class='shell'>quantix data openstock fetch-calendar --year 2026
+    quantix data openstock fetch-calendar --start 2026-06-01 --end 2026-07-10</pre>
+    <h4>功能说明</h4>
+    <p><code>--year</code> 与 <code>--start/--end</code> 二选一（<code>conflicts_with_all</code> 实现互斥）。<code>--start</code> 与 <code>--end</code> 互相依赖（<code>requires</code>），必须成对出现。runtime 实际接受 <code>start_date</code>/<code>end_date</code>（YYYY-MM-DD），CLI 自动展开 <code>--year</code> 为全年范围。修复于 2026-07-14（commit <code>b139cdd</code>），此前 <code>group = "range"</code> 导致三者全部互斥，<code>--start --end</code> 组合被错误拒绝。</p>
 </div></div>
 <div class='chips'><span class='chip'>联网只读</span><span class='chip'>互斥分组</span><span class='chip'>叶子命令</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -2333,8 +2335,8 @@ quantix task start</pre>
 <h4>使用示例</h4>
 <pre class='shell'>quantix analyze indicators --code 600519 --indicators ma5,ma20,rsi14
 quantix analyze screener run --codes 600519,000858 --preset close_above_ma:period=20</pre>
-<h4>功能说明</h4>
-<p>分析命令分组入口，当前包含技术指标计算、旧版回测报告兼容读取、K 线形态识别和选股器。它本身不直接执行业务逻辑，但几个下级命令对 ClickHouse、回测本地报告目录和 TDX 文件有不同依赖；其中 <code>analyze backtest</code> 只是兼容别名，不会重新跑回测。</p>
+    <h4>功能说明</h4>
+    <p>分析命令分组入口，当前包含技术指标计算、旧版回测报告兼容读取、K 线形态识别和选股器。<code>indicators</code> 与 <code>screener</code> 通过 <code>get_kline_for_analysis()</code> 统一获取 K 线：优先走 OpenStock <code>/data/bars</code>（需 <code>OPENSTOCK_BASE_URL</code> + <code>OPENSTOCK_API_KEY</code>），无结果或不可用时自动 fallback 到 ClickHouse <code>day_kline</code>（1,150 万行历史数据）；<code>.env</code> 已预置 OpenStock 凭据，<code>dotenv</code> 自动加载。其中 <code>analyze backtest</code> 只是兼容别名，不会重新跑回测。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-analyze-indicators'><code>quantix analyze indicators</code></a>：计算技术指标</li>
@@ -2363,7 +2365,7 @@ quantix analyze screener run --codes 600519,000858 --preset close_above_ma:perio
 <h4>使用示例</h4>
 <pre class='shell'>quantix analyze indicators --code 600519 --indicators ma5,ma20,rsi14</pre>
 <h4>功能说明</h4>
-<p>从 ClickHouse 读取指定股票最近最多 1000 条日线数据，使用 Polars 批量计算逗号分隔的指标列表，并按“日期 / 收盘价 / 指标 / 值”格式打印前 20 行。当前实现固定使用 <code>1d</code> 周期，不支持在命令行切换周期；无数据时输出 <code>未找到数据</code>，未知指标名称是否有结果则取决于底层计算器返回值。</p>
+<p>通过 <code>get_kline_for_analysis()</code> 获取指定股票最近最多 1000 条日线数据（优先 OpenStock <code>/data/bars</code>，无结果时 fallback ClickHouse <code>day_kline</code>），使用 Polars 批量计算逗号分隔的指标列表，并按"日期 / 收盘价 / 指标 / 值"格式打印前 20 行。当前实现固定使用 <code>1d</code> 周期，不支持在命令行切换周期；无数据时输出 <code>未找到数据</code>，未知指标名称是否有结果则取决于底层计算器返回值。<code>.env</code> 已预置 OpenStock 凭据，<code>dotenv</code> 自动加载。已验证：<code>--code 000001 --indicators ma,macd,rsi</code> 通过 OpenStock 正常返回数据。</p>
 </div></div>
 <div class='chips'><span class='chip dep'>外部依赖</span><span class='chip'>叶子命令</span><span class='chip'>3 个选项</span></div>
 <div class='toplink'><a href='#top'>返回目录</a></div></section>
@@ -4002,7 +4004,7 @@ quantix watchlist history --limit 50</pre>
 <pre class='shell'>quantix market overview
 quantix market strength-stocks --metric profit --top 15</pre>
 <h4>功能说明</h4>
-<p>市场分析入口，统一承载板块排名、北向资金、市场情绪、龙头股、综合概览，以及依赖行业映射的强弱板块分析。大部分子命令读取 ClickHouse；<code>foundation</code>、<code>strength</code>、<code>strength-stocks</code> 还额外依赖运行时 <code>risk_path</code> 行业分类表和全市场 A 股快照抓取。</p>
+<p>市场分析入口，统一承载板块排名、北向资金、市场情绪、龙头股、综合概览，以及依赖行业映射的强弱板块分析。<b>数据源路由</b>：<code>sector</code>/<code>concept</code>/<code>north</code>/<code>sentiment</code>/<code>leader</code>/<code>overview</code> 在检测到 <code>OPENSTOCK_BASE_URL</code> + <code>OPENSTOCK_API_KEY</code> 后自动切换 <code>OpenStockMarketReader</code>（通过 <code>SECTOR_QUOTES</code>/<code>NORTHBOUND_FLOW</code>/<code>UPDOWN_DISTRIBUTION</code> 等 category），不可用时 fallback ClickHouse；<code>.env</code> 已预置凭据。<code>foundation</code>、<code>strength</code>、<code>strength-stocks</code> 额外依赖运行时 <code>risk_path</code> 行业分类表和全市场 A 股快照抓取。</p>
 </div></div>
 <h4 style='margin-top:18px'>下级命令</h4><ul class='children'>
 <li><a href='#cmd-market-foundation'><code>quantix market foundation</code></a>：全市场 A 股与行业分类基础摘要</li>
