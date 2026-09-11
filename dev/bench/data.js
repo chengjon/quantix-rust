@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789025834464,
+  "lastUpdate": 1789112142968,
   "repoUrl": "https://github.com/chengjon/quantix-rust",
   "entries": {
     "Benchmark": [
@@ -21111,6 +21111,238 @@ window.BENCHMARK_DATA = {
           {
             "name": "validation/validate_klines/10000",
             "value": 1131415.7933918405,
+            "unit": "ns"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "committer": {
+            "name": "JohnC",
+            "username": "chengjon",
+            "email": "ninjas@sina.com"
+          },
+          "id": "24615103a0fb6a5843dbf9c7202d4af4d97a017d",
+          "message": "refactor(execution): extract AlgoType enum from execution/algo/mod.rs\n\nMove the AlgoType enum + Display impl + FromStr impl (37 lines of\nbusiness logic) out of mod.rs into new algo_type.rs.\n\nmod.rs is reduced from 60 to 26 lines and now only contains:\n- mod declarations (algo_type, context, executor, state, twap, vwap)\n- pub use re-exports for sibling symbols\n\nExternal callers (cli::handlers::algo) see no change: AlgoType is still\nre-exported via `pub use algo_type::AlgoType`.\n\nQuality gates:\n- cargo fmt --check: pass\n- cargo clippy --tests -- -D warnings: pass\n- cargo build --release: pass (12m09s)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-07-12T01:09:13Z",
+          "url": "https://github.com/chengjon/quantix-rust/commit/24615103a0fb6a5843dbf9c7202d4af4d97a017d"
+        },
+        "date": 1789112141624,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "batch/process_in_batches/10000",
+            "value": 374256.565016717,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/100000",
+            "value": 3490016.024558251,
+            "unit": "ns"
+          },
+          {
+            "name": "batch/process_in_batches/1000000",
+            "value": 41010350.215547614,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/1000",
+            "value": 1330113.7246463078,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/10000",
+            "value": 9616349.180448411,
+            "unit": "ns"
+          },
+          {
+            "name": "export/csv/100000",
+            "value": 93578958.00041667,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/1000",
+            "value": 1484081.8665719405,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/10000",
+            "value": 10888997.467917833,
+            "unit": "ns"
+          },
+          {
+            "name": "export/json/100000",
+            "value": 108429915.62170634,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/100",
+            "value": 14808.227502372047,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/1000",
+            "value": 156922.60541318648,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_12/10000",
+            "value": 1645147.868969117,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/100",
+            "value": 14815.993988345757,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/1000",
+            "value": 156685.05407944045,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/ema_26/10000",
+            "value": 1657867.3868911355,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/100",
+            "value": 38509.78272031476,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/1000",
+            "value": 392139.70197136677,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/macd/10000",
+            "value": 4010104.116153844,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/100",
+            "value": 26820.412977302818,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/1000",
+            "value": 350269.6480962096,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/rsi_14/10000",
+            "value": 3707810.770758016,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/100",
+            "value": 38838.97651639768,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/1000",
+            "value": 640969.0638504562,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_20/10000",
+            "value": 6682001.190666664,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/100",
+            "value": 6234.913823189021,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/1000",
+            "value": 72001.10994117643,
+            "unit": "ns"
+          },
+          {
+            "name": "indicators/sma_5/10000",
+            "value": 1218812.8368032065,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/100",
+            "value": 7666.55983698258,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/1000",
+            "value": 93137.94932268234,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/max_drawdown/500",
+            "value": 46441.30626004689,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/100",
+            "value": 16841.004409060766,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/1000",
+            "value": 146752.1771187423,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/sharpe_ratio/500",
+            "value": 74809.71321392436,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/100",
+            "value": 51.818111464311414,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/1000",
+            "value": 53.30780351301779,
+            "unit": "ns"
+          },
+          {
+            "name": "performance/total_return/500",
+            "value": 73.52405067568469,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/100",
+            "value": 1222.6910330076564,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/1000",
+            "value": 12447.526388668479,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/quality_report/10000",
+            "value": 124256.67690954468,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/100",
+            "value": 9144.40444575349,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/1000",
+            "value": 92814.71844255703,
+            "unit": "ns"
+          },
+          {
+            "name": "validation/validate_klines/10000",
+            "value": 935289.4396954487,
             "unit": "ns"
           }
         ]
