@@ -242,10 +242,53 @@ mod tests {
         let klines: Vec<_> = (0..12)
             .map(|i| create_test_kline(i, if i >= 6 { 12.0 } else { 10.0 }))
             .collect();
-        for k in &klines {
-            let _ = s.signal_at(k);
-        }
+        let signals: Vec<Signal> = klines.iter().map(|k| s.signal_at(k)).collect();
         // 有状态推进：末段价格跳变后，history 长度=12
+        assert_eq!(s.price_history_len(), 12);
+        // 与异步委托测试同一数据集：首 Buy 位置一致（同步/异步两条路径互补钉住）
+        let i_buy = signals.iter().position(|sg| matches!(sg, Signal::Buy));
+        assert_eq!(i_buy, Some(6));
+        assert_eq!(
+            signals
+                .iter()
+                .filter(|sg| matches!(sg, Signal::Buy))
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn on_bar_delegates_to_signal_at_and_drives_buy() {
+        use crate::strategy::test_utils::create_test_kline;
+        let mut s = MACrossStrategy::new(2, 3);
+        let mut signals = Vec::new();
+        for i in 0..12u32 {
+            let price = if i >= 6 { 12.0 } else { 10.0 };
+            let kline = create_test_kline(i, price);
+            signals.push(s.on_bar(&kline).await.unwrap());
+        }
+        // 手算（(2,3)，prices=[10×6, 12×6]）：i=6 时 prev_short=(10+10)/2=10
+        // ≤ prev_long=(10+10+10)/3=10，且 short=(10+12)/2=11 > long=(10+10+12)/3≈10.67
+        // → 金叉；Buy 后 position=true 且后续无死叉 → 全序列恰 1 个 Buy @ i=6，其余全 Hold
+        assert_eq!(
+            signals
+                .iter()
+                .filter(|sg| matches!(sg, Signal::Buy))
+                .count(),
+            1,
+            "恰 1 个 Buy: {signals:?}"
+        );
+        assert!(
+            signals
+                .iter()
+                .all(|sg| matches!(sg, Signal::Buy | Signal::Hold)),
+            "不应出现 Sell（无死叉输入）: {signals:?}"
+        );
+        let i_buy = signals
+            .iter()
+            .position(|sg| matches!(sg, Signal::Buy))
+            .unwrap_or_else(|| panic!("应有 Buy 信号: {signals:?}"));
+        assert_eq!(i_buy, 6, "首 Buy 应钉在 i=6（金叉首个可用 bar）");
         assert_eq!(s.price_history_len(), 12);
     }
 }
