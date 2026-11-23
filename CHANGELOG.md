@@ -5,6 +5,18 @@ All notable changes to this project are documented here.
 > 状态源说明：本文记录历史变更，不作为功能状态注册表。
 > 当前功能状态、已设计/待实现项、证据和边界，以根目录 [`FUNCTION_TREE.md`](FUNCTION_TREE.md) 的状态注册表行为准。
 
+## 2026-11-24
+
+### Added
+- **fin-primitives 4.0.1 量化库集成（src/fin 门面域 + CLI 三入口 + 三链金丝雀）** (`Cargo.toml`, `Cargo.lock`, `src/lib.rs`, `src/core/error.rs`, `src/fin/mod.rs`, `src/fin/adapter.rs`, `src/fin/indicators.rs`, `src/fin/portfolio.rs`, `src/fin/risk.rs`, `src/fin/backtest.rs`, `src/fin/events.rs`, `src/fin/error_bridge.rs`, `src/strategy/ma_cross.rs`, `src/cli/command_types.rs`, `src/cli/commands/analysis.rs`, `src/cli/commands/backtest.rs`, `src/cli/handlers/mod.rs`, `src/cli/handlers/analyze_handler.rs`, `src/cli/handlers/backtest_handler.rs`, `src/cli/handlers/app_shell/misc.rs`, `src/cli/tests/analyze.rs`, `src/cli/tests/backtest.rs`, `tests/fin_canary.rs`, `FUNCTION_TREE.md`, `docs/superpowers/specs/2026-11-23-fin-primitives-migration-design.md`, `docs/superpowers/plans/2026-11-23-fin-primitives-migration.md`)
+  - cargo 依赖：`fin-primitives =4.0.1` 精确锁版，`default-features = false`，仅启用 `serde, indicators, portfolio, risk, backtest, ml` 白名单 features
+  - `src/fin/` 七模块门面域：`adapter`（Kline→BarInput/OhlcvBar 转换，`to_i64` 整数守卫防截断）、`indicators`（sma/ema/rsi/atr/bollinger/stochastic 六门面 + `MAX_FIN_INDICATOR_PERIOD=500` 守卫）、`portfolio`（PositionLedger 回放，门面层拒绝超额卖出与零/负数量——A股无做空，已实现盈亏与 equity 双口径注记）、`risk`（`drawdown_report`，0-100 百分比口径，零除守卫）、`backtest`（FinStrategy 单次回测桥 + `walk_forward_ma_cross` 优化器，`WalkForwardParams` 收敛签名）、`events`（事件研究 CAR，ln(1.1) 精确哨兵口径，显著性 n<2→0.0 / 空序列 NaN 门面守卫）、`error_bridge`（唯一越界 `QuantixError::Fin(#[from])`）；fin 类型不出 `src/fin` 公共签名，嵌套类型经 quantix 化镜像（`FinBacktestSummary`/`WalkForwardReport` 等）收敛
+  - CLI 三入口（默认 native 引擎，A股 T+1 native 双轨 `analysis/portfolio.rs`、`analysis/backtest.rs` 零改动）：`analyze indicators --engine {native,fin}`（`IndicatorEngine` ValueEnum，解析测试钉默认值）、`analyze drawdown`（`--limit` 默认 250，全量升序取回+尾段窗口切片，未复权注记，`limit==0` 守卫）、`backtest walkforward`（MA 短/长参数网格 walk-forward，train/test/step 窗口，`--min-stability` 默认 0.5 且 is_robust 判定阈值回显，`best_params` 空时显式「网格退化」标注）
+  - `ma_cross.rs` 抽取 sync `signal_at(&Kline) -> Signal`（与 `on_bar` 程序化行等价验证），fin 回测桥直驱，无需 async 预驱动
+  - 集成金丝雀 `tests/fin_canary.rs` 三链精确哨兵：SMA(3)@1..=10 末值=9、全涨 RSI(14)=100、[100,110,99] worst=10%、回测 final_equity=9700/trade_count=2——上游锁版解除升级时的语义漂移检测钉（窗口均值/涨跌分解/0-100 口径/fill-at-close 计价）
+  - `FUNCTION_TREE.md` 登记 src/fin 门面域 + 3 CLI 入口节点；规格升版 v2.2 登记 VaR/attribution/指标数（6 vs 10-20）缩减与 4 处文本滞后修正（用户确认「登记缩减，合并放行」），计划 v1.3 收尾注记
+  - 验证：`cargo test` 全量 1582 passed / 0 failed（lib 867 passed + 2 ignored、fin:: 30、canary 3）、`cargo clippy --workspace -- -D warnings` 77 pre-existing 零新增（src/fin 与全部改动文件 0 命中）、`cargo build --release` 成功；26 files +3040/−213，24 commits 全部 `type(scope): subject` conventional 格式
+
 ## 2026-07-02
 
 ### Removed

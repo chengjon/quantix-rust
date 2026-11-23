@@ -182,6 +182,12 @@ scripts/dev/guard_target_size.sh            # 仅检查，超阈值 exit 1
   - `factor score --input CSV` - 在最新因子日期上按多个因子等权评分并导出 table/csv/json/parquet
   - `factor evaluate --input CSV` - 计算 IC/IR、相关性等评估结果并导出 table/csv/json/parquet
   - 能力边界和最新状态以 [FUNCTION_TREE.md](FUNCTION_TREE.md) 的 `factor/` 与 `quantix factor` 注册行为准
+- **fin-primitives 量化库集成**已完成（2026-11-24，详见 [CHANGELOG.md](CHANGELOG.md)）：
+  - `src/fin/` 七模块门面域（adapter/indicators/portfolio/risk/backtest/events/error_bridge）；fin 类型不出 `src/fin`，唯一越界为 `QuantixError::Fin` 错误载荷；上游库精确锁版 `=4.0.1`
+  - `analyze indicators --engine {native,fin}` - 双引擎技术指标（默认 native，行为与历史版本一致）
+  - `analyze drawdown` - 最大回撤报告（fin DrawdownTracker，0-100 百分比口径，最近 N 根尾段窗口，未复权注记）
+  - `backtest walkforward` - MA 参数网格 walk-forward 优化（train/test/step 窗口、`--min-stability` 稳定性判定、网格退化显式标注）
+  - A股 T+1 native 双轨（`analysis/portfolio.rs`、`analysis/backtest.rs`）零改动
 - 当前明确仍未完成的是真实 `live` broker execution，以及 `Wind` / `Choice` bridge 支持。
 
 ## 功能特性
@@ -867,6 +873,7 @@ quantix-rust/
 │   ├── core/            # 核心模块 (配置、错误、交易日历)
 │   ├── data/            # 数据模型
 │   ├── db/              # 数据库客户端 (PostgreSQL, TDengine, ClickHouse)
+│   ├── fin/             # fin-primitives 量化库门面 (指标/组合/风险/回测/事件)
 │   ├── io/              # 数据导入导出 (Phase 17)
 │   ├── monitoring/      # 实时监控系统 (Phase 16)
 │   ├── sources/         # 数据源 (TDX, AkShare, OpenStock, 行情采集, K线聚合)
@@ -1073,6 +1080,27 @@ quantix factor evaluate \
   --format json
 ```
 
+### 量化分析 CLI（fin 引擎）
+
+```bash
+# 技术指标：默认 native 引擎；--engine fin 走 fin-primitives 门面
+quantix analyze indicators --code 600000 --indicators sma,rsi
+quantix analyze indicators --code 600000 --indicators sma,rsi --engine fin
+
+# 最大回撤报告（默认最近 250 根日线尾段窗口，未复权）
+quantix analyze drawdown --code 600000
+quantix analyze drawdown --code 600000 --limit 500
+
+# MA 参数网格 walk-forward 优化（默认网格/窗口为快速探索档；严肃研究建议加大 train/test 窗口）
+quantix backtest walkforward --code 600000
+quantix backtest walkforward --code 600000 --start 20240101 --end 20241231 \
+  --min-stability 0.6
+```
+
+- 双引擎指标命名不同：native 输出 `ma5`/`rsi14`（显式周期后缀），fin 输出 `sma`/`rsi`（门面缺省周期）。
+- walkforward 成本仅建模 `--commission-rate`；输出中 sharpe/return/drawdown 均为小数口径。
+- 能力边界与已知注记以 [FUNCTION_TREE.md](FUNCTION_TREE.md) 的 `fin/` 注册行为准。
+
 ### 回测示例
 
 ```rust
@@ -1134,6 +1162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 | 序列化 | serde, serde_json |
 | 时间处理 | chrono |
 | 数值计算 | rust_decimal |
+| 量化分析库 | fin-primitives 4.0.1（精确锁版门面：指标/组合/风险/回测/事件） |
 | HTTP 客户端 | reqwest |
 | WebSocket | tokio-tungstenite |
 | 日志 | tracing, tracing-subscriber |
