@@ -7,3 +7,4 @@
 pub mod adapter;
 pub mod error_bridge;
 pub mod indicators;
+pub mod risk;
