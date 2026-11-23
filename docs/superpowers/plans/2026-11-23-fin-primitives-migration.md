@@ -30,7 +30,7 @@
 | `PositionLedger` | `new(initial_cash)`；`apply_fill(Fill)` by value -> `Result<(),FinError>`；`realized_pnl_total()`；`equity(&HashMap<String,Price>)` / `net_liquidation_value(&HashMap)` -> `Result<Decimal,FinError>` |
 | `Fill` | `Fill::with_commission(symbol, side, quantity, price, timestamp, commission)`；`Side::{Bid,Ask}`（quantix Buy→Bid、Sell→Ask） |
 | 回测 | `BacktestConfig::new(initial_capital, commission_rate) -> Result`；`Backtester::new(config).run(&[OhlcvBar], &mut dyn Strategy) -> Result<BacktestResult,FinError>`；fin `Signal::new(dir,qty)` / `Signal::hold()`；成交价=当 bar close，commission=close×qty×rate，Hold/零数量跳过 |
-| Walk-forward | `ParamRange{name,min:f64,max:f64,step:f64}`；`WalkForwardConfig{train_window,test_window,step,param_space}`；`WalkForwardOptimizer::new(cfg, bt_cfg).run(&bars, &mut make_strategy) -> Result<WalkForwardResult,FinError>`，`make_strategy: FnMut(&[OhlcvBar], &HashMap<String,f64>) -> Box<dyn Strategy>`（同步闭包） |
+| Walk-forward | `ParamRange{name,min:f64,max:f64,step:f64}`；`WalkForwardConfig{train_window,test_window,step,param_space}`；`WalkForwardOptimizer::new(cfg, bt_cfg).run(&bars, &mut make_strategy) -> Result<WalkForwardResult,FinError>`，`make_strategy: FnMut(&[OhlcvBar], &HashMap<String,f64>) -> Box<dyn Strategy>`（同步闭包）；`WalkForwardResult::is_robust(min_stability: f64) -> bool`（walk_forward.rs:214，需阈值参数） |
 | events | `MarketEvent{event_id,event_date:u64 unix秒,event_type,description}`；`EventWindow{pre_days,post_days: i32}` 字面量构造；`EventStudy::compute(&event,&[(u64,f64)],&[(u64,f64)],window) -> EventResult`；`EventStudy.significance(&[EventResult]) -> f64` |
 | quantix 侧 | `Kline{code:String,date:NaiveDate,open/high/low/close:Decimal,volume:i64,amount:Option<Decimal>,adjust_type:AdjustType}`；`Signal{Buy,Sell,Hold}`（src/core/signal.rs）；`MACrossStrategy::new(short, long)`（src/strategy/ma_cross.rs）；`get_kline_for_analysis(&str, Option<NaiveDate>, Option<NaiveDate>, Option<usize>)`（src/cli/handlers/shared_support.rs:29） |
 
@@ -738,7 +738,7 @@ git commit -m "feat(fin): PositionLedger research-side facade"
 
 **前置纪律：** 这是本计划第一处修改现有符号。先跑 impact analysis：
 - GitNexus MCP 可用：`gitnexus_impact({target: "MACrossStrategy", direction: "upstream"})`，向用户报告直接调用方与风险级别（HIGH/CRITICAL 需用户确认再继续）。
-- MCP 不可用：`grep -rn "MACrossStrategy" src/ | grep -v "strategy/ma_cross.rs"` 列出调用方（预期仅 `src/cli/handlers/backtest_handler.rs` 与测试），记录 "GitNexus backfill required"。
+- MCP 不可用：`grep -rn "MACrossStrategy" src/ --include="*.rs" -l` 实测调用方。**2026-11-23 实测基线（5 处，以执行时重测为准，不得预设范围）**：`src/strategy/runtime.rs`、`src/strategy/mod.rs`、`src/cli/handlers/backtest_handler.rs`、`src/cli/handlers/strategy_handler/catalog.rs`、`src/strategy/ma_cross.rs`（自身+测试）。逐个确认行为不受提取影响后再动手，记录 "GitNexus backfill required"。
 
 **Files:**
 - Modify: `src/strategy/ma_cross.rs:67-117`（impl Strategy 块）
@@ -1088,6 +1088,48 @@ mod tests {
         assert!(!out.result.periods.is_empty(), "至少应切出一个窗口");
         // stability ∈ [0,1]：OOS>0 占比
         assert!(out.result.stability_score >= 0.0 && out.result.stability_score <= 1.0);
+        // is_robust 需阈值参数（walk_forward.rs:214）
+        assert!(matches!(
+            out.result.is_robust(0.5),
+            true | false
+        ));
+    }
+
+    /// 双引擎一致性（spec §9.4 v2 口径）：signal_at 信号序列的 Buy/Sell 总数
+    /// 应与 fin 引擎 trade_count 对齐（零费足额资金下 apply_fill 全部成功）；
+    /// 成交结果不要求相等（费用/撮合模型不同）。
+    #[test]
+    fn bridge_signal_parity_with_engine_trades() {
+        let mut closes: Vec<i64> = vec![10; 4];
+        closes.extend(vec![12; 3]);
+        closes.extend(vec![9; 3]);
+        let klines: Vec<Kline> = closes
+            .iter()
+            .enumerate()
+            .map(|(i, c)| kline_at((i + 1) as u32, *c))
+            .collect();
+        let mut strategy = MACrossStrategy::new(2, 3);
+        let cfg = FinStrategyConfig {
+            position_size: Decimal::from(100),
+        };
+        let signals: Vec<Signal> = klines
+            .iter()
+            .map(|k| map_signal(strategy.signal_at(k), &cfg))
+            .collect();
+        let buy_sell = signals
+            .iter()
+            .filter(|s| s.direction != SignalDirection::Hold)
+            .count();
+        let out = run_fin_backtest(
+            &klines,
+            2,
+            3,
+            Decimal::from(10000),
+            Decimal::ZERO,
+            Decimal::from(100),
+        )
+        .unwrap();
+        assert_eq!(out.result.trade_count as usize, buy_sell);
     }
 }
 ```
@@ -1099,7 +1141,7 @@ mod tests {
 - [ ] **Step 3: 跑测试**
 
 Run: `cargo test --lib fin::backtest 2>&1 | tail -8`
-Expected: 2 passed。
+Expected: 3 passed（单次回测、walk-forward、信号一致性）。
 
 - [ ] **Step 4: Commit**
 
@@ -1134,9 +1176,10 @@ use std::collections::HashMap;
 
 use chrono::NaiveDate;
 use fin_primitives::events::{EventStudy, EventWindow, MarketEvent};
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::core::Result;
+use crate::core::{QuantixError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventSpec {
@@ -1157,22 +1200,31 @@ pub struct EventStudyOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventBatchOutput {
     pub studies: Vec<EventStudyOutput>,
-    /// fin significance 聚合 t 类统计量（NaN = 事件过少）
+    /// fin EventStudy::significance 的 t 类统计量（NaN = 事件过少）
     pub significance: f64,
     pub skipped: usize,
 }
 
 /// Kline 收盘序列 → fin 研究口径 f64 序列（date → UTC unix 秒）。
-pub fn close_series(klines: &[crate::data::models::Kline]) -> Vec<(u64, f64)> {
+pub fn close_series(klines: &[crate::data::models::Kline]) -> Result<Vec<(u64, f64)>> {
     klines
         .iter()
         .map(|k| {
+            // `NaiveDate::and_hms_opt` 返回 Option<NaiveDateTime>，先 ok_or 再 .and_utc()
             let ts = k
                 .date
                 .and_hms_opt(0, 0, 0)
+                .ok_or_else(|| QuantixError::DataParse(format!("无效日期: {}", k.date)))?
                 .and_utc()
                 .timestamp();
-            (ts as u64, k.close.to_f64().unwrap_or(0.0))
+            let close = k
+                .close
+                .to_f64()
+                .ok_or_else(|| QuantixError::DataParse(format!(
+                    "close 转 f64 失败: {}",
+                    k.close
+                )))?;
+            Ok((ts as u64, close))
         })
         .collect()
 }
@@ -1186,15 +1238,22 @@ pub fn run_event_studies(
     post_days: i32,
 ) -> Result<EventBatchOutput> {
     let mut studies = Vec::new();
+    let mut results: Vec<fin_primitives::events::EventResult> = Vec::new();
     let mut skipped = 0usize;
     for spec in specs {
         let Some(series) = series_by_code.get(&spec.code) else {
             skipped += 1;
             continue;
         };
+        let event_date = spec
+            .date
+            .and_hms_opt(0, 0, 0)
+            .ok_or_else(|| QuantixError::DataParse(format!("无效日期: {}", spec.date)))?
+            .and_utc()
+            .timestamp() as u64;
         let event = MarketEvent {
             event_id: format!("{}:{}", spec.code, spec.date.format("%Y-%m-%d")),
-            event_date: spec.date.and_hms_opt(0, 0, 0).and_utc().timestamp() as u64,
+            event_date,
             event_type: spec.event_type.clone(),
             description: spec.description.clone(),
         };
@@ -1207,20 +1266,20 @@ pub fn run_event_studies(
                 post_days,
             },
         );
+        // 保留 fin EventResult 供真实 significance 统计（类型不出门面）
         studies.push(EventStudyOutput {
             car_pre: result.car_pre,
             car_post: result.car_post,
             peak_day: result.peak_day,
             trough_day: result.trough_day,
         });
+        results.push(result);
     }
-    // significance 需要 fin EventResult 切片——为不外泄 fin 类型，在门面内重建
-    // 是冗余的；改为对已算出的 car_post 做均值（fin significance 语义见上游，
-    // 批量口径：非 NaN car_post 均值的研究侧简化，注释明示）。
-    let significance = if studies.is_empty() {
+    // 真实调用 fin EventStudy::significance（t 类统计量，上游语义）；事件集为空 → NaN
+    let significance = if results.is_empty() {
         f64::NAN
     } else {
-        studies.iter().map(|s| s.car_post).sum::<f64>() / studies.len() as f64
+        EventStudy::significance(&results)
     };
     Ok(EventBatchOutput {
         studies,
@@ -1258,7 +1317,7 @@ mod tests {
             .map(|d| kline(d, 10 + d as i64))
             .collect();
         let mut series = HashMap::new();
-        series.insert("600000".to_string(), close_series(&klines));
+        series.insert("600000".to_string(), close_series(&klines).unwrap());
         let specs = vec![
             EventSpec {
                 code: "600000".into(),
@@ -1363,11 +1422,13 @@ Indicators 变体改为：
 `src/cli/handlers/analyze_handler.rs` 追加：
 
 ```rust
-/// fin 引擎指标查询：与 native 输出同款四列表格（日期/收盘价/指标/值）。
+/// fin 引擎指标查询：版式与 native `calculate_indicators` 完全一致
+/// （💹 头部三行 + 表头 + 每根 Kline 一行日期/收盘价 + 每指标一行且前两列留空）。
 pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: String) -> Result<()> {
     let klines = get_kline_for_analysis(&code, None, None, Some(1000)).await?;
     if klines.is_empty() {
-        return Err(QuantixError::DataSource(format!("无 K 线数据: {code}")));
+        println!("⚠️  未找到数据");
+        return Ok(());
     }
     let names: Vec<&str> = indicators_str
         .split(',')
@@ -1377,8 +1438,12 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     if names.is_empty() {
         return Err(QuantixError::Config("指标列表为空".into()));
     }
-    // fin 门面当前为单周期指标，period 取 native 同名指标缺省（rsi/sma 等按 14/5 处理由 handler 统一）
+    println!("💹 计算技术指标（引擎=fin）");
+    println!("  代码: {}", code);
+    println!("  指标: {}", indicators_str);
+    // fin 门面当前为单周期指标，period 与 native 缺省对齐
     let periods: &[(&str, usize)] = &[("sma", 5), ("ema", 5), ("rsi", 14), ("atr", 14), ("boll", 20), ("stoch", 9)];
+    println!("\n📊 计算结果:");
     println!(
         "{:<12} {:<20} {:<15} {:<15}",
         "日期", "收盘价", "指标", "值"
@@ -1386,6 +1451,7 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     println!("{}", "-".repeat(65));
     let mut rendered = 0usize;
     for (idx, kline) in klines.iter().enumerate().take(20) {
+        println!("{:<12} {:<20.2}", kline.date, kline.close);
         for name in &names {
             let Some((_, period)) = periods.iter().find(|(n, _)| n == name) else {
                 return Err(QuantixError::Unsupported(format!(
@@ -1399,8 +1465,8 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
             };
             println!(
                 "{:<12} {:<20} {:<15} {:<15}",
-                kline.date.to_string(),
-                kline.close.to_string(),
+                "",
+                "",
                 series.name,
                 value
             );
@@ -1560,8 +1626,10 @@ git commit -m "feat(cli): analyze drawdown report via DrawdownTracker facade"
     Walkforward {
         #[arg(short, long)]
         code: String,
+        /// 开始日期（YYYYMMDD，与 Run 变体同口径）
         #[arg(long)]
         start: Option<String>,
+        /// 结束日期（YYYYMMDD）
         #[arg(long)]
         end: Option<String>,
         /// short_period 网格 min/max/step
@@ -1630,8 +1698,8 @@ pub(crate) async fn execute_fin_walkforward(
     let commission_rate = parse_decimal("commission_rate", &commission_rate)?;
     let position_size = parse_decimal("position_size", &position_size)?;
 
-    let start = parse_date_opt(start)?;
-    let end = parse_date_opt(end)?;
+    let start = parse_optional_yyyymmdd(start.as_deref())?;
+    let end = parse_optional_yyyymmdd(end.as_deref())?;
     let mut klines = get_kline_for_analysis(&code, start, end, None).await?;
     klines.sort_by_key(|k| k.date);
     if klines.len() < train_window + test_window {
@@ -1682,23 +1750,13 @@ pub(crate) async fn execute_fin_walkforward(
     println!("stability_score:      {:.3}（OOS>0 占比）", r.stability_score);
     println!("mean_oos_return:      {:.5}", r.mean_oos_return);
     println!("worst_oos_drawdown:   {:.5}", r.worst_oos_drawdown);
-    println!("is_robust:            {}", r.is_robust());
+    // 0.5 为研究默认稳健阈值（stability_score 下限）；CLI 暂不参数化（YAGNI，需要时二期加 --min-stability）
+    println!("is_robust(≥0.5):      {}", r.is_robust(0.5));
     Ok(())
 }
 ```
 
-其中 `parse_date_opt` 若该文件/模块已有等价 helper（`execute_backtest_run` 处理过 start/end），复用之；无则在本函数上方加：
-
-```rust
-fn parse_date_opt(raw: Option<String>) -> Result<Option<chrono::NaiveDate>> {
-    raw.map(|s| {
-        chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
-            .map_err(|e| QuantixError::DataParse(format!("日期无效: {s} ({e})")))
-    })
-    .transpose()
-}
-```
-
+日期解析复用本文件既有 `parse_optional_yyyymmdd`（backtest_handler.rs:207，格式 `%Y%m%d`，与 Run 变体 :116-117 同口径）；不新增 helper、不引入第二种日期格式。
 （`get_kline_for_analysis` 的导入按文件现有 use；若 backtest_handler 未导入，加 `use crate::cli::handlers::shared_support::get_kline_for_analysis;`，可见性为 pub(crate) 已核实。）
 
 - [ ] **Step 5: 编译与既有回归**
@@ -1814,57 +1872,9 @@ fn canary_backtest_chain() {
     assert_eq!(out.result.final_equity, Decimal::from_str("9700").unwrap());
     assert_eq!(out.result.trade_count, 2);
 }
-
-#[test]
-fn canary_dual_engine_signal_parity() {
-    // 双引擎一致性（spec §9.4 v2 口径）：同一 ma_cross 实现的 signal_at 序列，
-    // Buy/Sell 计数应与 fin 引擎成交次数对齐（成交结果不要求相等，费用/撮合不同）。
-    let mut closes: Vec<i64> = vec![10; 4];
-    closes.extend(vec![12; 3]);
-    closes.extend(vec![9; 3]);
-    let klines: Vec<Kline> = closes
-        .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            let c = Decimal::from(*c);
-            Kline {
-                code: "600000".into(),
-                date: NaiveDate::from_ymd_opt(2026, 1, (i + 1) as u32).unwrap(),
-                open: c,
-                high: c,
-                low: c,
-                close: c,
-                volume: 1000,
-                amount: None,
-                adjust_type: AdjustType::None,
-            }
-        })
-        .collect();
-    let mut strategy =
-        quantix_cli::strategy::ma_cross::MACrossStrategy::new(2, 3);
-    let signals: Vec<Signal> = klines
-        .iter()
-        .map(|k| strategy.signal_at(k))
-        .collect();
-    let buy_sell = signals
-        .iter()
-        .filter(|s| !matches!(s, Signal::Hold))
-        .count();
-    let out = fin::backtest::run_fin_backtest(
-        &klines,
-        2,
-        3,
-        Decimal::from(10000),
-        Decimal::ZERO,
-        Decimal::from(100),
-    )
-    .unwrap();
-    // 引擎 trade_count 含 apply_fill 结果；零费足额资金下应与信号数一致
-    assert_eq!(out.result.trade_count as usize, buy_sell);
-}
 ```
 
-注意 `MACrossStrategy` 需为 `pub` 且 `signal_at` 为 `pub(crate)`——集成测试（tests/）不能访问 `pub(crate)`。**取舍**：把 `signal_at`/`price_history_len` 提为 `pub`（位于 strategy 公共 API，文档注明"同步推进，供研究桥用"）。若团队不希望 pub，则把 parity 测试移入 `src/fin/backtest.rs` 的 `#[cfg(test)]`（crate 内可见 pub(crate) 即可），**二选一，优先 crate 内测试**（少一个 pub API）。实施时按此执行：parity 测试放 `src/fin/backtest.rs` tests 内，tests/fin_canary.rs 删除 `canary_dual_engine_signal_parity`。
+双引擎信号一致性**不进** tests/（集成测试访问不到 `pub(crate) signal_at`，评审 C4）：已由 Task 7 的 `bridge_signal_parity_with_engine_trades`（crate 内 `#[cfg(test)]`）覆盖，保持 `signal_at` 为 `pub(crate)`，不扩大 strategy 公共 API。
 
 Run: `cargo test --test fin_canary 2>&1 | tail -6`
 Expected: 3 passed。
@@ -1922,3 +1932,14 @@ git commit -m "test(fin): integration canaries + FUNCTION_TREE registration"
 1. **Spec 覆盖**：adapter（§5.1→T2）、indicators 两层门面（§5.2→T3，逃生舱=模块内扩展约定）、portfolio（§5.3→T5）、risk（§5.4→T4）、backtest 三件套（§5.5→T6+T7）、events 库层（§5.6→T8）、错误收敛（§6→T1）、CLI 三入口（§7→T9/T10/T11）、测试策略（§9→各任务+T12）、依赖（§8→T1）、纪律（§10→全局纪律+T12 Step4/5）。✅ 无缺口。
 2. **占位符扫描**：Task 6 Step 2 的第一个测试代码块为"先写后简化"的过程展示，最终形态已给出；实施者直接用简化版。其余步骤均含完整代码/命令。✅
 3. **类型一致性**：`FinStrategy::new(signals)` 全文一致（T7 定义、T7 测试、T12 canary）；`drawdown_report(&[Decimal])`（T4/T10/T12）；`run_fin_backtest(klines, short, long, capital, rate, size)`（T7/T12）；`resolve(name, klines, period)`（T3/T9）；`signal_at` 命名贯穿 T6/T7/T12。✅
+
+## v1.1 修订（2026-11-23，按计划评审 12 项全采纳）
+
+- C1/C2：events.rs 补 `use rust_decimal::prelude::ToPrimitive;`；`close_series` 改返回 `Result`，`and_hms_opt` 经 `ok_or_else` 后再 `.and_utc()`（两处）。
+- C3：`is_robust(min_stability: f64)` 补参（速查表 + T11 handler 传 0.5 并打印阈值）。
+- C4：canary 中的 parity 测试删除，正式移入 T7 `bridge_signal_parity_with_engine_trades`（crate 内），`signal_at` 保持 `pub(crate)`。
+- M5：T6 前置纪律改为实测基线（runtime.rs/mod.rs/backtest_handler.rs/strategy_handler/catalog.rs），禁止预设调用方范围。
+- M6：T11 日期解析复用既有 `parse_optional_yyyymmdd`（`%Y%m%d`），删除自建 `parse_date_opt`。
+- M7：T9 fin handler 版式对齐 native（💹 头部 + 每根 Kline 一行日期/收盘价 + 每指标一行留空前两列；空数据行为也对齐 native 的警告+Ok）。
+- M8：`significance` 改为真实调用 `EventStudy::significance(&[EventResult])`（门面内保留 `Vec<fin EventResult>`，类型不外泄）。
+- L9/L10：不改（plan 已有"就近插入""直接用简化版"指令）。
