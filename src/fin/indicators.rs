@@ -1,4 +1,6 @@
 //! 研究侧指标门面：强类型封装常用流式指标；未被封装的指标可在本模块内按同一模式扩展（约定：fin 类型不出 src/fin）。
+//!
+//! period 约束：必须为正且在常规研究范围内（上游对 0 拒绝；超大值属上游雷区）。
 
 use fin_primitives::signals::Signal as FinIndicator;
 use fin_primitives::signals::indicators::{Atr, BollingerB, Ema, Rsi, Sma, StochasticK};
@@ -24,10 +26,10 @@ fn stream(
     let mut indicator =
         make().map_err(|e| QuantixError::DataParse(format!("指标 {name} 构造失败: {e}")))?;
     let mut values = Vec::with_capacity(bars.len());
-    for bar in &bars {
-        let v = indicator
-            .update(bar)
-            .map_err(|e| QuantixError::DataParse(format!("指标 {name} 流式更新失败: {e}")))?;
+    for (i, bar) in bars.iter().enumerate() {
+        let v = indicator.update(bar).map_err(|e| {
+            QuantixError::DataParse(format!("指标 {name} 第 {i} 根 bar 流式更新失败: {e}"))
+        })?;
         values.push(v.as_decimal());
     }
     Ok(IndicatorSeries { name, values })
@@ -57,6 +59,7 @@ pub fn atr(klines: &[Kline], period: usize) -> Result<IndicatorSeries> {
     })
 }
 
+/// 布林带 %B（`multiplier` 显式传入；`resolve("boll")` 默认 multiplier=2）。
 pub fn bollinger(klines: &[Kline], period: usize, multiplier: Decimal) -> Result<IndicatorSeries> {
     stream(format!("boll{period}x{multiplier}"), klines, || {
         Ok(Box::new(BollingerB::new(
@@ -127,7 +130,20 @@ mod tests {
         let out = sma(&klines, 3).unwrap();
         assert_eq!(out.values.len(), 10);
         assert_eq!(out.values[1], None); // 未热身
+        assert_eq!(out.values[2], Some(Decimal::from(2))); // 窗口满：首个有效值 (1+2+3)/3 = 2
         assert_eq!(out.values[9], Some(Decimal::from_str("9").unwrap())); // (8+9+10)/3 = 9
+    }
+
+    #[test]
+    fn sma_rejects_zero_period_with_context() {
+        let klines = rising_series(5);
+        let err = sma(&klines, 0).unwrap_err();
+        assert!(
+            matches!(err, QuantixError::DataParse(_)),
+            "应收敛为 DataParse: {err:?}"
+        );
+        let text = err.to_string();
+        assert!(text.contains("sma0 构造失败"), "应含指标名上下文: {text}");
     }
 
     #[test]
