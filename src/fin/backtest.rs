@@ -31,6 +31,8 @@ pub(crate) struct FinStrategy {
 }
 
 impl FinStrategy {
+    /// 回放契约：按 bar 顺序逐个弹出信号；**信号耗尽后返回 hold()（静默降级）**，
+    /// 调用方保证 `signals` 与 bars 等长（precomputed_signals 已按同一序列产出）。
     pub(crate) fn new(signals: Vec<FinSignal>) -> Self {
         Self {
             signals: signals.into(),
@@ -154,21 +156,32 @@ pub struct WalkForwardReport {
 }
 
 impl WalkForwardReport {
-    /// 稳健性判定（镜像上游语义）：OOS Sharpe 均值 > 0 且稳定性 ≥ `min_stability`。
+    /// 稳健性判定：OOS Sharpe 均值 > 0 且稳定性 ≥ `min_stability`
+    /// （同步自 fin-primitives walk_forward.rs:214，v4.0.1）。
     pub fn is_robust(&self, min_stability: f64) -> bool {
         self.aggregate_sharpe > 0.0 && self.stability_score >= min_stability
     }
 }
 
+/// walk-forward 网格与窗口参数（short/long 为闭区间步进网格，窗口为 bar 数）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalkForwardParams {
+    /// (min, max, step) 闭区间步进网格
+    pub short_range: (usize, usize, usize),
+    /// (min, max, step) 闭区间步进网格
+    pub long_range: (usize, usize, usize),
+    /// 训练（in-sample）窗口 bar 数
+    pub train_window: usize,
+    /// 测试（out-of-sample）窗口 bar 数
+    pub test_window: usize,
+    /// 窗口推进步长 bar 数
+    pub step: usize,
+}
+
 /// ma_cross walk-forward：short/long 双参数网格 + 滚动训练/测试窗口。
-/// `ranges`: (short_min, short_max, short_step), (long_min, long_max, long_step)。
 pub fn walk_forward_ma_cross(
     klines: &[Kline],
-    short_range: (usize, usize, usize),
-    long_range: (usize, usize, usize),
-    train_window: usize,
-    test_window: usize,
-    step: usize,
+    params: &WalkForwardParams,
     initial_capital: Decimal,
     commission_rate: Decimal,
     position_size: Decimal,
@@ -178,39 +191,42 @@ pub fn walk_forward_ma_cross(
     let param_space = vec![
         ParamRange {
             name: "short_period".into(),
-            min: short_range.0 as f64,
-            max: short_range.1 as f64,
-            step: short_range.2 as f64,
+            min: params.short_range.0 as f64,
+            max: params.short_range.1 as f64,
+            step: params.short_range.2 as f64,
         },
         ParamRange {
             name: "long_period".into(),
-            min: long_range.0 as f64,
-            max: long_range.1 as f64,
-            step: long_range.2 as f64,
+            min: params.long_range.0 as f64,
+            max: params.long_range.1 as f64,
+            step: params.long_range.2 as f64,
         },
     ];
     let config =
         BacktestConfig::new(initial_capital, commission_rate).map_err(QuantixError::Fin)?;
     let wf_config = WalkForwardConfig {
-        train_window,
-        test_window,
-        step,
+        train_window: params.train_window,
+        test_window: params.test_window,
+        step: params.step,
         param_space,
     };
     let optimizer = WalkForwardOptimizer::new(wf_config, config).map_err(QuantixError::Fin)?;
 
-    // 闭包内：把传入 bar 窗口反转为 Kline 后重放同步 signal_at（方案 C）。
-    // 反转失败（理论上仅 volume 非整数）→ 空信号序列 → 该段全 Hold，不中断整体搜索。
+    // 闭包参数 params（HashMap）遮蔽外层 &WalkForwardParams，经 wf_params 别名引用网格 fallback。
+    // 注意：filter_map 的 .ok() 失败会缩短 ks 使后续 signals[i] 错位——当前 bars
+    // 由 to_ohlcv_bars 同源产出，结构性不可达；异源接入前应改 fail-fast
+    // （collect::<Result<Vec<_>, _>>()）而非静默过滤。
+    let wf_params = params;
     let mut make_strategy =
         |bars_slice: &[OhlcvBar], params: &HashMap<String, f64>| -> Box<dyn FinBacktestStrategy> {
             let short = params
                 .get("short_period")
                 .copied()
-                .unwrap_or(short_range.0 as f64) as usize;
+                .unwrap_or(wf_params.short_range.0 as f64) as usize;
             let long = params
                 .get("long_period")
                 .copied()
-                .unwrap_or(long_range.0 as f64) as usize;
+                .unwrap_or(wf_params.long_range.0 as f64) as usize;
             let ks: Vec<Kline> = bars_slice
                 .iter()
                 .filter_map(|b| ohlcv_to_kline(b).ok())
@@ -246,6 +262,7 @@ pub fn walk_forward_ma_cross(
 #[cfg(test)]
 mod tests {
     use crate::data::models::AdjustType;
+    use crate::fin::adapter::to_ohlcv_bar;
     use chrono::NaiveDate;
     use rust_decimal::Decimal;
     use std::str::FromStr;
@@ -307,11 +324,13 @@ mod tests {
             .collect();
         let out = walk_forward_ma_cross(
             &klines,
-            (2, 3, 1),
-            (3, 4, 1),
-            8,
-            4,
-            4,
+            &WalkForwardParams {
+                short_range: (2, 3, 1),
+                long_range: (3, 4, 1),
+                train_window: 8,
+                test_window: 4,
+                step: 4,
+            },
             Decimal::from(10000),
             Decimal::ZERO,
             Decimal::from(100),
@@ -359,5 +378,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(out.trade_count as usize, buy_sell);
+    }
+
+    /// 回放契约钉子（桥核心约定）：signals 为空 → 每 bar 恒 hold()（静默降级），
+    /// 且 on_bar 永不返回 None（fin 引擎语义：None=跳过交易，与 hold 不同）。
+    #[test]
+    fn fin_strategy_empty_signals_always_holds() {
+        let bar = to_ohlcv_bar(&kline_at(1, 10)).unwrap();
+        let mut s = FinStrategy::new(Vec::new());
+        for _ in 0..3 {
+            let sig = s.on_bar(&bar).unwrap();
+            assert_eq!(sig.direction, SignalDirection::Hold);
+            assert_eq!(sig.quantity, Decimal::ZERO);
+        }
+    }
+
+    /// 回放契约钉子：signals 短于喂入 bar 数 → 首根回放真实信号，耗尽后恒 hold()。
+    #[test]
+    fn fin_strategy_short_signals_hold_after_exhaustion() {
+        let bar = to_ohlcv_bar(&kline_at(1, 10)).unwrap();
+        let buy = FinSignal::new(SignalDirection::Buy, Decimal::from(100));
+        let mut s = FinStrategy::new(vec![buy]);
+        let first = s.on_bar(&bar).unwrap(); // 第 1 根：回放 Buy
+        assert_eq!(first.direction, SignalDirection::Buy);
+        assert_eq!(first.quantity, Decimal::from(100));
+        for _ in 0..2 {
+            let sig = s.on_bar(&bar).unwrap(); // 耗尽后：hold 静默降级
+            assert_eq!(sig.direction, SignalDirection::Hold);
+            assert_eq!(sig.quantity, Decimal::ZERO);
+        }
     }
 }
