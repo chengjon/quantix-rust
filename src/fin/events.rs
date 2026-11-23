@@ -33,7 +33,8 @@ pub struct EventStudyOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventBatchOutput {
     pub studies: Vec<EventStudyOutput>,
-    /// fin EventStudy::significance 的 t 类统计量（NaN = 事件过少）
+    /// fin EventStudy::significance 的 t 类统计量
+    /// （NaN = 0 个有效事件；n=1 时上游短路返回 0.0，events/mod.rs:172）
     pub significance: f64,
     /// 缺少序列而被跳过的 spec 数
     pub skipped: usize,
@@ -54,6 +55,7 @@ pub fn close_series(klines: &[crate::data::models::Kline]) -> Result<Vec<(u64, f
             let close = k.close.to_f64().ok_or_else(|| {
                 QuantixError::DataParse(format!("close 转 f64 失败: {}", k.close))
             })?;
+            // 1970-01-01 前日期 timestamp 为负，`as u64` 会回绕——A股数据域（1990+）不可达
             Ok((ts as u64, close))
         })
         .collect()
@@ -81,6 +83,7 @@ pub fn run_event_studies(
             .date
             .and_hms_opt(0, 0, 0)
             .ok_or_else(|| QuantixError::DataParse(format!("无效日期: {}", spec.date)))?
+            // 同上：`as u64` 回绕仅在 1970 前日期出现，A股数据域不可达
             .and_utc()
             .timestamp() as u64;
         let event = MarketEvent {
@@ -168,5 +171,75 @@ mod tests {
         assert_eq!(out.studies.len(), 1);
         assert_eq!(out.skipped, 1);
         assert!(out.significance.is_finite() || out.significance.is_nan());
+    }
+
+    /// CAR 精确哨兵（benchmark≠security，修复「全 AR≡0 路径零捕获力」）：
+    /// security 事件前平坦 10.0、事件后次日跳 11.0；benchmark 恒 100.0（log return≡0）。
+    /// 上游 daily_log_returns 为对数收益（(p_curr/p_prev).ln()，events/mod.rs:215），
+    /// post 窗口恰含跳变次日 → car_post = ln(11/10)；平坦段 AR≡0 → car_pre = 0；
+    /// CAR 序列 [0,0,0,ln1.1,ln1.1] → peak_day=+1（首个严格更大者）、
+    /// trough_day=0（fold 初值日 car=0，无严格更低者，平局保先）。
+    #[test]
+    fn car_exact_sentinel_with_benchmark_spread() {
+        let mut closes = vec![10i64; 5];
+        closes.extend(vec![11i64; 5]); // 事件日 d5，d6 起跳变
+        let klines: Vec<Kline> = closes
+            .iter()
+            .enumerate()
+            .map(|(i, c)| kline((i + 1) as u32, *c))
+            .collect();
+        let security = close_series(&klines).unwrap();
+        let benchmark: Vec<(u64, f64)> = security.iter().map(|&(ts, _)| (ts, 100.0)).collect();
+        let mut series = HashMap::new();
+        series.insert("600000".to_string(), security);
+        let specs = vec![EventSpec {
+            code: "600000".into(),
+            date: NaiveDate::from_ymd_opt(2026, 1, 5).unwrap(),
+            event_type: "announcement".into(),
+            description: "sentinel".into(),
+        }];
+        let out = run_event_studies(&specs, &series, &benchmark, -2, 2).unwrap();
+        assert_eq!(out.studies.len(), 1);
+        let s = &out.studies[0];
+        assert!(
+            (s.car_pre - 0.0).abs() < 1e-12,
+            "事件前平坦→car_pre 应为 0: {}",
+            s.car_pre
+        );
+        assert!(
+            (s.car_post - 0.0953101798043249).abs() < 1e-9,
+            "car_post 应为 ln(11/10)（上游对数收益口径）: {}",
+            s.car_post
+        );
+        assert_eq!(s.peak_day, 1, "CAR 峰值日 = 跳变次日（首个严格更大者）");
+        assert_eq!(s.trough_day, 0, "谷日 = 初值日 0（无严格更低 CAR）");
+    }
+
+    /// 边界：空 specs → studies 空、significance = NaN（0 个有效事件）。
+    #[test]
+    fn empty_specs_yield_nan_significance() {
+        let out = run_event_studies(&[], &HashMap::new(), &[], -2, 2).unwrap();
+        assert!(out.studies.is_empty());
+        assert_eq!(out.skipped, 0);
+        assert!(out.significance.is_nan());
+    }
+
+    /// 边界：单事件 → significance = 0.0（上游 n<2 短路返回 0.0，events/mod.rs:172）。
+    #[test]
+    fn single_event_significance_is_zero() {
+        let klines: Vec<Kline> = (1..=10u32).map(|d| kline(d, 10)).collect();
+        let security = close_series(&klines).unwrap();
+        let benchmark: Vec<(u64, f64)> = security.iter().map(|&(ts, _)| (ts, 100.0)).collect();
+        let mut series = HashMap::new();
+        series.insert("600000".to_string(), security);
+        let specs = vec![EventSpec {
+            code: "600000".into(),
+            date: NaiveDate::from_ymd_opt(2026, 1, 5).unwrap(),
+            event_type: "announcement".into(),
+            description: "single".into(),
+        }];
+        let out = run_event_studies(&specs, &series, &benchmark, -2, 2).unwrap();
+        assert_eq!(out.studies.len(), 1);
+        assert_eq!(out.significance, 0.0);
     }
 }

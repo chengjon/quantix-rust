@@ -1648,7 +1648,7 @@ mod tests {
             },
         ];
         let benchmark: Vec<(u64, f64)> = series["600000"].clone();
-        let out = run_event_studies(&specs, &series, &benchmark, 2, 2).unwrap();
+        let out = run_event_studies(&specs, &series, &benchmark, -2, 2).unwrap();
         assert_eq!(out.studies.len(), 1);
         assert_eq!(out.skipped, 1);
         assert!(out.significance.is_finite() || out.significance.is_nan());
@@ -1656,12 +1656,12 @@ mod tests {
 }
 ```
 
-说明：CAR 精确值依赖 fin `compute` 内部公式（未核实），测试做结构断言；精确值哨兵由 Task 12 金丝雀以固定输入覆盖（记录当前输出，防上游漂移）。
+说明：CAR 精确值哨兵由 Task 8 测试覆盖（`car_exact_sentinel_with_benchmark_spread`：benchmark≠security 精确哨兵，钉死对数收益口径与 peak/trough 判定，防上游漂移）；既有结构测试 benchmark=security（全 AR≡0），仅验证批量/跳过路径。
 
 - [ ] **Step 3: 跑测试**
 
 Run: `cargo test --lib fin::events 2>&1 | tail -6`
-Expected: 1 passed。
+Expected: 4 passed（结构断言 + CAR 精确哨兵 + 2 个 significance 边界）。
 
 - [ ] **Step 4: Commit**
 
