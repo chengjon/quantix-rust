@@ -1,4 +1,20 @@
-use clap::{ArgGroup, Subcommand};
+use clap::{ArgGroup, Subcommand, ValueEnum};
+
+/// 指标计算引擎：native=自研指标层（默认，行为不变）；fin=fin-primitives 流式指标。
+#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
+pub enum IndicatorEngine {
+    Native,
+    Fin,
+}
+
+impl std::fmt::Display for IndicatorEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Native => write!(f, "native"),
+            Self::Fin => write!(f, "fin"),
+        }
+    }
+}
 
 /// task 命令族 clap 枚举：Add/List/Remove 定时任务管理（Foundation P0 阶段为占位，Add/Remove 不支持具体执行）。
 #[derive(Subcommand, Debug)]
@@ -47,6 +63,10 @@ pub enum AnalyzeCommands {
         /// 指标列表 (逗号分隔)
         #[arg(short, long)]
         indicators: String,
+
+        /// 计算引擎（默认 native，行为与历史版本一致）
+        #[arg(long, value_enum, default_value_t = IndicatorEngine::Native)]
+        engine: IndicatorEngine,
     },
 
     /// 回测报告

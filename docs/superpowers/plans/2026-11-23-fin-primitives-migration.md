@@ -1684,18 +1684,40 @@ git commit -m "feat(fin): event-study facade (library level, no CLI)"
 
 - [ ] **Step 1: impact analysis**（记录结果）。
 
+  实测（GitNexus MCP 不可用，grep 替代——GitNexus backfill required）：
+  `AnalyzeCommands::Indicators` 字面量构造点 **0 个**（仅 misc.rs 分发解构 + clap 派生）；
+  `calculate_indicators` 调用方 2 个（misc.rs 分发、menus.rs:120 交互菜单直调）——
+  签名不变则 menus.rs 零影响。风险等级：LOW。
+
 - [ ] **Step 2: 扩展 CLI 定义**
 
 `src/cli/commands/analysis.rs`：文件顶部加 engine 枚举，Indicators 变体加 engine 字段：
 
 ```rust
 /// 指标计算引擎：native=自研指标层（默认，行为不变）；fin=fin-primitives 流式指标。
-#[derive(clap::ValueEnum, Clone, Debug, PartialEq, Eq)]
+#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
 pub enum IndicatorEngine {
     Native,
     Fin,
 }
+
+// default_value_t 要求 T: Display（clap derive 编译约束），Display 输出须与
+// ValueEnum kebab-case 名一致（native/fin）
+impl std::fmt::Display for IndicatorEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Native => write!(f, "native"),
+            Self::Fin => write!(f, "fin"),
+        }
+    }
+}
 ```
+
+（注意：`src/cli/commands/analysis.rs` 经 command_types.rs `#[path]` 挂载为
+`crate::cli::command_types::analysis` 私有模块——`crate::cli::commands::analysis::`
+路径不存在。`IndicatorEngine` 须加入 command_types.rs 的
+`pub use analysis::{...}` 与 handlers/mod.rs 的 `pub(crate) use super::command_types::{...}`
+重导出清单，消费方经链内裸名使用。）
 
 Indicators 变体改为：
 
@@ -1721,16 +1743,18 @@ Indicators 变体改为：
             indicators,
             engine,
         } => match engine {
-            crate::cli::commands::analysis::IndicatorEngine::Native => {
-                calculate_indicators(code, indicators).await?
+            IndicatorEngine::Native => {
+                calculate_indicators(code, indicators).await?;
             }
-            crate::cli::commands::analysis::IndicatorEngine::Fin => {
-                crate::cli::handlers::analyze_handler::calculate_indicators_fin(code, indicators).await?
+            IndicatorEngine::Fin => {
+                calculate_indicators_fin(code, indicators).await?;
             }
         },
 ```
 
-（`calculate_indicators` 的导入路径按该文件现有 use 调整。）
+（`IndicatorEngine`/`calculate_indicators_fin` 均经 `use super::*` 链内裸名解析：
+handlers/mod.rs 重导出清单两处各加一项。`calculate_indicators` 签名不变——
+menus.rs:120 交互菜单直调分支保持 native 默认，零影响。）
 
 - [ ] **Step 4: 实现 fin handler**
 
@@ -1753,28 +1777,41 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     if names.is_empty() {
         return Err(QuantixError::Config("指标列表为空".into()));
     }
+    // fail-fast：全部指标名的周期解析 + 上限守卫先于任何输出，
+    // 未知名/非法周期不会吐出半张结果表。
+    // fin 引擎 period 上限守卫（T3 quality review #5）：上游指标层
+    // `VecDeque::with_capacity(period + 1)`，超大 period 在 debug 构建下有容量溢出 panic 风险。
+    const MAX_FIN_INDICATOR_PERIOD: usize = 500;
+    let mut resolved: Vec<(&str, usize)> = Vec::with_capacity(names.len());
+    for name in &names {
+        let period = FIN_INDICATOR_PERIODS
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, p)| *p)
+            .ok_or_else(|| QuantixError::Unsupported(format!("fin 引擎暂不支持指标: {name}")))?;
+        if period == 0 || period > MAX_FIN_INDICATOR_PERIOD {
+            return Err(QuantixError::Config(format!(
+                "fin 引擎指标 {name} 周期非法: {period}（须 1..={MAX_FIN_INDICATOR_PERIOD}）"
+            )));
+        }
+        resolved.push((name, period));
+    }
     println!("💹 计算技术指标（引擎=fin）");
     println!("  代码: {}", code);
     println!("  指标: {}", indicators_str);
-    // fin 门面当前为单周期指标，period 与 native 缺省对齐
-    let periods: &[(&str, usize)] = &[("sma", 5), ("ema", 5), ("rsi", 14), ("atr", 14), ("boll", 20), ("stoch", 9)];
     println!("\n📊 计算结果:");
     println!(
         "{:<12} {:<20} {:<15} {:<15}",
         "日期", "收盘价", "指标", "值"
     );
     println!("{}", "-".repeat(65));
+    // fin 门面为单周期指标；逐 Kline 渲染时按名重复 resolve（≤1000 根 × 单指标流式 O(n)，一期接受）
     let mut rendered = 0usize;
-    for (idx, kline) in klines.iter().enumerate().take(20) {
-        println!("{:<12} {:<20.2}", kline.date, kline.close);
-        for name in &names {
-            let Some((_, period)) = periods.iter().find(|(n, _)| n == name) else {
-                return Err(QuantixError::Unsupported(format!(
-                    "fin 引擎暂不支持指标: {name}"
-                )));
-            };
+    for (i, kline) in klines.iter().enumerate().take(20) {
+        println!("{:<12} {:<20.2}", kline.date, kline.close,);
+        for (name, period) in &resolved {
             let series = crate::fin::indicators::resolve(name, &klines, *period)?;
-            let value = match series.values.get(idx).and_then(|v| *v) {
+            let value = match series.values.get(i).and_then(|v| *v) {
                 Some(v) => v.to_string(),
                 None => "N/A".to_string(),
             };
@@ -1783,7 +1820,7 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
                 "",
                 "",
                 series.name,
-                value
+                value,
             );
             rendered += 1;
         }
@@ -1795,7 +1832,9 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
 }
 ```
 
-（若 `resolve` 对多周期同指标需重复计算，一期接受该开销——数据 ≤1000 根，单指标流式计算 O(n)。）
+（周期表为文件级常量 `FIN_INDICATOR_PERIODS`（sma=5, ema=5, rsi=14, atr=14, boll=20, stoch=9，
+与 `fin::indicators::resolve` 名单逐一对齐），handler 顶部另有 `validate_fin_indicator_period`
+守卫函数供单测；此处内联同等逻辑。若 `resolve` 对多周期同指标需重复计算，一期接受该开销。）
 
 - [ ] **Step 5: 测试**
 
@@ -1809,10 +1848,15 @@ analyze_handler.rs `#[cfg(test)]` 追加：
         let err = crate::fin::indicators::resolve("kdj", &[], 9).unwrap_err();
         assert!(matches!(err, QuantixError::Unsupported(_)));
     }
+
+    // 另有 3 个 period 守卫单测（validate_fin_indicator_period）：
+    // fin_period_guard_rejects_oversized_period（MAX+1 → Config）、
+    // fin_period_guard_rejects_zero_period（0 → Config）、
+    // fin_period_guard_accepts_table_periods_and_max_boundary（内置表 + MAX 边界放行）。
 ```
 
 Run: `cargo test --lib analyze_handler 2>&1 | tail -5`
-Expected: PASS（含既有 calculate_indicators 相关测试不受影响）。
+Expected: 4 passed（resolve 冒烟 + 3 个守卫单测；既有 calculate_indicators 相关测试不受影响）。
 
 - [ ] **Step 6: 手动冒烟（可选，无外部环境则跳过并记录）**
 

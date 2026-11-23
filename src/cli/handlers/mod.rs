@@ -1,15 +1,15 @@
 pub(crate) use super::command_types::{
     AiCommands, AnalyzeCommands, AnomalyCommands, DataCommands, DataSourceCommands,
     ExecutionBridgeCommands, ExecutionCommands, ExecutionConfigCommands, ExecutionDaemonCommands,
-    ExecutionQmtCommands, FactorCommands, FactorOutputFormat, ImportCommands, MarketCommands,
-    MonitorAlertCommands, MonitorCommands, MonitorConfigCommands, MonitorDaemonCommands,
-    MonitorEventCommands, MonitorServiceCommands, MonitorServiceConfigCommands, NewsCommands,
-    NotifyCommands, OpenStockCommands, PerformanceCommands, RiskCommands, RiskLockCommands,
-    RiskRuleCommands, ScreenerCommands, SentimentCommands, StopCommands, StrategyCommands,
-    StrategyConfigCommands, StrategyDaemonCommands, StrategyRequestCommands,
-    StrategyServiceCommands, StrategyServiceConfigCommands, StrategySignalCommands,
-    StrengthStockMetric, TaskCommands, TradeCommands, WatchlistCommands, WatchlistGroupCommands,
-    WatchlistTagCommands,
+    ExecutionQmtCommands, FactorCommands, FactorOutputFormat, ImportCommands, IndicatorEngine,
+    MarketCommands, MonitorAlertCommands, MonitorCommands, MonitorConfigCommands,
+    MonitorDaemonCommands, MonitorEventCommands, MonitorServiceCommands,
+    MonitorServiceConfigCommands, NewsCommands, NotifyCommands, OpenStockCommands,
+    PerformanceCommands, RiskCommands, RiskLockCommands, RiskRuleCommands, ScreenerCommands,
+    SentimentCommands, StopCommands, StrategyCommands, StrategyConfigCommands,
+    StrategyDaemonCommands, StrategyRequestCommands, StrategyServiceCommands,
+    StrategyServiceConfigCommands, StrategySignalCommands, StrengthStockMetric, TaskCommands,
+    TradeCommands, WatchlistCommands, WatchlistGroupCommands, WatchlistTagCommands,
 };
 pub(crate) use crate::core::Result;
 
@@ -50,7 +50,9 @@ mod watchlist_handler;
 pub use self::account::run_account_command;
 pub use self::ai::run_ai_command;
 pub use self::algo::run_algo_command;
-pub(crate) use self::analyze_handler::{analyze_candle_patterns, calculate_indicators};
+pub(crate) use self::analyze_handler::{
+    analyze_candle_patterns, calculate_indicators, calculate_indicators_fin,
+};
 #[cfg(test)]
 #[allow(unused_imports)]
 pub(crate) use self::analyze_handler::{

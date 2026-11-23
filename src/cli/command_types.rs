@@ -26,7 +26,7 @@ mod strategy;
 mod trade;
 
 pub use account::{AccountCommands, AccountGroupCommands};
-pub use analysis::{AnalyzeCommands, ScreenerCommands, TaskCommands};
+pub use analysis::{AnalyzeCommands, IndicatorEngine, ScreenerCommands, TaskCommands};
 pub use backtest::BacktestCommands;
 pub use data::{DataCommands, DataSourceCommands, DataSourceKind, OpenStockCommands, OutputFormat};
 pub use factor::{FactorCommands, FactorOutputFormat};

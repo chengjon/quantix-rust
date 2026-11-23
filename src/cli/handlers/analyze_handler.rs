@@ -392,3 +392,134 @@ pub(crate) fn resolve_tdx_day_file_path(
         ))),
     }
 }
+
+/// fin 引擎支持的指标名 → 默认周期（与 `fin::indicators::resolve` 名单逐一对齐：
+/// sma/ema/rsi/atr/boll/stoch；period 与 native 批处理缺省口径一致）。
+const FIN_INDICATOR_PERIODS: &[(&str, usize)] = &[
+    ("sma", 5),
+    ("ema", 5),
+    ("rsi", 14),
+    ("atr", 14),
+    ("boll", 20),
+    ("stoch", 9),
+];
+
+/// fin 引擎 period 上限守卫阈值（T3 quality review #5）：上游指标层
+/// `VecDeque::with_capacity(period + 1)`，超大 period 在 debug 构建下有容量溢出 panic 风险。
+const MAX_FIN_INDICATOR_PERIOD: usize = 500;
+
+/// period 合法性守卫：0 拒绝（上游流式指标语义非法）、超上限拒绝（with_capacity 雷区）。
+fn validate_fin_indicator_period(name: &str, period: usize) -> Result<()> {
+    if period == 0 || period > MAX_FIN_INDICATOR_PERIOD {
+        return Err(QuantixError::Config(format!(
+            "fin 引擎指标 {name} 周期非法: {period}（须 1..={MAX_FIN_INDICATOR_PERIOD}）"
+        )));
+    }
+    Ok(())
+}
+
+/// fin 引擎指标查询：版式与 native `calculate_indicators` 完全一致
+/// （💹 头部三行 + 表头 + 每根 Kline 一行日期/收盘价 + 每指标一行且前两列留空）。
+pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: String) -> Result<()> {
+    let klines = get_kline_for_analysis(&code, None, None, Some(1000)).await?;
+
+    if klines.is_empty() {
+        println!("⚠️  未找到数据");
+        return Ok(());
+    }
+
+    let names: Vec<&str> = indicators_str
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    if names.is_empty() {
+        return Err(QuantixError::Config("指标列表为空".into()));
+    }
+
+    // fail-fast：全部指标名的周期解析 + 上限守卫先于任何输出，
+    // 未知名/非法周期不会吐出半张结果表（与 resolve 逐行报错相比，错误前置且一次性报全）。
+    let mut resolved: Vec<(&str, usize)> = Vec::with_capacity(names.len());
+    for name in &names {
+        let period = FIN_INDICATOR_PERIODS
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, p)| *p)
+            .ok_or_else(|| QuantixError::Unsupported(format!("fin 引擎暂不支持指标: {name}")))?;
+        validate_fin_indicator_period(name, period)?;
+        resolved.push((name, period));
+    }
+
+    println!("💹 计算技术指标（引擎=fin）");
+    println!("  代码: {}", code);
+    println!("  指标: {}", indicators_str);
+
+    println!("\n📊 计算结果:");
+    println!(
+        "{:<12} {:<20} {:<15} {:<15}",
+        "日期", "收盘价", "指标", "值"
+    );
+    println!("{}", "-".repeat(65));
+
+    // fin 门面为单周期指标；逐 Kline 渲染时按名重复 resolve（≤1000 根 × 单指标流式 O(n)，一期接受）
+    let mut rendered = 0usize;
+    for (i, kline) in klines.iter().enumerate().take(20) {
+        println!("{:<12} {:<20.2}", kline.date, kline.close,);
+
+        for (name, period) in &resolved {
+            let series = crate::fin::indicators::resolve(name, &klines, *period)?;
+            let value = match series.values.get(i).and_then(|v| *v) {
+                Some(v) => v.to_string(),
+                None => "N/A".to_string(),
+            };
+            println!("{:<12} {:<20} {:<15} {:<15}", "", "", series.name, value,);
+            rendered += 1;
+        }
+    }
+
+    if rendered == 0 {
+        return Err(QuantixError::Config("未渲染任何指标行".into()));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// fin 门面 resolve 未知名 → Unsupported（计划 Task 9 Step 5 冒烟兜底；
+    /// handler 网络依赖较重，resolve 层单测为主断言）。
+    #[test]
+    fn fin_indicators_reject_unknown_name() {
+        let err = crate::fin::indicators::resolve("kdj", &[], 9).unwrap_err();
+        assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    /// period 上限守卫（T3 quality review #5）：超大 period → Config 提示，
+    /// 绝不到上游指标层 `VecDeque::with_capacity(period + 1)` 的容量溢出雷区。
+    #[test]
+    fn fin_period_guard_rejects_oversized_period() {
+        let err = validate_fin_indicator_period("sma", MAX_FIN_INDICATOR_PERIOD + 1).unwrap_err();
+        assert!(matches!(err, QuantixError::Config(_)));
+    }
+
+    /// period=0 同样拒绝（fin 门面流式指标 period=0 语义非法，上游已拒）。
+    #[test]
+    fn fin_period_guard_rejects_zero_period() {
+        let err = validate_fin_indicator_period("sma", 0).unwrap_err();
+        assert!(matches!(err, QuantixError::Config(_)));
+    }
+
+    /// 内置周期表全部通过守卫；上限边界值（=MAX）恰好放行。
+    #[test]
+    fn fin_period_guard_accepts_table_periods_and_max_boundary() {
+        for (name, period) in FIN_INDICATOR_PERIODS {
+            assert!(
+                validate_fin_indicator_period(name, *period).is_ok(),
+                "内置周期应为合法: {name}={period}"
+            );
+        }
+        assert!(validate_fin_indicator_period("sma", MAX_FIN_INDICATOR_PERIOD).is_ok());
+    }
+}

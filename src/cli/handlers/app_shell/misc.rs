@@ -36,9 +36,18 @@ pub(super) async fn probe_tcp_async(url: &str) -> bool {
 
 pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
     match cmd {
-        AnalyzeCommands::Indicators { code, indicators } => {
-            calculate_indicators(code, indicators).await?;
-        }
+        AnalyzeCommands::Indicators {
+            code,
+            indicators,
+            engine,
+        } => match engine {
+            IndicatorEngine::Native => {
+                calculate_indicators(code, indicators).await?;
+            }
+            IndicatorEngine::Fin => {
+                calculate_indicators_fin(code, indicators).await?;
+            }
+        },
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id)?;
         }
