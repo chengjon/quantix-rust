@@ -5,6 +5,8 @@ use clap::Subcommand;
 #[derive(Subcommand, Debug)]
 pub enum BacktestCommands {
     /// 研究侧 walk-forward 回测（fin 引擎，ma_cross 策略）
+    ///
+    /// 默认网格/窗口为快速探索档；严肃研究建议加大 train/test 窗口（日线 60/20 噪声大）。
     Walkforward {
         /// 股票代码
         #[arg(short, long)]

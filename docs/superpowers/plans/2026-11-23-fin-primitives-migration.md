@@ -2247,7 +2247,7 @@ Co-Authored-By: GLM <noreply@z.ai>"
 - Create: `tests/fin_canary.rs`
 - Modify: `FUNCTION_TREE.md`（模块表 :41、CLI 入口表 :88、已设计/待实现 :125 按实际行号就近插入）
 
-- [ ] **Step 1: 金丝雀集成测试**
+- [x] **Step 1: 金丝雀集成测试**
 
 创建 `tests/fin_canary.rs`（集成测试可用 unwrap，仓库有先例；确定性输入 + 手算期望，作为上游升级漂移哨兵）：
 
@@ -2345,7 +2345,11 @@ fn canary_backtest_chain() {
 Run: `cargo test --test fin_canary 2>&1 | tail -6`
 Expected: 3 passed。
 
-- [ ] **Step 2: FUNCTION_TREE 登记**
+实测（T12）：首跑即 **3 passed**（三链哨兵零漂移）。偏差：实施时剔除片段顶部的
+`use quantix_cli::core::Signal;`——C4 修订删除 parity 测试后的残留 import，
+保留会触发 `-D warnings` unused import。其余与片段逐字节一致。
+
+- [x] **Step 2: FUNCTION_TREE 登记**
 
 `FUNCTION_TREE.md`：
 1. 模块节点表（:41 附近）加一行，四列格式与邻近行一致：
@@ -2364,7 +2368,11 @@ Expected: 3 passed。
 
 3. 若「回撤控制」相关行存在 [已设计/待实现] 状态，更新为 [部分实现]（研究侧分析已落地；实盘拦截逻辑未动），边界列注明。
 
-- [ ] **Step 3: 全量质量门**
+   实测（T12）：FUNCTION_TREE.md 全文 grep「回撤」零命中——**无可更新项，Step 2.3
+   N/A**（原稿预设的「回撤控制」行不存在）。落点改为：模块表 fin 行插于 `cli/` 行后
+   （模块表末尾）；CLI 表 3 行就近插于 `quantix analyze` / `quantix backtest` 父行后。
+
+- [x] **Step 3: 全量质量门**
 
 ```bash
 cargo fmt --check
@@ -2374,17 +2382,35 @@ cargo test 2>&1 | tail -10
 
 Expected: 三者全绿。clippy 新增告警须当场修复（如 `too_many_arguments` 于 walkforward handler——在该函数上加 `#[allow(clippy::too_many_arguments)]`，文件已有该 allow 先例）。
 
-- [ ] **Step 4: GitNexus 变更检测**
+   实测（T12，含 orchestrator 追加两项）：
+   - `cargo fmt --check`：恰 1 处 diff = `tests/repo_hygiene_test/code_hygiene.rs:132`
+     **pre-existing**（任务书已知项），不修；本次改动文件 rustfmt --check 全 0
+   - `cargo clippy --workspace -- -D warnings`：恰 77 lint errors（`grep -c "^error"` 计 78
+     因含 1 行 could-not-compile 汇总）= 分支前基线，**零新增**；改动文件 0 命中
+   - `cargo test`（全量目标）：**1582 passed; 0 failed; 38 ignored**（lib 867+2 基线
+     + fin_canary 3 + 其余集成测试套件全绿）
+   - `cargo build --release`：成功（release profile, 12m40s）
+   - `git diff master --stat`：24 文件 +2852/−206、领先 master 21 commits（基线名
+     为 master 而非 main——仓库实际分支名，如实修正）
+
+- [x] **Step 4: GitNexus 变更检测**
 
 MCP 可用：`gitnexus_detect_changes()`，确认影响面仅限预期符号（新增 fin/*、QuantixError::Fin、MACrossStrategy signal_at、CLI 三处）。
 不可用：记录 "GitNexus backfill required" 于本 plan 文件末尾。
 
-- [ ] **Step 5: Graphiti 回填**
+- [x] **Step 5: Graphiti 回填**
 
 MCP 可用：把「迁移设计定稿 + 实施完成」写入 `quantix_rust_main`（add_memory → get_ingest_status 等待 completed）。
 不可用：本步骤跳过，在 plan 末尾保留 "Graphiti backfill required"。
 
-- [ ] **Step 6: Commit**
+实测（T12）：MCP 本会话不可用——**Graphiti backfill required**（已记录于 plan 末尾）。
+
+- [x] **Step 6: Commit**
+
+orchestrator 指令将本步拆为两 commit（supersede 计划单 commit）：①canary+折叠遗留
+注记+计划同步 `test(cli): integration canaries and fold documentation notes`
+②FUNCTION_TREE `docs: register fin domain in FUNCTION_TREE`；均带
+`Co-Authored-By: GLM <noreply@z.ai>` trailer。
 
 ```bash
 git add tests/fin_canary.rs FUNCTION_TREE.md docs/superpowers/plans/
@@ -2409,3 +2435,26 @@ git commit -m "test(fin): integration canaries + FUNCTION_TREE registration"
 - M7：T9 fin handler 版式对齐 native（💹 头部 + 每根 Kline 一行日期/收盘价 + 每指标一行留空前两列；空数据行为也对齐 native 的警告+Ok）。
 - M8：`significance` 改为真实调用 `EventStudy::significance(&[EventResult])`（门面内保留 `Vec<fin EventResult>`，类型不外泄）。
 - L9/L10：不改（plan 已有"就近插入""直接用简化版"指令）。
+
+---
+
+## T12 收尾记录（2026-11-23）
+
+**GitNexus backfill required** — 本会话 GitNexus MCP 不可用；T1-T12 impact 分析以 grep
+穷举 match 消费点法替代（各任务报告已记录唯一穷举点与零破裂论证）。MCP 恢复后对
+`src/fin/*` 新符号与 `AnalyzeCommands`/`BacktestCommands` 变更补跑 `gitnexus_detect_changes()`。
+
+**Graphiti backfill required** — 本会话 Graphiti MCP 不可用；迁移定稿+完成结论待回填
+`quantix_rust_main`（核心结论：门面量化收敛=输出全 quantix 类型；错误唯一越界通道=
+`QuantixError::Fin` 载荷；上游漂移哨兵=`tests/fin_canary.rs` 三链手算断言）。
+
+### v1.2 折叠遗留注记落地（T12，orchestrator 清单全项完成）
+
+- **a)** native `calculate_indicators` 的 Some(1000) oldest-N known-issue →
+  analyze_handler.rs fn doc 落档（T10 复核移交；native 冻结不修，防知识丢失）
+- **b)** T11 四 Minor：①上游英文报错登记（execute_fin_walkforward doc；上游
+  walk_forward.rs:148 `validate()` 经 WalkForwardOptimizer::new:260 真实调用，源码已核实）
+  ②退化行守卫：best_params 空 → 行内「（网格退化：无有效参数组合）」替代静默 "0/0"
+  ③默认网格研究语义注记（Walkforward 变体 doc，--help 可见）
+  ④mean_oos_return / worst_oos_drawdown 输出行补「（小数口径）」对齐 drawdown 惯例
+- 基线分支名修正：仓库基线为 `master`（无 `main`）；Step 3 实测门结果见 Task 12 节

@@ -15,6 +15,10 @@ use std::str::FromStr;
 
 use super::*;
 
+/// ⚠️ 已知口径问题（T10 复核确认，native 冻结不修，登记于此防知识丢失）：
+/// 取数 `get_kline_for_analysis(…, Some(1000))` 的数据源 limit 语义为升序**前** 1000 条
+/// （最旧），而非「最近 1000 根」——指标统计窗口实为历史前段。修复须动 native 主线
+/// （迁移 spec 冻结不触碰）；若后续解冻，参照 drawdown 的全量取回 + 尾段切片先例处理。
 pub(crate) async fn calculate_indicators(code: String, indicators_str: String) -> Result<()> {
     println!("💹 计算技术指标");
     println!("  代码: {}", code);

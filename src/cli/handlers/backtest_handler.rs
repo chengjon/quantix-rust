@@ -126,6 +126,10 @@ pub(crate) async fn run_backtest_command(cmd: BacktestCommands) -> Result<()> {
 }
 
 /// 研究侧 walk-forward 回测：ma_cross 双参数网格 + 滚动训练/测试窗口（fin 引擎）。
+///
+/// 已知边界（T11 review 登记）：`--train-window/--test-window/--step` 传 0 由上游
+/// `WalkForwardConfig::validate()` 以英文消息拒绝（"train_window must be > 0" 等，
+/// 经 `QuantixError::Fin` 载荷传播）；CLI 错误消息中文化时统一处理。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_fin_walkforward(
     code: String,
@@ -218,12 +222,19 @@ pub(crate) async fn execute_fin_walkforward(
     for (i, p) in report.periods.iter().enumerate() {
         let s = p.best_params.get("short_period").copied().unwrap_or(0.0);
         let l = p.best_params.get("long_period").copied().unwrap_or(0.0);
+        // 退化守卫（T11 review 登记）：best_params 为空说明该窗口网格无有效组合，
+        // 静默 "0/0" 会误导读者以为最优参数是 (0, 0)
+        let best_cell = if p.best_params.is_empty() {
+            "（网格退化：无有效参数组合）".to_string()
+        } else {
+            format!("{s}/{l}")
+        };
         println!(
             "{:<6} {:<12} {:<12} {:<16} {:<10} {:<10}",
             i + 1,
             format!("{}-{}", p.train_start, p.train_end),
             format!("{}-{}", p.test_start, p.test_end),
-            format!("{s}/{l}"),
+            best_cell,
             format!("{:.3}", p.in_sample_sharpe),
             format!("{:.3}", p.out_of_sample_sharpe),
         );
@@ -234,10 +245,16 @@ pub(crate) async fn execute_fin_walkforward(
         "stability_score:      {:.3}（OOS>0 占比）",
         report.stability_score
     );
-    println!("mean_oos_return:      {:.5}", report.mean_oos_return);
+    println!(
+        "mean_oos_return:      {:.5}（小数口径）",
+        report.mean_oos_return
+    );
     // worst_oos_drawdown 为上游聚合层预算的全局值（全部窗口 OOS 回撤最大者，小数口径）；
     // 逐期表不单列 OOS 回撤——WfPeriod.oos_result 为嵌套 fin 类型，门面已收敛至聚合层
-    println!("worst_oos_drawdown:   {:.5}", report.worst_oos_drawdown);
+    println!(
+        "worst_oos_drawdown:   {:.5}（小数口径）",
+        report.worst_oos_drawdown
+    );
     println!(
         "is_robust:            {}（stability ≥ {} 且 OOS Sharpe 均值 > 0）",
         report.is_robust(min_stability),
