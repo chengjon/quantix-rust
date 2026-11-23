@@ -7,6 +7,7 @@
 pub mod adapter;
 pub mod backtest;
 pub mod error_bridge;
+pub mod events;
 pub mod indicators;
 pub mod portfolio;
 pub mod risk;
