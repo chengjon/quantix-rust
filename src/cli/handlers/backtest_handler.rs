@@ -66,6 +66,44 @@ pub(crate) async fn run_backtest_command(cmd: BacktestCommands) -> Result<()> {
             .await?;
             print_backtest_report_summary(&report);
         }
+        BacktestCommands::Walkforward {
+            code,
+            start,
+            end,
+            short_start,
+            short_end,
+            short_step,
+            long_start,
+            long_end,
+            long_step,
+            train_window,
+            test_window,
+            step,
+            capital,
+            commission_rate,
+            position_size,
+            min_stability,
+        } => {
+            execute_fin_walkforward(
+                code,
+                start,
+                end,
+                short_start,
+                short_end,
+                short_step,
+                long_start,
+                long_end,
+                long_step,
+                train_window,
+                test_window,
+                step,
+                capital,
+                commission_rate,
+                position_size,
+                min_stability,
+            )
+            .await?;
+        }
         BacktestCommands::Report { id } => {
             let report = load_backtest_report(&id)?;
             print_backtest_report_summary(&report);
@@ -84,6 +122,127 @@ pub(crate) async fn run_backtest_command(cmd: BacktestCommands) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// 研究侧 walk-forward 回测：ma_cross 双参数网格 + 滚动训练/测试窗口（fin 引擎）。
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn execute_fin_walkforward(
+    code: String,
+    start: Option<String>,
+    end: Option<String>,
+    short_start: usize,
+    short_end: usize,
+    short_step: usize,
+    long_start: usize,
+    long_end: usize,
+    long_step: usize,
+    train_window: usize,
+    test_window: usize,
+    step: usize,
+    capital: String,
+    commission_rate: String,
+    position_size: String,
+    min_stability: f64,
+) -> Result<()> {
+    let parse_decimal = |label: &str, raw: &str| -> Result<Decimal> {
+        Decimal::from_str(raw)
+            .map_err(|e| QuantixError::DataParse(format!("{label} 无效: {raw} ({e})")))
+    };
+    let capital = parse_decimal("capital", &capital)?;
+    let commission_rate = parse_decimal("commission_rate", &commission_rate)?;
+    let position_size = parse_decimal("position_size", &position_size)?;
+    let start = parse_optional_yyyymmdd(start.as_deref())?;
+    let end = parse_optional_yyyymmdd(end.as_deref())?;
+
+    // 头部先于取数（T9/T10 惯例；空数据时头仍可见）
+    println!("🔬 walk-forward 回测（fin 引擎，ma_cross）");
+    println!("  代码: {}", code);
+    println!(
+        "  网格: short({}..={}#{}) long({}..={}#{}) 窗口: train({}) test({}) step({})",
+        short_start,
+        short_end,
+        short_step,
+        long_start,
+        long_end,
+        long_step,
+        train_window,
+        test_window,
+        step
+    );
+
+    // 全量升序取回（T10 教训：数据源 limit 语义为升序前 l 条即最旧 N 根；区间截断走 --start/--end）
+    let mut klines = get_kline_for_analysis(&code, start, end, None).await?;
+
+    if klines.is_empty() {
+        println!("⚠️  未找到数据");
+        return Ok(());
+    }
+
+    // walk-forward 契约：序列按时间升序、首元素为窗口起点
+    klines.sort_by_key(|k| k.date);
+    if klines.len() < train_window + test_window {
+        return Err(QuantixError::Config(format!(
+            "数据量不足: {} 根 < train({}) + test({})",
+            klines.len(),
+            train_window,
+            test_window
+        )));
+    }
+
+    let params = crate::fin::backtest::WalkForwardParams {
+        short_range: (short_start, short_end, short_step),
+        long_range: (long_start, long_end, long_step),
+        train_window,
+        test_window,
+        step,
+    };
+    let report = crate::fin::backtest::walk_forward_ma_cross(
+        &klines,
+        &params,
+        capital,
+        commission_rate,
+        position_size,
+    )?;
+
+    println!(
+        "\n📊 逐窗口结果（{} 根日线，{} 窗口）:",
+        klines.len(),
+        report.periods.len()
+    );
+    println!("{}", "-".repeat(76));
+    println!(
+        "{:<6} {:<12} {:<12} {:<16} {:<10} {:<10}",
+        "窗口", "train 区间", "test 区间", "best(short,long)", "IS sharpe", "OOS sharpe"
+    );
+    for (i, p) in report.periods.iter().enumerate() {
+        let s = p.best_params.get("short_period").copied().unwrap_or(0.0);
+        let l = p.best_params.get("long_period").copied().unwrap_or(0.0);
+        println!(
+            "{:<6} {:<12} {:<12} {:<16} {:<10} {:<10}",
+            i + 1,
+            format!("{}-{}", p.train_start, p.train_end),
+            format!("{}-{}", p.test_start, p.test_end),
+            format!("{s}/{l}"),
+            format!("{:.3}", p.in_sample_sharpe),
+            format!("{:.3}", p.out_of_sample_sharpe),
+        );
+    }
+    println!("{}", "-".repeat(76));
+    println!("aggregate_sharpe:     {:.3}", report.aggregate_sharpe);
+    println!(
+        "stability_score:      {:.3}（OOS>0 占比）",
+        report.stability_score
+    );
+    println!("mean_oos_return:      {:.5}", report.mean_oos_return);
+    // worst_oos_drawdown 为上游聚合层预算的全局值（全部窗口 OOS 回撤最大者，小数口径）；
+    // 逐期表不单列 OOS 回撤——WfPeriod.oos_result 为嵌套 fin 类型，门面已收敛至聚合层
+    println!("worst_oos_drawdown:   {:.5}", report.worst_oos_drawdown);
+    println!(
+        "is_robust:            {}（stability ≥ {} 且 OOS Sharpe 均值 > 0）",
+        report.is_robust(min_stability),
+        min_stability
+    );
     Ok(())
 }
 

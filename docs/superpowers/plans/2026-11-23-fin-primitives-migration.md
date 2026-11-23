@@ -2033,6 +2033,11 @@ git commit -m "feat(cli): analyze drawdown report via DrawdownTracker facade"
 
 - [ ] **Step 1: impact analysis**（记录）。
 
+  实测（GitNexus MCP 不可用，grep 替代——GitNexus backfill required）：
+  `BacktestCommands` 穷举 match 唯一点 = backtest_handler.rs `run_backtest_command`；
+  misc.rs:128 仅构造 `List` 特定变体；测试文件仅构造特定变体——加变体零破裂。
+  `execute_fin_walkforward` 为全新符号。风险等级：LOW。
+
 - [ ] **Step 2: CLI 变体**
 
 `BacktestCommands` 加（参数扁平化，网格各 3 个数字 + 窗口 3 个 + 资金/费率/仓位）：
@@ -2074,6 +2079,9 @@ git commit -m "feat(cli): analyze drawdown report via DrawdownTracker facade"
         commission_rate: String,
         #[arg(long, default_value = "100")]
         position_size: String,
+        /// 稳健性判定的稳定性阈值（is_robust：stability ≥ 阈值 且 OOS Sharpe 均值 > 0）
+        #[arg(long = "min-stability", default_value_t = 0.5)]
+        min_stability: f64,
     },
 ```
 
@@ -2086,6 +2094,7 @@ backtest_handler.rs 分发 match（:34-88）加分支，委托新函数 `execute
 backtest_handler.rs 追加（解析模式对齐现有 :90 `execute_backtest_run` 的 Decimal parse 风格）：
 
 ```rust
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_fin_walkforward(
     code: String,
     start: Option<String>,
@@ -2102,10 +2111,8 @@ pub(crate) async fn execute_fin_walkforward(
     capital: String,
     commission_rate: String,
     position_size: String,
+    min_stability: f64,
 ) -> Result<()> {
-    use rust_decimal::Decimal;
-    use std::str::FromStr;
-
     let parse_decimal = |label: &str, raw: &str| -> Result<Decimal> {
         Decimal::from_str(raw)
             .map_err(|e| QuantixError::DataParse(format!("{label} 无效: {raw} ({e})")))
@@ -2113,10 +2120,27 @@ pub(crate) async fn execute_fin_walkforward(
     let capital = parse_decimal("capital", &capital)?;
     let commission_rate = parse_decimal("commission_rate", &commission_rate)?;
     let position_size = parse_decimal("position_size", &position_size)?;
-
     let start = parse_optional_yyyymmdd(start.as_deref())?;
     let end = parse_optional_yyyymmdd(end.as_deref())?;
+
+    // 头部先于取数（T9/T10 惯例；空数据时头仍可见）
+    println!("🔬 walk-forward 回测（fin 引擎，ma_cross）");
+    println!("  代码: {}", code);
+    println!(
+        "  网格: short({}..={}#{}) long({}..={}#{}) 窗口: train({}) test({}) step({})",
+        short_start, short_end, short_step, long_start, long_end, long_step,
+        train_window, test_window, step
+    );
+
+    // 全量升序取回（T10 教训：数据源 limit 语义为升序前 l 条即最旧 N 根；区间截断走 --start/--end）
     let mut klines = get_kline_for_analysis(&code, start, end, None).await?;
+
+    if klines.is_empty() {
+        println!("⚠️  未找到数据");
+        return Ok(());
+    }
+
+    // walk-forward 契约：序列按时间升序、首元素为窗口起点
     klines.sort_by_key(|k| k.date);
     if klines.len() < train_window + test_window {
         return Err(QuantixError::Config(format!(
@@ -2133,64 +2157,86 @@ pub(crate) async fn execute_fin_walkforward(
         test_window,
         step,
     };
-    let out = crate::fin::backtest::walk_forward_ma_cross(
+    let report = crate::fin::backtest::walk_forward_ma_cross(
         &klines,
         &params,
         capital,
         commission_rate,
         position_size,
     )?;
-    let r = &out;
+
     println!(
-        "walk-forward 报告（{}，{} 根，{} 窗口）",
-        code,
+        "\n📊 逐窗口结果（{} 根日线，{} 窗口）:",
         klines.len(),
-        r.periods.len()
+        report.periods.len()
     );
-    println!("{}", "-".repeat(72));
+    println!("{}", "-".repeat(76));
     println!(
-        "{:<8} {:<14} {:<12} {:<12}",
-        "窗口", "best(short,long)", "IS sharpe", "OOS sharpe"
+        "{:<6} {:<12} {:<12} {:<16} {:<10} {:<10}",
+        "窗口", "train 区间", "test 区间", "best(short,long)", "IS sharpe", "OOS sharpe"
     );
-    for (i, p) in r.periods.iter().enumerate() {
+    for (i, p) in report.periods.iter().enumerate() {
         let s = p.best_params.get("short_period").copied().unwrap_or(0.0);
         let l = p.best_params.get("long_period").copied().unwrap_or(0.0);
         println!(
-            "{:<8} {:<14} {:<12} {:<12}",
+            "{:<6} {:<12} {:<12} {:<16} {:<10} {:<10}",
             i + 1,
+            format!("{}-{}", p.train_start, p.train_end),
+            format!("{}-{}", p.test_start, p.test_end),
             format!("{s}/{l}"),
             format!("{:.3}", p.in_sample_sharpe),
             format!("{:.3}", p.out_of_sample_sharpe),
         );
     }
-    println!("{}", "-".repeat(72));
-    println!("aggregate_sharpe:     {:.3}", r.aggregate_sharpe);
-    println!("stability_score:      {:.3}（OOS>0 占比）", r.stability_score);
-    println!("mean_oos_return:      {:.5}", r.mean_oos_return);
+    println!("{}", "-".repeat(76));
+    println!("aggregate_sharpe:     {:.3}", report.aggregate_sharpe);
+    println!(
+        "stability_score:      {:.3}（OOS>0 占比）",
+        report.stability_score
+    );
+    println!("mean_oos_return:      {:.5}", report.mean_oos_return);
     // worst_oos_drawdown 为上游聚合层预算的全局值（全部窗口 OOS 回撤最大者，小数口径）；
     // 逐期表不单列 OOS 回撤——WfPeriod.oos_result 为嵌套 fin 类型，门面已收敛至聚合层
-    println!("worst_oos_drawdown:   {:.5}", r.worst_oos_drawdown);
-    // 0.5 为研究默认稳健阈值（stability_score 下限）；CLI 暂不参数化（YAGNI，需要时二期加 --min-stability）
-    println!("is_robust(≥0.5):      {}", r.is_robust(0.5));
+    println!("worst_oos_drawdown:   {:.5}", report.worst_oos_drawdown);
+    println!(
+        "is_robust:            {}（stability ≥ {} 且 OOS Sharpe 均值 > 0）",
+        report.is_robust(min_stability),
+        min_stability
+    );
     Ok(())
 }
 ```
+
+（v2 设计修订：`--min-stability` CLI 参数化（默认 0.5，替代计划原稿的硬编码
+`is_robust(0.5)` 与 YAGNI 注）；头部先于取数（T9/T10 镜像）+ 网格行；空数据
+`⚠️`+`Ok(())`；逐期表补 train/test 区间两列（v2 任务书要求）。默认网格/窗口取
+计划原稿值：short(2,5,1)/long(5,20,1)/train 60/test 20/step 20。）
 
 日期解析复用本文件既有 `parse_optional_yyyymmdd`（backtest_handler.rs:207，格式 `%Y%m%d`，与 Run 变体 :116-117 同口径）；不新增 helper、不引入第二种日期格式。
 （`get_kline_for_analysis` 的导入按文件现有 use；若 backtest_handler 未导入，加 `use crate::cli::handlers::shared_support::get_kline_for_analysis;`，可见性为 pub(crate) 已核实。）
 
 - [ ] **Step 5: 编译与既有回归**
 
-Run: `cargo test --lib backtest_handler 2>&1 | tail -5 && cargo check 2>&1 | tail -3`
-Expected: 既有测试 PASS、无编译错误。
+Run: `cargo test --lib cli::tests::backtest 2>&1 | tail -3 && cargo check --lib 2>&1 | tail -3`
+Expected: cli::tests::backtest **6 passed**（既有 4 + Walkforward 解析 2：默认值全钉 /
+全参数覆盖）；0 编译错误 0 警告。全量基线 867 passed + 2 ignored。
+`backtest walkforward --help` 冒烟应渲染全部参数（含 --min-stability 默认 0.5）；
+无库环境 `--code 600000` 走头部+网格先显 → DatabaseQuery 干净传播 = 通过判据。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/cli/
+git add src/cli/ docs/superpowers/plans/2026-11-23-fin-primitives-migration.md
 git commit -m "feat(cli): backtest walkforward via fin WalkForwardOptimizer
 
-impact: BacktestCommands callers = cli.rs dispatch only"
+impact: BacktestCommands exhaustive match only at run_backtest_command;
+misc.rs/tests construct specific variants only. v2: --min-stability
+(default 0.5) parameterized per orchestrator design, superseding the
+in-plan YAGNI note; header-before-fetch and empty-data warning mirror
+T9/T10 conventions; fetch uses None limit (oldest-N data source
+semantics, T10 lesson) with date-range truncation via --start/--end.
+
+Co-Authored-By: GLM <noreply@z.ai>"
 ```
 
 ---
