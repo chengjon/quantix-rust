@@ -61,21 +61,15 @@ impl MACrossStrategy {
         // 当前时刻: 短期 < 长期
         prev_short >= prev_long && curr_short < curr_long
     }
-}
 
-#[async_trait]
-impl Strategy for MACrossStrategy {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    async fn on_bar(&mut self, bar: &Kline) -> Result<Signal, Box<dyn std::error::Error>> {
+    /// 同步信号推进（供 async on_bar 与 fin 回测桥共用；无 IO、无 Result）。
+    pub(crate) fn signal_at(&mut self, bar: &Kline) -> Signal {
         // 添加收盘价到历史数据
         self.price_history.push(bar.close);
 
         // 需要足够的数据才能计算
         if self.price_history.len() < self.long_period {
-            return Ok(Signal::Hold);
+            return Signal::Hold;
         }
 
         // 计算短期和长期均线
@@ -87,7 +81,7 @@ impl Strategy for MACrossStrategy {
 
         // 如果没有足够的均线数据，保持观望
         let (Some(curr_short_ma), Some(curr_long_ma)) = (curr_short_ma, curr_long_ma) else {
-            return Ok(Signal::Hold);
+            return Signal::Hold;
         };
 
         // 需要上一时刻的均线数据来判断交叉
@@ -97,7 +91,7 @@ impl Strategy for MACrossStrategy {
                 self.last_short_ma = Some(curr_short_ma);
                 self.last_long_ma = Some(curr_long_ma);
                 self.position = true;
-                return Ok(Signal::Buy);
+                return Signal::Buy;
             }
 
             // 检测死叉 - 卖出信号
@@ -105,7 +99,7 @@ impl Strategy for MACrossStrategy {
                 self.last_short_ma = Some(curr_short_ma);
                 self.last_long_ma = Some(curr_long_ma);
                 self.position = false;
-                return Ok(Signal::Sell);
+                return Signal::Sell;
             }
         }
 
@@ -113,7 +107,24 @@ impl Strategy for MACrossStrategy {
         self.last_short_ma = Some(curr_short_ma);
         self.last_long_ma = Some(curr_long_ma);
 
-        Ok(Signal::Hold)
+        Signal::Hold
+    }
+
+    /// 历史数据缓存长度（测试探针；仅测试编译路径存在）。
+    #[cfg(test)]
+    pub(crate) fn price_history_len(&self) -> usize {
+        self.price_history.len()
+    }
+}
+
+#[async_trait]
+impl Strategy for MACrossStrategy {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    async fn on_bar(&mut self, bar: &Kline) -> Result<Signal, Box<dyn std::error::Error>> {
+        Ok(self.signal_at(bar))
     }
 
     async fn finish(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -222,5 +233,19 @@ mod tests {
             dec!(9.7),  // curr_short
             dec!(10.1)  // curr_long
         ));
+    }
+
+    #[test]
+    fn signal_at_drives_state_and_returns_signal() {
+        use crate::strategy::test_utils::create_test_kline;
+        let mut s = MACrossStrategy::new(2, 3);
+        let klines: Vec<_> = (0..12)
+            .map(|i| create_test_kline(i, if i >= 6 { 12.0 } else { 10.0 }))
+            .collect();
+        for k in &klines {
+            let _ = s.signal_at(k);
+        }
+        // 有状态推进：末段价格跳变后，history 长度=12
+        assert_eq!(s.price_history_len(), 12);
     }
 }
