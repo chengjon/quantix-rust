@@ -1,7 +1,7 @@
 # fin-primitives 研究库集成设计
 
 - 日期: 2026-11-23
-- 状态: v2 修订版（响应 `2026-11-23-fin-primitives-migration-design-review.md`，NEEDS_REVISION → 修订待审）
+- 状态: v2.1 修订版（v2 响应 design-review + v2.1 walk-forward 方案 C，已获用户批准）
 - 上游库: fin-primitives v4.0.1（MIT, github.com/Mattbusel/fin-primitives, MSRV 1.81, edition 2021）
 - 修订记录: 见文末 §12
 
@@ -94,7 +94,8 @@ ClickHouse/DB → Vec<Kline> ─┬─ adapter::to_bar_inputs ──→ fin sign
 ### 5.5 backtest.rs（研究侧）
 - `FinStrategy` 预计算桥（D5）：`precompute_signals(&mut dyn quantix Strategy, &[Kline], cfg) -> Result<Vec<Option<fin Signal>>>` + 查表实现 fin `Strategy` trait。错误处理见 D5 补充。
 - `FinEngine` 封装：fin `Backtester`（`BacktestConfig { initial_capital, commission_rate }`，与上游实际 API 一致）。冲击/延迟/微观结构不接（§2）。
-- `walk_forward` 门面：fin `WalkForwardOptimizer` 参数网格 + 训练/验证窗口切分 + OOS 稳定性报告（quantix 结果结构）。
+- `walk_forward` 门面（v2.1 方案 C，同步信号函数）：`WalkForwardOptimizer::run` 的 `make_strategy` 闭包是同步 `FnMut(&[OhlcvBar], &HashMap<String,f64>) -> Box<dyn Strategy>`，无法在闭包内异步预计算。解决：提取 ma_cross 信号计算为同步纯函数 `signal_at(&Kline) -> Signal`（async `Strategy::on_bar` 委托它，保持行为不变），walk-forward 闭包内用同步 `signal_at` 生成信号缓存后查表。D5「策略单源」以更强形式达成：async trait 与 walk-forward 共用同一 `signal_at`。
+- 已核实的上游语义（测试口径依据）：`Side` 枚举为 **Bid/Ask**（quantix Buy→Bid、Sell→Ask）；回测成交价 = **当 bar close**；`trade_count` 含 apply_fill 失败的 fill；`drawdown_pct` 为百分数（`(peak-current)/peak*100`）；`BacktestResult.max_drawdown` 为 [0,1] 分数。
 
 ### 5.6 events.rs（库层）
 上游 `EventStudy::compute` 语义（events/mod.rs:68）：单事件、价格序列 `&[(u64, f64)]`（unix 秒, 价格）、**必需 benchmark 序列**、返回单事件 `EventResult`。门面按此对齐：
@@ -185,3 +186,8 @@ fin-primitives = { version = "=4.0.1", default-features = false, features = [
 - **L9/L10**：ml feature 注释补全 alternative_data；删除 async 相关排除表述（默认即关）（§8）。
 - **L11**：指标层行数口径改为 538 行不含 tests（§1）。
 - **L12**：VaR f64 精度口径注明（§5.4/§5.6）。
+
+### v2.1（2026-11-23，写实施计划时发现的设计缺口，用户已批准）
+- **walk-forward × async 桥冲突（方案 C）**：`WalkForwardOptimizer::run` 的 `make_strategy` 为同步闭包，无法异步预计算。提取 ma_cross 信号计算为同步纯函数 `signal_at(&Kline) -> Signal`，async `Strategy::on_bar` 委托之；walk-forward 闭包用同步 `signal_at`。零 block_on、零新依赖，动 `strategy/ma_cross.rs`（行为不变的提取重构，实施前跑 GitNexus impact）（§5.5）。
+- **adapter fallible 链具体化**：核实 `Symbol::new`/`Price::new`/`Quantity::new` 均为 fallible（`TryFrom<Decimal>`/参数校验），`OhlcvBar::new` 为 9 参 fallible 构造；转换链错误统一映射 `QuantixError::Fin`（§5.1/§6）。
+- **上游语义核实入库**：`Side` = Bid/Ask；成交价 = 当 bar close；`trade_count` 含失败 fill；`drawdown_pct` 为百分数；`max_drawdown` 为 [0,1] 分数（§5.5，作为测试期望值依据）。
