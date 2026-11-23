@@ -495,6 +495,40 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     Ok(())
 }
 
+/// 回撤风险报告：以收盘价序列为净值曲线（研究口径），fin DrawdownTracker 统计。
+pub(crate) async fn analyze_drawdown(code: String, limit: usize) -> Result<()> {
+    // 头部先于取数（T9 review #8 顺序惯例；空数据时头仍可见）
+    println!("📉 回撤风险报告（净值=收盘价研究口径）");
+    println!("  代码: {}", code);
+    println!("  统计窗口: 最近 {} 根", limit);
+
+    let mut klines = get_kline_for_analysis(&code, None, None, Some(limit)).await?;
+
+    if klines.is_empty() {
+        println!("⚠️  未找到数据");
+        return Ok(());
+    }
+
+    // drawdown_report 契约：序列按时间升序、首元素为初始净值（乱序输入会得出错误回撤）
+    klines.sort_by_key(|k| k.date);
+    let equity: Vec<Decimal> = klines.iter().map(|k| k.close).collect();
+    let report = crate::fin::risk::drawdown_report(&equity)?;
+
+    // 回撤口径 0-100（百分数），与 fin BacktestResult.max_drawdown 的 0-1 小数口径不同
+    println!("\n📊 回撤统计（{} 根日线，回撤口径 0-100）:", equity.len());
+    println!("{}", "-".repeat(48));
+    println!("当前回撤:   {} %", report.current_pct);
+    println!("最大回撤:   {} %", report.worst_pct);
+    println!("净值峰值:   {}", report.peak);
+    println!("当前净值:   {}", report.current_equity);
+    println!("回撤持续:   {} 根", report.duration_bars);
+    println!(
+        "处于回撤中: {}",
+        if report.in_drawdown { "是" } else { "否" }
+    );
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -505,6 +539,22 @@ mod tests {
     fn fin_indicators_reject_unknown_name() {
         let err = crate::fin::indicators::resolve("kdj", &[], 9).unwrap_err();
         assert!(matches!(err, QuantixError::Unsupported(_)));
+    }
+
+    /// 净值代理契约钉（输入侧）：drawdown_report 对乱序与升序输入给出不同报告——
+    /// handler 因此必须在调用前 `sort_by_key(date)`（Task 10 计划 Step 4）。
+    #[test]
+    fn drawdown_report_prefers_sorted_series() {
+        let reversed = vec![Decimal::from(99), Decimal::from(110), Decimal::from(100)];
+        let sorted: Vec<_> = {
+            let mut v = reversed.clone();
+            v.sort();
+            v
+        };
+        let unsorted = crate::fin::risk::drawdown_report(&reversed).unwrap();
+        let sorted_r = crate::fin::risk::drawdown_report(&sorted).unwrap();
+        // 乱序与升序输入报告不同——handler 必须 sort（本测试锁定该契约的输入侧）
+        assert_ne!(unsorted.worst_pct, sorted_r.worst_pct);
     }
 
     /// period 上限守卫（T3 quality review #5）：超大 period → Config 提示，

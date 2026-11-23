@@ -1902,11 +1902,12 @@ impact: AnalyzeCommands::Indicators callers = misc.rs dispatch only"
 
 - [ ] **Step 2: 分发**
 
-misc.rs match 加分支：
+misc.rs match 加分支（`analyze_drawdown` 经 handlers/mod.rs 重导出清单链内裸名解析，
+T9 拓扑惯例；handlers/mod.rs:53 清单加 `analyze_drawdown` 一项）：
 
 ```rust
         AnalyzeCommands::Drawdown { code, limit } => {
-            crate::cli::handlers::analyze_handler::analyze_drawdown(code, limit).await?
+            analyze_drawdown(code, limit).await?;
         }
 ```
 
@@ -1917,14 +1918,25 @@ analyze_handler.rs 追加：
 ```rust
 /// 回撤风险报告：以收盘价序列为净值曲线（研究口径），fin DrawdownTracker 统计。
 pub(crate) async fn analyze_drawdown(code: String, limit: usize) -> Result<()> {
+    // 头部先于取数（T9 review #8 顺序惯例；空数据时头仍可见）
+    println!("📉 回撤风险报告（净值=收盘价研究口径）");
+    println!("  代码: {}", code);
+    println!("  统计窗口: 最近 {} 根", limit);
+
     let mut klines = get_kline_for_analysis(&code, None, None, Some(limit)).await?;
+
     if klines.is_empty() {
-        return Err(QuantixError::DataSource(format!("无 K 线数据: {code}")));
+        println!("⚠️  未找到数据");
+        return Ok(());
     }
+
+    // drawdown_report 契约：序列按时间升序、首元素为初始净值（乱序输入会得出错误回撤）
     klines.sort_by_key(|k| k.date);
-    let equity: Vec<rust_decimal::Decimal> = klines.iter().map(|k| k.close).collect();
+    let equity: Vec<Decimal> = klines.iter().map(|k| k.close).collect();
     let report = crate::fin::risk::drawdown_report(&equity)?;
-    println!("回撤风险报告（{}，{} 根日线，净值=收盘价）", code, equity.len());
+
+    // 回撤口径 0-100（百分数），与 fin BacktestResult.max_drawdown 的 0-1 小数口径不同
+    println!("\n📊 回撤统计（{} 根日线，回撤口径 0-100）:", equity.len());
     println!("{}", "-".repeat(48));
     println!("当前回撤:   {} %", report.current_pct);
     println!("最大回撤:   {} %", report.worst_pct);
@@ -1935,6 +1947,9 @@ pub(crate) async fn analyze_drawdown(code: String, limit: usize) -> Result<()> {
     Ok(())
 }
 ```
+
+（v2 设计修订：空数据 → `⚠️`+`Ok(())`（native/T9 惯例），替代计划原稿的
+`Err(DataSource)`；头部先于取数（T9 review #8 镜像），样本数移入结果段首行。）
 
 - [ ] **Step 4: 测试**
 
@@ -1958,7 +1973,9 @@ analyze_handler.rs `#[cfg(test)]` 追加（纯函数路径，不走网络）：
 ```
 
 Run: `cargo test --lib analyze_handler 2>&1 | tail -5`
-Expected: PASS。
+Expected: 5 passed（T9 的 4 个 + 门面排序契约钉）。另在 `src/cli/tests/analyze.rs`
+有 2 个 Drawdown 解析测试（默认 limit=250 / --limit 覆盖），`cargo test --lib cli::tests::analyze`
+Expected: 8 passed。
 
 - [ ] **Step 5: Commit**
 

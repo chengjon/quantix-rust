@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn parses_drawdown_command_with_default_limit() {
+    let cli = Cli::try_parse_from(["quantix", "analyze", "drawdown", "--code", "600000"]).unwrap();
+
+    match cli.command {
+        Commands::Analyze(AnalyzeCommands::Drawdown { code, limit }) => {
+            assert_eq!(code, "600000");
+            assert_eq!(limit, 250);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
+fn parses_drawdown_command_with_custom_limit() {
+    let cli = Cli::try_parse_from([
+        "quantix", "analyze", "drawdown", "--code", "000001", "--limit", "500",
+    ])
+    .unwrap();
+
+    match cli.command {
+        Commands::Analyze(AnalyzeCommands::Drawdown { code, limit }) => {
+            assert_eq!(code, "000001");
+            assert_eq!(limit, 500);
+        }
+        other => panic!("unexpected command: {:?}", other),
+    }
+}
+
+#[test]
 fn parses_candle_pattern_command_with_explicit_reference() {
     let cli = Cli::try_parse_from([
         "quantix",

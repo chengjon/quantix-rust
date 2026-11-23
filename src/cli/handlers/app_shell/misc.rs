@@ -48,6 +48,9 @@ pub async fn run_analyze_command(cmd: AnalyzeCommands) -> Result<()> {
                 calculate_indicators_fin(code, indicators).await?;
             }
         },
+        AnalyzeCommands::Drawdown { code, limit } => {
+            analyze_drawdown(code, limit).await?;
+        }
         AnalyzeCommands::Backtest { id } => {
             show_backtest_report(id)?;
         }

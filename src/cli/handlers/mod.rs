@@ -51,7 +51,7 @@ pub use self::account::run_account_command;
 pub use self::ai::run_ai_command;
 pub use self::algo::run_algo_command;
 pub(crate) use self::analyze_handler::{
-    analyze_candle_patterns, calculate_indicators, calculate_indicators_fin,
+    analyze_candle_patterns, analyze_drawdown, calculate_indicators, calculate_indicators_fin,
 };
 #[cfg(test)]
 #[allow(unused_imports)]

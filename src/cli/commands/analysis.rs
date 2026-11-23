@@ -69,6 +69,17 @@ pub enum AnalyzeCommands {
         engine: IndicatorEngine,
     },
 
+    /// 回撤风险报告（净值=收盘价研究口径，fin DrawdownTracker）
+    Drawdown {
+        /// 股票代码
+        #[arg(short, long)]
+        code: String,
+
+        /// 参与统计的最近 N 根 K 线
+        #[arg(long, default_value_t = 250)]
+        limit: usize,
+    },
+
     /// 回测报告
     Backtest {
         /// 回测 ID
