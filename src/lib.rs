@@ -25,6 +25,7 @@ pub mod data;
 pub mod db;
 pub mod execution;
 pub mod factor;
+pub mod fin;
 pub mod fundamental;
 pub mod import;
 pub mod io;

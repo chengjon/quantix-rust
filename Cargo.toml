@@ -59,6 +59,16 @@ rust_decimal = { version = "1.33", features = ["serde", "db-tokio-postgres"] }
 rust_decimal_macros = "1.33"
 ndarray = { version = "0.15", optional = true }
 
+# Financial primitives (研究侧: 指标/风控/回测, 见 docs/superpowers/specs/2026-11-23-fin-primitives-migration-design.md)
+fin-primitives = { version = "=4.0.1", default-features = false, features = [
+    "serde",
+    "indicators",
+    "portfolio",
+    "risk",
+    "backtest",
+    "ml",
+] }
+
 # Anomaly Detection (Isolation Forest)
 rand = "0.8"
 rand_chacha = "0.3"

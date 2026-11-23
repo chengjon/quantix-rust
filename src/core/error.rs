@@ -47,6 +47,9 @@ pub enum QuantixError {
 
     #[error("算法错误: {0}")]
     Algo(String),
+
+    #[error("fin-primitives 错误: {0}")]
+    Fin(#[from] fin_primitives::FinError),
 }
 
 /// 项目统一 Result 类型别名：错误固定为 `QuantixError`，所有 fallible 公共 API 返回此类型。
