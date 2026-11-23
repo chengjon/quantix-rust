@@ -1764,6 +1764,11 @@ menus.rs:120 交互菜单直调分支保持 native 默认，零影响。）
 /// fin 引擎指标查询：版式与 native `calculate_indicators` 完全一致
 /// （💹 头部三行 + 表头 + 每根 Kline 一行日期/收盘价 + 每指标一行且前两列留空）。
 pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: String) -> Result<()> {
+    // 头部三行先于取数（逐字节镜像 native calculate_indicators 顺序；空数据时头仍可见）
+    println!("💹 计算技术指标（引擎=fin）");
+    println!("  代码: {}", code);
+    println!("  指标: {}", indicators_str);
+
     let klines = get_kline_for_analysis(&code, None, None, Some(1000)).await?;
     if klines.is_empty() {
         println!("⚠️  未找到数据");
@@ -1777,18 +1782,24 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     if names.is_empty() {
         return Err(QuantixError::Config("指标列表为空".into()));
     }
-    // fail-fast：全部指标名的周期解析 + 上限守卫先于任何输出，
-    // 未知名/非法周期不会吐出半张结果表。
-    // fin 引擎 period 上限守卫（T3 quality review #5）：上游指标层
-    // `VecDeque::with_capacity(period + 1)`，超大 period 在 debug 构建下有容量溢出 panic 风险。
-    const MAX_FIN_INDICATOR_PERIOD: usize = 500;
+    // fail-fast：全部指标名的周期解析 + 上限守卫先于表格输出，
+    // 未知名/非法周期不会吐出半张结果表（错误前置且一次性报全）。
     let mut resolved: Vec<(&str, usize)> = Vec::with_capacity(names.len());
     for name in &names {
         let period = FIN_INDICATOR_PERIODS
             .iter()
             .find(|(n, _)| n == name)
             .map(|(_, p)| *p)
-            .ok_or_else(|| QuantixError::Unsupported(format!("fin 引擎暂不支持指标: {name}")))?;
+            .ok_or_else(|| {
+                let supported = FIN_INDICATOR_PERIODS
+                    .iter()
+                    .map(|(n, _)| *n)
+                    .collect::<Vec<_>>()
+                    .join("/");
+                QuantixError::Unsupported(format!(
+                    "fin 引擎暂不支持指标: {name}（支持: {supported}）"
+                ))
+            })?;
         if period == 0 || period > MAX_FIN_INDICATOR_PERIOD {
             return Err(QuantixError::Config(format!(
                 "fin 引擎指标 {name} 周期非法: {period}（须 1..={MAX_FIN_INDICATOR_PERIOD}）"
@@ -1796,45 +1807,38 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
         }
         resolved.push((name, period));
     }
-    println!("💹 计算技术指标（引擎=fin）");
-    println!("  代码: {}", code);
-    println!("  指标: {}", indicators_str);
     println!("\n📊 计算结果:");
     println!(
         "{:<12} {:<20} {:<15} {:<15}",
         "日期", "收盘价", "指标", "值"
     );
     println!("{}", "-".repeat(65));
-    // fin 门面为单周期指标；逐 Kline 渲染时按名重复 resolve（≤1000 根 × 单指标流式 O(n)，一期接受）
-    let mut rendered = 0usize;
+    // 每指标全序列只算一次（quality review #3）；渲染仅按索引取值
+    let series_list = resolved
+        .iter()
+        .map(|(name, period)| crate::fin::indicators::resolve(name, &klines, *period))
+        .collect::<Result<Vec<_>>>()?;
     for (i, kline) in klines.iter().enumerate().take(20) {
         println!("{:<12} {:<20.2}", kline.date, kline.close,);
-        for (name, period) in &resolved {
-            let series = crate::fin::indicators::resolve(name, &klines, *period)?;
+        for series in &series_list {
             let value = match series.values.get(i).and_then(|v| *v) {
                 Some(v) => v.to_string(),
                 None => "N/A".to_string(),
             };
-            println!(
-                "{:<12} {:<20} {:<15} {:<15}",
-                "",
-                "",
-                series.name,
-                value,
-            );
-            rendered += 1;
+            println!("{:<12} {:<20} {:<15} {:<15}", "", "", series.name, value,);
         }
     }
-    if rendered == 0 {
-        return Err(QuantixError::Config("未渲染任何指标行".into()));
-    }
+    // 不变式（quality review #4）：klines 非空 + series_list 非空 ⇒ 首行至少渲染一行，
+    // 无空表路径（原 rendered==0 死守卫已删除）。
     Ok(())
 }
 ```
 
 （周期表为文件级常量 `FIN_INDICATOR_PERIODS`（sma=5, ema=5, rsi=14, atr=14, boll=20, stoch=9，
-与 `fin::indicators::resolve` 名单逐一对齐），handler 顶部另有 `validate_fin_indicator_period`
-守卫函数供单测；此处内联同等逻辑。若 `resolve` 对多周期同指标需重复计算，一期接受该开销。）
+与 `fin::indicators::resolve` 名单逐一对齐；周期口径：sma/ema/rsi 与 native 缺省一致，
+boll/atr/stoch 为 fin 侧标准缺省 20/14/9），handler 另有 `validate_fin_indicator_period`
+守卫函数供单测；此处内联同等逻辑。指标序列在渲染前一次性算好（review #3 提升），
+不在逐 Kline 行内重复 resolve。）
 
 - [ ] **Step 5: 测试**
 
