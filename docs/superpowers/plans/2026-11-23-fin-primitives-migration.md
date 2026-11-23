@@ -1048,48 +1048,51 @@ pub mod backtest;
 use std::collections::{HashMap, VecDeque};
 
 use fin_primitives::backtest::{
-    BacktestConfig, BacktestResult, Backtester, ParamRange, Signal, SignalDirection,
-    WalkForwardConfig, WalkForwardOptimizer, WalkForwardResult,
+    BacktestConfig, Backtester, ParamRange, Signal as FinSignal, SignalDirection,
+    Strategy as FinBacktestStrategy, WalkForwardConfig, WalkForwardOptimizer,
 };
 use fin_primitives::ohlcv::OhlcvBar;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::core::Signal;
 use crate::core::{QuantixError, Result};
 use crate::data::models::Kline;
 use crate::fin::adapter::{ohlcv_to_kline, to_ohlcv_bars};
 use crate::strategy::ma_cross::MACrossStrategy;
 
 /// 信号映射配置：方向映射 Buy/Sell→fin，固定下单数量。
+/// （桥内部件：签名含 fin 量化参数，pub(crate) 不出门面。）
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FinStrategyConfig {
+pub(crate) struct FinStrategyConfig {
     pub position_size: Decimal,
 }
 
 /// fin 引擎的策略适配器：回放预计算信号序列。
-pub struct FinStrategy {
-    signals: VecDeque<Signal>,
+/// （桥内部件：存储 fin `FinSignal`，pub(crate) 不出门面签名。）
+pub(crate) struct FinStrategy {
+    signals: VecDeque<FinSignal>,
 }
 
 impl FinStrategy {
-    pub fn new(signals: Vec<Signal>) -> Self {
+    pub(crate) fn new(signals: Vec<FinSignal>) -> Self {
         Self {
             signals: signals.into(),
         }
     }
 }
 
-impl fin_primitives::backtest::Strategy for FinStrategy {
-    fn on_bar(&mut self, _bar: &OhlcvBar) -> Option<Signal> {
-        Some(self.signals.pop_front().unwrap_or_else(Signal::hold))
+impl FinBacktestStrategy for FinStrategy {
+    fn on_bar(&mut self, _bar: &OhlcvBar) -> Option<FinSignal> {
+        Some(self.signals.pop_front().unwrap_or_else(FinSignal::hold))
     }
 }
 
-fn map_signal(s: crate::core::Signal, cfg: &FinStrategyConfig) -> Signal {
+fn map_signal(s: Signal, cfg: &FinStrategyConfig) -> FinSignal {
     match s {
-        crate::core::Signal::Buy => Signal::new(SignalDirection::Buy, cfg.position_size),
-        crate::core::Signal::Sell => Signal::new(SignalDirection::Sell, cfg.position_size),
-        crate::core::Signal::Hold => Signal::hold(),
+        Signal::Buy => FinSignal::new(SignalDirection::Buy, cfg.position_size),
+        Signal::Sell => FinSignal::new(SignalDirection::Sell, cfg.position_size),
+        Signal::Hold => FinSignal::hold(),
     }
 }
 
@@ -1098,7 +1101,7 @@ fn precomputed_signals(
     short_period: usize,
     long_period: usize,
     cfg: &FinStrategyConfig,
-) -> Vec<Signal> {
+) -> Vec<FinSignal> {
     let mut strategy = MACrossStrategy::new(short_period, long_period);
     klines
         .iter()
@@ -1106,9 +1109,24 @@ fn precomputed_signals(
         .collect()
 }
 
+/// quantix 化单次回测摘要（镜像 fin `BacktestResult`，fin 类型不出门面签名）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FinBacktestOutput {
-    pub result: BacktestResult,
+pub struct FinBacktestSummary {
+    /// 区间总收益率 `(final_equity - initial_capital) / initial_capital`
+    pub total_return: Decimal,
+    /// 年化 Sharpe（252 交易日口径；收益标准差为 0 时取 0）
+    pub sharpe_ratio: Decimal,
+    /// 最大回撤小数口径（0.15 = 15%）
+    pub max_drawdown: Decimal,
+    /// 已平仓交易中盈利占比
+    pub win_rate: Decimal,
+    /// 成交笔数（上游口径：含失败的 fill）
+    pub trade_count: u64,
+    /// 期末净值
+    pub final_equity: Decimal,
+    /// 逐 bar 净值曲线
+    pub equity_curve: Vec<Decimal>,
+    /// 回测 bar 数
     pub bar_count: usize,
 }
 
@@ -1120,7 +1138,7 @@ pub fn run_fin_backtest(
     initial_capital: Decimal,
     commission_rate: Decimal,
     position_size: Decimal,
-) -> Result<FinBacktestOutput> {
+) -> Result<FinBacktestSummary> {
     let bars = to_ohlcv_bars(klines)?;
     let cfg = FinStrategyConfig { position_size };
     let signals = precomputed_signals(klines, short_period, long_period, &cfg);
@@ -1130,15 +1148,60 @@ pub fn run_fin_backtest(
     let result = Backtester::new(config)
         .run(&bars, &mut strategy)
         .map_err(QuantixError::Fin)?;
-    Ok(FinBacktestOutput {
-        result,
+    let fin_primitives::backtest::BacktestResult {
+        total_return,
+        sharpe_ratio,
+        max_drawdown,
+        win_rate,
+        trade_count,
+        final_equity,
+        equity_curve,
+    } = result;
+    Ok(FinBacktestSummary {
+        total_return,
+        sharpe_ratio,
+        max_drawdown,
+        win_rate,
+        trade_count,
+        final_equity,
+        equity_curve,
         bar_count: bars.len(),
     })
 }
 
+/// quantix 化 walk-forward 单窗口报告（镜像 fin `WfPeriod`；省略嵌套 fin
+/// `BacktestResult` 的 `oos_result`，OOS 收益/回撤取聚合层预算值）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WalkForwardOutput {
-    pub result: WalkForwardResult,
+pub struct WalkForwardPeriodReport {
+    pub train_start: usize,
+    pub train_end: usize,
+    pub test_start: usize,
+    pub test_end: usize,
+    /// 该窗口最优参数（in-Sample Sharpe 最大者）
+    pub best_params: HashMap<String, f64>,
+    pub in_sample_sharpe: f64,
+    pub out_of_sample_sharpe: f64,
+}
+
+/// quantix 化 walk-forward 报告（镜像 fin `WalkForwardResult`）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalkForwardReport {
+    pub periods: Vec<WalkForwardPeriodReport>,
+    /// 全窗口 OOS Sharpe 均值
+    pub aggregate_sharpe: f64,
+    /// 稳定性：OOS Sharpe > 0 的窗口占比，范围 [0,1]
+    pub stability_score: f64,
+    /// 全窗口 OOS 总收益均值
+    pub mean_oos_return: f64,
+    /// 全窗口最差（最大）OOS 回撤
+    pub worst_oos_drawdown: f64,
+}
+
+impl WalkForwardReport {
+    /// 稳健性判定（镜像上游语义）：OOS Sharpe 均值 > 0 且稳定性 ≥ `min_stability`。
+    pub fn is_robust(&self, min_stability: f64) -> bool {
+        self.aggregate_sharpe > 0.0 && self.stability_score >= min_stability
+    }
 }
 
 /// ma_cross walk-forward：short/long 双参数网格 + 滚动训练/测试窗口。
@@ -1153,7 +1216,7 @@ pub fn walk_forward_ma_cross(
     initial_capital: Decimal,
     commission_rate: Decimal,
     position_size: Decimal,
-) -> Result<WalkForwardOutput> {
+) -> Result<WalkForwardReport> {
     let bars = to_ohlcv_bars(klines)?;
     let cfg = FinStrategyConfig { position_size };
     let param_space = vec![
@@ -1182,9 +1245,11 @@ pub fn walk_forward_ma_cross(
 
     // 闭包内：把传入 bar 窗口反转为 Kline 后重放同步 signal_at（方案 C）。
     // 反转失败（理论上仅 volume 非整数）→ 空信号序列 → 该段全 Hold，不中断整体搜索。
+    // 实现注记：`.ok()` 过滤对当前单源 bars 实际不可达（同源数据要么全过要么全不过）；
+    // 异源 bars 混入时会按位置错位而非报错，属上游契约边界（TODO 语义，见 spec §12）。
     let mut make_strategy = |bars_slice: &[OhlcvBar],
                              params: &HashMap<String, f64>|
-     -> Box<dyn fin_primitives::backtest::Strategy> {
+     -> Box<dyn FinBacktestStrategy> {
         let short = params
             .get("short_period")
             .copied()
@@ -1203,7 +1268,26 @@ pub fn walk_forward_ma_cross(
     let result = optimizer
         .run(&bars, &mut make_strategy)
         .map_err(QuantixError::Fin)?;
-    Ok(WalkForwardOutput { result })
+    let periods = result
+        .periods
+        .into_iter()
+        .map(|p| WalkForwardPeriodReport {
+            train_start: p.train_start,
+            train_end: p.train_end,
+            test_start: p.test_start,
+            test_end: p.test_end,
+            best_params: p.best_params,
+            in_sample_sharpe: p.in_sample_sharpe,
+            out_of_sample_sharpe: p.out_of_sample_sharpe,
+        })
+        .collect();
+    Ok(WalkForwardReport {
+        periods,
+        aggregate_sharpe: result.aggregate_sharpe,
+        stability_score: result.stability_score,
+        mean_oos_return: result.mean_oos_return,
+        worst_oos_drawdown: result.worst_oos_drawdown,
+    })
 }
 
 #[cfg(test)]
@@ -1251,11 +1335,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(out.bar_count, 10);
-        assert_eq!(
-            out.result.final_equity,
-            Decimal::from_str("9700").unwrap()
-        );
-        assert_eq!(out.result.trade_count, 2);
+        assert_eq!(out.final_equity, Decimal::from_str("9700").unwrap());
+        assert_eq!(out.trade_count, 2);
     }
 
     #[test]
@@ -1275,14 +1356,11 @@ mod tests {
             Decimal::from(10000), Decimal::ZERO, Decimal::from(100),
         )
         .unwrap();
-        assert!(!out.result.periods.is_empty(), "至少应切出一个窗口");
+        assert!(!out.periods.is_empty(), "至少应切出一个窗口");
         // stability ∈ [0,1]：OOS>0 占比
-        assert!(out.result.stability_score >= 0.0 && out.result.stability_score <= 1.0);
-        // is_robust 需阈值参数（walk_forward.rs:214）
-        assert!(matches!(
-            out.result.is_robust(0.5),
-            true | false
-        ));
+        assert!(out.stability_score >= 0.0 && out.stability_score <= 1.0);
+        // is_robust 需阈值参数（walk_forward.rs:214，镜像语义）
+        let _ = out.is_robust(0.5);
     }
 
     /// 双引擎一致性（spec §9.4 v2 口径）：signal_at 信号序列的 Buy/Sell 总数
@@ -1302,7 +1380,7 @@ mod tests {
         let cfg = FinStrategyConfig {
             position_size: Decimal::from(100),
         };
-        let signals: Vec<Signal> = klines
+        let signals: Vec<FinSignal> = klines
             .iter()
             .map(|k| map_signal(strategy.signal_at(k), &cfg))
             .collect();
@@ -1319,7 +1397,7 @@ mod tests {
             Decimal::from(100),
         )
         .unwrap();
-        assert_eq!(out.result.trade_count as usize, buy_sell);
+        assert_eq!(out.trade_count as usize, buy_sell);
     }
 }
 ```
@@ -1911,7 +1989,7 @@ pub(crate) async fn execute_fin_walkforward(
         commission_rate,
         position_size,
     )?;
-    let r = &out.result;
+    let r = &out;
     println!(
         "walk-forward 报告（{}，{} 根，{} 窗口）",
         code,
@@ -1920,25 +1998,26 @@ pub(crate) async fn execute_fin_walkforward(
     );
     println!("{}", "-".repeat(72));
     println!(
-        "{:<8} {:<14} {:<12} {:<12} {:<10}",
-        "窗口", "best(short,long)", "IS sharpe", "OOS sharpe", "OOS 回撤"
+        "{:<8} {:<14} {:<12} {:<12}",
+        "窗口", "best(short,long)", "IS sharpe", "OOS sharpe"
     );
     for (i, p) in r.periods.iter().enumerate() {
         let s = p.best_params.get("short_period").copied().unwrap_or(0.0);
         let l = p.best_params.get("long_period").copied().unwrap_or(0.0);
         println!(
-            "{:<8} {:<14} {:<12} {:<12} {:<10}",
+            "{:<8} {:<14} {:<12} {:<12}",
             i + 1,
             format!("{s}/{l}"),
             format!("{:.3}", p.in_sample_sharpe),
             format!("{:.3}", p.out_of_sample_sharpe),
-            format!("{:.3}", p.oos_result.max_drawdown),
         );
     }
     println!("{}", "-".repeat(72));
     println!("aggregate_sharpe:     {:.3}", r.aggregate_sharpe);
     println!("stability_score:      {:.3}（OOS>0 占比）", r.stability_score);
     println!("mean_oos_return:      {:.5}", r.mean_oos_return);
+    // worst_oos_drawdown 为上游聚合层预算的全局值（全部窗口 OOS 回撤最大者，小数口径）；
+    // 逐期表不单列 OOS 回撤——WfPeriod.oos_result 为嵌套 fin 类型，门面已收敛至聚合层
     println!("worst_oos_drawdown:   {:.5}", r.worst_oos_drawdown);
     // 0.5 为研究默认稳健阈值（stability_score 下限）；CLI 暂不参数化（YAGNI，需要时二期加 --min-stability）
     println!("is_robust(≥0.5):      {}", r.is_robust(0.5));
@@ -2059,8 +2138,8 @@ fn canary_backtest_chain() {
         Decimal::from(100),
     )
     .unwrap();
-    assert_eq!(out.result.final_equity, Decimal::from_str("9700").unwrap());
-    assert_eq!(out.result.trade_count, 2);
+    assert_eq!(out.final_equity, Decimal::from_str("9700").unwrap());
+    assert_eq!(out.trade_count, 2);
 }
 ```
 
