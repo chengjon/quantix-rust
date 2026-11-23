@@ -5,6 +5,7 @@
 //! 载荷形式越界（见 error_bridge），其余 fin-primitives 类型不越出本模块。
 
 pub mod adapter;
+pub mod backtest;
 pub mod error_bridge;
 pub mod indicators;
 pub mod portfolio;
