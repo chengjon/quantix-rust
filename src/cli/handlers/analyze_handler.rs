@@ -495,14 +495,28 @@ pub(crate) async fn calculate_indicators_fin(code: String, indicators_str: Strin
     Ok(())
 }
 
+/// 「最近 N 根」尾段切片：数据源两路径均返回升序**前** l 条（最旧）（CH
+/// `ORDER BY trade_date ASC + LIMIT` kline.rs:96-97、OpenStock `take(l)` shared_support.rs:51），
+/// 回撤窗口须取升序序列的尾段；`limit ≥ len` 时返回全部（自然降级）。
+fn tail_window<T>(klines: &[T], limit: usize) -> &[T] {
+    let start = klines.len().saturating_sub(limit);
+    &klines[start..]
+}
+
 /// 回撤风险报告：以收盘价序列为净值曲线（研究口径），fin DrawdownTracker 统计。
 pub(crate) async fn analyze_drawdown(code: String, limit: usize) -> Result<()> {
-    // 头部先于取数（T9 review #8 顺序惯例；空数据时头仍可见）
-    println!("📉 回撤风险报告（净值=收盘价研究口径）");
+    // 参数守卫先于任何输出（T10 review Minor #2）：LIMIT 0 → 空结果 → 「⚠️ 未找到数据」误导
+    if limit == 0 {
+        return Err(QuantixError::Config("统计窗口不能为 0 根".into()));
+    }
+
+    // 头部先于取数（T9 review #8 顺序惯例；空数据时头仍可见）；未复权口径注记（Minor #3）
+    println!("📉 回撤风险报告（净值=收盘价研究口径，未复权）");
     println!("  代码: {}", code);
     println!("  统计窗口: 最近 {} 根", limit);
 
-    let mut klines = get_kline_for_analysis(&code, None, None, Some(limit)).await?;
+    // 全量升序取回（Some(limit) 会拿到最旧的 N 根，数据源两路径均为前 l 条语义）
+    let mut klines = get_kline_for_analysis(&code, None, None, None).await?;
 
     if klines.is_empty() {
         println!("⚠️  未找到数据");
@@ -511,7 +525,10 @@ pub(crate) async fn analyze_drawdown(code: String, limit: usize) -> Result<()> {
 
     // drawdown_report 契约：序列按时间升序、首元素为初始净值（乱序输入会得出错误回撤）
     klines.sort_by_key(|k| k.date);
-    let equity: Vec<Decimal> = klines.iter().map(|k| k.close).collect();
+    let equity: Vec<Decimal> = tail_window(&klines, limit)
+        .iter()
+        .map(|k| k.close)
+        .collect();
     let report = crate::fin::risk::drawdown_report(&equity)?;
 
     // 回撤口径 0-100（百分数），与 fin BacktestResult.max_drawdown 的 0-1 小数口径不同
@@ -543,18 +560,45 @@ mod tests {
 
     /// 净值代理契约钉（输入侧）：drawdown_report 对乱序与升序输入给出不同报告——
     /// handler 因此必须在调用前 `sort_by_key(date)`（Task 10 计划 Step 4）。
+    /// 序列 [99,110,99]：乱序侧 worst = (110-99)/110×100 = 10（除法精确），
+    /// 升序侧单边上涨 worst = 0——双侧精确钉死。
     #[test]
     fn drawdown_report_prefers_sorted_series() {
-        let reversed = vec![Decimal::from(99), Decimal::from(110), Decimal::from(100)];
+        let unsorted_series = vec![Decimal::from(99), Decimal::from(110), Decimal::from(99)];
         let sorted: Vec<_> = {
-            let mut v = reversed.clone();
+            let mut v = unsorted_series.clone();
             v.sort();
             v
         };
-        let unsorted = crate::fin::risk::drawdown_report(&reversed).unwrap();
+        let unsorted = crate::fin::risk::drawdown_report(&unsorted_series).unwrap();
         let sorted_r = crate::fin::risk::drawdown_report(&sorted).unwrap();
-        // 乱序与升序输入报告不同——handler 必须 sort（本测试锁定该契约的输入侧）
+        assert_eq!(
+            unsorted.worst_pct,
+            Decimal::from_str("10").unwrap(),
+            "乱序侧 (110-99)/110×100 应精确等于 10"
+        );
+        assert_eq!(sorted_r.worst_pct, Decimal::ZERO, "升序单边上涨无回撤");
         assert_ne!(unsorted.worst_pct, sorted_r.worst_pct);
+    }
+
+    /// 「最近 N 根」尾段切片钉（T10 review Important #1）：数据源两路径（CH
+    /// `ORDER BY trade_date ASC + LIMIT`、OpenStock `take(l)`）均返回升序**前** l 条
+    /// （最旧），回撤窗口须取升序序列**尾段**；limit ≥ len 时自然降级为全部。
+    #[test]
+    fn tail_window_takes_newest_bars() {
+        let series = [1i32, 2, 3, 4, 5];
+        assert_eq!(tail_window(&series, 2), &[4, 5]);
+        assert_eq!(tail_window(&series, 5), &[1, 2, 3, 4, 5]);
+        assert_eq!(tail_window(&series, 250), &[1, 2, 3, 4, 5]);
+        assert!(tail_window::<i32>(&[], 5).is_empty());
+    }
+
+    /// limit==0 守卫（T10 review Minor #2）：取数前快速失败，无网络触碰——
+    /// 否则 LIMIT 0 → 空结果 → 误导性「⚠️ 未找到数据」。
+    #[tokio::test]
+    async fn drawdown_rejects_zero_limit() {
+        let err = analyze_drawdown("600000".into(), 0).await.unwrap_err();
+        assert!(matches!(err, QuantixError::Config(_)));
     }
 
     /// period 上限守卫（T3 quality review #5）：超大 period → Config 提示，

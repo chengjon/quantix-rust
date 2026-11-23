@@ -88,8 +88,9 @@ mod tests {
 
     /// peak=0 守卫钉（上游 risk/mod.rs:239 `if peak == 0 return ZERO`）：全零序列的
     /// 两次 update 均走 else 分支（updates_since_peak 逐次累计 → duration=2），pct 经守卫
-    /// 安全取 0——不 panic、无除零。注：`in_drawdown=true 且 pct=0` 在上游不可能
-    /// （pct=0 ⇒ peak=0 ⇒ current=0=peak ⇒ 不在回撤），守卫的实际表现即本测试钉住的三元组。
+    /// 安全取 0——不 panic、无除零。门面域（非负净值）内 `in_drawdown=true 且 pct=0`
+    /// 不可能；上游负净值路径可达（initial=0 + 负 update → current<0=peak → true 且
+    /// pct=0），守卫行为即本测试钉住的三元组。
     #[test]
     fn all_zero_series_guard_yields_zero_pct_without_panic() {
         let report = drawdown_report(&[d(0), d(0), d(0)]).unwrap();
