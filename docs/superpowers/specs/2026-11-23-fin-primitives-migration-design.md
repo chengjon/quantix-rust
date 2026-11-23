@@ -1,7 +1,7 @@
 # fin-primitives 研究库集成设计
 
 - 日期: 2026-11-23
-- 状态: v2.1 修订版（v2 响应 design-review + v2.1 walk-forward 方案 C，已获用户批准）
+- 状态: v2.2 修订版（v2 响应 design-review + v2.1 walk-forward 方案 C + v2.2 最终复审缩减登记，均获用户批准）
 - 上游库: fin-primitives v4.0.1（MIT, github.com/Mattbusel/fin-primitives, MSRV 1.81, edition 2021）
 - 修订记录: 见文末 §12
 
@@ -191,3 +191,35 @@ fin-primitives = { version = "=4.0.1", default-features = false, features = [
 - **walk-forward × async 桥冲突（方案 C）**：`WalkForwardOptimizer::run` 的 `make_strategy` 为同步闭包，无法异步预计算。提取 ma_cross 信号计算为同步纯函数 `signal_at(&Kline) -> Signal`，async `Strategy::on_bar` 委托之；walk-forward 闭包用同步 `signal_at`。零 block_on、零新依赖，动 `strategy/ma_cross.rs`（行为不变的提取重构，实施前跑 GitNexus impact）（§5.5）。
 - **adapter fallible 链具体化**：核实 `Symbol::new`/`Price::new`/`Quantity::new` 均为 fallible（`TryFrom<Decimal>`/参数校验），`OhlcvBar::new` 为 9 参 fallible 构造；转换链错误统一映射 `QuantixError::Fin`（§5.1/§6）。
 - **上游语义核实入库**：`Side` = Bid/Ask；成交价 = 当 bar close；`trade_count` 含失败 fill；`drawdown_pct` 为百分数；`max_drawdown` 为 [0,1] 分数（§5.5，作为测试期望值依据）。
+
+### v2.2（2026-11-24，最终整体复审缩减登记，用户确认「登记缩减，合并放行」）
+
+**能力缩减登记（相对本文原承诺；均为计划外未实现，非实现缺陷）**：
+
+- **VaR 门面未实现**（原 §5.4 :91「VaR 门面：VaRCalculator…」与 §7 :135「回撤统计 +
+  VaR 报告」承诺）：迁移计划从未包含该工作项，全链路静默缺失；上游 VaRCalculator
+  能力保留可用，未来需要时以独立小任务补齐。
+- **attribution/performance 导出未实现**（原 §5.3 :86「导出 performance 统计与
+  attribution 结果」、§4 :49 架构图注释）：portfolio 门面实际仅 `LedgerSummary`
+  三字段（realized_pnl/equity/net_liquidation，portfolio.rs:80-83）。
+- **指标数 6 个**（sma/ema/rsi/atr/bollinger/stochastic，§5.2 :82 原文「一期精修
+  10–20 个常用指标」）：实际按迁移计划最小集落地。
+
+**文本滞后修正（按实现事实核对原文后更正）**：
+
+- §3 D5 补充：实际为 sync `signal_at` 特化（非原文「预驱动失败」所述的异步预驱动
+  路线——v2.1 方案 C 即 sync 特化，D5 原文表述过时；sync 特化更优）。
+- §5.6：events 门面签名以实现为准——`EventSpec`/`EventStudyOutput`/`EventBatchOutput`
+  quantix 化（events.rs:15/25/34），非原文 fin `MarketEvent`/`EventReport` 直返形态。
+- §5.1/§6 错误通道：adapter fallible 构造实际走 `QuantixError::DataParse` + 定位上下文
+  （adapter.rs:21-87），非原文「`FinError::InvalidInput` → `QuantixError::Fin` 上抛」
+  直通；`QuantixError::Fin` 聚合通道保留，仅用于上游引擎错误回传（error_bridge From
+  实现 + backtest/walkforward `map_err`）。
+- §9.3 :155：金丝雀为单次回测链（tests/fin_canary.rs 三链 = 指标/回撤/单次回测），
+  非原文「walk-forward 输出快照」。
+
+**7 Minor 处置登记（最终复审遗留，一行式）**：错误上下文跨模块差异（留后续统一）；
+walk-forward 无精确值哨兵（留后续）；双引擎指标命名空间差异（映射表 doc 在
+analyze_handler.rs:395-397 + FIN_INDICATOR_PERIODS :402，--help 可见性留后续）；
+--engine 无解析测试（留后续）；635713b 缺 Co-Authored-By trailer（不补写历史）；
+analyze_handler.rs:401 措辞（留后续）；spec 文本滞后（本节已修）。

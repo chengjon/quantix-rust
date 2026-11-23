@@ -2422,6 +2422,8 @@ git commit -m "test(fin): integration canaries + FUNCTION_TREE registration"
 ## Self-Review 记录
 
 1. **Spec 覆盖**：adapter（§5.1→T2）、indicators 两层门面（§5.2→T3，逃生舱=模块内扩展约定）、portfolio（§5.3→T5）、risk（§5.4→T4）、backtest 三件套（§5.5→T6+T7）、events 库层（§5.6→T8）、错误收敛（§6→T1）、CLI 三入口（§7→T9/T10/T11）、测试策略（§9→各任务+T12）、依赖（§8→T1）、纪律（§10→全局纪律+T12 Step4/5）。✅ 无缺口。
+   （**v1.3 更正 2026-11-24**：「无缺口」仅指计划工作项无遗漏，**不等于 spec 全覆盖**——
+   VaR/attribution/指标数三点实际有缺口，已按 spec v2.2 缩减登记节登记为缩减。）
 2. **占位符扫描**：Task 6 Step 2 的第一个测试代码块为"先写后简化"的过程展示，最终形态已给出；实施者直接用简化版。其余步骤均含完整代码/命令。✅
 3. **类型一致性**：`FinStrategy::new(signals)` 全文一致（T7 定义、T7 测试、T12 canary）；`drawdown_report(&[Decimal])`（T4/T10/T12）；`run_fin_backtest(klines, short, long, capital, rate, size)`（T7/T12）；`resolve(name, klines, period)`（T3/T9）；`signal_at` 命名贯穿 T6/T7/T12。✅
 
@@ -2458,3 +2460,21 @@ git commit -m "test(fin): integration canaries + FUNCTION_TREE registration"
   ③默认网格研究语义注记（Walkforward 变体 doc，--help 可见）
   ④mean_oos_return / worst_oos_drawdown 输出行补「（小数口径）」对齐 drawdown 惯例
 - 基线分支名修正：仓库基线为 `master`（无 `main`）；Step 3 实测门结果见 Task 12 节
+
+### v1.3 最终复审收尾（2026-11-24，用户确认「登记缩减，合并放行」）
+
+- **缩减登记摘要**（全项详见 spec v2.2 缩减登记节，此处一行式）：VaR 门面未实现
+  （原 §5.4/§7 承诺，计划从未含，上游能力保留）；attribution/performance 导出未实现
+  （原 §5.3，portfolio 门面仅 LedgerSummary 三字段）；指标数 6 个 vs 原文「10–20 个」；
+  4 处文本滞后修正（§3 D5 实为 sync signal_at 特化 / §5.6 events 签名 quantix 化 /
+  §5.1+§6 错误通道实为 DataParse+定位上下文 / §9.3 金丝雀为单次回测链）。
+- **7 Minor 处置**：错误上下文跨模块差异、walk-forward 无精确值哨兵、双引擎指标命名
+  空间 --help 可见性、--engine 解析测试、:401 措辞（均留后续）；635713b 缺 trailer
+  （不补写历史）；spec 滞后（本次已修）。
+- **用户确认记录**：2026-11-24「登记缩减，合并放行」。
+- **最终复审结论引用**：结论「需修复后再合并」→ 复审修复范围收敛为本 docs 补丁
+  （spec v2.2 + 本 v1.3 块），补丁落盘后放行合并；复审人 fresh 会话
+  ses_df6ff57aeffeN9hWKrSEpBuvld。
+- **Self-Review 更正**：上文「Self-Review 记录」第 1 条已加更正注记——「无缺口」仅指
+  计划工作项无遗漏，VaR/attribution/指标数三点相对 spec 实际有缺口，按 v2.2 登记为缩减。
+- Graphiti backfill required 维持（v1.2 块已含本地等价结论摘要，引用即可）。
